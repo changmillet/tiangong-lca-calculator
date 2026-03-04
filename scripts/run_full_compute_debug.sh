@@ -244,6 +244,23 @@ echo "  report_md=$REPORT_MD"
 WORKER_PID=""
 WORKER_BIN="$ROOT_DIR/target/release/solver-worker"
 
+worker_needs_build() {
+  if [ ! -x "$WORKER_BIN" ]; then
+    return 0
+  fi
+
+  if [ "$ROOT_DIR/Cargo.lock" -nt "$WORKER_BIN" ] || [ "$ROOT_DIR/Cargo.toml" -nt "$WORKER_BIN" ]; then
+    return 0
+  fi
+
+  if find "$ROOT_DIR/crates/solver-worker/src" "$ROOT_DIR/crates/solver-core/src" "$ROOT_DIR/crates/suitesparse-ffi/src" \
+      -type f -newer "$WORKER_BIN" -print -quit | grep -q .; then
+    return 0
+  fi
+
+  return 1
+}
+
 as_json_string() {
   local value="$1"
   value="${value//\\/\\\\}"
@@ -401,7 +418,7 @@ on_exit() {
 }
 trap 'on_exit $?' EXIT
 
-if [ ! -x "$WORKER_BIN" ]; then
+if worker_needs_build; then
   echo "[info] building release binary: $WORKER_BIN"
   "$CARGO_BIN" build -p solver-worker --release >>"$WORKER_LOG" 2>&1
 fi

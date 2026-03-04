@@ -64,10 +64,11 @@ Core invariants:
 
 ### 2.2 Supabase schema/migration status
 
-Applied additive-only migration:
+Applied migrations:
 
-- `supabase/migrations/20260304073000_lca_snapshot_phase1.sql`
-- `supabase/migrations/20260304103000_lca_snapshot_artifacts.sql`
+- `supabase/migrations/20260304073000_lca_snapshot_phase1.sql` (additive)
+- `supabase/migrations/20260304103000_lca_snapshot_artifacts.sql` (additive)
+- `supabase/migrations/20260304120000_lca_drop_legacy_entry_tables.sql` (cleanup drop)
 
 Created tables:
 
@@ -76,13 +77,13 @@ Created tables:
 - `lca_jobs`
 - `lca_results`
 
-Legacy/compat tables retained from phase1:
+Legacy phase1 matrix/index tables are removed by cleanup migration:
 
-- `lca_process_index`
-- `lca_flow_index`
-- `lca_technosphere_entries`
-- `lca_biosphere_entries`
-- `lca_characterization_factors`
+- `lca_process_index` (dropped)
+- `lca_flow_index` (dropped)
+- `lca_technosphere_entries` (dropped)
+- `lca_biosphere_entries` (dropped)
+- `lca_characterization_factors` (dropped)
 
 Created queue:
 
@@ -91,7 +92,7 @@ Created queue:
 Verification done at migration time:
 
 - Existing source tables row counts unchanged (`processes`, `flows`, `lciamethods`, `lifecyclemodels`).
-- New schema is additive-only; existing source rows are not mutated.
+- Cleanup migration only touches legacy `lca_*` intermediate tables.
 
 ### 2.3 Result storage policy (implemented)
 
@@ -220,13 +221,7 @@ Current runtime primary path expects:
 - `lca_jobs`
 - `lca_results`
 
-Legacy fallback path (optional) can still read:
-
-- `lca_process_index(snapshot_id, process_idx, ...)`
-- `lca_flow_index(snapshot_id, flow_idx, ...)`
-- `lca_technosphere_entries(snapshot_id, row, col, value, ...)`
-- `lca_biosphere_entries(snapshot_id, row, col, value, ...)`
-- `lca_characterization_factors(snapshot_id, row, col, value, ...)`
+Legacy fallback path in code exists for compatibility, but current DB may not have those tables after cleanup migration.
 
 Input source-of-truth upstream remains:
 

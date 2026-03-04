@@ -23,7 +23,7 @@ use solver_worker::snapshot_artifacts::{
     SnapshotSingularRisk, encode_snapshot_artifact,
 };
 use solver_worker::storage::ObjectStoreClient;
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Row, postgres::PgPoolOptions};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Parser)]
@@ -124,7 +124,18 @@ async fn main() -> anyhow::Result<()> {
         .as_deref()
         .or(cli.conn.as_deref())
         .ok_or_else(|| anyhow::anyhow!("missing DB connection: set DATABASE_URL or CONN"))?;
-    let pool = PgPool::connect(db_url).await?;
+    let pool = PgPoolOptions::new()
+        .max_connections(4)
+        .after_connect(|conn, _meta| {
+            Box::pin(async move {
+                sqlx::query("SET statement_timeout = 0")
+                    .execute(conn)
+                    .await?;
+                Ok(())
+            })
+        })
+        .connect(db_url)
+        .await?;
 
     let store = build_object_store(&cli)?;
     let snapshot_id = cli.snapshot_id.unwrap_or_else(Uuid::new_v4);

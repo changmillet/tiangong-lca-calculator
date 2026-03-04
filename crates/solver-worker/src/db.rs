@@ -234,7 +234,19 @@ pub async fn fetch_snapshot_sparse_data(
         }
     }
 
-    fetch_snapshot_sparse_data_from_tables(&state.pool, snapshot_id).await
+    match fetch_snapshot_sparse_data_from_tables(&state.pool, snapshot_id).await {
+        Ok(data) => Ok(data),
+        Err(err) => {
+            if let Some(sqlx_err) = err.downcast_ref::<sqlx::Error>()
+                && is_undefined_table(sqlx_err)
+            {
+                return Err(anyhow::anyhow!(
+                    "snapshot {snapshot_id} has no readable artifact and legacy lca_* matrix tables are missing"
+                ));
+            }
+            Err(err)
+        }
+    }
 }
 
 #[instrument(skip(pool))]

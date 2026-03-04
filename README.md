@@ -60,8 +60,10 @@
 
 - `supabase/migrations/20260304073000_lca_snapshot_phase1.sql`
 - `supabase/migrations/20260304103000_lca_snapshot_artifacts.sql`
+- `supabase/migrations/20260304120000_lca_drop_legacy_entry_tables.sql`（清理旧 `lca_*_entries/index` 表）
 
-该 migration 只新增 `lca_*` 表和队列，不改已有业务表数据。
+对已有业务源表（`processes/flows/lciamethods/...`）不做修改。
+其中 `20260304120000` 会删除旧的 `lca_*_entries/index` 中间表，只保留 artifact-first 所需表。
 
 可先做静态检查：
 
@@ -76,6 +78,7 @@
 set -a && source .env && set +a
 psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260304073000_lca_snapshot_phase1.sql
 psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260304103000_lca_snapshot_artifacts.sql
+psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260304120000_lca_drop_legacy_entry_tables.sql
 ```
 
 ### 4.1 构建可计算 snapshot（artifact-first）
