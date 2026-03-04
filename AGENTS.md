@@ -154,6 +154,11 @@ Latest checks passed:
   - writes coverage report:
     - `reports/snapshot-coverage/<snapshot_id>.json`
     - `reports/snapshot-coverage/<snapshot_id>.md`
+- Builder now supports same-source skip-rebuild:
+  - computes source fingerprint from `processes/flows/lciamethods` as `count(*) + max(modified_at)` plus build config
+  - looks up `lca_network_snapshots.source_hash` + ready snapshot artifact
+  - on hit, reuses existing snapshot artifact and returns immediately
+  - explicit `--snapshot-id` disables auto-reuse and forces build for that ID
 - Coverage report metrics include:
   - matching coverage (`input_edges_total`, unique/multi/unmatched, unique/any match pct)
   - singular risk (`prefilter_diag_abs_ge_cutoff`, `postfilter_a_diag_abs_ge_cutoff`, `m_zero_diagonal_count`, `m_min_abs_diagonal`, derived risk level)
@@ -221,6 +226,8 @@ Current runtime primary path expects:
 - `lca_jobs`
 - `lca_results`
 
+`lca_network_snapshots.source_hash` is used as source fingerprint key for skip-rebuild matching.
+
 Legacy fallback path in code exists for compatibility, but current DB may not have those tables after cleanup migration.
 
 Input source-of-truth upstream remains:
@@ -234,6 +241,7 @@ Input source-of-truth upstream remains:
 ## 5. Known limitations / risks
 
 - Snapshot builder is a standalone Rust binary, not yet a queue job type integrated into worker runtime.
+- Same-source skip depends on `modified_at` correctness on source tables (`processes/flows/lciamethods`) plus row counts.
 - Provider matching in snapshot builder is flow-based (`strict_unique_provider`), because source exchange JSON usually lacks stable provider-process references; this can reduce technosphere edge coverage.
 - Factorization cache is process-local memory only.
 - No persisted factorization snapshots across restart.

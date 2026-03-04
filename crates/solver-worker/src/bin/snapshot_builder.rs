@@ -19,8 +19,8 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use solver_core::{ModelSparseData, SparseTriplet};
 use solver_worker::snapshot_artifacts::{
-    SnapshotBuildConfig, SnapshotCoverageReport, SnapshotMatchingCoverage, SnapshotMatrixScale,
-    SnapshotSingularRisk, encode_snapshot_artifact,
+    SNAPSHOT_ARTIFACT_FORMAT, SnapshotBuildConfig, SnapshotCoverageReport,
+    SnapshotMatchingCoverage, SnapshotMatrixScale, SnapshotSingularRisk, encode_snapshot_artifact,
 };
 use solver_worker::storage::ObjectStoreClient;
 use sqlx::{PgPool, Row, postgres::PgPoolOptions};
@@ -100,14 +100,36 @@ struct MethodSelection {
     has_lcia: bool,
     method_id: Option<Uuid>,
     method_version: Option<String>,
-    factor_map: HashMap<Uuid, f64>,
+    factor_count: i64,
 }
 
 #[derive(Debug, Clone)]
 struct BuildOutput {
     data: ModelSparseData,
     coverage: SnapshotCoverageReport,
-    source_hash: String,
+}
+
+#[derive(Debug, Clone)]
+struct SourceSnapshotSummary {
+    process_count: i64,
+    process_max_modified_at_utc: String,
+    flow_count: i64,
+    flow_max_modified_at_utc: String,
+    lciamethod_count: i64,
+    lciamethod_max_modified_at_utc: String,
+}
+
+#[derive(Debug, Clone)]
+struct ReuseCandidate {
+    snapshot_id: Uuid,
+    artifact_url: String,
+    coverage: SnapshotCoverageReport,
+    process_count: i64,
+    flow_count: i64,
+    impact_count: i64,
+    a_nnz: i64,
+    b_nnz: i64,
+    c_nnz: i64,
 }
 
 #[tokio::main]
@@ -138,40 +160,10 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     let store = build_object_store(&cli)?;
-    let snapshot_id = cli.snapshot_id.unwrap_or_else(Uuid::new_v4);
+    let requested_snapshot_id = cli.snapshot_id;
     let (all_states, state_codes, process_states_label) =
         parse_process_states(&cli.process_states)?;
-    let method = resolve_method(&pool, &cli).await?;
-
-    println!("[info] snapshot_id={snapshot_id}");
-    println!("[info] process_states={process_states_label}");
-    println!("[info] process_limit={}", cli.process_limit);
-    println!("[info] provider_rule={}", cli.provider_rule);
-    println!("[info] self_loop_cutoff={}", cli.self_loop_cutoff);
-    println!("[info] singular_eps={}", cli.singular_eps);
-    if method.has_lcia {
-        println!(
-            "[info] lcia_method={}@{} factors={}",
-            method.method_id.expect("method id"),
-            method.method_version.as_deref().unwrap_or_default(),
-            method.factor_map.len()
-        );
-    } else {
-        println!("[info] lcia_method=disabled");
-    }
-
-    let built = build_sparse_payload(
-        &pool,
-        snapshot_id,
-        all_states,
-        &state_codes,
-        cli.process_limit,
-        cli.self_loop_cutoff,
-        cli.singular_eps,
-        &method,
-    )
-    .await?;
-
+    let method = resolve_method_identity(&pool, &cli).await?;
     let build_config = SnapshotBuildConfig {
         process_states: process_states_label.clone(),
         process_limit: i32::try_from(cli.process_limit)
@@ -183,6 +175,91 @@ async fn main() -> anyhow::Result<()> {
         method_id: method.method_id,
         method_version: method.method_version.clone(),
     };
+    let (source_summary, source_fingerprint) = compute_source_fingerprint(
+        &pool,
+        all_states,
+        &state_codes,
+        cli.process_limit,
+        &build_config,
+    )
+    .await?;
+
+    if let Some(snapshot_id) = requested_snapshot_id {
+        println!("[info] snapshot_id={snapshot_id} (requested)");
+    } else {
+        println!("[info] snapshot_id=auto");
+    }
+    println!("[info] process_states={process_states_label}");
+    println!("[info] process_limit={}", cli.process_limit);
+    println!("[info] provider_rule={}", cli.provider_rule);
+    println!("[info] self_loop_cutoff={}", cli.self_loop_cutoff);
+    println!("[info] singular_eps={}", cli.singular_eps);
+    if method.has_lcia {
+        println!(
+            "[info] lcia_method={}@{} factors={}",
+            method.method_id.expect("method id"),
+            method.method_version.as_deref().unwrap_or_default(),
+            method.factor_count
+        );
+    } else {
+        println!("[info] lcia_method=disabled");
+    }
+    println!(
+        "[source] processes={} max_modified_at={} flows={} max_modified_at={} lciamethods={} max_modified_at={}",
+        source_summary.process_count,
+        source_summary.process_max_modified_at_utc,
+        source_summary.flow_count,
+        source_summary.flow_max_modified_at_utc,
+        source_summary.lciamethod_count,
+        source_summary.lciamethod_max_modified_at_utc
+    );
+    println!("[source] fingerprint={source_fingerprint}");
+
+    if requested_snapshot_id.is_none()
+        && let Some(reused) = find_reusable_snapshot(&pool, &source_fingerprint).await?
+    {
+        write_report_files(
+            &cli.report_dir,
+            reused.snapshot_id,
+            &build_config,
+            &reused.coverage,
+            &reused.artifact_url,
+        )?;
+        println!("[reuse] matched existing ready snapshot");
+        println!("[done] snapshot ready: {}", reused.snapshot_id);
+        println!("[artifact] {}", reused.artifact_url);
+        println!(
+            "[matrix] process_count={} flow_count={} impact_count={} a_nnz={} b_nnz={} c_nnz={}",
+            reused.process_count,
+            reused.flow_count,
+            reused.impact_count,
+            reused.a_nnz,
+            reused.b_nnz,
+            reused.c_nnz
+        );
+        println!(
+            "[coverage] unique_match={} any_match={} singular_risk={}",
+            reused.coverage.matching.unique_provider_match_pct,
+            reused.coverage.matching.any_provider_match_pct,
+            reused.coverage.singular_risk.risk_level
+        );
+        return Ok(());
+    }
+
+    let factor_map = load_method_factor_map(&pool, &method).await?;
+    let snapshot_id = requested_snapshot_id.unwrap_or_else(Uuid::new_v4);
+    let built = build_sparse_payload(
+        &pool,
+        snapshot_id,
+        all_states,
+        &state_codes,
+        cli.process_limit,
+        cli.self_loop_cutoff,
+        cli.singular_eps,
+        method.has_lcia,
+        &factor_map,
+    )
+    .await?;
 
     let encoded = encode_snapshot_artifact(
         snapshot_id,
@@ -205,6 +282,7 @@ async fn main() -> anyhow::Result<()> {
         &cli.provider_rule,
         all_states,
         &state_codes,
+        &source_fingerprint,
         &method,
         &built,
         &artifact_url,
@@ -294,13 +372,13 @@ fn parse_process_states(input: &str) -> anyhow::Result<(bool, Vec<i32>, String)>
     Ok((false, out, label))
 }
 
-async fn resolve_method(pool: &PgPool, cli: &Cli) -> anyhow::Result<MethodSelection> {
+async fn resolve_method_identity(pool: &PgPool, cli: &Cli) -> anyhow::Result<MethodSelection> {
     if cli.no_lcia {
         return Ok(MethodSelection {
             has_lcia: false,
             method_id: None,
             method_version: None,
-            factor_map: HashMap::new(),
+            factor_count: 0,
         });
     }
 
@@ -310,13 +388,30 @@ async fn resolve_method(pool: &PgPool, cli: &Cli) -> anyhow::Result<MethodSelect
         ));
     }
 
-    let (method_id, method_version) = if let Some(method_id) = cli.method_id {
-        (
-            method_id,
-            cli.method_version
-                .clone()
-                .ok_or_else(|| anyhow::anyhow!("missing method version"))?,
+    let (method_id, method_version, factor_count) = if let Some(method_id) = cli.method_id {
+        let method_version = cli
+            .method_version
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("missing method version"))?;
+        let factor_count = sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT
+              CASE
+                WHEN jsonb_typeof(json#>'{LCIAMethodDataSet,characterisationFactors,factor}') = 'array'
+                THEN jsonb_array_length(json#>'{LCIAMethodDataSet,characterisationFactors,factor}')
+                ELSE 0
+              END::bigint AS factor_cnt
+            FROM public.lciamethods
+            WHERE id = $1
+              AND version = $2::bpchar
+            "#,
         )
+        .bind(method_id)
+        .bind(method_version.clone())
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("lciamethod not found: {method_id}@{method_version}"))?;
+        (method_id, method_version, factor_count)
     } else {
         let row = sqlx::query(
             r#"
@@ -328,10 +423,10 @@ async fn resolve_method(pool: &PgPool, cli: &Cli) -> anyhow::Result<MethodSelect
                   WHEN jsonb_typeof(json#>'{LCIAMethodDataSet,characterisationFactors,factor}') = 'array'
                   THEN jsonb_array_length(json#>'{LCIAMethodDataSet,characterisationFactors,factor}')
                   ELSE 0
-                END AS factor_cnt
+                END::bigint AS factor_cnt
               FROM public.lciamethods
             )
-            SELECT id, version
+            SELECT id, version, factor_cnt
             FROM m
             ORDER BY factor_cnt DESC, id
             LIMIT 1
@@ -344,17 +439,42 @@ async fn resolve_method(pool: &PgPool, cli: &Cli) -> anyhow::Result<MethodSelect
         (
             row.try_get::<Uuid, _>("id")?,
             row.try_get::<String, _>("version")?,
+            row.try_get::<i64, _>("factor_cnt")?,
         )
     };
+
+    Ok(MethodSelection {
+        has_lcia: true,
+        method_id: Some(method_id),
+        method_version: Some(method_version),
+        factor_count,
+    })
+}
+
+async fn load_method_factor_map(
+    pool: &PgPool,
+    method: &MethodSelection,
+) -> anyhow::Result<HashMap<Uuid, f64>> {
+    if !method.has_lcia {
+        return Ok(HashMap::new());
+    }
+
+    let method_id = method
+        .method_id
+        .ok_or_else(|| anyhow::anyhow!("missing method id"))?;
+    let method_version = method
+        .method_version
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("missing method version"))?;
 
     let method_json: Value = sqlx::query_scalar(
         "SELECT json FROM public.lciamethods WHERE id = $1 AND version = $2::bpchar",
     )
     .bind(method_id)
-    .bind(method_version.clone())
+    .bind(method_version)
     .fetch_optional(pool)
     .await?
-    .ok_or_else(|| anyhow::anyhow!("lciamethod not found: {}@{}", method_id, method_version))?;
+    .ok_or_else(|| anyhow::anyhow!("lciamethod not found: {method_id}"))?;
 
     let mut factor_map: HashMap<Uuid, f64> = HashMap::new();
     for factor in method_factor_items(&method_json) {
@@ -376,13 +496,7 @@ async fn resolve_method(pool: &PgPool, cli: &Cli) -> anyhow::Result<MethodSelect
         *factor_map.entry(flow_id).or_insert(0.0) += value;
     }
     factor_map.retain(|_, value| value.abs() > f64::EPSILON);
-
-    Ok(MethodSelection {
-        has_lcia: true,
-        method_id: Some(method_id),
-        method_version: Some(method_version),
-        factor_map,
-    })
+    Ok(factor_map)
 }
 
 async fn build_sparse_payload(
@@ -393,7 +507,8 @@ async fn build_sparse_payload(
     process_limit: usize,
     self_loop_cutoff: f64,
     singular_eps: f64,
-    method: &MethodSelection,
+    has_lcia: bool,
+    factor_map: &HashMap<Uuid, f64>,
 ) -> anyhow::Result<BuildOutput> {
     let mut processes = fetch_processes(pool, all_states, state_codes).await?;
     if process_limit > 0 && processes.len() > process_limit {
@@ -451,7 +566,7 @@ async fn build_sparse_payload(
         }
     }
 
-    for flow_id in method.factor_map.keys() {
+    for flow_id in factor_map.keys() {
         flow_candidates.insert(*flow_id);
     }
 
@@ -593,9 +708,9 @@ async fn build_sparse_payload(
     }
 
     let mut characterization_factors = Vec::new();
-    if method.has_lcia {
+    if has_lcia {
         let mut c_map = HashMap::<i32, f64>::new();
-        for (flow_id, cf_value) in &method.factor_map {
+        for (flow_id, cf_value) in factor_map {
             if let Some(flow_idx) = flow_idx_by_id.get(flow_id).copied()
                 && cf_value.abs() > f64::EPSILON
             {
@@ -670,20 +785,7 @@ async fn build_sparse_payload(
         characterization_factors,
     };
 
-    let source_hash = build_source_hash(
-        process_count_i64,
-        i64::from(flow_count),
-        a_nnz,
-        b_nnz,
-        c_nnz,
-        method,
-    );
-
-    Ok(BuildOutput {
-        data,
-        coverage,
-        source_hash,
-    })
+    Ok(BuildOutput { data, coverage })
 }
 
 fn pct(numerator: i64, denominator: i64) -> f64 {
@@ -694,29 +796,210 @@ fn pct(numerator: i64, denominator: i64) -> f64 {
     }
 }
 
-fn build_source_hash(
-    process_count: i64,
-    flow_count: i64,
-    a_nnz: i64,
-    b_nnz: i64,
-    c_nnz: i64,
-    method: &MethodSelection,
-) -> String {
-    let method_part = if method.has_lcia {
-        format!(
-            "{}:{}",
-            method.method_id.expect("method id"),
-            method.method_version.as_deref().unwrap_or_default()
-        )
-    } else {
-        "no_lcia".to_owned()
+async fn compute_source_fingerprint(
+    pool: &PgPool,
+    all_states: bool,
+    state_codes: &[i32],
+    process_limit: usize,
+    config: &SnapshotBuildConfig,
+) -> anyhow::Result<(SourceSnapshotSummary, String)> {
+    let (process_count, process_max_modified_at_utc) =
+        fetch_process_source_summary(pool, all_states, state_codes, process_limit).await?;
+    let (flow_count, flow_max_modified_at_utc) = fetch_flow_source_summary(pool).await?;
+    let (lciamethod_count, lciamethod_max_modified_at_utc) =
+        fetch_lciamethod_source_summary(pool).await?;
+
+    let summary = SourceSnapshotSummary {
+        process_count,
+        process_max_modified_at_utc,
+        flow_count,
+        flow_max_modified_at_utc,
+        lciamethod_count,
+        lciamethod_max_modified_at_utc,
     };
-    let body = format!(
-        "{process_count}:{flow_count}:{a_nnz}:{b_nnz}:{c_nnz}:strict_unique_provider:{method_part}"
-    );
+
+    let body = serde_json::json!({
+        "schema": "source-fingerprint:v1",
+        "source": {
+            "processes": {
+                "count": summary.process_count,
+                "max_modified_at_utc": summary.process_max_modified_at_utc,
+            },
+            "flows": {
+                "count": summary.flow_count,
+                "max_modified_at_utc": summary.flow_max_modified_at_utc,
+            },
+            "lciamethods": {
+                "count": summary.lciamethod_count,
+                "max_modified_at_utc": summary.lciamethod_max_modified_at_utc,
+            }
+        },
+        "config": config,
+    });
+
     let mut hasher = Sha256::new();
-    hasher.update(body.as_bytes());
-    hex::encode(hasher.finalize())
+    hasher.update(serde_json::to_vec(&body)?);
+    let fingerprint = hex::encode(hasher.finalize());
+    Ok((summary, fingerprint))
+}
+
+async fn fetch_process_source_summary(
+    pool: &PgPool,
+    all_states: bool,
+    state_codes: &[i32],
+    process_limit: usize,
+) -> anyhow::Result<(i64, String)> {
+    let limit =
+        i64::try_from(process_limit).map_err(|_| anyhow::anyhow!("process_limit overflow"))?;
+    let row = if all_states {
+        sqlx::query(
+            r#"
+            WITH candidate AS (
+              SELECT modified_at
+              FROM public.processes
+              WHERE json ? 'processDataSet'
+              ORDER BY id, version
+              LIMIT NULLIF($1::bigint, 0)
+            )
+            SELECT
+              COUNT(*)::bigint AS process_count,
+              COALESCE(
+                to_char(MAX(modified_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+                'none'
+              ) AS process_max_modified_at_utc
+            FROM candidate
+            "#,
+        )
+        .bind(limit)
+        .fetch_one(pool)
+        .await?
+    } else {
+        sqlx::query(
+            r#"
+            WITH candidate AS (
+              SELECT modified_at
+              FROM public.processes
+              WHERE state_code = ANY($1)
+                AND json ? 'processDataSet'
+              ORDER BY id, version
+              LIMIT NULLIF($2::bigint, 0)
+            )
+            SELECT
+              COUNT(*)::bigint AS process_count,
+              COALESCE(
+                to_char(MAX(modified_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+                'none'
+              ) AS process_max_modified_at_utc
+            FROM candidate
+            "#,
+        )
+        .bind(state_codes)
+        .bind(limit)
+        .fetch_one(pool)
+        .await?
+    };
+
+    Ok((
+        row.try_get::<i64, _>("process_count")?,
+        row.try_get::<String, _>("process_max_modified_at_utc")?,
+    ))
+}
+
+async fn fetch_flow_source_summary(pool: &PgPool) -> anyhow::Result<(i64, String)> {
+    let row = sqlx::query(
+        r#"
+        SELECT
+          COUNT(*)::bigint AS flow_count,
+          COALESCE(
+            to_char(MAX(modified_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+            'none'
+          ) AS flow_max_modified_at_utc
+        FROM public.flows
+        "#,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok((
+        row.try_get::<i64, _>("flow_count")?,
+        row.try_get::<String, _>("flow_max_modified_at_utc")?,
+    ))
+}
+
+async fn fetch_lciamethod_source_summary(pool: &PgPool) -> anyhow::Result<(i64, String)> {
+    let row = sqlx::query(
+        r#"
+        SELECT
+          COUNT(*)::bigint AS lciamethod_count,
+          COALESCE(
+            to_char(MAX(modified_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+            'none'
+          ) AS lciamethod_max_modified_at_utc
+        FROM public.lciamethods
+        "#,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok((
+        row.try_get::<i64, _>("lciamethod_count")?,
+        row.try_get::<String, _>("lciamethod_max_modified_at_utc")?,
+    ))
+}
+
+async fn find_reusable_snapshot(
+    pool: &PgPool,
+    source_fingerprint: &str,
+) -> anyhow::Result<Option<ReuseCandidate>> {
+    let row = sqlx::query(
+        r#"
+        SELECT
+          s.id AS snapshot_id,
+          a.artifact_url,
+          a.coverage,
+          a.process_count::bigint AS process_count,
+          a.flow_count::bigint AS flow_count,
+          a.impact_count::bigint AS impact_count,
+          a.a_nnz,
+          a.b_nnz,
+          a.c_nnz
+        FROM public.lca_network_snapshots s
+        INNER JOIN public.lca_snapshot_artifacts a
+          ON a.snapshot_id = s.id
+        WHERE s.status = 'ready'
+          AND a.status = 'ready'
+          AND a.artifact_format = $2
+          AND s.source_hash = $1
+        ORDER BY a.created_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(source_fingerprint)
+    .bind(SNAPSHOT_ARTIFACT_FORMAT)
+    .fetch_optional(pool)
+    .await?;
+
+    let Some(row) = row else {
+        return Ok(None);
+    };
+
+    let coverage_value = row.try_get::<Option<Value>, _>("coverage")?;
+    let Some(coverage_value) = coverage_value else {
+        return Ok(None);
+    };
+    let coverage: SnapshotCoverageReport = serde_json::from_value(coverage_value)?;
+
+    Ok(Some(ReuseCandidate {
+        snapshot_id: row.try_get::<Uuid, _>("snapshot_id")?,
+        artifact_url: row.try_get::<String, _>("artifact_url")?,
+        coverage,
+        process_count: row.try_get::<i64, _>("process_count")?,
+        flow_count: row.try_get::<i64, _>("flow_count")?,
+        impact_count: row.try_get::<i64, _>("impact_count")?,
+        a_nnz: row.try_get::<i64, _>("a_nnz")?,
+        b_nnz: row.try_get::<i64, _>("b_nnz")?,
+        c_nnz: row.try_get::<i64, _>("c_nnz")?,
+    }))
 }
 
 async fn fetch_processes(
@@ -878,6 +1161,7 @@ async fn persist_snapshot_metadata(
     provider_rule: &str,
     all_states: bool,
     state_codes: &[i32],
+    source_hash: &str,
     method: &MethodSelection,
     built: &BuildOutput,
     artifact_url: &str,
@@ -923,7 +1207,7 @@ async fn persist_snapshot_metadata(
     .bind(method.method_id)
     .bind(method.method_version.clone())
     .bind(provider_rule)
-    .bind(&built.source_hash)
+    .bind(source_hash)
     .execute(&mut *tx)
     .await?;
 

@@ -115,6 +115,10 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260304120000_lca_drop_l
   - `lca_snapshot_artifacts`
 - 不修改原始 `processes/flows/lciamethods` 数据
 - 不再要求写入大体量 `lca_*_entries` 表
+- 默认启用“同源跳过重建”：
+  - 基于 `processes/flows/lciamethods` 的 `count(*) + max(modified_at)` 和构建参数计算 fingerprint
+  - 若命中已有 `ready` snapshot artifact，则直接复用并秒级返回
+  - 若传了 `--snapshot-id`，会按该 ID 执行构建（不走自动复用）
 
 建议调试流程：
 
