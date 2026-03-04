@@ -67,17 +67,22 @@ Core invariants:
 Applied additive-only migration:
 
 - `supabase/migrations/20260304073000_lca_snapshot_phase1.sql`
+- `supabase/migrations/20260304103000_lca_snapshot_artifacts.sql`
 
 Created tables:
 
 - `lca_network_snapshots`
+- `lca_snapshot_artifacts`
+- `lca_jobs`
+- `lca_results`
+
+Legacy/compat tables retained from phase1:
+
 - `lca_process_index`
 - `lca_flow_index`
 - `lca_technosphere_entries`
 - `lca_biosphere_entries`
 - `lca_characterization_factors`
-- `lca_jobs`
-- `lca_results`
 
 Created queue:
 
@@ -86,7 +91,7 @@ Created queue:
 Verification done at migration time:
 
 - Existing source tables row counts unchanged (`processes`, `flows`, `lciamethods`, `lifecyclemodels`).
-- New `lca_*` tables currently empty unless manually backfilled later.
+- New schema is additive-only; existing source rows are not mutated.
 
 ### 2.3 Result storage policy (implemented)
 
@@ -133,23 +138,26 @@ Latest checks passed:
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 - `cargo test --workspace --all-features`
 
-### 2.5 Snapshot builder status (implemented script mode)
+### 2.5 Snapshot builder status (artifact-first)
 
-- `scripts/build_snapshot_from_ilcd.sh` now supports full-library build by default:
+- `crates/solver-worker/src/bin/snapshot_builder.rs` is the canonical builder implementation.
+- `scripts/build_snapshot_from_ilcd.sh` is now a thin wrapper that calls:
+  - `cargo run -p solver-worker --bin snapshot_builder --release -- ...`
+- Builder default behavior:
   - default `--process-states 100` (only `state_code=100`)
   - default `--process-limit 0` (no limit)
   - supports `--process-states all` to disable `state_code` filtering entirely
-- Coverage report is generated per snapshot:
-  - `reports/snapshot-coverage/<snapshot_id>.json`
-  - `reports/snapshot-coverage/<snapshot_id>.md`
+- Builder output:
+  - uploads snapshot matrix artifact to S3 (`snapshot-hdf5:v1`)
+  - writes metadata to `lca_network_snapshots` and `lca_snapshot_artifacts`
+  - writes coverage report:
+    - `reports/snapshot-coverage/<snapshot_id>.json`
+    - `reports/snapshot-coverage/<snapshot_id>.md`
 - Coverage report metrics include:
   - matching coverage (`input_edges_total`, unique/multi/unmatched, unique/any match pct)
   - singular risk (`prefilter_diag_abs_ge_cutoff`, `postfilter_a_diag_abs_ge_cutoff`, `m_zero_diagonal_count`, `m_min_abs_diagonal`, derived risk level)
   - matrix scale (`process_count`, `flow_count`, `impact_count`, `a_nnz`, `b_nnz`, `c_nnz`, `m_nnz_estimated`, `m_sparsity_estimated`)
-- The script computes/report metrics in the same SQL build transaction and parses a `COVERAGE_METRICS|...` line, avoiding a second heavy full-table re-scan.
-- Full-library default run (`process_limit=0`, `state_code=100`) has been verified successfully on current DB (`process_count=2025`) and feeds `run_full_compute_debug.sh` end-to-end (`prepare -> solve -> S3 HDF5 result`).
-- Full-library run without `state_code` filter has been verified (`--process-states all`): snapshot `7b0502b1-96e6-4c33-81b5-c48aae7725ff` (`process_count=22904`) with end-to-end queue run success (`prepare -> solve_one -> S3 HDF5 result`).
-- `scripts/run_full_compute_debug.sh` now writes one run report per execution:
+- `scripts/run_full_compute_debug.sh` now writes one run report per execution and reads matrix scale from `lca_snapshot_artifacts` first (fallback to legacy tables):
   - default `reports/full-run/run-<ts>.json`
   - default `reports/full-run/run-<ts>.md`
   - includes total/worker-start/prepare/solve timing, job ids/status, matrix nnz summary, artifact metadata, log paths.
@@ -181,32 +189,44 @@ Latest checks passed:
   - queue/http settings
   - object-storage settings
 - `src/db.rs`:
-  - reads snapshot sparse data from `lca_*` tables
+  - reads snapshot sparse data from `lca_snapshot_artifacts` first
+  - fallback reads from legacy `lca_*` entry tables
   - updates `lca_jobs`
   - writes `lca_results` payload/metadata
 - `src/artifacts.rs`:
   - artifact envelope encode (`hdf5:v1`)
   - SHA-256 checksum
+- `src/snapshot_artifacts.rs`:
+  - snapshot artifact encode/decode (`snapshot-hdf5:v1`)
+  - snapshot build config + coverage metadata model
 - `src/storage.rs`:
-  - S3-compatible upload client (path-style PUT)
+  - S3-compatible upload/download client (path-style URL)
+  - SigV4 for PUT and private-bucket GET
 - `src/queue.rs`:
   - queue polling + message lifecycle
 - `src/http.rs`:
   - internal snapshot/model alias routes
 - `src/types.rs`:
   - queue/API payload contracts
+- `src/bin/snapshot_builder.rs`:
+  - source-table extraction + `A/B/C` build + coverage + artifact upload + metadata persist
 
 ## 4. Schema assumptions
 
-Current runtime expects snapshot-oriented tables:
+Current runtime primary path expects:
+
+- `lca_network_snapshots`
+- `lca_snapshot_artifacts`
+- `lca_jobs`
+- `lca_results`
+
+Legacy fallback path (optional) can still read:
 
 - `lca_process_index(snapshot_id, process_idx, ...)`
 - `lca_flow_index(snapshot_id, flow_idx, ...)`
 - `lca_technosphere_entries(snapshot_id, row, col, value, ...)`
 - `lca_biosphere_entries(snapshot_id, row, col, value, ...)`
 - `lca_characterization_factors(snapshot_id, row, col, value, ...)`
-- `lca_jobs`
-- `lca_results`
 
 Input source-of-truth upstream remains:
 
@@ -218,7 +238,7 @@ Input source-of-truth upstream remains:
 
 ## 5. Known limitations / risks
 
-- Snapshot builder currently lives as SQL script (`scripts/build_snapshot_from_ilcd.sh`), not yet as first-class worker job type.
+- Snapshot builder is a standalone Rust binary, not yet a queue job type integrated into worker runtime.
 - Provider matching in snapshot builder is flow-based (`strict_unique_provider`), because source exchange JSON usually lacks stable provider-process references; this can reduce technosphere edge coverage.
 - Factorization cache is process-local memory only.
 - No persisted factorization snapshots across restart.
@@ -231,15 +251,16 @@ Input source-of-truth upstream remains:
 
 ### P0
 
-- Implement snapshot builder job:
-  - read `processes/flows/lciamethods`
-  - materialize `lca_process_index/lca_flow_index/lca_*_entries`
-- `scripts/build_snapshot_from_ilcd.sh` now exists for SQL-based snapshot build from current ILCD-like JSON structure, with full-library default (`state_code=100`, no process limit) and coverage report output.
-- Script includes `--self-loop-cutoff` to drop singular diagonal self-loop edges in technosphere (`|A_ii| >= cutoff`) and `--singular-eps` for near-singular diagonal checks.
-- The repo now includes `scripts/run_full_compute_debug.sh` for end-to-end queue run with detailed logs.
-- End-to-end queue run has been verified on generated snapshot (`prepare -> solve -> lca_results`) with HDF5 artifact upload to S3.
+- Integrate snapshot builder into queue job (`build_snapshot`) so it can be triggered from Supabase jobs, not only CLI.
+- Add integration tests for artifact-first path:
+  - build snapshot artifact
+  - prepare/solve from artifact
+  - verify fallback behavior when artifact unavailable
+- Keep `scripts/run_full_compute_debug.sh` aligned with artifact-first schema as contracts evolve.
 - Add integration tests with real Postgres + `pgmq` (containerized).
-- Add artifact reader/decoder utility for `hdf5:v1` outputs.
+- Add artifact reader/decoder utilities for both:
+  - result format `hdf5:v1`
+  - snapshot format `snapshot-hdf5:v1`
 - Strengthen job/result diagnostics schema:
   - factorization stats
   - timing breakdown
@@ -288,6 +309,18 @@ Run worker:
 ```bash
 set -a && source .env && set +a
 cargo run -p solver-worker --release
+```
+
+Build one snapshot artifact:
+
+```bash
+./scripts/build_snapshot_from_ilcd.sh --process-limit 100
+```
+
+Run end-to-end debug (`prepare` + `solve_one`):
+
+```bash
+./scripts/run_full_compute_debug.sh --snapshot-id <snapshot_id>
 ```
 
 ## 9. Definition of done

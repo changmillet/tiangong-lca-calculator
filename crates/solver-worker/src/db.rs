@@ -10,6 +10,7 @@ use uuid::Uuid;
 use crate::{
     artifacts::{EncodedArtifact, encode_solve_batch_artifact, encode_solve_one_artifact},
     config::AppConfig,
+    snapshot_artifacts::decode_snapshot_artifact,
     storage::ObjectStoreClient,
     types::{JobPayload, SolveOptionsPayload},
 };
@@ -207,9 +208,37 @@ async fn insert_result(
     Ok(())
 }
 
-/// Loads sparse snapshot data from `lca_*` tables.
-#[instrument(skip(pool))]
+#[derive(Debug, Clone)]
+struct SnapshotArtifactMeta {
+    artifact_url: String,
+    artifact_format: String,
+}
+
+/// Loads sparse snapshot data from snapshot artifact first, then falls back to `lca_*` tables.
+#[instrument(skip(state))]
 pub async fn fetch_snapshot_sparse_data(
+    state: &AppState,
+    snapshot_id: Uuid,
+) -> anyhow::Result<ModelSparseData> {
+    if let Some(meta) = fetch_snapshot_artifact_meta(&state.pool, snapshot_id).await? {
+        match fetch_snapshot_payload_from_artifact(state, snapshot_id, &meta).await {
+            Ok(payload) => return Ok(payload),
+            Err(err) => {
+                warn!(
+                    snapshot_id = %snapshot_id,
+                    artifact_format = %meta.artifact_format,
+                    error = %err,
+                    "failed to load snapshot artifact, falling back to table-backed sparse data"
+                );
+            }
+        }
+    }
+
+    fetch_snapshot_sparse_data_from_tables(&state.pool, snapshot_id).await
+}
+
+#[instrument(skip(pool))]
+async fn fetch_snapshot_sparse_data_from_tables(
     pool: &PgPool,
     snapshot_id: Uuid,
 ) -> anyhow::Result<ModelSparseData> {
@@ -261,6 +290,76 @@ pub async fn fetch_snapshot_sparse_data(
     })
 }
 
+async fn fetch_snapshot_artifact_meta(
+    pool: &PgPool,
+    snapshot_id: Uuid,
+) -> anyhow::Result<Option<SnapshotArtifactMeta>> {
+    let row = match sqlx::query(
+        r"
+        SELECT artifact_url, artifact_format
+        FROM lca_snapshot_artifacts
+        WHERE snapshot_id = $1
+          AND status = 'ready'
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )
+    .bind(snapshot_id)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(row) => row,
+        Err(err) if is_undefined_table(&err) => return Ok(None),
+        Err(err) => return Err(err.into()),
+    };
+
+    row.map(|r| {
+        Ok(SnapshotArtifactMeta {
+            artifact_url: r.try_get::<String, _>("artifact_url")?,
+            artifact_format: r.try_get::<String, _>("artifact_format")?,
+        })
+    })
+    .transpose()
+}
+
+async fn fetch_snapshot_payload_from_artifact(
+    state: &AppState,
+    snapshot_id: Uuid,
+    meta: &SnapshotArtifactMeta,
+) -> anyhow::Result<ModelSparseData> {
+    let bytes = if let Some(store) = &state.object_store {
+        store.download_object_url(&meta.artifact_url).await?
+    } else {
+        let response = reqwest::get(&meta.artifact_url).await?;
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!(
+                "artifact download failed status={} url={}",
+                response.status(),
+                meta.artifact_url
+            ));
+        }
+        response.bytes().await?.to_vec()
+    };
+
+    let decoded = decode_snapshot_artifact(bytes.as_slice())?;
+    if decoded.snapshot_id != snapshot_id {
+        return Err(anyhow::anyhow!(
+            "artifact snapshot mismatch: expected={} got={}",
+            snapshot_id,
+            decoded.snapshot_id
+        ));
+    }
+
+    Ok(decoded.payload)
+}
+
+fn is_undefined_table(err: &sqlx::Error) -> bool {
+    match err {
+        sqlx::Error::Database(db_err) => db_err.code().as_deref() == Some("42P01"),
+        _ => false,
+    }
+}
+
 /// Executes one queue payload end-to-end.
 #[instrument(skip(state))]
 #[allow(clippy::too_many_lines)]
@@ -279,7 +378,7 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
             )
             .await?;
 
-            let data = fetch_snapshot_sparse_data(&state.pool, snapshot_id).await?;
+            let data = fetch_snapshot_sparse_data(state, snapshot_id).await?;
             let prepared = state.solver.prepare(
                 &data,
                 NumericOptions {
@@ -381,7 +480,7 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
             print_level,
         } => {
             let _ = state.solver.invalidate(snapshot_id);
-            let data = fetch_snapshot_sparse_data(&state.pool, snapshot_id).await?;
+            let data = fetch_snapshot_sparse_data(state, snapshot_id).await?;
             let prepared: PrepareResult = state.solver.prepare(
                 &data,
                 NumericOptions {
@@ -412,7 +511,7 @@ pub async fn ensure_prepared(
         .factorization_status(snapshot_id, NumericOptions { print_level })
         .is_none()
     {
-        let data = fetch_snapshot_sparse_data(&state.pool, snapshot_id).await?;
+        let data = fetch_snapshot_sparse_data(state, snapshot_id).await?;
         let _ = state
             .solver
             .prepare(&data, NumericOptions { print_level })?;

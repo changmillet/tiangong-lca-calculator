@@ -1,17 +1,12 @@
-mod artifacts;
-mod config;
-mod db;
-mod http;
-mod queue;
-mod storage;
-mod types;
-
 use std::sync::Arc;
 
 use axum::serve;
 use clap::Parser;
-use config::{AppConfig, RunMode};
-use db::AppState;
+use solver_worker::{
+    config::{AppConfig, RunMode},
+    db::AppState,
+    http, queue,
+};
 use tokio::net::TcpListener;
 use tracing::info;
 

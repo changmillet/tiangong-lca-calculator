@@ -57,7 +57,7 @@ async fn prepare(
     Path(snapshot_id): Path<Uuid>,
     Json(body): Json<PrepareHttpBody>,
 ) -> impl IntoResponse {
-    match fetch_snapshot_sparse_data(&state.pool, snapshot_id).await {
+    match fetch_snapshot_sparse_data(&state, snapshot_id).await {
         Ok(data) => match state.solver.prepare(
             &data,
             NumericOptions {

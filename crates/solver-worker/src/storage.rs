@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use chrono::Utc;
 use hmac::{Hmac, Mac};
-use reqwest::{StatusCode, Url};
+use reqwest::{Method, StatusCode, Url};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -11,6 +11,8 @@ const SIGV4_SERVICE: &str = "s3";
 const SIGV4_TERMINATOR: &str = "aws4_request";
 
 type HmacSha256 = Hmac<Sha256>;
+const EMPTY_PAYLOAD_SHA256: &str =
+    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
 /// S3-compatible object storage client using path-style URL uploads.
 #[derive(Debug, Clone)]
@@ -82,6 +84,84 @@ impl ObjectStoreClient {
         bytes: Vec<u8>,
     ) -> anyhow::Result<String> {
         let key = self.object_key(snapshot_id, job_id, suffix, extension);
+        self.upload_object(&key, content_type, bytes).await
+    }
+
+    /// Uploads one snapshot artifact object and returns object URL.
+    pub async fn upload_snapshot_artifact(
+        &self,
+        snapshot_id: Uuid,
+        extension: &str,
+        content_type: &str,
+        bytes: Vec<u8>,
+    ) -> anyhow::Result<String> {
+        let key = if self.prefix.is_empty() {
+            format!("snapshots/{snapshot_id}/snapshot/sparse.{extension}")
+        } else {
+            format!(
+                "{}/snapshots/{snapshot_id}/snapshot/sparse.{extension}",
+                self.prefix
+            )
+        };
+        self.upload_object(&key, content_type, bytes).await
+    }
+
+    /// Downloads bytes from object URL.
+    pub async fn download_object_url(&self, object_url: &str) -> anyhow::Result<Vec<u8>> {
+        let url = Url::parse(object_url)
+            .map_err(|err| anyhow::anyhow!("invalid object URL {object_url}: {err}"))?;
+        let host = canonical_host(&url)?;
+        let unsigned_response = self.client.get(url.clone()).send().await?;
+        if unsigned_response.status().is_success() {
+            return Ok(unsigned_response.bytes().await?.to_vec());
+        }
+
+        // Retry with SigV4 for private buckets.
+        let payload_hash = EMPTY_PAYLOAD_SHA256;
+        let (amz_date, date_stamp) = sigv4_timestamps();
+        let signed = self.sign_request(
+            &Method::GET,
+            SigV4Input {
+                canonical_uri: url.path(),
+                canonical_query: url.query().unwrap_or_default(),
+                host: &host,
+                content_type: None,
+                payload_hash,
+                amz_date: &amz_date,
+                date_stamp: &date_stamp,
+            },
+        )?;
+
+        let mut request = self
+            .client
+            .get(url)
+            .header("host", host)
+            .header("x-amz-content-sha256", payload_hash)
+            .header("x-amz-date", amz_date)
+            .header("authorization", signed.authorization);
+        if let Some(token) = &self.session_token {
+            request = request.header("x-amz-security-token", token);
+        }
+
+        let response = request.send().await?;
+        if response.status().is_success() {
+            return Ok(response.bytes().await?.to_vec());
+        }
+
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        let body_preview = body.chars().take(400).collect::<String>();
+        Err(anyhow::anyhow!(
+            "object download failed status={status} body={body_preview}"
+        ))
+    }
+
+    async fn upload_object(
+        &self,
+        key: &str,
+        content_type: &str,
+        bytes: Vec<u8>,
+    ) -> anyhow::Result<String> {
         let object_url = format!("{}/{}/{}", self.endpoint, self.bucket, key);
         let url = Url::parse(&object_url)
             .map_err(|err| anyhow::anyhow!("invalid S3 URL {object_url}: {err}"))?;
@@ -89,15 +169,18 @@ impl ObjectStoreClient {
 
         let payload_hash = sha256_hex(bytes.as_slice());
         let (amz_date, date_stamp) = sigv4_timestamps();
-        let signed = self.sign_put_request(SigV4Input {
-            canonical_uri: url.path(),
-            canonical_query: url.query().unwrap_or_default(),
-            host: &host,
-            content_type,
-            payload_hash: &payload_hash,
-            amz_date: &amz_date,
-            date_stamp: &date_stamp,
-        })?;
+        let signed = self.sign_request(
+            &Method::PUT,
+            SigV4Input {
+                canonical_uri: url.path(),
+                canonical_query: url.query().unwrap_or_default(),
+                host: &host,
+                content_type: Some(content_type),
+                payload_hash: &payload_hash,
+                amz_date: &amz_date,
+                date_stamp: &date_stamp,
+            },
+        )?;
 
         let mut request = self
             .client
@@ -143,12 +226,18 @@ impl ObjectStoreClient {
         )
     }
 
-    fn sign_put_request(&self, input: SigV4Input<'_>) -> anyhow::Result<SignedRequest> {
+    fn sign_request(
+        &self,
+        method: &Method,
+        input: SigV4Input<'_>,
+    ) -> anyhow::Result<SignedRequest> {
         let mut headers = BTreeMap::<&str, String>::new();
-        headers.insert("content-type", input.content_type.trim().to_owned());
         headers.insert("host", input.host.to_owned());
         headers.insert("x-amz-content-sha256", input.payload_hash.to_owned());
         headers.insert("x-amz-date", input.amz_date.to_owned());
+        if let Some(content_type) = input.content_type {
+            headers.insert("content-type", content_type.trim().to_owned());
+        }
         if let Some(token) = &self.session_token {
             headers.insert("x-amz-security-token", token.trim().to_owned());
         }
@@ -161,8 +250,11 @@ impl ObjectStoreClient {
         let signed_headers = headers.keys().copied().collect::<Vec<_>>().join(";");
 
         let canonical_request = format!(
-            "PUT\n{}\n{}\n{canonical_headers}\n\n{signed_headers}\n{}",
-            input.canonical_uri, input.canonical_query, input.payload_hash
+            "{}\n{}\n{}\n{canonical_headers}\n\n{signed_headers}\n{}",
+            method.as_str(),
+            input.canonical_uri,
+            input.canonical_query,
+            input.payload_hash
         );
         let canonical_request_hash = sha256_hex(canonical_request.as_bytes());
         let credential_scope = format!(
@@ -205,7 +297,7 @@ struct SigV4Input<'a> {
     canonical_uri: &'a str,
     canonical_query: &'a str,
     host: &'a str,
-    content_type: &'a str,
+    content_type: Option<&'a str>,
     payload_hash: &'a str,
     amz_date: &'a str,
     date_stamp: &'a str,

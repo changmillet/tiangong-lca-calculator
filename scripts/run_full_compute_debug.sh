@@ -27,7 +27,7 @@ Usage:
   scripts/run_full_compute_debug.sh [options]
 
 Options:
-  --snapshot-id <uuid>       snapshot id to run (default: latest snapshot by created_at)
+  --snapshot-id <uuid>       snapshot id to run (default: latest ready artifact snapshot, then latest snapshot)
   --queue <name>             pgmq queue name (default: lca_jobs)
   --log-dir <dir>            log output directory (default: logs/full-run)
   --report-dir <dir>         report output directory (default: reports/full-run)
@@ -132,6 +132,10 @@ sql_scalar() {
   psql "$DB_URL" -Atq -v ON_ERROR_STOP=1 -c "$1"
 }
 
+sql_scalar_soft() {
+  psql "$DB_URL" -Atq -c "$1" 2>/dev/null || true
+}
+
 sql_exec() {
   psql "$DB_URL" -v ON_ERROR_STOP=1 -c "$1"
 }
@@ -141,19 +145,50 @@ gen_uuid() {
 }
 
 if [ -z "$SNAPSHOT_ID" ]; then
-  SNAPSHOT_ID="$(sql_scalar "SELECT id::text FROM public.lca_network_snapshots ORDER BY created_at DESC LIMIT 1;")"
+  SNAPSHOT_ID="$(sql_scalar_soft "SELECT snapshot_id::text FROM public.lca_snapshot_artifacts WHERE status = 'ready' ORDER BY created_at DESC LIMIT 1;")"
 fi
 
 if [ -z "$SNAPSHOT_ID" ]; then
-  echo "no snapshot found in public.lca_network_snapshots; create/backfill snapshot data first" >&2
+  SNAPSHOT_ID="$(sql_scalar_soft "SELECT id::text FROM public.lca_network_snapshots ORDER BY created_at DESC LIMIT 1;")"
+fi
+
+if [ -z "$SNAPSHOT_ID" ]; then
+  echo "no snapshot found; run scripts/build_snapshot_from_ilcd.sh first" >&2
   exit 1
 fi
 
-PROCESS_COUNT="$(sql_scalar "SELECT COUNT(*)::int FROM public.lca_process_index WHERE snapshot_id = '$SNAPSHOT_ID'::uuid;")"
-FLOW_COUNT="$(sql_scalar "SELECT COUNT(*)::int FROM public.lca_flow_index WHERE snapshot_id = '$SNAPSHOT_ID'::uuid;")"
-A_NNZ="$(sql_scalar "SELECT COUNT(*)::bigint FROM public.lca_technosphere_entries WHERE snapshot_id = '$SNAPSHOT_ID'::uuid;")"
-B_NNZ="$(sql_scalar "SELECT COUNT(*)::bigint FROM public.lca_biosphere_entries WHERE snapshot_id = '$SNAPSHOT_ID'::uuid;")"
-C_NNZ="$(sql_scalar "SELECT COUNT(*)::bigint FROM public.lca_characterization_factors WHERE snapshot_id = '$SNAPSHOT_ID'::uuid;")"
+MATRIX_SOURCE=""
+ARTIFACT_COUNTS="$(sql_scalar_soft "
+SELECT
+  process_count::text || '|' ||
+  flow_count::text || '|' ||
+  a_nnz::text || '|' ||
+  b_nnz::text || '|' ||
+  c_nnz::text
+FROM public.lca_snapshot_artifacts
+WHERE snapshot_id = '$SNAPSHOT_ID'::uuid
+  AND status = 'ready'
+ORDER BY created_at DESC
+LIMIT 1;
+")"
+
+if [ -n "$ARTIFACT_COUNTS" ]; then
+  IFS='|' read -r PROCESS_COUNT FLOW_COUNT A_NNZ B_NNZ C_NNZ <<< "$ARTIFACT_COUNTS"
+  MATRIX_SOURCE="artifact_metadata"
+else
+  PROCESS_COUNT="$(sql_scalar_soft "SELECT COUNT(*)::int FROM public.lca_process_index WHERE snapshot_id = '$SNAPSHOT_ID'::uuid;")"
+  FLOW_COUNT="$(sql_scalar_soft "SELECT COUNT(*)::int FROM public.lca_flow_index WHERE snapshot_id = '$SNAPSHOT_ID'::uuid;")"
+  A_NNZ="$(sql_scalar_soft "SELECT COUNT(*)::bigint FROM public.lca_technosphere_entries WHERE snapshot_id = '$SNAPSHOT_ID'::uuid;")"
+  B_NNZ="$(sql_scalar_soft "SELECT COUNT(*)::bigint FROM public.lca_biosphere_entries WHERE snapshot_id = '$SNAPSHOT_ID'::uuid;")"
+  C_NNZ="$(sql_scalar_soft "SELECT COUNT(*)::bigint FROM public.lca_characterization_factors WHERE snapshot_id = '$SNAPSHOT_ID'::uuid;")"
+  MATRIX_SOURCE="legacy_tables"
+fi
+
+PROCESS_COUNT="${PROCESS_COUNT:-0}"
+FLOW_COUNT="${FLOW_COUNT:-0}"
+A_NNZ="${A_NNZ:-0}"
+B_NNZ="${B_NNZ:-0}"
+C_NNZ="${C_NNZ:-0}"
 
 if [ "${PROCESS_COUNT:-0}" -le 0 ]; then
   echo "snapshot $SNAPSHOT_ID has zero processes; cannot run solve" >&2
@@ -198,6 +233,7 @@ exec > >(tee -a "$RUN_LOG") 2>&1
 echo "[info] run timestamp: $RUN_TS"
 echo "[info] snapshot_id: $SNAPSHOT_ID"
 echo "[info] queue_name: $QUEUE_NAME"
+echo "[info] matrix_source=$MATRIX_SOURCE"
 echo "[info] process_count=$PROCESS_COUNT flow_count=$FLOW_COUNT a_nnz=$A_NNZ b_nnz=$B_NNZ c_nnz=$C_NNZ"
 echo "[info] logs:"
 echo "  run_log=$RUN_LOG"
@@ -265,6 +301,7 @@ write_run_report() {
   "demand_process_idx": $DEMAND_PROCESS_IDX,
   "print_level": $PRINT_LEVEL,
   "matrix": {
+    "source": $(as_json_string "$MATRIX_SOURCE"),
     "process_count": $PROCESS_COUNT,
     "flow_count": $FLOW_COUNT,
     "a_nnz": $A_NNZ,
@@ -315,6 +352,7 @@ JSON
 
 ## Matrix
 
+- source: \`$MATRIX_SOURCE\`
 - process_count: \`$PROCESS_COUNT\`
 - flow_count: \`$FLOW_COUNT\`
 - a_nnz: \`$A_NNZ\`

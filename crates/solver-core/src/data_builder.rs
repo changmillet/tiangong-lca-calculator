@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
 use suitesparse_ffi::{CscMatrix, MatrixError, MatrixTriplet};
 use thiserror::Error;
 use uuid::Uuid;
 
 /// Sparse entry from Supabase tables.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct SparseTriplet {
     /// Row index.
     pub row: i32,
@@ -16,7 +17,7 @@ pub struct SparseTriplet {
 }
 
 /// Sparse input for one model version.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModelSparseData {
     /// Model version id.
     pub model_version: Uuid,

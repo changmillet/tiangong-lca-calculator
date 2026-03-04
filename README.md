@@ -23,10 +23,16 @@
   - `solve_batch`
   - `invalidate_factorization`
   - `rebuild_factorization`
-- 已完成 `lca_*` 新表 + `lca_jobs` 队列（additive migration）。
+- 已完成 additive schema：
+  - `lca_jobs` / `lca_results`（作业与结果）
+  - `lca_network_snapshots`（snapshot 元信息）
+  - `lca_snapshot_artifacts`（矩阵 artifact 元信息）
 - 已支持结果混合存储：
   - 小结果：写 `lca_results.payload`（JSON）
   - 大结果：写对象存储，`lca_results` 仅存元数据
+- 已支持 snapshot artifact-first：
+  - builder 直接生成 `M/B/C` 并上传 `HDF5`
+  - worker 优先从 `lca_snapshot_artifacts` 下载 artifact，失败才回退到旧 `lca_*_entries` 读取
 
 ## 3. 结果文件格式（已选定）
 
@@ -53,6 +59,7 @@
 已提供 migration：
 
 - `supabase/migrations/20260304073000_lca_snapshot_phase1.sql`
+- `supabase/migrations/20260304103000_lca_snapshot_artifacts.sql`
 
 该 migration 只新增 `lca_*` 表和队列，不改已有业务表数据。
 
@@ -60,6 +67,7 @@
 
 ```bash
 ./scripts/validate_additive_migration.sh supabase/migrations/20260304073000_lca_snapshot_phase1.sql
+./scripts/validate_additive_migration.sh supabase/migrations/20260304103000_lca_snapshot_artifacts.sql
 ```
 
 执行迁移：
@@ -67,9 +75,10 @@
 ```bash
 set -a && source .env && set +a
 psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260304073000_lca_snapshot_phase1.sql
+psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260304103000_lca_snapshot_artifacts.sql
 ```
 
-### 4.1 构建可计算 snapshot（从 `processes/flows/lciamethods` 生成 `lca_*`）
+### 4.1 构建可计算 snapshot（artifact-first）
 
 快速生成一个可计算 snapshot：
 
@@ -83,6 +92,7 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260304073000_lca_snapsh
 - 不限 process 数量（`--process-limit` 默认 `0`，即 no limit）
 - 生成 coverage 报表到 `reports/snapshot-coverage/<snapshot_id>.{json,md}`
 - 报表包含三组指标：匹配率、奇异风险、矩阵规模
+- 矩阵 artifact 直接写入 S3（`snapshot-hdf5:v1`）
 
 常用参数：
 
@@ -93,7 +103,15 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260304073000_lca_snapsh
 - `--self-loop-cutoff 0.999999`：过滤会导致 `M = I - A` 奇异的对角自环（`|A_ii|` 过大）
 - `--report-dir <path>`：指定 coverage 报表输出目录
 
-脚本只写入 `lca_*` 新表，不修改原始 `processes/flows/lciamethods` 数据。
+脚本行为：
+
+- 从 `processes/flows/lciamethods` 构建 `A/B/C`（内存）
+- 上传 snapshot artifact 到 S3（HDF5）
+- 只写 metadata 到：
+  - `lca_network_snapshots`
+  - `lca_snapshot_artifacts`
+- 不修改原始 `processes/flows/lciamethods` 数据
+- 不再要求写入大体量 `lca_*_entries` 表
 
 建议调试流程：
 
@@ -114,7 +132,7 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260304073000_lca_snapsh
 - `SOLVER_MODE`（`worker` / `http` / `both`）
 - `HTTP_ADDR`（默认 `0.0.0.0:8080`）
 
-大结果对象存储（可选，但建议配置）：
+对象存储（snapshot builder 必需，结果 artifact 建议配置）：
 
 - `S3_ENDPOINT`
 - `S3_REGION`
@@ -125,7 +143,7 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260304073000_lca_snapsh
 - `S3_PREFIX`（默认 `lca-results`）
 - `RESULT_INLINE_MAX_BYTES`（默认 `262144`）
 
-说明：`S3_ENDPOINT/S3_REGION/S3_BUCKET/S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY` 需要同时提供，缺任何一项会启动失败。上传请求使用 SigV4 签名认证。
+说明：`S3_ENDPOINT/S3_REGION/S3_BUCKET/S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY` 需要同时提供。上传请求使用 SigV4 签名认证。
 
 ## 6. 启动与检查
 
@@ -160,7 +178,7 @@ make check
   - `run-<ts>.json`（结构化结果 + 阶段耗时）
   - `run-<ts>.md`（便于人工查看）
 - 若不传 `--snapshot-id`，会自动选最新 snapshot。
-- 需要先确保该 snapshot 在 `lca_*` 表有完整数据，否则脚本会直接报错退出。
+- 脚本会优先读取 `lca_snapshot_artifacts` 的矩阵规模；若不存在则回退读取旧 `lca_*_entries`。
 
 启动服务：
 
