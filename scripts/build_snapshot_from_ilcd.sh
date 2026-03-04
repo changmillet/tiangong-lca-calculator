@@ -194,6 +194,7 @@ psql "$DB_URL" -Atq -v ON_ERROR_STOP=1 \
   -v method_version="$METHOD_VERSION" \
 <<'SQL'
 BEGIN;
+SET LOCAL statement_timeout = 0;
 
 INSERT INTO public.lca_network_snapshots (
   id,
@@ -314,12 +315,22 @@ FROM tmp_exchanges
 WHERE exchange_direction = 'Output'
   AND flow_id IS NOT NULL;
 
+CREATE INDEX tmp_output_providers_flow_process_idx
+  ON tmp_output_providers (flow_id, process_id);
+
 CREATE TEMP TABLE tmp_input_exchanges AS
 SELECT process_id, flow_id, amount
 FROM tmp_exchanges
 WHERE exchange_direction = 'Input'
   AND flow_id IS NOT NULL
   AND amount IS NOT NULL;
+
+CREATE INDEX tmp_exchanges_process_flow_dir_idx
+  ON tmp_exchanges (process_id, flow_id, exchange_direction);
+CREATE INDEX tmp_exchanges_flow_dir_idx
+  ON tmp_exchanges (flow_id, exchange_direction);
+CREATE INDEX tmp_input_exchanges_flow_process_idx
+  ON tmp_input_exchanges (flow_id, process_id);
 
 CREATE TEMP TABLE tmp_provider_counts AS
 SELECT flow_id, COUNT(DISTINCT process_id)::int AS provider_cnt
