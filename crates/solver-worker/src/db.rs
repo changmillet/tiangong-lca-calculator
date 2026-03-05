@@ -263,6 +263,118 @@ async fn set_job_diagnostics(
     Ok(())
 }
 
+/// Marks request cache row as running for a given job.
+#[instrument(skip(pool))]
+pub async fn mark_result_cache_running(pool: &PgPool, job_id: Uuid) -> anyhow::Result<()> {
+    let result = sqlx::query(
+        r"
+        UPDATE lca_result_cache
+        SET status = 'running',
+            updated_at = NOW(),
+            last_accessed_at = NOW()
+        WHERE job_id = $1
+        ",
+    )
+    .bind(job_id)
+    .execute(pool)
+    .await;
+
+    match result {
+        Ok(_rows) => Ok(()),
+        Err(err) if is_undefined_table(&err) => Ok(()),
+        Err(err) => Err(err.into()),
+    }
+}
+
+/// Marks request cache row as ready and stores result id for a given job.
+#[instrument(skip(pool))]
+pub async fn mark_result_cache_ready(
+    pool: &PgPool,
+    job_id: Uuid,
+    result_id: Uuid,
+) -> anyhow::Result<()> {
+    let result = sqlx::query(
+        r"
+        UPDATE lca_result_cache
+        SET status = 'ready',
+            result_id = $2,
+            error_code = NULL,
+            error_message = NULL,
+            updated_at = NOW(),
+            last_accessed_at = NOW()
+        WHERE job_id = $1
+        ",
+    )
+    .bind(job_id)
+    .bind(result_id)
+    .execute(pool)
+    .await;
+
+    match result {
+        Ok(_rows) => Ok(()),
+        Err(err) if is_undefined_table(&err) => Ok(()),
+        Err(err) => Err(err.into()),
+    }
+}
+
+/// Marks request cache row as failed for a given job.
+#[instrument(skip(pool))]
+pub async fn mark_result_cache_failed(
+    pool: &PgPool,
+    job_id: Uuid,
+    error_code: &str,
+    error_message: &str,
+) -> anyhow::Result<()> {
+    let result = sqlx::query(
+        r"
+        UPDATE lca_result_cache
+        SET status = 'failed',
+            error_code = $2,
+            error_message = $3,
+            updated_at = NOW(),
+            last_accessed_at = NOW()
+        WHERE job_id = $1
+        ",
+    )
+    .bind(job_id)
+    .bind(error_code)
+    .bind(error_message)
+    .execute(pool)
+    .await;
+
+    match result {
+        Ok(_rows) => Ok(()),
+        Err(err) if is_undefined_table(&err) => Ok(()),
+        Err(err) => Err(err.into()),
+    }
+}
+
+/// Returns latest result id for a given job.
+#[instrument(skip(pool))]
+pub async fn latest_result_id_for_job(pool: &PgPool, job_id: Uuid) -> anyhow::Result<Option<Uuid>> {
+    let row = match sqlx::query(
+        r"
+        SELECT id
+        FROM lca_results
+        WHERE job_id = $1
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )
+    .bind(job_id)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(row) => row,
+        Err(err) if is_undefined_table(&err) => return Ok(None),
+        Err(err) => return Err(err.into()),
+    };
+
+    row.map(|r| r.try_get::<Uuid, _>("id"))
+        .transpose()
+        .map_err(Into::into)
+}
+
 fn merge_job_status_update_timing(
     mut diagnostics: Value,
     status: &str,
@@ -502,6 +614,14 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
             )
             .await?;
 
+            if let Err(err) = mark_result_cache_running(&state.pool, job_id).await {
+                warn!(
+                    error = %err,
+                    job_id = %job_id,
+                    "failed to mark result cache running"
+                );
+            }
+
             let level = print_level.unwrap_or(0.0);
             ensure_prepared(state, snapshot_id, level).await?;
             let timed = state.solver.solve_one_timed(
@@ -521,6 +641,17 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
                 running_db_write_sec,
             );
             let _ = update_job_status(&state.pool, job_id, "completed", completed_diag).await?;
+
+            if let Some(result_id) = latest_result_id_for_job(&state.pool, job_id).await? {
+                if let Err(err) = mark_result_cache_ready(&state.pool, job_id, result_id).await {
+                    warn!(
+                        error = %err,
+                        job_id = %job_id,
+                        result_id = %result_id,
+                        "failed to mark result cache ready"
+                    );
+                }
+            }
         }
         JobPayload::SolveBatch {
             job_id,
@@ -536,6 +667,14 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
                 serde_json::json!({"phase": "solve_batch"}),
             )
             .await?;
+
+            if let Err(err) = mark_result_cache_running(&state.pool, job_id).await {
+                warn!(
+                    error = %err,
+                    job_id = %job_id,
+                    "failed to mark result cache running"
+                );
+            }
 
             let level = print_level.unwrap_or(0.0);
             ensure_prepared(state, snapshot_id, level).await?;
@@ -554,6 +693,17 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
                 running_db_write_sec,
             );
             let _ = update_job_status(&state.pool, job_id, "completed", completed_diag).await?;
+
+            if let Some(result_id) = latest_result_id_for_job(&state.pool, job_id).await? {
+                if let Err(err) = mark_result_cache_ready(&state.pool, job_id, result_id).await {
+                    warn!(
+                        error = %err,
+                        job_id = %job_id,
+                        result_id = %result_id,
+                        "failed to mark result cache ready"
+                    );
+                }
+            }
         }
         JobPayload::InvalidateFactorization {
             job_id,

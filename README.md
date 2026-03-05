@@ -2,6 +2,12 @@
 
 面向 Supabase + Rust + SuiteSparse 的大规模 LCA 稀疏求解服务。
 
+## 0. 对接文档（给 Edge / 前端）
+
+- Edge Function 对接：`docs/edge-function-integration.md`
+- 前端对接：`docs/frontend-integration.md`
+- 统一契约（jobs/results/payload/status）：`docs/lca-api-contract.md`
+
 ## 1. 架构定位
 
 - Supabase: 业务数据、鉴权、Edge Functions 编排、`pgmq` 队列。
@@ -69,11 +75,15 @@
 - `supabase/migrations/20260304120000_lca_drop_legacy_entry_tables.sql`（清理旧 `lca_*_entries/index` 表）
 - `supabase/migrations/20260305052000_lca_request_cache_and_factorization_registry.sql`（additive-only：active snapshot + cache + factorization registry + jobs 幂等列）
 - `supabase/migrations/20260305070000_lca_rls_lockdown.sql`（启用 RLS + 收紧 anon/authenticated 权限）
+- `supabase/migrations/20260305093000_lca_enqueue_job_rpc.sql`（新增 `public.lca_enqueue_job` RPC，供 Edge Functions 通过 supabase.rpc 入队）
+- `supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql`（收紧 RPC 权限，仅 `service_role` 可执行）
 
 对已有业务源表（`processes/flows/lciamethods/...`）不做修改。
 其中 `20260304120000` 会删除旧的 `lca_*_entries/index` 中间表，只保留 artifact-first 所需表。
 其中 `20260305052000` 只新增缓存/幂等相关结构，运行时主路径暂未强依赖这些新表。
 其中 `20260305070000` 为安全基线：不再允许 `anon` 对 `lca_*` 表读写；`authenticated` 默认只可读取“自己的 jobs/results”。
+其中 `20260305093000` 增加 `public.lca_enqueue_job(text,jsonb)`（`security definer`），用于 Edge Functions 在不直连 postgres 客户端的前提下调用 `pgmq.send`。
+其中 `20260305094000` 收紧该 RPC 的执行权限，确保只有 `service_role` 可以调用。
 
 可先做静态检查：
 
@@ -82,6 +92,8 @@
 ./scripts/validate_additive_migration.sh supabase/migrations/20260304103000_lca_snapshot_artifacts.sql
 ./scripts/validate_additive_migration.sh supabase/migrations/20260305052000_lca_request_cache_and_factorization_registry.sql
 ./scripts/validate_additive_migration.sh supabase/migrations/20260305070000_lca_rls_lockdown.sql
+./scripts/validate_additive_migration.sh supabase/migrations/20260305093000_lca_enqueue_job_rpc.sql
+./scripts/validate_additive_migration.sh supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql
 ```
 
 执行迁移：
@@ -93,6 +105,8 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260304103000_lca_snapsh
 psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260304120000_lca_drop_legacy_entry_tables.sql
 psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305052000_lca_request_cache_and_factorization_registry.sql
 psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305070000_lca_rls_lockdown.sql
+psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305093000_lca_enqueue_job_rpc.sql
+psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql
 ```
 
 ### 4.0.1 访问控制基线（RLS）

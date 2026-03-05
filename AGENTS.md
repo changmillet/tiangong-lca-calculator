@@ -56,6 +56,7 @@ Core invariants:
   - benchmark persist mode switch (`normal` / `inline-only`)
   - solve output assembly avoids eager evaluation for unrequested vectors (`return_x/return_g/return_h`)
   - normal persist path uses lazy JSON serialization (serialize only when inline path is actually used)
+  - solve worker now syncs `lca_result_cache` state by `job_id` (`running -> ready/failed`) for request-level cache reuse
 - Worker/API:
   - pgmq queue consume + archive
   - job execution for `prepare_factorization`, `solve_one`, `solve_batch`, `invalidate_factorization`, `rebuild_factorization`
@@ -78,6 +79,8 @@ Applied migrations:
 - `supabase/migrations/20260304120000_lca_drop_legacy_entry_tables.sql` (cleanup drop)
 - `supabase/migrations/20260305052000_lca_request_cache_and_factorization_registry.sql` (additive)
 - `supabase/migrations/20260305070000_lca_rls_lockdown.sql` (security additive)
+- `supabase/migrations/20260305093000_lca_enqueue_job_rpc.sql` (additive RPC)
+- `supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql` (RPC ACL hardening)
 
 Created tables:
 
@@ -112,6 +115,8 @@ Verification done at migration time:
 - Cleanup migration only touches legacy `lca_*` intermediate tables.
 - Additive migration `20260305052000` only creates `lca_*` tables/indexes and adds nullable columns to `lca_jobs`.
 - Security migration `20260305070000` enables RLS on `lca_*` runtime tables and revokes broad `anon/authenticated` grants.
+- RPC migration `20260305093000` adds `public.lca_enqueue_job(text, jsonb)` for Edge Functions queue enqueue via `supabase.rpc`.
+- RPC ACL migration `20260305094000` revokes `anon/authenticated` execute privilege and keeps execute for `service_role` only.
 
 ### 2.3 Result storage policy (implemented)
 
@@ -168,7 +173,12 @@ Latest checks passed:
 - `psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305052000_lca_request_cache_and_factorization_registry.sql`
 - `./scripts/validate_additive_migration.sh supabase/migrations/20260305070000_lca_rls_lockdown.sql`
 - `psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305070000_lca_rls_lockdown.sql`
+- `./scripts/validate_additive_migration.sh supabase/migrations/20260305093000_lca_enqueue_job_rpc.sql`
+- `psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305093000_lca_enqueue_job_rpc.sql`
+- `./scripts/validate_additive_migration.sh supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql`
+- `psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql`
 - `python3 -m py_compile tools/bw25-validator/src/bw25_validator/cli.py`
+- `cargo check -p solver-worker` (after worker `lca_result_cache` status sync changes)
 - `uv run --project tools/bw25-validator python -c "import pypardiso"` (Linux x86_64)
 - `./scripts/run_bw25_validation.sh --report-dir reports/bw25-validation-smoke` (manual smoke, latest solve_one target)
 - `./scripts/run_full_compute_debug.sh --snapshot-id 6201b08a-b125-43a1-b4b8-aacf5a493987` + manual bw25 validation confirms comparable-compute speed lane reporting.
@@ -185,7 +195,7 @@ Latest checks passed:
 - `./scripts/run_full_compute_debug.sh --report-dir reports/full-run-step6` (normal mode, compressed artifact smoke)
 - `./scripts/run_bw25_validation.sh --result-id 1b49f6eb-6d46-43da-bd61-d56c78b393cc --report-dir reports/bw25-validation-step6`
 
-### 2.7 Repository hygiene/docs organization (implemented)
+### 2.5 Repository hygiene/docs organization (implemented)
 
 - Added optimization assessment doc:
   - `OPTIMIZATION_REVIEW.md`
@@ -199,7 +209,16 @@ Latest checks passed:
   - `/logs/`
   - `/reports/`
 
-### 2.5 Snapshot builder status (artifact-first)
+### 2.6 Integration documentation baseline (implemented)
+
+- Added cross-project integration docs under `docs/`:
+  - `docs/lca-api-contract.md` (queue payload/status/results contract baseline)
+  - `docs/edge-function-integration.md` (service-role enqueue/cache/idempotency flow)
+  - `docs/frontend-integration.md` (submit/poll/render UX contract)
+- `README.md` now links these docs as the primary handoff entry for Edge/frontend teams.
+- Documentation scope is contract-first; runtime behavior still follows current worker implementation (no automatic Edge project scaffolding in this repo).
+
+### 2.7 Snapshot builder status (artifact-first)
 
 - `crates/solver-worker/src/bin/snapshot_builder.rs` is the canonical builder implementation.
 - `scripts/build_snapshot_from_ilcd.sh` is now a thin wrapper that calls:
@@ -245,7 +264,7 @@ Latest checks passed:
     - UTC timestamps under `jobs.{prepare_*,solve_*}`
   - auto-discovers latest snapshot coverage report by `snapshot_id` and attaches build source metadata (`reused_snapshot`, `build_report_json`) into full-run report.
 
-### 2.6 Brightway25 validation path (manual-only)
+### 2.8 Brightway25 validation path (manual-only)
 
 - Added standalone Python validator under `tools/bw25-validator`.
 - Validation is opt-in and never auto-runs in worker/job path.
@@ -315,6 +334,10 @@ Latest checks passed:
   - stores result persistence split timings in `lca_results.diagnostics.persistence_timing_sec`
   - supports benchmark persist mode `inline-only` (skip encode/upload)
   - delays `serde_json::to_value(...)` for normal mode until inline path is required (small result or upload fallback)
+  - solve path updates `lca_result_cache` by `job_id`:
+    - set `running` when solve begins
+    - set `ready` + `result_id` after result persist completes
+    - set `failed` with error details when job execution fails
 - `src/artifacts.rs`:
   - artifact envelope encode (`hdf5:v1`)
   - `envelope_json` dataset uses chunked `deflate` compression (level 4)
@@ -351,6 +374,18 @@ Latest checks passed:
   - auto-loads `.env`
   - uses `uv` if present, otherwise creates `.venv/bw25-validator`
 
+### 3.5 `docs/` (cross-project handoff)
+
+- `docs/lca-api-contract.md`:
+  - canonical payload/state/result contract for `lca_jobs` + `lca_results`
+  - includes idempotency/cache key expectations for Edge orchestration
+- `docs/edge-function-integration.md`:
+  - recommended Edge endpoints and server-only enqueue flow
+  - transaction order for `lca_result_cache` + `lca_jobs` + `pgmq.send`
+- `docs/frontend-integration.md`:
+  - frontend submit/poll/render lifecycle
+  - cache-hit/in-progress/queued handling and retry strategy
+
 ## 4. Schema assumptions
 
 Current runtime primary path expects:
@@ -359,6 +394,7 @@ Current runtime primary path expects:
 - `lca_snapshot_artifacts`
 - `lca_jobs`
 - `lca_results`
+- `public.lca_enqueue_job(text, jsonb)` RPC for Edge enqueue path (execute privilege restricted to `service_role`)
 
 Additive schema now also provides (for next integration stage):
 
@@ -405,7 +441,7 @@ Input source-of-truth upstream remains:
 - Current `persistence_timing_sec.db_write_sec` measures `INSERT lca_results` latency; diagnostics are finalized with a follow-up `UPDATE`, which is not included in `db_write_sec`.
 - `inline-only` benchmark mode still writes full JSON payload to `lca_results`; for very large vectors this can increase DB row size/IO.
 - `timing_sec.prepare_job/solve_job` are orchestrator wall-clock spans and intentionally differ from DB `job_timing_sec.*` (which isolates queue wait/run/end-to-end from DB timestamps).
-- Newly added tables (`lca_active_snapshots/lca_result_cache/lca_factorization_registry`) are not yet wired into worker runtime or Edge Functions; current request path still relies on direct `lca_jobs` enqueue.
+- `lca_active_snapshots` and `lca_result_cache` are now used in Edge + worker request path; `lca_factorization_registry` remains schema-only and is not yet used for distributed factorization coordination.
 
 ## 6. TODO backlog (priority)
 
@@ -426,6 +462,8 @@ Input source-of-truth upstream remains:
   - factorization stats
   - timing breakdown
   - failure code taxonomy
+- Implement production Edge Function code in Supabase project following `docs/edge-function-integration.md` (this repo currently documents contract only).
+- Implement frontend-side polling/cache-hit UX flow following `docs/frontend-integration.md` (this repo currently documents contract only).
 - Refine result persistence timing to split `insert_result` vs diagnostics `update_result` overhead in one consistent metric model.
 - Optional: add `no-write` benchmark mode for pure compute profiling when persistence is intentionally bypassed.
 

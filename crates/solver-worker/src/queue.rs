@@ -5,8 +5,8 @@ use tracing::{error, info, instrument, warn};
 
 use crate::{
     db::{
-        AppState, archive_queue_message, handle_job_payload, read_one_queue_message,
-        update_job_status,
+        AppState, archive_queue_message, handle_job_payload, mark_result_cache_failed,
+        read_one_queue_message, update_job_status,
     },
     types::JobPayload,
 };
@@ -28,11 +28,19 @@ pub async fn run_worker_loop(
                         if let Err(err) = handle_job_payload(&state, payload.clone()).await {
                             error!(error = %err, "job execution failed");
                             let job_id = extract_job_id(&payload);
+                            let err_message = err.to_string();
                             let _ = update_job_status(
                                 &state.pool,
                                 job_id,
                                 "failed",
-                                serde_json::json!({"error": err.to_string()}),
+                                serde_json::json!({"error": err_message}),
+                            )
+                            .await;
+                            let _ = mark_result_cache_failed(
+                                &state.pool,
+                                job_id,
+                                "job_execution_failed",
+                                &err_message,
                             )
                             .await;
                         } else {

@@ -1,0 +1,149 @@
+# LCA API Contract (Snapshot-First)
+
+本文档定义本项目当前可用的作业/结果契约，供 Edge Function 与前端共用。
+
+## 1. 范围与原则
+
+- 数值核心固定为 `M = I - A`，只解 `M x = y`。
+- 计算入口是异步 `lca_jobs` + `pgmq`，不走前端直连队列。
+- 主路径读取 `lca_snapshot_artifacts`（artifact-first），旧 `lca_*_entries` 仅兼容回退。
+- 所有写操作由服务端（Edge Function / worker，`service_role`）执行。
+
+## 2. 关键表与职责
+
+- `lca_network_snapshots`: snapshot 元信息（含 `source_hash`）。
+- `lca_snapshot_artifacts`: snapshot 矩阵 artifact 元信息（`snapshot-hdf5:v1`）。
+- `lca_jobs`: 异步作业主表。
+- `lca_results`: 作业结果主表（inline JSON 或 artifact 元数据）。
+- `lca_active_snapshots`: 各 scope 的当前生效 snapshot 指针。
+- `lca_result_cache`: 请求级缓存/去重状态。
+- `lca_factorization_registry`: 分解状态注册表（当前 schema 已就绪，运行时待接入）。
+
+## 3. 作业类型与 payload
+
+`lca_jobs.job_type` 与 worker payload `type` 必须一致。
+
+支持类型：
+
+- `prepare_factorization`
+- `solve_one`
+- `solve_batch`
+- `invalidate_factorization`
+- `rebuild_factorization`
+
+### 3.1 `prepare_factorization`
+
+```json
+{
+  "type": "prepare_factorization",
+  "job_id": "<uuid>",
+  "snapshot_id": "<uuid>",
+  "print_level": 0.0
+}
+```
+
+### 3.2 `solve_one`
+
+```json
+{
+  "type": "solve_one",
+  "job_id": "<uuid>",
+  "snapshot_id": "<uuid>",
+  "rhs": [0.0, 1.0, 0.0],
+  "solve": {
+    "return_x": true,
+    "return_g": true,
+    "return_h": true
+  },
+  "print_level": 0.0
+}
+```
+
+### 3.3 `solve_batch`
+
+```json
+{
+  "type": "solve_batch",
+  "job_id": "<uuid>",
+  "snapshot_id": "<uuid>",
+  "rhs_batch": [
+    [1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0]
+  ],
+  "solve": {
+    "return_x": true,
+    "return_g": true,
+    "return_h": true
+  },
+  "print_level": 0.0
+}
+```
+
+### 3.4 兼容字段
+
+worker 反序列化时 `model_version` 仍可作为 `snapshot_id` 的别名（兼容旧请求）。新实现应只发 `snapshot_id`。
+
+## 4. 作业状态机
+
+`lca_jobs.status` 允许值：
+
+- `queued`
+- `running`
+- `ready`
+- `completed`
+- `failed`
+- `stale`
+
+当前语义：
+
+- `prepare_factorization`: `queued -> running -> ready`。
+- `solve_one` / `solve_batch`: `queued -> running -> completed`。
+- `invalidate_factorization`: 通常直接 `completed`。
+- 失败路径统一落 `failed`，错误详情在 `lca_jobs.diagnostics`。
+
+## 5. 结果契约
+
+`lca_results` 一行对应一次完成的求解任务（通常 `solve_one`/`solve_batch`）。
+
+小结果（inline）：
+
+- `payload` 非空（JSON）
+- `artifact_*` 为空
+
+大结果（artifact）：
+
+- `payload` 可为空
+- `artifact_url` / `artifact_sha256` / `artifact_byte_size` / `artifact_format` 填充
+- 当前 `artifact_format = hdf5:v1`
+
+`snapshot` artifact 当前格式：`snapshot-hdf5:v1`。
+
+## 6. 幂等与请求缓存（建议约束）
+
+- `lca_jobs.idempotency_key`：同一业务请求重试时复用，避免重复创建 job。
+- `lca_jobs.request_key`：可由 `snapshot_id + 需求向量 + solve选项 + 版本` 归一化哈希得到。
+- `lca_result_cache`：
+  - 唯一键 `(scope, snapshot_id, request_key)`
+  - 状态 `pending/running/ready/failed/stale`
+  - 命中时直接返回已有 `result_id` 或进行中的 `job_id`
+  - 当前实现中：
+    - Edge 入队时写 `pending`
+    - worker 开始求解时写 `running`
+    - worker 成功落结果后写 `ready + result_id`
+    - worker 失败时写 `failed + error_code/error_message`
+
+## 7. 安全与权限边界
+
+- `lca_*` 表已启用 RLS。
+- `anon` 无权限。
+- `authenticated` 仅可读“自己的 `lca_jobs` + 关联 `lca_results`”。
+- 任何 enqueue / insert / update 必须经服务端 `service_role`。
+
+## 8. 最小 SQL 约定（服务端）
+
+1. 插入 job 行（`status=queued`，带 payload）。
+2. 调 `public.lca_enqueue_job(text, jsonb)` RPC 投递消息（函数内部调用 `pgmq.send`）。
+3. 返回 `job_id` 给调用方。
+4. worker 消费后更新 `lca_jobs` 并写 `lca_results`。
+
+不建议前端直接调用 `pgmq.send` 或直接写 `lca_jobs`。
