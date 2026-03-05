@@ -178,6 +178,12 @@ make check
 ./scripts/run_full_compute_debug.sh --snapshot-id <your-snapshot-uuid>
 ```
 
+低 I/O benchmark 路径（跳过 HDF5 编码与上传，仅 inline 写库）：
+
+```bash
+./scripts/run_full_compute_debug.sh --snapshot-id <your-snapshot-uuid> --result-persist-mode inline-only
+```
+
 说明：
 
 - 脚本会启动 `solver-worker`（queue 模式）、投递 `prepare_factorization` 和 `solve_one` 两个 job、轮询状态并打印诊断。
@@ -189,6 +195,9 @@ make check
   - `run-<ts>.md`（便于人工查看）
 - 若不传 `--snapshot-id`，会自动选最新 snapshot。
 - 脚本会优先读取 `lca_snapshot_artifacts` 的矩阵规模；若不存在则回退读取旧 `lca_*_entries`。
+- `--result-persist-mode` 支持：
+  - `normal`（默认）：大结果走 HDF5 + 对象存储
+  - `inline-only`：总是 inline JSON（用于 benchmark，保留可校验结果）
 
 ### 6.1 Brightway25 手动校验（默认不触发）
 

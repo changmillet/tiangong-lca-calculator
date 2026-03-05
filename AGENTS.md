@@ -51,6 +51,7 @@ Core invariants:
   - `solve_one` / `solve_batch`
   - timed solve breakdown for `solve_one` (`solve_mx_sec`, `bx_sec`, `cg_sec`, `comparable_compute_sec`)
   - result persistence timing breakdown (`encode_artifact_sec`, `upload_artifact_sec`, `db_write_sec`, `total_sec`)
+  - benchmark persist mode switch (`normal` / `inline-only`)
 - Worker/API:
   - pgmq queue consume + archive
   - job execution for `prepare_factorization`, `solve_one`, `solve_batch`, `invalidate_factorization`, `rebuild_factorization`
@@ -116,6 +117,9 @@ Hybrid persistence is now active in `solver-worker`:
     - `artifact_format`
 - If upload fails:
   - fallback to inline JSON payload and warn in logs
+- `RESULT_PERSIST_MODE`:
+  - `normal` (default): current hybrid policy
+  - `inline-only`: skip artifact encode/upload, always write inline JSON (benchmark mode)
 - Result diagnostics include:
   - `compute_timing_sec` for comparable compute lane
   - `persistence_timing_sec` for result-write split timing
@@ -150,6 +154,8 @@ Latest checks passed:
 - `bash -n scripts/cleanup_local_artifacts.sh` (cleanup helper syntax check)
 - `./scripts/run_full_compute_debug.sh --report-dir reports/full-run-persistence-split --log-dir logs/full-run-persistence-split`
 - `./scripts/run_bw25_validation.sh --result-id 1b0a8cdd-2b08-45e4-85a6-43255ae6ecc0 --report-dir reports/bw25-validation-persistence-split`
+- `./scripts/run_full_compute_debug.sh --result-persist-mode inline-only --report-dir reports/full-run-inline-only --log-dir logs/full-run-inline-only`
+- `./scripts/run_bw25_validation.sh --result-id 3c06c0c4-c846-46dc-b8f8-d9343aff15ce --report-dir reports/bw25-validation-inline-only`
 
 ### 2.7 Repository hygiene/docs organization (implemented)
 
@@ -261,6 +267,7 @@ Latest checks passed:
   - env/CLI config (`DATABASE_URL` + `CONN` fallback)
   - queue/http settings
   - object-storage settings
+  - result persist mode (`RESULT_PERSIST_MODE`)
 - `src/db.rs`:
   - reads snapshot sparse data from `lca_snapshot_artifacts` first
   - fallback reads from legacy `lca_*` entry tables
@@ -268,6 +275,7 @@ Latest checks passed:
   - writes `lca_results` payload/metadata
   - stores `solve_one` compute timings in `lca_results.diagnostics.compute_timing_sec`
   - stores result persistence split timings in `lca_results.diagnostics.persistence_timing_sec`
+  - supports benchmark persist mode `inline-only` (skip encode/upload)
 - `src/artifacts.rs`:
   - artifact envelope encode (`hdf5:v1`)
   - SHA-256 checksum
@@ -337,6 +345,7 @@ Input source-of-truth upstream remains:
 - Brightway validator is manual-only by design and currently validates `solve_one` (not `solve_batch` aggregate logic).
 - Brightway validation assumes snapshot/result artifact schema `v1` (`snapshot-hdf5:v1`, `hdf5:v1`).
 - Current `persistence_timing_sec.db_write_sec` measures `INSERT lca_results` latency; diagnostics are finalized with a follow-up `UPDATE`, which is not included in `db_write_sec`.
+- `inline-only` benchmark mode still writes full JSON payload to `lca_results`; for very large vectors this can increase DB row size/IO.
 
 ## 6. TODO backlog (priority)
 
@@ -358,6 +367,7 @@ Input source-of-truth upstream remains:
   - timing breakdown
   - failure code taxonomy
 - Refine result persistence timing to split `insert_result` vs diagnostics `update_result` overhead in one consistent metric model.
+- Optional: add `no-write` benchmark mode for pure compute profiling when persistence is intentionally bypassed.
 
 ### P1
 
@@ -415,6 +425,12 @@ Run end-to-end debug (`prepare` + `solve_one`):
 
 ```bash
 ./scripts/run_full_compute_debug.sh --snapshot-id <snapshot_id>
+```
+
+Run benchmark-oriented debug (skip artifact encode/upload, keep inline result for validation):
+
+```bash
+./scripts/run_full_compute_debug.sh --snapshot-id <snapshot_id> --result-persist-mode inline-only
 ```
 
 Run manual Brightway25 validation (default pipeline does not trigger this automatically):

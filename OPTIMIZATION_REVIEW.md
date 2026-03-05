@@ -36,9 +36,13 @@ Conclusion:
   - `scripts/run_full_compute_debug.sh` (result timing fields in JSON/MD report)
   - `tools/bw25-validator/src/bw25_validator/cli.py` (`speed_comparison.rust_persistence`)
 
-2. Add benchmark mode for solve jobs
+2. Add benchmark mode for solve jobs (Completed 2026-03-05)
 - Skip result upload (or force inline payload) when running benchmarking.
 - Goal: compare solver-only and compute-only paths without storage noise.
+- Implemented in:
+  - `crates/solver-worker/src/config.rs` (`RESULT_PERSIST_MODE=normal|inline-only`)
+  - `crates/solver-worker/src/db.rs` (`inline-only` skips artifact encode/upload)
+  - `scripts/run_full_compute_debug.sh --result-persist-mode <mode>`
 
 3. Improve full-run report precision
 - Current shell report rounds to integer seconds for some fields.

@@ -13,6 +13,16 @@ pub enum RunMode {
     Both,
 }
 
+/// Result persistence policy for solve jobs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum ResultPersistMode {
+    /// Default behavior: encode artifact and upload when payload is large.
+    Normal,
+    /// Benchmark-friendly behavior: always store inline JSON and skip artifact upload.
+    #[value(alias = "inline_only")]
+    InlineOnly,
+}
+
 /// CLI + env config.
 #[derive(Debug, Clone, Parser)]
 #[command(name = "solver-worker")]
@@ -62,6 +72,9 @@ pub struct AppConfig {
     /// Maximum payload bytes kept inline in `lca_results.payload`.
     #[arg(long, env = "RESULT_INLINE_MAX_BYTES", default_value_t = 262_144_usize)]
     pub result_inline_max_bytes: usize,
+    /// Result persistence mode for solve jobs.
+    #[arg(long, env = "RESULT_PERSIST_MODE", default_value = "normal")]
+    pub result_persist_mode: ResultPersistMode,
 }
 
 impl AppConfig {

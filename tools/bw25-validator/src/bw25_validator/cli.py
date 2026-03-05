@@ -86,6 +86,7 @@ class RustComputeTiming:
 
 @dataclass
 class RustPersistenceTiming:
+    persist_mode: str | None
     encode_artifact_sec: float | None
     upload_artifact_sec: float | None
     db_write_sec: float | None
@@ -276,6 +277,7 @@ def main() -> None:
                 "comparable_compute_sec": rust_compute_timing.comparable_compute_sec,
             },
             "rust_persistence": {
+                "persist_mode": rust_persistence_timing.persist_mode,
                 "encode_artifact_sec": rust_persistence_timing.encode_artifact_sec,
                 "upload_artifact_sec": rust_persistence_timing.upload_artifact_sec,
                 "db_write_sec": rust_persistence_timing.db_write_sec,
@@ -511,13 +513,17 @@ def extract_rust_persistence_timing(
     result_diagnostics: dict[str, Any] | None,
 ) -> RustPersistenceTiming:
     if not result_diagnostics:
-        return RustPersistenceTiming(None, None, None, None)
+        return RustPersistenceTiming(None, None, None, None, None)
+
+    persist_mode = result_diagnostics.get("persist_mode")
+    persist_mode_str = str(persist_mode) if persist_mode is not None else None
 
     timing = result_diagnostics.get("persistence_timing_sec")
     if not isinstance(timing, dict):
-        return RustPersistenceTiming(None, None, None, None)
+        return RustPersistenceTiming(persist_mode_str, None, None, None, None)
 
     return RustPersistenceTiming(
+        persist_mode=persist_mode_str,
         encode_artifact_sec=as_optional_float(timing.get("encode_artifact_sec")),
         upload_artifact_sec=as_optional_float(timing.get("upload_artifact_sec")),
         db_write_sec=as_optional_float(timing.get("db_write_sec")),
@@ -908,6 +914,7 @@ def render_markdown_report(report: dict[str, Any]) -> str:
             f"- rust_compute_bx_sec: `{speed['rust_compute']['bx_sec']}`",
             f"- rust_compute_cg_sec: `{speed['rust_compute']['cg_sec']}`",
             f"- rust_compute_comparable_sec: `{speed['rust_compute']['comparable_compute_sec']}`",
+            f"- rust_persistence_mode: `{speed['rust_persistence']['persist_mode']}`",
             f"- rust_persistence_encode_artifact_sec: `{speed['rust_persistence']['encode_artifact_sec']}`",
             f"- rust_persistence_upload_artifact_sec: `{speed['rust_persistence']['upload_artifact_sec']}`",
             f"- rust_persistence_db_write_sec: `{speed['rust_persistence']['db_write_sec']}`",
