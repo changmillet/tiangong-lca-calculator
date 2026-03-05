@@ -33,7 +33,7 @@ Core invariants:
 - Heavy compute only in async worker path.
 - Active scope: full-library process network solve (`lifecyclemodels` excluded from numeric solve path).
 
-## 2. Current status (as of 2026-03-04)
+## 2. Current status (as of 2026-03-05)
 
 ### 2.1 Implemented
 
@@ -142,6 +142,19 @@ Latest checks passed:
 - `python3 -m py_compile tools/bw25-validator/src/bw25_validator/cli.py`
 - `uv run --project tools/bw25-validator python -c "import pypardiso"` (Linux x86_64)
 - `./scripts/run_bw25_validation.sh --report-dir reports/bw25-validation-smoke` (manual smoke, latest solve_one target)
+- `./scripts/run_full_compute_debug.sh --snapshot-id 6201b08a-b125-43a1-b4b8-aacf5a493987` + manual bw25 validation confirms comparable-compute speed lane reporting.
+- `bash -n scripts/cleanup_local_artifacts.sh` (cleanup helper syntax check)
+
+### 2.7 Repository hygiene/docs organization (implemented)
+
+- Added optimization assessment doc:
+  - `OPTIMIZATION_REVIEW.md`
+- Added local artifact cleanup helper:
+  - `scripts/cleanup_local_artifacts.sh`
+  - supports `--dry-run`, `--with-target`
+- `.gitignore` now explicitly excludes local runtime outputs:
+  - `/logs/`
+  - `/reports/`
 
 ### 2.5 Snapshot builder status (artifact-first)
 
@@ -208,6 +221,11 @@ Latest checks passed:
   - `bw2calc`, `bw_processing`, `numpy`, `scipy`, `h5py`, `psycopg`, `boto3`, `requests`
   - `pypardiso>=0.4.6` auto-installed on `Linux x86_64` for faster Brightway sparse solve and to remove x64 warning
   - runner prefers `uv run --project tools/bw25-validator`, falls back to local virtualenv install.
+- Speed comparison behavior:
+  - prefers comparable-compute lane when available:
+    - Rust `comparable_compute_sec = solve_mx_sec + bx_sec + cg_sec`
+    - Brightway `solve_sec` and `build_plus_solve_sec`
+  - keeps job-run lane (`run_sec`) for end-to-end overhead insight.
 
 ## 3. Architecture map
 
@@ -259,6 +277,9 @@ Latest checks passed:
   - queue/API payload contracts
 - `src/bin/snapshot_builder.rs`:
   - source-table extraction + `A/B/C` build + coverage + artifact upload + metadata persist
+- `scripts/cleanup_local_artifacts.sh`:
+  - removes local generated runtime artifacts (`logs/`, `reports/`, `tools/bw25-validator/.venv/`)
+  - optional `--with-target` to also remove Rust `target/`
 
 ### 3.4 `tools/bw25-validator` (manual validation tool)
 
@@ -307,6 +328,7 @@ Input source-of-truth upstream remains:
 - Backend is UMFPACK-only; CHOLMOD/SPQR not exposed yet.
 - Brightway validator is manual-only by design and currently validates `solve_one` (not `solve_batch` aggregate logic).
 - Brightway validation assumes snapshot/result artifact schema `v1` (`snapshot-hdf5:v1`, `hdf5:v1`).
+- Current comparable-compute lane captures solver + sparse matvec (`Mx`, `Bx`, `Cg`) but does not yet split persistence I/O into encode/upload/DB sub-stages.
 
 ## 6. TODO backlog (priority)
 
@@ -323,6 +345,7 @@ Input source-of-truth upstream remains:
   - result format `hdf5:v1`
   - snapshot format `snapshot-hdf5:v1`
 - Add CI smoke for `tools/bw25-validator` (fixture snapshot + fixture solve result, threshold assertions).
+- Add `solve_one` persistence sub-timings (`encode_hdf5`, `upload`, `insert_result`) to diagnostics for full end-to-end bottleneck visibility.
 - Strengthen job/result diagnostics schema:
   - factorization stats
   - timing breakdown
@@ -390,6 +413,14 @@ Run manual Brightway25 validation (default pipeline does not trigger this automa
 
 ```bash
 ./scripts/run_bw25_validation.sh --snapshot-id <snapshot_id>
+```
+
+Clean local generated artifacts:
+
+```bash
+./scripts/cleanup_local_artifacts.sh
+./scripts/cleanup_local_artifacts.sh --dry-run
+./scripts/cleanup_local_artifacts.sh --with-target
 ```
 
 ## 9. Definition of done

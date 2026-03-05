@@ -261,3 +261,25 @@ cargo run -p solver-worker --release
 
 - 面向 AI 的持续上下文：`AGENTS.md`
 - 架构与建模方案：`LCA_SCHEMA_PLAN.md`
+- 优化评估与优先级：`OPTIMIZATION_REVIEW.md`
+
+## 10. 项目文件整理
+
+当前建议只保留“可复现代码 + 核心文档”，本地运行产物都视为临时文件：
+
+- `logs/`：运行日志（临时）
+- `reports/`：调试/验证报告（临时）
+- `tools/bw25-validator/.venv/`：本地 Python 环境（临时）
+
+一键清理：
+
+```bash
+# 清理 logs/reports/.venv
+./scripts/cleanup_local_artifacts.sh
+
+# 仅预览
+./scripts/cleanup_local_artifacts.sh --dry-run
+
+# 连同 Rust target 一起清理
+./scripts/cleanup_local_artifacts.sh --with-target
+```
