@@ -11,6 +11,8 @@ const SCHEMA_VERSION: u8 = 1;
 const DATASET_SCHEMA_VERSION: &str = "schema_version";
 const DATASET_FORMAT: &str = "format";
 const DATASET_ENVELOPE_JSON: &str = "envelope_json";
+const HDF5_DEFLATE_LEVEL: u8 = 4;
+const HDF5_CHUNK_TARGET_BYTES: usize = 256 * 1024;
 
 /// `HDF5` result artifact format persisted in object storage.
 pub const ARTIFACT_FORMAT: &str = "hdf5:v1";
@@ -113,7 +115,15 @@ fn write_hdf5_file(path: &Path, envelope_json: &[u8]) -> anyhow::Result<()> {
     file.new_dataset_builder()
         .with_data(ARTIFACT_FORMAT.as_bytes())
         .create(DATASET_FORMAT)?;
+    if !hdf5::filters::deflate_available() {
+        return Err(anyhow::anyhow!(
+            "HDF5 deflate filter is unavailable; zlib-enabled HDF5 is required"
+        ));
+    }
+    let chunk_len = envelope_json.len().clamp(1, HDF5_CHUNK_TARGET_BYTES);
     file.new_dataset_builder()
+        .chunk((chunk_len,))
+        .deflate(HDF5_DEFLATE_LEVEL)
         .with_data(envelope_json)
         .create(DATASET_ENVELOPE_JSON)?;
 
@@ -124,6 +134,7 @@ fn write_hdf5_file(path: &Path, envelope_json: &[u8]) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use hdf5::File;
+    use hdf5::filters::Filter;
     use serde::Deserialize;
     use solver_core::{FactorizationState, SolveBatchResult, SolveResult};
     use tempfile::Builder;
@@ -131,7 +142,7 @@ mod tests {
 
     use super::{
         ARTIFACT_CONTENT_TYPE, ARTIFACT_EXTENSION, ARTIFACT_FORMAT, DATASET_ENVELOPE_JSON,
-        DATASET_FORMAT, DATASET_SCHEMA_VERSION, encode_solve_batch_artifact,
+        DATASET_FORMAT, DATASET_SCHEMA_VERSION, HDF5_DEFLATE_LEVEL, encode_solve_batch_artifact,
         encode_solve_one_artifact,
     };
 
@@ -199,6 +210,14 @@ mod tests {
             .to_vec();
         let envelope: EnvelopeOne =
             serde_json::from_slice(&envelope_bytes).expect("parse envelope");
+        let envelope_ds = file
+            .dataset(DATASET_ENVELOPE_JSON)
+            .expect("envelope_json dataset");
+        assert!(envelope_ds.is_chunked());
+        let filters = envelope_ds.filters();
+        assert!(filters.iter().any(
+            |filter| matches!(filter, Filter::Deflate(level) if *level == HDF5_DEFLATE_LEVEL)
+        ));
 
         assert_eq!(envelope.version, 1);
         assert_eq!(envelope.format, ARTIFACT_FORMAT);

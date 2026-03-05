@@ -51,6 +51,7 @@ Core invariants:
   - `solve_one` / `solve_batch`
   - timed solve breakdown for `solve_one` (`solve_mx_sec`, `bx_sec`, `cg_sec`, `comparable_compute_sec`)
   - result persistence timing breakdown (`encode_artifact_sec`, `upload_artifact_sec`, `db_write_sec`, `total_sec`)
+  - result/snapshot HDF5 artifacts use chunked `deflate` compression (level 4) on `envelope_json`
   - job status DB write timing in `lca_jobs.diagnostics.job_status_update_timing_sec` (`running/ready/completed/failed` + `last_*`)
   - benchmark persist mode switch (`normal` / `inline-only`)
   - solve output assembly avoids eager evaluation for unrequested vectors (`return_x/return_g/return_h`)
@@ -109,6 +110,7 @@ Hybrid persistence is now active in `solver-worker`:
   - format id: `hdf5:v1`
   - extension: `.h5`
   - checksum: SHA-256 (hex)
+  - compression: `HDF5 deflate` filter (zlib, level 4, chunked dataset)
 - If encoded bytes `< RESULT_INLINE_MAX_BYTES` (default 256KB):
   - store JSON payload inline in `lca_results.payload`
 - If encoded bytes `>= RESULT_INLINE_MAX_BYTES` and S3 config exists:
@@ -139,7 +141,7 @@ Object storage config keys:
 
 Uploads are authenticated with AWS SigV4 (`Authorization` + `x-amz-date` + `x-amz-content-sha256`).
 
-`HDF5` build mode in this repo uses `hdf5-sys(static)`; build host must provide `cmake`.
+`HDF5` build mode in this repo uses `hdf5-sys(static,zlib)`; build host must provide `cmake`.
 
 `DATABASE_URL` is preferred DB env var; `CONN` is accepted fallback.
 
@@ -164,6 +166,8 @@ Latest checks passed:
 - `./scripts/run_full_compute_debug.sh --result-persist-mode inline-only --report-dir reports/full-run-step4 --log-dir logs/full-run-step4`
 - `./scripts/run_bw25_validation.sh --result-id 18157632-551e-457b-98df-4a420faacc18 --report-dir reports/bw25-validation-step4`
 - `RESULT_PERSIST_MODE=inline-only ./scripts/run_full_compute_debug.sh --report-dir reports/full-run-step5` (queue + DB write telemetry smoke)
+- `./scripts/run_full_compute_debug.sh --report-dir reports/full-run-step6` (normal mode, compressed artifact smoke)
+- `./scripts/run_bw25_validation.sh --result-id 1b49f6eb-6d46-43da-bd61-d56c78b393cc --report-dir reports/bw25-validation-step6`
 
 ### 2.7 Repository hygiene/docs organization (implemented)
 
@@ -186,7 +190,7 @@ Latest checks passed:
   - default `--process-limit 0` (no limit)
   - supports `--process-states all` to disable `state_code` filtering entirely
 - Builder output:
-  - uploads snapshot matrix artifact to S3 (`snapshot-hdf5:v1`)
+  - uploads snapshot matrix artifact to S3 (`snapshot-hdf5:v1`, HDF5 deflate compressed)
   - writes metadata to `lca_network_snapshots` and `lca_snapshot_artifacts`
   - writes coverage report:
     - `reports/snapshot-coverage/<snapshot_id>.json`
@@ -294,9 +298,11 @@ Latest checks passed:
   - delays `serde_json::to_value(...)` for normal mode until inline path is required (small result or upload fallback)
 - `src/artifacts.rs`:
   - artifact envelope encode (`hdf5:v1`)
+  - `envelope_json` dataset uses chunked `deflate` compression (level 4)
   - SHA-256 checksum
 - `src/snapshot_artifacts.rs`:
   - snapshot artifact encode/decode (`snapshot-hdf5:v1`)
+  - `envelope_json` dataset uses chunked `deflate` compression (level 4)
   - snapshot build config + coverage metadata model
 - `src/storage.rs`:
   - S3-compatible upload/download client (path-style URL)
@@ -360,6 +366,7 @@ Input source-of-truth upstream remains:
 - Backend is UMFPACK-only; CHOLMOD/SPQR not exposed yet.
 - Brightway validator is manual-only by design and currently validates `solve_one` (not `solve_batch` aggregate logic).
 - Brightway validation assumes snapshot/result artifact schema `v1` (`snapshot-hdf5:v1`, `hdf5:v1`).
+- Compression now depends on HDF5 `deflate` filter availability; runtime encoding fails if binary is built without zlib-enabled HDF5.
 - `job_status_update_timing_sec.*` is measured client-side around the main `UPDATE lca_jobs ... status` call and then persisted via a diagnostics-only follow-up update.
 - Current `persistence_timing_sec.db_write_sec` measures `INSERT lca_results` latency; diagnostics are finalized with a follow-up `UPDATE`, which is not included in `db_write_sec`.
 - `inline-only` benchmark mode still writes full JSON payload to `lca_results`; for very large vectors this can increase DB row size/IO.
@@ -394,6 +401,7 @@ Input source-of-truth upstream remains:
 - Add structured metrics and queue lag observability.
 - Add signed S3 upload path (or managed storage SDK) for private bucket setups.
 - Extend Brightway validator coverage to `solve_batch` and multi-impact (`impact_count > 1`) paths.
+- Add compression telemetry fields (`raw_bytes`, `compressed_bytes`, `ratio`, `compress_sec`) to reports for sustained tuning.
 
 ### P2
 

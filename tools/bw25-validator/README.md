@@ -5,6 +5,7 @@ Manual-only Brightway25 cross-check tool for this repository.
 It validates one `solve_one` result against a Brightway reconstruction from the same snapshot artifact:
 
 - input: `lca_snapshot_artifacts` (`snapshot-hdf5:v1`) + `lca_results` (`hdf5:v1` or inline payload)
+  - both artifact formats support HDF5 built-in `deflate` compression transparently
 - compute: Brightway `LCA(..., data_objs=[datapackage])` on technosphere matrix `M`
 - compare: `x`, `g`, `h` vectors + residuals
 - speed compare: prefer Rust comparable compute time (`solve_mx + bx + cg`) against Brightway solve/build+solve timings

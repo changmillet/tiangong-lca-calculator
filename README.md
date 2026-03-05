@@ -42,6 +42,12 @@
 - 格式标识：`hdf5:v1`
 - 文件后缀：`.h5`
 - 哈希：`SHA-256`
+- 压缩：`HDF5 deflate`（内置 zlib，level=4，chunked dataset）
+
+说明：
+
+- 压缩作用在 `envelope_json` dataset（不是额外包一层 `.gz`）
+- `hdf5:v1` / `snapshot-hdf5:v1` 的读写接口保持不变，读取端会透明解压
 
 默认阈值：
 
@@ -95,7 +101,7 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260304120000_lca_drop_l
 - 不限 process 数量（`--process-limit` 默认 `0`，即 no limit）
 - 生成 coverage 报表到 `reports/snapshot-coverage/<snapshot_id>.{json,md}`
 - 报表包含：匹配率、奇异风险、矩阵规模、build 分阶段耗时
-- 矩阵 artifact 直接写入 S3（`snapshot-hdf5:v1`）
+- 矩阵 artifact 直接写入 S3（`snapshot-hdf5:v1`，HDF5 deflate 压缩）
 
 常用参数：
 
@@ -164,7 +170,7 @@ sudo apt-get update
 sudo apt-get install -y libsuitesparse-dev libopenblas-dev liblapack-dev pkg-config cmake
 ```
 
-说明：`HDF5` 通过 `hdf5-sys(static)` 在编译期构建，因此需要本机可用 `cmake`。
+说明：`HDF5` 通过 `hdf5-sys(static,zlib)` 在编译期构建，因此需要本机可用 `cmake`。
 
 质量检查：
 

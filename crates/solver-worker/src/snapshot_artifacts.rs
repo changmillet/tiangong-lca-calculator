@@ -11,6 +11,8 @@ const SCHEMA_VERSION: u8 = 1;
 const DATASET_SCHEMA_VERSION: &str = "schema_version";
 const DATASET_FORMAT: &str = "format";
 const DATASET_ENVELOPE_JSON: &str = "envelope_json";
+const HDF5_DEFLATE_LEVEL: u8 = 4;
+const HDF5_CHUNK_TARGET_BYTES: usize = 256 * 1024;
 
 /// Snapshot matrix artifact format identifier.
 pub const SNAPSHOT_ARTIFACT_FORMAT: &str = "snapshot-hdf5:v1";
@@ -199,7 +201,15 @@ fn write_hdf5_file(path: &Path, envelope_json: &[u8]) -> anyhow::Result<()> {
     file.new_dataset_builder()
         .with_data(SNAPSHOT_ARTIFACT_FORMAT.as_bytes())
         .create(DATASET_FORMAT)?;
+    if !hdf5::filters::deflate_available() {
+        return Err(anyhow::anyhow!(
+            "HDF5 deflate filter is unavailable; zlib-enabled HDF5 is required"
+        ));
+    }
+    let chunk_len = envelope_json.len().clamp(1, HDF5_CHUNK_TARGET_BYTES);
     file.new_dataset_builder()
+        .chunk((chunk_len,))
+        .deflate(HDF5_DEFLATE_LEVEL)
         .with_data(envelope_json)
         .create(DATASET_ENVELOPE_JSON)?;
     file.flush()?;
@@ -208,12 +218,15 @@ fn write_hdf5_file(path: &Path, envelope_json: &[u8]) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use hdf5::File;
+    use hdf5::filters::Filter;
     use solver_core::{ModelSparseData, SparseTriplet};
+    use tempfile::Builder;
 
     use super::{
-        SNAPSHOT_ARTIFACT_FORMAT, SnapshotBuildConfig, SnapshotCoverageReport,
-        SnapshotMatchingCoverage, SnapshotMatrixScale, SnapshotSingularRisk,
-        decode_snapshot_artifact, encode_snapshot_artifact,
+        DATASET_ENVELOPE_JSON, HDF5_DEFLATE_LEVEL, SNAPSHOT_ARTIFACT_FORMAT, SnapshotBuildConfig,
+        SnapshotCoverageReport, SnapshotMatchingCoverage, SnapshotMatrixScale,
+        SnapshotSingularRisk, decode_snapshot_artifact, encode_snapshot_artifact,
     };
 
     #[test]
@@ -297,11 +310,30 @@ mod tests {
                 .expect("encode");
         assert_eq!(encoded.format, SNAPSHOT_ARTIFACT_FORMAT);
         assert_eq!(encoded.byte_size, encoded.bytes.len());
+        let file = write_and_open_hdf5(encoded.bytes.as_slice());
+        let envelope_ds = file
+            .dataset(DATASET_ENVELOPE_JSON)
+            .expect("envelope_json dataset");
+        assert!(envelope_ds.is_chunked());
+        let filters = envelope_ds.filters();
+        assert!(filters.iter().any(
+            |filter| matches!(filter, Filter::Deflate(level) if *level == HDF5_DEFLATE_LEVEL)
+        ));
 
         let decoded = decode_snapshot_artifact(encoded.bytes.as_slice()).expect("decode");
         assert_eq!(decoded.snapshot_id, snapshot_id);
         assert_eq!(decoded.config, config);
         assert_eq!(decoded.coverage, coverage);
         assert_eq!(decoded.payload, payload);
+    }
+
+    fn write_and_open_hdf5(bytes: &[u8]) -> File {
+        let temp = Builder::new()
+            .prefix("lca-snapshot-artifact-test-")
+            .suffix(".h5")
+            .tempfile()
+            .expect("create tempfile");
+        std::fs::write(temp.path(), bytes).expect("write hdf5 bytes");
+        File::open(temp.path()).expect("open hdf5 file")
     }
 }

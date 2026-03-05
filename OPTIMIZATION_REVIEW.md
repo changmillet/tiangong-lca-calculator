@@ -69,9 +69,16 @@ Conclusion:
   - `crates/solver-worker/src/db.rs` (`lca_jobs.diagnostics.job_status_update_timing_sec`, per-status status-write DB latency)
   - `scripts/run_full_compute_debug.sh` (`job_db_write_timing_sec` in JSON/MD report)
 
-6. Add artifact compression option
+6. Add artifact compression option (Completed 2026-03-05)
 - Evaluate `gzip/zstd` for HDF5 payloads depending on data shape.
 - Goal: reduce upload time and storage cost.
+- Implemented in:
+  - `crates/solver-worker/src/artifacts.rs` (`hdf5:v1` writes `envelope_json` as chunked `deflate(level=4)`)
+  - `crates/solver-worker/src/snapshot_artifacts.rs` (`snapshot-hdf5:v1` writes `envelope_json` as chunked `deflate(level=4)`)
+  - workspace dependency update: `hdf5-sys(static,zlib)` in `Cargo.toml`
+  - compatibility smoke:
+    - `./scripts/run_full_compute_debug.sh --report-dir reports/full-run-step6`
+    - `./scripts/run_bw25_validation.sh --result-id 1b49f6eb-6d46-43da-bd61-d56c78b393cc --report-dir reports/bw25-validation-step6`
 
 ### P2
 
@@ -100,10 +107,10 @@ Do not mix lanes when declaring “who is faster”.
 
 ## 4. Suggested next implementation step
 
-Implement artifact compression toggle and A/B it in reports:
+Add compression telemetry and A/B reporting:
 
-- add optional compression mode (e.g. `zstd`) for result/snapshot HDF5 artifacts
-- compare upload latency + byte size + end-to-end run time under `normal` persist mode
-- keep validator regression checks to ensure payload compatibility
+- surface `raw_bytes`, `compressed_bytes`, `compression_ratio`, `compress_sec` in result/snapshot reports
+- compare `upload_artifact_sec` and end-to-end job timing across representative snapshot sizes
+- keep BW25 validation in the benchmark loop to guard against encode/decode regressions
 
-This is the next highest-ROI item after queue/DB telemetry is in place.
+This is the next highest-ROI step after enabling HDF5 built-in compression.
