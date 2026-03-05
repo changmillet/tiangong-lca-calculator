@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use serde_json::Value;
+use serde_json::{Map, Value};
 use solver_core::{
     ModelSparseData, NumericOptions, PrepareResult, SolveBatchResult, SolveComputationTiming,
     SolveOptions, SolveResult, SolverService, SparseTriplet,
@@ -146,7 +146,8 @@ pub async fn update_job_status(
     job_id: Uuid,
     status: &str,
     diagnostics: Value,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<f64> {
+    let db_write_started = Instant::now();
     let _ = sqlx::query(
         r"
         UPDATE lca_jobs
@@ -154,16 +155,24 @@ pub async fn update_job_status(
             diagnostics = $3::jsonb,
             updated_at = NOW(),
             started_at = CASE WHEN $2 = 'running' AND started_at IS NULL THEN NOW() ELSE started_at END,
-            finished_at = CASE WHEN $2 IN ('completed','failed') THEN NOW() ELSE finished_at END
+            finished_at = CASE WHEN $2 IN ('completed','failed') AND finished_at IS NULL THEN NOW() ELSE finished_at END
         WHERE id = $1
         ",
     )
     .bind(job_id)
     .bind(status)
-    .bind(diagnostics)
+    .bind(diagnostics.clone())
     .execute(pool)
     .await?;
-    Ok(())
+    let db_write_sec = db_write_started.elapsed().as_secs_f64();
+
+    let diagnostics_with_timing =
+        merge_job_status_update_timing(diagnostics.clone(), status, db_write_sec);
+    if diagnostics_with_timing != diagnostics {
+        set_job_diagnostics(pool, job_id, diagnostics_with_timing).await?;
+    }
+
+    Ok(db_write_sec)
 }
 
 #[derive(Debug, Default)]
@@ -232,6 +241,53 @@ async fn update_result_diagnostics(
     .execute(pool)
     .await?;
     Ok(())
+}
+
+#[instrument(skip(pool, diagnostics))]
+async fn set_job_diagnostics(
+    pool: &PgPool,
+    job_id: Uuid,
+    diagnostics: Value,
+) -> anyhow::Result<()> {
+    let _ = sqlx::query(
+        r"
+        UPDATE lca_jobs
+        SET diagnostics = $2::jsonb
+        WHERE id = $1
+        ",
+    )
+    .bind(job_id)
+    .bind(diagnostics)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+fn merge_job_status_update_timing(
+    mut diagnostics: Value,
+    status: &str,
+    db_write_sec: f64,
+) -> Value {
+    let Value::Object(ref mut root) = diagnostics else {
+        return diagnostics;
+    };
+
+    let timing_value = root
+        .entry("job_status_update_timing_sec".to_owned())
+        .or_insert_with(|| Value::Object(Map::new()));
+    if !timing_value.is_object() {
+        *timing_value = Value::Object(Map::new());
+    }
+
+    let Some(timing) = timing_value.as_object_mut() else {
+        return diagnostics;
+    };
+
+    timing.insert(format!("{status}_db_write_sec"), Value::from(db_write_sec));
+    timing.insert("last_status".to_owned(), Value::String(status.to_owned()));
+    timing.insert("last_db_write_sec".to_owned(), Value::from(db_write_sec));
+
+    diagnostics
 }
 
 #[derive(Debug, Clone)]
@@ -408,7 +464,7 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
             snapshot_id,
             print_level,
         } => {
-            update_job_status(
+            let running_db_write_sec = update_job_status(
                 &state.pool,
                 job_id,
                 "running",
@@ -424,13 +480,12 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
                 },
             )?;
 
-            update_job_status(
-                &state.pool,
-                job_id,
-                "ready",
+            let ready_diag = merge_job_status_update_timing(
                 serde_json::to_value(prepared)?,
-            )
-            .await?;
+                "running",
+                running_db_write_sec,
+            );
+            let _ = update_job_status(&state.pool, job_id, "ready", ready_diag).await?;
         }
         JobPayload::SolveOne {
             job_id,
@@ -439,7 +494,7 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
             solve,
             print_level,
         } => {
-            update_job_status(
+            let running_db_write_sec = update_job_status(
                 &state.pool,
                 job_id,
                 "running",
@@ -460,13 +515,12 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
             let result_diag =
                 persist_solve_one_result(state, job_id, snapshot_id, &solved, &timed.timing)
                     .await?;
-            update_job_status(
-                &state.pool,
-                job_id,
-                "completed",
+            let completed_diag = merge_job_status_update_timing(
                 serde_json::json!({"result": "stored", "storage": result_diag}),
-            )
-            .await?;
+                "running",
+                running_db_write_sec,
+            );
+            let _ = update_job_status(&state.pool, job_id, "completed", completed_diag).await?;
         }
         JobPayload::SolveBatch {
             job_id,
@@ -475,7 +529,7 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
             solve,
             print_level,
         } => {
-            update_job_status(
+            let running_db_write_sec = update_job_status(
                 &state.pool,
                 job_id,
                 "running",
@@ -494,20 +548,19 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
 
             let result_diag =
                 persist_solve_batch_result(state, job_id, snapshot_id, &solved).await?;
-            update_job_status(
-                &state.pool,
-                job_id,
-                "completed",
+            let completed_diag = merge_job_status_update_timing(
                 serde_json::json!({"result": "stored", "storage": result_diag}),
-            )
-            .await?;
+                "running",
+                running_db_write_sec,
+            );
+            let _ = update_job_status(&state.pool, job_id, "completed", completed_diag).await?;
         }
         JobPayload::InvalidateFactorization {
             job_id,
             snapshot_id,
         } => {
             let invalidated = state.solver.invalidate(snapshot_id);
-            update_job_status(
+            let _ = update_job_status(
                 &state.pool,
                 job_id,
                 "completed",
@@ -528,7 +581,7 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
                     print_level: print_level.unwrap_or(0.0),
                 },
             )?;
-            update_job_status(
+            let _ = update_job_status(
                 &state.pool,
                 job_id,
                 "ready",

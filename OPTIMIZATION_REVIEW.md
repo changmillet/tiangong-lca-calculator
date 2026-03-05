@@ -62,9 +62,12 @@ Conclusion:
   - `crates/solver-core/src/service.rs` (`solve_one_timed` output assembly avoids eager default evaluation)
   - `crates/solver-worker/src/db.rs` (normal mode result JSON serialization is lazy and only executed on inline path)
 
-5. Add queue and DB latency telemetry
+5. Add queue and DB latency telemetry (Completed 2026-03-05)
 - Track time from enqueue to worker pickup, and DB write latency.
 - Goal: separate queue pressure from compute issues.
+- Implemented in:
+  - `crates/solver-worker/src/db.rs` (`lca_jobs.diagnostics.job_status_update_timing_sec`, per-status status-write DB latency)
+  - `scripts/run_full_compute_debug.sh` (`job_db_write_timing_sec` in JSON/MD report)
 
 6. Add artifact compression option
 - Evaluate `gzip/zstd` for HDF5 payloads depending on data shape.
@@ -97,10 +100,10 @@ Do not mix lanes when declaring “who is faster”.
 
 ## 4. Suggested next implementation step
 
-Implement queue/DB latency telemetry and expose it in reports as first-class fields:
+Implement artifact compression toggle and A/B it in reports:
 
-- queue backlog and dequeue latency by interval
-- DB write latency breakdown for `lca_jobs` vs `lca_results`
-- basic percentiles in report summaries
+- add optional compression mode (e.g. `zstd`) for result/snapshot HDF5 artifacts
+- compare upload latency + byte size + end-to-end run time under `normal` persist mode
+- keep validator regression checks to ensure payload compatibility
 
-This will make throughput regressions easier to locate during larger-scale runs.
+This is the next highest-ROI item after queue/DB telemetry is in place.

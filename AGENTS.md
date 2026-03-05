@@ -51,6 +51,7 @@ Core invariants:
   - `solve_one` / `solve_batch`
   - timed solve breakdown for `solve_one` (`solve_mx_sec`, `bx_sec`, `cg_sec`, `comparable_compute_sec`)
   - result persistence timing breakdown (`encode_artifact_sec`, `upload_artifact_sec`, `db_write_sec`, `total_sec`)
+  - job status DB write timing in `lca_jobs.diagnostics.job_status_update_timing_sec` (`running/ready/completed/failed` + `last_*`)
   - benchmark persist mode switch (`normal` / `inline-only`)
   - solve output assembly avoids eager evaluation for unrequested vectors (`return_x/return_g/return_h`)
   - normal persist path uses lazy JSON serialization (serialize only when inline path is actually used)
@@ -162,6 +163,7 @@ Latest checks passed:
 - `./scripts/run_bw25_validation.sh --result-id 50f6f0c2-863a-49df-ba63-383ac77d51e7 --report-dir reports/bw25-validation-ms-precision`
 - `./scripts/run_full_compute_debug.sh --result-persist-mode inline-only --report-dir reports/full-run-step4 --log-dir logs/full-run-step4`
 - `./scripts/run_bw25_validation.sh --result-id 18157632-551e-457b-98df-4a420faacc18 --report-dir reports/bw25-validation-step4`
+- `RESULT_PERSIST_MODE=inline-only ./scripts/run_full_compute_debug.sh --report-dir reports/full-run-step5` (queue + DB write telemetry smoke)
 
 ### 2.7 Repository hygiene/docs organization (implemented)
 
@@ -216,6 +218,7 @@ Latest checks passed:
   - includes DB-derived job timing:
     - `job_timing_sec.prepare.{queue_wait,run,end_to_end}`
     - `job_timing_sec.solve.{queue_wait,run,end_to_end}`
+    - `job_db_write_timing_sec.{prepare,solve}.{running,ready,completed,failed,last,last_status}`
     - UTC timestamps under `jobs.{prepare_*,solve_*}`
   - auto-discovers latest snapshot coverage report by `snapshot_id` and attaches build source metadata (`reused_snapshot`, `build_report_json`) into full-run report.
 
@@ -283,6 +286,7 @@ Latest checks passed:
   - reads snapshot sparse data from `lca_snapshot_artifacts` first
   - fallback reads from legacy `lca_*` entry tables
   - updates `lca_jobs`
+  - records per-status `lca_jobs` DB write latency in `diagnostics.job_status_update_timing_sec`
   - writes `lca_results` payload/metadata
   - stores `solve_one` compute timings in `lca_results.diagnostics.compute_timing_sec`
   - stores result persistence split timings in `lca_results.diagnostics.persistence_timing_sec`
@@ -356,6 +360,7 @@ Input source-of-truth upstream remains:
 - Backend is UMFPACK-only; CHOLMOD/SPQR not exposed yet.
 - Brightway validator is manual-only by design and currently validates `solve_one` (not `solve_batch` aggregate logic).
 - Brightway validation assumes snapshot/result artifact schema `v1` (`snapshot-hdf5:v1`, `hdf5:v1`).
+- `job_status_update_timing_sec.*` is measured client-side around the main `UPDATE lca_jobs ... status` call and then persisted via a diagnostics-only follow-up update.
 - Current `persistence_timing_sec.db_write_sec` measures `INSERT lca_results` latency; diagnostics are finalized with a follow-up `UPDATE`, which is not included in `db_write_sec`.
 - `inline-only` benchmark mode still writes full JSON payload to `lca_results`; for very large vectors this can increase DB row size/IO.
 - `timing_sec.prepare_job/solve_job` are orchestrator wall-clock spans and intentionally differ from DB `job_timing_sec.*` (which isolates queue wait/run/end-to-end from DB timestamps).

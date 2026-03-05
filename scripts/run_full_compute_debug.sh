@@ -297,6 +297,12 @@ PREPARE_DB_END_TO_END_SEC=""
 PREPARE_DB_CREATED_UTC=""
 PREPARE_DB_STARTED_UTC=""
 PREPARE_DB_FINISHED_UTC=""
+PREPARE_DB_STATUS_WRITE_RUNNING_SEC=""
+PREPARE_DB_STATUS_WRITE_READY_SEC=""
+PREPARE_DB_STATUS_WRITE_COMPLETED_SEC=""
+PREPARE_DB_STATUS_WRITE_FAILED_SEC=""
+PREPARE_DB_STATUS_WRITE_LAST_SEC=""
+PREPARE_DB_STATUS_WRITE_LAST_STATUS=""
 SOLVE_DB_STATUS=""
 SOLVE_DB_QUEUE_WAIT_SEC=""
 SOLVE_DB_RUN_SEC=""
@@ -304,6 +310,12 @@ SOLVE_DB_END_TO_END_SEC=""
 SOLVE_DB_CREATED_UTC=""
 SOLVE_DB_STARTED_UTC=""
 SOLVE_DB_FINISHED_UTC=""
+SOLVE_DB_STATUS_WRITE_RUNNING_SEC=""
+SOLVE_DB_STATUS_WRITE_READY_SEC=""
+SOLVE_DB_STATUS_WRITE_COMPLETED_SEC=""
+SOLVE_DB_STATUS_WRITE_FAILED_SEC=""
+SOLVE_DB_STATUS_WRITE_LAST_SEC=""
+SOLVE_DB_STATUS_WRITE_LAST_STATUS=""
 
 exec > >(tee -a "$RUN_LOG") 2>&1
 
@@ -391,6 +403,7 @@ load_job_timing_from_db() {
   local job_id="$1"
   local prefix="$2"
   local line status queue_wait run_sec end_to_end created_utc started_utc finished_utc
+  local write_running write_ready write_completed write_failed write_last write_last_status
   line="$(sql_scalar_soft "
   SELECT
     COALESCE(status, ''),
@@ -399,13 +412,21 @@ load_job_timing_from_db() {
     COALESCE(EXTRACT(EPOCH FROM (COALESCE(finished_at, updated_at) - created_at))::text, ''),
     COALESCE(to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'), ''),
     COALESCE(to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'), ''),
-    COALESCE(to_char(COALESCE(finished_at, updated_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'), '')
+    COALESCE(to_char(COALESCE(finished_at, updated_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'), ''),
+    COALESCE(diagnostics #>> '{job_status_update_timing_sec,running_db_write_sec}', ''),
+    COALESCE(diagnostics #>> '{job_status_update_timing_sec,ready_db_write_sec}', ''),
+    COALESCE(diagnostics #>> '{job_status_update_timing_sec,completed_db_write_sec}', ''),
+    COALESCE(diagnostics #>> '{job_status_update_timing_sec,failed_db_write_sec}', ''),
+    COALESCE(diagnostics #>> '{job_status_update_timing_sec,last_db_write_sec}', ''),
+    COALESCE(diagnostics #>> '{job_status_update_timing_sec,last_status}', '')
   FROM public.lca_jobs
   WHERE id = '$job_id'::uuid
   LIMIT 1;
   ")"
 
-  IFS='|' read -r status queue_wait run_sec end_to_end created_utc started_utc finished_utc <<< "$line"
+  IFS='|' read -r \
+    status queue_wait run_sec end_to_end created_utc started_utc finished_utc \
+    write_running write_ready write_completed write_failed write_last write_last_status <<< "$line"
   eval "${prefix}_STATUS=\"\$status\""
   eval "${prefix}_QUEUE_WAIT_SEC=\"\$queue_wait\""
   eval "${prefix}_RUN_SEC=\"\$run_sec\""
@@ -413,6 +434,12 @@ load_job_timing_from_db() {
   eval "${prefix}_CREATED_UTC=\"\$created_utc\""
   eval "${prefix}_STARTED_UTC=\"\$started_utc\""
   eval "${prefix}_FINISHED_UTC=\"\$finished_utc\""
+  eval "${prefix}_STATUS_WRITE_RUNNING_SEC=\"\$write_running\""
+  eval "${prefix}_STATUS_WRITE_READY_SEC=\"\$write_ready\""
+  eval "${prefix}_STATUS_WRITE_COMPLETED_SEC=\"\$write_completed\""
+  eval "${prefix}_STATUS_WRITE_FAILED_SEC=\"\$write_failed\""
+  eval "${prefix}_STATUS_WRITE_LAST_SEC=\"\$write_last\""
+  eval "${prefix}_STATUS_WRITE_LAST_STATUS=\"\$write_last_status\""
 }
 
 write_run_report() {
@@ -504,6 +531,24 @@ write_run_report() {
       "end_to_end": $(empty_to_null "$SOLVE_DB_END_TO_END_SEC")
     }
   },
+  "job_db_write_timing_sec": {
+    "prepare": {
+      "running": $(empty_to_null "$PREPARE_DB_STATUS_WRITE_RUNNING_SEC"),
+      "ready": $(empty_to_null "$PREPARE_DB_STATUS_WRITE_READY_SEC"),
+      "completed": $(empty_to_null "$PREPARE_DB_STATUS_WRITE_COMPLETED_SEC"),
+      "failed": $(empty_to_null "$PREPARE_DB_STATUS_WRITE_FAILED_SEC"),
+      "last": $(empty_to_null "$PREPARE_DB_STATUS_WRITE_LAST_SEC"),
+      "last_status": $(empty_to_json_string_or_null "$PREPARE_DB_STATUS_WRITE_LAST_STATUS")
+    },
+    "solve": {
+      "running": $(empty_to_null "$SOLVE_DB_STATUS_WRITE_RUNNING_SEC"),
+      "ready": $(empty_to_null "$SOLVE_DB_STATUS_WRITE_READY_SEC"),
+      "completed": $(empty_to_null "$SOLVE_DB_STATUS_WRITE_COMPLETED_SEC"),
+      "failed": $(empty_to_null "$SOLVE_DB_STATUS_WRITE_FAILED_SEC"),
+      "last": $(empty_to_null "$SOLVE_DB_STATUS_WRITE_LAST_SEC"),
+      "last_status": $(empty_to_json_string_or_null "$SOLVE_DB_STATUS_WRITE_LAST_STATUS")
+    }
+  },
   "build": {
     "reused_snapshot": $build_reused_json,
     "report_json": $(if [ -n "$BUILD_REPORT_JSON" ]; then as_json_string "$BUILD_REPORT_JSON"; else printf 'null'; fi)
@@ -568,6 +613,16 @@ JSON
 - solve_job_queue_wait: \`$SOLVE_DB_QUEUE_WAIT_SEC\`
 - solve_job_run: \`$SOLVE_DB_RUN_SEC\`
 - solve_job_end_to_end: \`$SOLVE_DB_END_TO_END_SEC\`
+- prepare_status_write_running_sec: \`$PREPARE_DB_STATUS_WRITE_RUNNING_SEC\`
+- prepare_status_write_ready_sec: \`$PREPARE_DB_STATUS_WRITE_READY_SEC\`
+- prepare_status_write_completed_sec: \`$PREPARE_DB_STATUS_WRITE_COMPLETED_SEC\`
+- prepare_status_write_failed_sec: \`$PREPARE_DB_STATUS_WRITE_FAILED_SEC\`
+- prepare_status_write_last_sec: \`$PREPARE_DB_STATUS_WRITE_LAST_SEC\` (\`$PREPARE_DB_STATUS_WRITE_LAST_STATUS\`)
+- solve_status_write_running_sec: \`$SOLVE_DB_STATUS_WRITE_RUNNING_SEC\`
+- solve_status_write_ready_sec: \`$SOLVE_DB_STATUS_WRITE_READY_SEC\`
+- solve_status_write_completed_sec: \`$SOLVE_DB_STATUS_WRITE_COMPLETED_SEC\`
+- solve_status_write_failed_sec: \`$SOLVE_DB_STATUS_WRITE_FAILED_SEC\`
+- solve_status_write_last_sec: \`$SOLVE_DB_STATUS_WRITE_LAST_SEC\` (\`$SOLVE_DB_STATUS_WRITE_LAST_STATUS\`)
 
 ## Build Source
 
