@@ -514,6 +514,31 @@ set -a && source .env && set +a
 cargo run -p solver-worker --release
 ```
 
+Production-stable worker (systemd + release binary):
+
+```bash
+# build binary
+cd /home/ubuntu/projects/lca_workspace/tiangong-lca-calculator
+cargo build -p solver-worker --bin solver-worker --release
+
+# write /etc/systemd/system/solver-worker@.service
+# (template documented in README 6.2)
+
+# start 2 worker instances
+sudo systemctl daemon-reload
+sudo systemctl enable --now solver-worker@1 solver-worker@2
+
+# check logs
+systemctl status solver-worker@1 solver-worker@2 --no-pager
+journalctl -u solver-worker@1 -f
+```
+
+Operational notes:
+
+- Prefer `systemd` over `cargo run` for long-running production deployment.
+- Baseline instance count: start from 2 workers, then tune with queue lag + CPU metrics.
+- Keep `WORKER_VT_SECONDS` larger than slow-job runtime to avoid duplicate processing.
+
 Build one snapshot artifact:
 
 ```bash

@@ -294,6 +294,69 @@ set -a && source .env && set +a
 cargo run -p solver-worker --release
 ```
 
+### 6.2 生产常驻（systemd，推荐）
+
+`cargo run` 适合开发调试。生产环境建议使用 `systemd` 托管 `release` 二进制（开机自启、崩溃自恢复、统一日志）。
+
+构建：
+
+```bash
+cd /home/ubuntu/projects/lca_workspace/tiangong-lca-calculator
+cargo build -p solver-worker --bin solver-worker --release
+```
+
+创建服务模板 `/etc/systemd/system/solver-worker@.service`：
+
+```ini
+[Unit]
+Description=TianGong LCA Solver Worker %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/projects/lca_workspace/tiangong-lca-calculator
+EnvironmentFile=/home/ubuntu/projects/lca_workspace/tiangong-lca-calculator/.env
+Environment=RUST_LOG=info
+ExecStart=/home/ubuntu/projects/lca_workspace/tiangong-lca-calculator/target/release/solver-worker --mode worker --worker-vt-seconds 600 --worker-poll-ms 300
+Restart=always
+RestartSec=2
+TimeoutStopSec=30
+LimitNOFILE=65535
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+加载并启动（示例：2 个实例）：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now solver-worker@1 solver-worker@2
+```
+
+查看状态与日志：
+
+```bash
+systemctl status solver-worker@1 solver-worker@2 --no-pager
+journalctl -u solver-worker@1 -f
+journalctl -u solver-worker@2 -f
+```
+
+更新二进制后重启：
+
+```bash
+sudo systemctl restart solver-worker@1 solver-worker@2
+```
+
+建议：
+
+- 先从 2 个 worker 实例开始，再根据队列积压和 CPU 使用率调整。
+- `WORKER_VT_SECONDS` 需要大于慢任务耗时，避免消息重复消费。
+
 ## 7. 内部 API
 
 推荐路径（snapshot 语义）：
