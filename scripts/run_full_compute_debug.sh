@@ -20,7 +20,6 @@ POLL_SEC="${POLL_SEC:-2}"
 DEMAND_PROCESS_IDX="${DEMAND_PROCESS_IDX:-0}"
 PRINT_LEVEL="${PRINT_LEVEL:-0.0}"
 KEEP_WORKER_ALIVE="${KEEP_WORKER_ALIVE:-0}"
-RESULT_PERSIST_MODE="${RESULT_PERSIST_MODE:-normal}"
 BUILD_REPORT_JSON=""
 BUILD_TOTAL_SEC=""
 BUILD_REUSED_SNAPSHOT=""
@@ -39,7 +38,6 @@ Options:
   --poll-sec <sec>           job polling interval seconds (default: 2)
   --demand-process-idx <n>   rhs unit demand index (0-based, default: 0)
   --print-level <float>      UMFPACK print level (default: 0.0)
-  --result-persist-mode <m>  result persist mode: normal|inline-only (default: \$RESULT_PERSIST_MODE or normal)
   --keep-worker-alive        do not stop worker when script exits
   -h, --help                 show this help
 USAGE
@@ -79,10 +77,6 @@ while [ "$#" -gt 0 ]; do
       PRINT_LEVEL="$2"
       shift 2
       ;;
-    --result-persist-mode)
-      RESULT_PERSIST_MODE="$2"
-      shift 2
-      ;;
     --keep-worker-alive)
       KEEP_WORKER_ALIVE=1
       shift
@@ -111,12 +105,6 @@ fi
 
 if ! [[ "$DEMAND_PROCESS_IDX" =~ ^[0-9]+$ ]]; then
   echo "DEMAND_PROCESS_IDX must be a non-negative integer: $DEMAND_PROCESS_IDX" >&2
-  exit 2
-fi
-
-RESULT_PERSIST_MODE="${RESULT_PERSIST_MODE//_/-}"
-if [ "$RESULT_PERSIST_MODE" != "normal" ] && [ "$RESULT_PERSIST_MODE" != "inline-only" ]; then
-  echo "RESULT_PERSIST_MODE must be one of: normal | inline-only (got: $RESULT_PERSIST_MODE)" >&2
   exit 2
 fi
 
@@ -289,7 +277,6 @@ RESULT_ID=""
 RESULT_ARTIFACT_FORMAT=""
 RESULT_ARTIFACT_SIZE=""
 RESULT_ARTIFACT_URL=""
-RESULT_HAS_INLINE_PAYLOAD=""
 PREPARE_DB_STATUS=""
 PREPARE_DB_QUEUE_WAIT_SEC=""
 PREPARE_DB_RUN_SEC=""
@@ -322,7 +309,6 @@ exec > >(tee -a "$RUN_LOG") 2>&1
 echo "[info] run timestamp: $RUN_TS"
 echo "[info] snapshot_id: $SNAPSHOT_ID"
 echo "[info] queue_name: $QUEUE_NAME"
-echo "[info] result_persist_mode: $RESULT_PERSIST_MODE"
 echo "[info] matrix_source=$MATRIX_SOURCE"
 echo "[info] process_count=$PROCESS_COUNT flow_count=$FLOW_COUNT a_nnz=$A_NNZ b_nnz=$B_NNZ c_nnz=$C_NNZ"
 if is_decimal_number "${BUILD_TOTAL_SEC:-}"; then
@@ -500,7 +486,6 @@ write_run_report() {
   "exit_code": $exit_code,
   "snapshot_id": $(as_json_string "$SNAPSHOT_ID"),
   "queue_name": $(as_json_string "$QUEUE_NAME"),
-  "result_persist_mode": $(as_json_string "$RESULT_PERSIST_MODE"),
   "demand_process_idx": $DEMAND_PROCESS_IDX,
   "print_level": $PRINT_LEVEL,
   "matrix": {
@@ -570,8 +555,6 @@ write_run_report() {
     "artifact_format": $(as_json_string "$RESULT_ARTIFACT_FORMAT"),
     "artifact_byte_size": $(if [ -n "$RESULT_ARTIFACT_SIZE" ]; then printf '%s' "$RESULT_ARTIFACT_SIZE"; else printf 'null'; fi),
     "artifact_url": $(if [ -n "$RESULT_ARTIFACT_URL" ]; then as_json_string "$RESULT_ARTIFACT_URL"; else printf 'null'; fi),
-    "has_inline_payload": $(if [ -n "$RESULT_HAS_INLINE_PAYLOAD" ]; then printf '%s' "$RESULT_HAS_INLINE_PAYLOAD"; else printf 'null'; fi),
-    "persist_mode_applied": $(if [ -n "$RESULT_PERSIST_MODE_APPLIED" ]; then as_json_string "$RESULT_PERSIST_MODE_APPLIED"; else printf 'null'; fi),
     "compute_timing_sec": {
       "comparable_compute_sec": $(json_number_or_null "$RESULT_COMPARABLE_COMPUTE_SEC")
     },
@@ -596,7 +579,6 @@ JSON
 - status: \`$run_status\` (exit_code=\`$exit_code\`)
 - snapshot_id: \`$SNAPSHOT_ID\`
 - queue_name: \`$QUEUE_NAME\`
-- result_persist_mode: \`$RESULT_PERSIST_MODE\`
 - demand_process_idx: \`$DEMAND_PROCESS_IDX\`
 
 ## Timing (sec)
@@ -657,8 +639,6 @@ JSON
 - artifact_format: \`$RESULT_ARTIFACT_FORMAT\`
 - artifact_byte_size: \`$RESULT_ARTIFACT_SIZE\`
 - artifact_url: \`$RESULT_ARTIFACT_URL\`
-- has_inline_payload: \`$RESULT_HAS_INLINE_PAYLOAD\`
-- persist_mode_applied: \`$RESULT_PERSIST_MODE_APPLIED\`
 - comparable_compute_sec: \`$RESULT_COMPARABLE_COMPUTE_SEC\`
 - persistence_encode_artifact_sec: \`$RESULT_PERSIST_ENCODE_SEC\`
 - persistence_upload_artifact_sec: \`$RESULT_PERSIST_UPLOAD_SEC\`
@@ -703,7 +683,6 @@ WORKER_START_NS="$(now_ns)"
   export DATABASE_URL="$DB_URL"
   export PGMQ_QUEUE="$QUEUE_NAME"
   export SOLVER_MODE=worker
-  export RESULT_PERSIST_MODE="$RESULT_PERSIST_MODE"
   export RUST_LOG="${RUST_LOG:-info,solver_worker=debug,solver_core=debug}"
   export RUST_BACKTRACE="${RUST_BACKTRACE:-1}"
   "$WORKER_BIN"
@@ -849,15 +828,13 @@ enqueue_solve "$SOLVE_JOB_ID"
 poll_job "$SOLVE_JOB_ID" "solve_one"
 SOLVE_DONE_NS="$(now_ns)"
 
-IFS='|' read -r RESULT_ID RESULT_ARTIFACT_FORMAT RESULT_ARTIFACT_SIZE RESULT_ARTIFACT_URL RESULT_HAS_INLINE_PAYLOAD RESULT_PERSIST_MODE_APPLIED RESULT_COMPARABLE_COMPUTE_SEC RESULT_PERSIST_ENCODE_SEC RESULT_PERSIST_UPLOAD_SEC RESULT_PERSIST_DB_WRITE_SEC RESULT_PERSIST_TOTAL_SEC < <(
+IFS='|' read -r RESULT_ID RESULT_ARTIFACT_FORMAT RESULT_ARTIFACT_SIZE RESULT_ARTIFACT_URL RESULT_COMPARABLE_COMPUTE_SEC RESULT_PERSIST_ENCODE_SEC RESULT_PERSIST_UPLOAD_SEC RESULT_PERSIST_DB_WRITE_SEC RESULT_PERSIST_TOTAL_SEC < <(
   sql_scalar "
   SELECT
     id::text,
     COALESCE(artifact_format, ''),
     COALESCE(artifact_byte_size::text, ''),
     COALESCE(artifact_url, ''),
-    CASE WHEN payload IS NOT NULL THEN 'true' ELSE 'false' END,
-    COALESCE(diagnostics #>> '{persist_mode}', ''),
     COALESCE(diagnostics #>> '{compute_timing_sec,comparable_compute_sec}', ''),
     COALESCE(diagnostics #>> '{persistence_timing_sec,encode_artifact_sec}', ''),
     COALESCE(diagnostics #>> '{persistence_timing_sec,upload_artifact_sec}', ''),
@@ -879,7 +856,6 @@ SELECT
   artifact_format,
   artifact_byte_size,
   artifact_url,
-  (payload IS NOT NULL) AS has_inline_payload,
   created_at
 FROM public.lca_results
 WHERE job_id = '$SOLVE_JOB_ID'::uuid

@@ -93,7 +93,7 @@ Header 建议：
    - 若 `ready` 且有 `result_id`，直接返回 `cache_hit`
    - 若 `pending/running` 且有 `job_id`，返回 `in_progress`
    - 否则创建 `lca_jobs(status=queued, requested_by=user_id, request_key, idempotency_key)`
-   - `pgmq.send('lca_jobs', payload)`
+   - 调用 `public.lca_enqueue_job('lca_jobs', payload)` RPC 入队
    - 回写 `lca_result_cache.job_id/status='pending'`
 7. 返回 `queued`。
 

@@ -36,10 +36,10 @@
 
 ## 4. 结果读取注意点
 
-`lca_results` 有两种形态：
+`lca_results` 当前是 S3-only：
 
-- inline：`payload` 内直接有结果 JSON。
-- artifact：结果在对象存储，DB 只保留 `artifact_*` 元数据。
+- DB 只返回 `artifact_*` 元数据与 diagnostics
+- 结果实体在对象存储（`hdf5:v1`）
 
 前端建议不直接下载 `artifact_url`，而是经 Edge Function 读取/代理，避免暴露存储细节和权限问题。
 
@@ -93,5 +93,5 @@ export type JobStatus =
 - 同一请求重复提交不会生成重复 job。
 - 页面刷新后可恢复轮询状态。
 - `failed` 能显示可读错误并支持重试。
-- 能兼容 inline/artifact 两类结果。
+- 结果读取按 artifact 元数据路径工作（不依赖 inline payload）。
 - 用户无法读取他人的 job/result。

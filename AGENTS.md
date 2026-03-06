@@ -1,88 +1,135 @@
 # AGENTS.md
 
-This file is for AI coding agents working in this repository.
+This document is for AI coding agents working in this repository.
 
-## 0. Maintenance policy (mandatory)
+## 0. Mandatory maintenance rule
 
-`AGENTS.md` is a living contract.  
-For every relevant code/schema/behavior change in this repo, update this file in the same task.
+`AGENTS.md` is a living contract.
+Every time code/schema/runtime behavior changes in this repo, update this file in the same task.
 
-Always sync:
+Must always stay aligned with:
 
-- architecture/module boundaries
-- API/payload contracts
-- schema assumptions
-- dependency/runtime/tooling changes
-- implementation status
-- TODO priorities and known risks
+- architecture boundaries
+- API/payload/result contracts
+- schema + migration expectations
+- runtime/ops workflows
+- current TODO + risks
 
-Do not leave this file stale.
+## 1. Project goal
 
-## 1. Project intent
+Build a production LCA sparse solver stack with strict separation:
 
-Build a high-throughput LCA sparse solver stack with strict separation:
+- Supabase: source data, auth, queues (`pgmq`), runtime metadata.
+- Rust worker: matrix load, factorization, solve, persistence.
+- SuiteSparse: numeric backend (UMFPACK via Rust FFI).
 
-- Supabase: source data + orchestration + queue (`pgmq`) + job/result persistence.
-- Rust solver-worker: sparse matrix build/validation/factorization/solve/writeback.
-- SuiteSparse backend: UMFPACK via Rust FFI (current backend).
+Hard invariants:
 
-Core invariants:
-
-- Always solve `M x = y` with `M = I - A`.
+- Always solve `M x = y` where `M = I - A`.
 - Never compute explicit inverse.
-- Heavy compute only in async worker path.
-- Active scope: full-library process network solve (`lifecyclemodels` excluded from numeric solve path).
+- Heavy compute must stay async (queue worker path).
+- Scope is full-library process network compute (`lifecyclemodels` not in numeric solve).
 
-## 2. Current status (as of 2026-03-05)
+## 2. Current architecture (2026-03-06)
 
-### 2.1 Implemented
+### 2.1 Rust workspace
 
-- Cargo workspace with 3 crates:
-  - `crates/suitesparse-ffi`
-  - `crates/solver-core`
-  - `crates/solver-worker`
-- UMFPACK minimal binding + safe wrappers:
-  - `CscMatrix`
-  - `UmfpackFactorization`
-- Core pipeline:
-  - build `M`, `B`, `C`
-  - structure validation
-  - in-memory factorization cache
-  - `solve_one` / `solve_batch`
-  - timed solve breakdown for `solve_one` (`solve_mx_sec`, `bx_sec`, `cg_sec`, `comparable_compute_sec`)
-  - result persistence timing breakdown (`encode_artifact_sec`, `upload_artifact_sec`, `db_write_sec`, `total_sec`)
-  - result/snapshot HDF5 artifacts use chunked `deflate` compression (level 4) on `envelope_json`
-  - job status DB write timing in `lca_jobs.diagnostics.job_status_update_timing_sec` (`running/ready/completed/failed` + `last_*`)
-  - benchmark persist mode switch (`normal` / `inline-only`)
-  - solve output assembly avoids eager evaluation for unrequested vectors (`return_x/return_g/return_h`)
-  - normal persist path uses lazy JSON serialization (serialize only when inline path is actually used)
-  - solve worker now syncs `lca_result_cache` state by `job_id` (`running -> ready/failed`) for request-level cache reuse
-- Worker/API:
-  - pgmq queue consume + archive
-  - job execution for `prepare_factorization`, `solve_one`, `solve_batch`, `invalidate_factorization`, `rebuild_factorization`
-  - internal HTTP endpoints (snapshot-first):
-    - `POST /internal/snapshots/{snapshot_id}/prepare`
-    - `GET /internal/snapshots/{snapshot_id}/factorization`
-    - `POST /internal/snapshots/{snapshot_id}/solve`
-    - `POST /internal/snapshots/{snapshot_id}/invalidate`
-  - backward-compatible aliases:
-    - `/internal/models/{snapshot_id}/...`
-- Payload contract migrated to `snapshot_id` with backward alias support:
-  - `model_version` is accepted as serde alias for queue payloads.
+- `crates/suitesparse-ffi`
+  - CSC matrix representation + UMFPACK FFI wrappers.
+- `crates/solver-core`
+  - matrix build/validate, factorization cache, solve orchestration.
+- `crates/solver-worker`
+  - queue consumer + internal HTTP + DB/object-storage persistence.
 
-### 2.2 Supabase schema/migration status
+### 2.2 Worker responsibilities
 
-Applied migrations:
+- consumes `pgmq` queue `lca_jobs`
+- executes:
+  - `prepare_factorization`
+  - `solve_one`
+  - `solve_batch`
+  - `invalidate_factorization`
+  - `rebuild_factorization`
+- updates `lca_jobs` status/diagnostics
+- writes `lca_results` rows (artifact metadata only)
+- updates request cache state in `lca_result_cache` by `job_id`
 
-- `supabase/migrations/20260304073000_lca_snapshot_phase1.sql` (additive)
-- `supabase/migrations/20260304103000_lca_snapshot_artifacts.sql` (additive)
-- `supabase/migrations/20260304120000_lca_drop_legacy_entry_tables.sql` (cleanup drop)
-- `supabase/migrations/20260305052000_lca_request_cache_and_factorization_registry.sql` (additive)
-- `supabase/migrations/20260305070000_lca_rls_lockdown.sql` (security additive)
-- `supabase/migrations/20260305093000_lca_enqueue_job_rpc.sql` (additive RPC)
-- `supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql` (RPC ACL hardening)
+### 2.3 Snapshot builder
 
-Created tables:
+Canonical entry:
+
+- `crates/solver-worker/src/bin/snapshot_builder.rs`
+- wrapper: `scripts/build_snapshot_from_ilcd.sh`
+
+Behavior:
+
+- builds sparse payload from `processes/flows/lciamethods`
+- writes snapshot artifact (`snapshot-hdf5:v1`) to S3
+- writes metadata to `lca_network_snapshots` + `lca_snapshot_artifacts`
+- emits coverage report (`reports/snapshot-coverage/...`)
+- supports same-source skip-rebuild via source fingerprint (`count + max(modified_at) + config`)
+
+## 3. Storage/result policy (strict)
+
+## 3.1 Solve result persistence
+
+Solve results are **S3-only**.
+
+- format: `hdf5:v1`
+- container: HDF5
+- compression: chunked `deflate` (zlib level 4) on `envelope_json`
+- checksum: SHA-256 hex
+
+`lca_results` stores only metadata + diagnostics:
+
+- `artifact_url` (required)
+- `artifact_sha256` (required)
+- `artifact_byte_size` (required)
+- `artifact_format` (required, currently `hdf5:v1`)
+- `diagnostics`
+
+Inline JSON result payload is removed and not supported.
+
+## 3.2 Retention + GC
+
+Retention fields on `lca_results`:
+
+- `expires_at`
+- `is_pinned`
+
+GC tool:
+
+- binary: `cargo run -p solver-worker --bin result_gc --release -- ...`
+- wrapper: `scripts/gc_lca_results.sh`
+
+GC delete policy:
+
+- only expired rows (`expires_at < now()`)
+- skip pinned rows (`is_pinned=true`)
+- skip rows referenced by active cache (`lca_result_cache` in `pending/running/ready`)
+- keep latest 1 row per request partition:
+  - partition key: `requested_by + snapshot_id + coalesce(request_key, job_id)`
+  - delete only rows with `row_number > 1`
+
+Delete order:
+
+1. delete S3 object
+2. delete DB row
+
+## 4. Schema + migration baseline
+
+Applied/expected migrations:
+
+- `20260304073000_lca_snapshot_phase1.sql`
+- `20260304103000_lca_snapshot_artifacts.sql`
+- `20260304120000_lca_drop_legacy_entry_tables.sql`
+- `20260305052000_lca_request_cache_and_factorization_registry.sql`
+- `20260305070000_lca_rls_lockdown.sql`
+- `20260305093000_lca_enqueue_job_rpc.sql`
+- `20260305094000_lca_enqueue_job_rpc_acl.sql`
+- `20260306090000_lca_results_s3_strict_and_retention.sql` (destructive for old results)
+
+Current runtime tables:
 
 - `lca_network_snapshots`
 - `lca_snapshot_artifacts`
@@ -90,492 +137,141 @@ Created tables:
 - `lca_results`
 - `lca_active_snapshots`
 - `lca_result_cache`
-- `lca_factorization_registry`
+- `lca_factorization_registry` (schema ready, runtime usage limited)
 
-Additive columns on existing table:
+## 5. Security/permission baseline
 
-- `lca_jobs.request_key`
-- `lca_jobs.idempotency_key`
+- `lca_*` tables have RLS enabled.
+- `anon` has no direct table access.
+- `authenticated` can read only own `lca_jobs` and associated `lca_results`.
+- enqueue path must use service-side RPC:
+  - `public.lca_enqueue_job(text, jsonb)`
+  - execute granted to `service_role` only.
 
-Legacy phase1 matrix/index tables are removed by cleanup migration:
+## 6. Cross-project contracts
 
-- `lca_process_index` (dropped)
-- `lca_flow_index` (dropped)
-- `lca_technosphere_entries` (dropped)
-- `lca_biosphere_entries` (dropped)
-- `lca_characterization_factors` (dropped)
+Authoritative docs in this repo:
 
-Created queue:
+- `docs/lca-api-contract.md`
+- `docs/edge-function-integration.md`
+- `docs/frontend-integration.md`
 
-- `pgmq.meta.queue_name = 'lca_jobs'`
+Current contract highlights:
 
-Verification done at migration time:
+- queue payload uses `snapshot_id` (`model_version` accepted only as worker alias)
+- Edge submits jobs via RPC (`lca_enqueue_job`), not direct DB driver `pgmq.send`
+- result fetch contract is artifact metadata only (no inline result field)
 
-- Existing source tables row counts unchanged (`processes`, `flows`, `lciamethods`, `lifecyclemodels`).
-- Cleanup migration only touches legacy `lca_*` intermediate tables.
-- Additive migration `20260305052000` only creates `lca_*` tables/indexes and adds nullable columns to `lca_jobs`.
-- Security migration `20260305070000` enables RLS on `lca_*` runtime tables and revokes broad `anon/authenticated` grants.
-- RPC migration `20260305093000` adds `public.lca_enqueue_job(text, jsonb)` for Edge Functions queue enqueue via `supabase.rpc`.
-- RPC ACL migration `20260305094000` revokes `anon/authenticated` execute privilege and keeps execute for `service_role` only.
+## 7. Runtime env expectations
 
-### 2.3 Result storage policy (implemented)
+Required DB env:
 
-Hybrid persistence is now active in `solver-worker`:
+- `DATABASE_URL` (preferred) or `CONN`
 
-- Always encode result artifact as:
-  - `HDF5`
-  - format id: `hdf5:v1`
-  - extension: `.h5`
-  - checksum: SHA-256 (hex)
-  - compression: `HDF5 deflate` filter (zlib, level 4, chunked dataset)
-- If encoded bytes `< RESULT_INLINE_MAX_BYTES` (default 256KB):
-  - store JSON payload inline in `lca_results.payload`
-- If encoded bytes `>= RESULT_INLINE_MAX_BYTES` and S3 config exists:
-  - upload artifact to object storage
-  - store metadata in `lca_results`:
-    - `artifact_url`
-    - `artifact_sha256`
-    - `artifact_byte_size`
-    - `artifact_format`
-- If upload fails:
-  - fallback to inline JSON payload and warn in logs
-- `RESULT_PERSIST_MODE`:
-  - `normal` (default): current hybrid policy
-  - `inline-only`: skip artifact encode/upload, always write inline JSON (benchmark mode)
-- Result diagnostics include:
-  - `compute_timing_sec` for comparable compute lane
-  - `persistence_timing_sec` for result-write split timing
-
-Object storage config keys:
+Required S3 env for worker/runtime:
 
 - `S3_ENDPOINT`
 - `S3_REGION`
 - `S3_BUCKET`
 - `S3_ACCESS_KEY_ID`
 - `S3_SECRET_ACCESS_KEY`
-- optional `S3_SESSION_TOKEN`
-- optional `S3_PREFIX` (default `lca-results`)
 
-Uploads are authenticated with AWS SigV4 (`Authorization` + `x-amz-date` + `x-amz-content-sha256`).
+Optional:
 
-`HDF5` build mode in this repo uses `hdf5-sys(static,zlib)`; build host must provide `cmake`.
+- `S3_SESSION_TOKEN`
+- `S3_PREFIX` (default `lca-results`)
 
-`DATABASE_URL` is preferred DB env var; `CONN` is accepted fallback.
+Note:
 
-### 2.4 Validation state
+- Worker startup is expected to fail fast if required S3 config is missing.
 
-Latest checks passed:
+## 8. Operations runbook
 
-- `cargo fmt --all`
-- `cargo clippy --workspace --all-targets --all-features -- -D warnings`
-- `cargo test --workspace --all-features`
-- `./scripts/validate_additive_migration.sh supabase/migrations/20260305052000_lca_request_cache_and_factorization_registry.sql`
-- `psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305052000_lca_request_cache_and_factorization_registry.sql`
-- `./scripts/validate_additive_migration.sh supabase/migrations/20260305070000_lca_rls_lockdown.sql`
-- `psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305070000_lca_rls_lockdown.sql`
-- `./scripts/validate_additive_migration.sh supabase/migrations/20260305093000_lca_enqueue_job_rpc.sql`
-- `psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305093000_lca_enqueue_job_rpc.sql`
-- `./scripts/validate_additive_migration.sh supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql`
-- `psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql`
-- `python3 -m py_compile tools/bw25-validator/src/bw25_validator/cli.py`
-- `cargo check -p solver-worker` (after worker `lca_result_cache` status sync changes)
-- `uv run --project tools/bw25-validator python -c "import pypardiso"` (Linux x86_64)
-- `./scripts/run_bw25_validation.sh --report-dir reports/bw25-validation-smoke` (manual smoke, latest solve_one target)
-- `./scripts/run_full_compute_debug.sh --snapshot-id 6201b08a-b125-43a1-b4b8-aacf5a493987` + manual bw25 validation confirms comparable-compute speed lane reporting.
-- `bash -n scripts/cleanup_local_artifacts.sh` (cleanup helper syntax check)
-- `./scripts/run_full_compute_debug.sh --report-dir reports/full-run-persistence-split --log-dir logs/full-run-persistence-split`
-- `./scripts/run_bw25_validation.sh --result-id 1b0a8cdd-2b08-45e4-85a6-43255ae6ecc0 --report-dir reports/bw25-validation-persistence-split`
-- `./scripts/run_full_compute_debug.sh --result-persist-mode inline-only --report-dir reports/full-run-inline-only --log-dir logs/full-run-inline-only`
-- `./scripts/run_bw25_validation.sh --result-id 3c06c0c4-c846-46dc-b8f8-d9343aff15ce --report-dir reports/bw25-validation-inline-only`
-- `./scripts/run_full_compute_debug.sh --result-persist-mode inline-only --report-dir reports/full-run-ms-precision --log-dir logs/full-run-ms-precision`
-- `./scripts/run_bw25_validation.sh --result-id 50f6f0c2-863a-49df-ba63-383ac77d51e7 --report-dir reports/bw25-validation-ms-precision`
-- `./scripts/run_full_compute_debug.sh --result-persist-mode inline-only --report-dir reports/full-run-step4 --log-dir logs/full-run-step4`
-- `./scripts/run_bw25_validation.sh --result-id 18157632-551e-457b-98df-4a420faacc18 --report-dir reports/bw25-validation-step4`
-- `RESULT_PERSIST_MODE=inline-only ./scripts/run_full_compute_debug.sh --report-dir reports/full-run-step5` (queue + DB write telemetry smoke)
-- `./scripts/run_full_compute_debug.sh --report-dir reports/full-run-step6` (normal mode, compressed artifact smoke)
-- `./scripts/run_bw25_validation.sh --result-id 1b49f6eb-6d46-43da-bd61-d56c78b393cc --report-dir reports/bw25-validation-step6`
-
-### 2.5 Repository hygiene/docs organization (implemented)
-
-- Added optimization assessment doc:
-  - `OPTIMIZATION_REVIEW.md`
-- Schema documentation is now split as:
-  - `LCA_SCHEMA_UPDATE_PLAN.md` (authoritative additive-only schema update plan)
-  - `LCA_SCHEMA_PLAN.md` (compatibility redirect note)
-- Added local artifact cleanup helper:
-  - `scripts/cleanup_local_artifacts.sh`
-  - supports `--dry-run`, `--with-target`
-- `.gitignore` now explicitly excludes local runtime outputs:
-  - `/logs/`
-  - `/reports/`
-
-### 2.6 Integration documentation baseline (implemented)
-
-- Added cross-project integration docs under `docs/`:
-  - `docs/lca-api-contract.md` (queue payload/status/results contract baseline)
-  - `docs/edge-function-integration.md` (service-role enqueue/cache/idempotency flow)
-  - `docs/frontend-integration.md` (submit/poll/render UX contract)
-- `README.md` now links these docs as the primary handoff entry for Edge/frontend teams.
-- Documentation scope is contract-first; runtime behavior still follows current worker implementation (no automatic Edge project scaffolding in this repo).
-
-### 2.7 Snapshot builder status (artifact-first)
-
-- `crates/solver-worker/src/bin/snapshot_builder.rs` is the canonical builder implementation.
-- `scripts/build_snapshot_from_ilcd.sh` is now a thin wrapper that calls:
-  - `cargo run -p solver-worker --bin snapshot_builder --release -- ...`
-- Builder default behavior:
-  - default `--process-states 100` (only `state_code=100`)
-  - default `--process-limit 0` (no limit)
-  - supports `--process-states all` to disable `state_code` filtering entirely
-- Builder output:
-  - uploads snapshot matrix artifact to S3 (`snapshot-hdf5:v1`, HDF5 deflate compressed)
-  - writes metadata to `lca_network_snapshots` and `lca_snapshot_artifacts`
-  - writes coverage report:
-    - `reports/snapshot-coverage/<snapshot_id>.json`
-    - `reports/snapshot-coverage/<snapshot_id>.md`
-- Snapshot coverage report includes build timing phases:
-  - resolve method identity
-  - source fingerprint
-  - reuse lookup
-  - method factor load
-  - sparse payload build
-  - encode/upload/persist
-  - total
-- Builder now supports same-source skip-rebuild:
-  - computes source fingerprint from `processes/flows/lciamethods` as `count(*) + max(modified_at)` plus build config
-  - looks up `lca_network_snapshots.source_hash` + ready snapshot artifact
-  - on hit, reuses existing snapshot artifact and returns immediately
-  - explicit `--snapshot-id` disables auto-reuse and forces build for that ID
-- Builder performance updates:
-  - flow metadata fetch is candidate-id scoped (`WHERE id = ANY(...)`, latest row per id)
-  - process exchange parsing runs in parallel (rayon) across process shards
-- Coverage report metrics include:
-  - matching coverage (`input_edges_total`, unique/multi/unmatched, unique/any match pct)
-  - singular risk (`prefilter_diag_abs_ge_cutoff`, `postfilter_a_diag_abs_ge_cutoff`, `m_zero_diagonal_count`, `m_min_abs_diagonal`, derived risk level)
-  - matrix scale (`process_count`, `flow_count`, `impact_count`, `a_nnz`, `b_nnz`, `c_nnz`, `m_nnz_estimated`, `m_sparsity_estimated`)
-- `scripts/run_full_compute_debug.sh` now writes one run report per execution and reads matrix scale from `lca_snapshot_artifacts` first (fallback to legacy tables):
-  - default `reports/full-run/run-<ts>.json`
-  - default `reports/full-run/run-<ts>.md`
-  - includes nanosecond-sampled local timing (seconds with 6 decimals), plus merged `build_snapshot` and `build_and_compute_total`, job ids/status, matrix nnz summary, artifact metadata, result compute/persistence timing split, log paths.
-  - includes DB-derived job timing:
-    - `job_timing_sec.prepare.{queue_wait,run,end_to_end}`
-    - `job_timing_sec.solve.{queue_wait,run,end_to_end}`
-    - `job_db_write_timing_sec.{prepare,solve}.{running,ready,completed,failed,last,last_status}`
-    - UTC timestamps under `jobs.{prepare_*,solve_*}`
-  - auto-discovers latest snapshot coverage report by `snapshot_id` and attaches build source metadata (`reused_snapshot`, `build_report_json`) into full-run report.
-
-### 2.8 Brightway25 validation path (manual-only)
-
-- Added standalone Python validator under `tools/bw25-validator`.
-- Validation is opt-in and never auto-runs in worker/job path.
-- Manual entrypoint:
-  - `scripts/run_bw25_validation.sh`
-- Current scope:
-  - validates `solve_one` jobs only
-  - loads snapshot from `lca_snapshot_artifacts` (`snapshot-hdf5:v1`)
-  - loads solve result from `lca_results.payload` or result artifact (`hdf5:v1`)
-  - reconstructs `M` in Python and runs Brightway `LCA(..., data_objs=[...])`
-  - compares Rust vs Brightway vectors (`x/g/h`) and writes report:
-    - `reports/bw25-validation/<result_id>.json`
-    - `reports/bw25-validation/<result_id>.md`
-  - includes speed comparison in report/log:
-    - Rust job timing (`queue_wait_sec`, `run_sec`, `end_to_end_sec`) from `lca_jobs`
-    - Rust comparable compute timing from `lca_results.diagnostics.compute_timing_sec`
-    - Rust persistence timing from `lca_results.diagnostics.persistence_timing_sec`
-    - Brightway timing (`solve_sec`, `build_plus_solve_sec`)
-    - ratio fields and faster-side summary (prefer comparable-compute ratio when available)
-- Validator package/runtime:
-  - `brightway25==1.1.1` (PyPI latest as of 2026-03-04)
-  - `bw2calc`, `bw_processing`, `numpy`, `scipy`, `h5py`, `psycopg`, `boto3`, `requests`
-  - `pypardiso>=0.4.6` auto-installed on `Linux x86_64` for faster Brightway sparse solve and to remove x64 warning
-  - runner prefers `uv run --project tools/bw25-validator`, falls back to local virtualenv install.
-- Speed comparison behavior:
-  - prefers comparable-compute lane when available:
-    - Rust `comparable_compute_sec = solve_mx_sec + bx_sec + cg_sec`
-    - Brightway `solve_sec` and `build_plus_solve_sec`
-  - keeps job-run lane (`run_sec`) for end-to-end overhead insight.
-
-## 3. Architecture map
-
-### 3.1 `crates/suitesparse-ffi`
-
-- `src/matrix.rs`:
-  - internal CSC representation
-  - COO->CSC conversion + dedup + zero pruning
-  - structural checks + sparse mat-vec
-- `src/umfpack.rs`:
-  - raw FFI declarations
-  - symbolic/numeric solve wrappers
-  - `Drop`-based C resource cleanup
-
-### 3.2 `crates/solver-core`
-
-- `src/data_builder.rs`: build `M/B/C` from sparse entries
-- `src/validator.rs`: pre-factorization checks/warnings
-- `src/cache.rs`: in-memory factorization cache/state
-- `src/service.rs`: `prepare/solve/invalidate` orchestration
-  - provides timed solve API for comparable compute benchmarking
-  - no eager default-vector construction for unrequested `g` output
-
-### 3.3 `crates/solver-worker`
-
-- `src/config.rs`:
-  - env/CLI config (`DATABASE_URL` + `CONN` fallback)
-  - queue/http settings
-  - object-storage settings
-  - result persist mode (`RESULT_PERSIST_MODE`)
-- `src/db.rs`:
-  - reads snapshot sparse data from `lca_snapshot_artifacts` first
-  - fallback reads from legacy `lca_*` entry tables
-  - updates `lca_jobs`
-  - records per-status `lca_jobs` DB write latency in `diagnostics.job_status_update_timing_sec`
-  - writes `lca_results` payload/metadata
-  - stores `solve_one` compute timings in `lca_results.diagnostics.compute_timing_sec`
-  - stores result persistence split timings in `lca_results.diagnostics.persistence_timing_sec`
-  - supports benchmark persist mode `inline-only` (skip encode/upload)
-  - delays `serde_json::to_value(...)` for normal mode until inline path is required (small result or upload fallback)
-  - solve path updates `lca_result_cache` by `job_id`:
-    - set `running` when solve begins
-    - set `ready` + `result_id` after result persist completes
-    - set `failed` with error details when job execution fails
-- `src/artifacts.rs`:
-  - artifact envelope encode (`hdf5:v1`)
-  - `envelope_json` dataset uses chunked `deflate` compression (level 4)
-  - SHA-256 checksum
-- `src/snapshot_artifacts.rs`:
-  - snapshot artifact encode/decode (`snapshot-hdf5:v1`)
-  - `envelope_json` dataset uses chunked `deflate` compression (level 4)
-  - snapshot build config + coverage metadata model
-- `src/storage.rs`:
-  - S3-compatible upload/download client (path-style URL)
-  - SigV4 for PUT and private-bucket GET
-- `src/queue.rs`:
-  - queue polling + message lifecycle
-- `src/http.rs`:
-  - internal snapshot/model alias routes
-- `src/types.rs`:
-  - queue/API payload contracts
-- `src/bin/snapshot_builder.rs`:
-  - source-table extraction + `A/B/C` build + coverage + artifact upload + metadata persist
-- `scripts/cleanup_local_artifacts.sh`:
-  - removes local generated runtime artifacts (`logs/`, `reports/`, `tools/bw25-validator/.venv/`)
-  - optional `--with-target` to also remove Rust `target/`
-
-### 3.4 `tools/bw25-validator` (manual validation tool)
-
-- `src/bw25_validator/cli.py`:
-  - resolves target result row (`--result-id` / `--job-id` / latest `solve_one`)
-  - reads snapshot/result artifacts and decodes HDF5 envelopes
-  - rebuilds sparse matrices with SciPy
-  - runs Brightway `LCA` using datapackage vectors
-  - computes vector deltas/residuals and writes JSON/MD report
-- `scripts/run_bw25_validation.sh`:
-  - manual launcher
-  - auto-loads `.env`
-  - uses `uv` if present, otherwise creates `.venv/bw25-validator`
-
-### 3.5 `docs/` (cross-project handoff)
-
-- `docs/lca-api-contract.md`:
-  - canonical payload/state/result contract for `lca_jobs` + `lca_results`
-  - includes idempotency/cache key expectations for Edge orchestration
-- `docs/edge-function-integration.md`:
-  - recommended Edge endpoints and server-only enqueue flow
-  - transaction order for `lca_result_cache` + `lca_jobs` + `pgmq.send`
-- `docs/frontend-integration.md`:
-  - frontend submit/poll/render lifecycle
-  - cache-hit/in-progress/queued handling and retry strategy
-
-## 4. Schema assumptions
-
-Current runtime primary path expects:
-
-- `lca_network_snapshots`
-- `lca_snapshot_artifacts`
-- `lca_jobs`
-- `lca_results`
-- `public.lca_enqueue_job(text, jsonb)` RPC for Edge enqueue path (execute privilege restricted to `service_role`)
-
-Additive schema now also provides (for next integration stage):
-
-- `lca_active_snapshots`
-- `lca_result_cache`
-- `lca_factorization_registry`
-
-RLS baseline:
-
-- `lca_*` tables have RLS enabled.
-- `anon` has no table privileges on `lca_*`.
-- `authenticated` can `SELECT` only own rows in `lca_jobs`/`lca_results` via policies:
-  - `lca_jobs_select_own`
-  - `lca_results_select_own`
-- internal write paths are expected to use `service_role`.
-
-`lca_network_snapshots.source_hash` is used as source fingerprint key for skip-rebuild matching.
-
-Legacy fallback path in code exists for compatibility, but current DB may not have those tables after cleanup migration.
-
-Input source-of-truth upstream remains:
-
-- `processes`
-- `flows`
-- `lciamethods`
-
-`lifecyclemodels` is not part of numeric solve.
-
-## 5. Known limitations / risks
-
-- Snapshot builder is a standalone Rust binary, not yet a queue job type integrated into worker runtime.
-- Same-source skip depends on `modified_at` correctness on source tables (`processes/flows/lciamethods`) plus row counts.
-- Provider matching in snapshot builder is flow-based (`strict_unique_provider`), because source exchange JSON usually lacks stable provider-process references; this can reduce technosphere edge coverage.
-- Factorization cache is process-local memory only.
-- No persisted factorization snapshots across restart.
-- Internal HTTP endpoints do not enforce auth (assumed trusted internal network).
-- Current uploader supports static key/secret (+ optional session token) credentials; key rotation and STS refresh are not yet automated.
-- No advanced contribution/post-processing yet.
-- Backend is UMFPACK-only; CHOLMOD/SPQR not exposed yet.
-- Brightway validator is manual-only by design and currently validates `solve_one` (not `solve_batch` aggregate logic).
-- Brightway validation assumes snapshot/result artifact schema `v1` (`snapshot-hdf5:v1`, `hdf5:v1`).
-- Compression now depends on HDF5 `deflate` filter availability; runtime encoding fails if binary is built without zlib-enabled HDF5.
-- `job_status_update_timing_sec.*` is measured client-side around the main `UPDATE lca_jobs ... status` call and then persisted via a diagnostics-only follow-up update.
-- Current `persistence_timing_sec.db_write_sec` measures `INSERT lca_results` latency; diagnostics are finalized with a follow-up `UPDATE`, which is not included in `db_write_sec`.
-- `inline-only` benchmark mode still writes full JSON payload to `lca_results`; for very large vectors this can increase DB row size/IO.
-- `timing_sec.prepare_job/solve_job` are orchestrator wall-clock spans and intentionally differ from DB `job_timing_sec.*` (which isolates queue wait/run/end-to-end from DB timestamps).
-- `lca_active_snapshots` and `lca_result_cache` are now used in Edge + worker request path; `lca_factorization_registry` remains schema-only and is not yet used for distributed factorization coordination.
-
-## 6. TODO backlog (priority)
-
-### P0
-
-- Integrate snapshot builder into queue job (`build_snapshot`) so it can be triggered from Supabase jobs, not only CLI.
-- Add integration tests for artifact-first path:
-  - build snapshot artifact
-  - prepare/solve from artifact
-  - verify fallback behavior when artifact unavailable
-- Keep `scripts/run_full_compute_debug.sh` aligned with artifact-first schema as contracts evolve.
-- Add integration tests with real Postgres + `pgmq` (containerized).
-- Add artifact reader/decoder utilities for both:
-  - result format `hdf5:v1`
-  - snapshot format `snapshot-hdf5:v1`
-- Add CI smoke for `tools/bw25-validator` (fixture snapshot + fixture solve result, threshold assertions).
-- Strengthen job/result diagnostics schema:
-  - factorization stats
-  - timing breakdown
-  - failure code taxonomy
-- Implement production Edge Function code in Supabase project following `docs/edge-function-integration.md` (this repo currently documents contract only).
-- Implement frontend-side polling/cache-hit UX flow following `docs/frontend-integration.md` (this repo currently documents contract only).
-- Refine result persistence timing to split `insert_result` vs diagnostics `update_result` overhead in one consistent metric model.
-- Optional: add `no-write` benchmark mode for pure compute profiling when persistence is intentionally bypassed.
-
-### P1
-
-- Add retry/backoff/dead-letter flow for failed jobs.
-- Add cache TTL/eviction and memory pressure controls.
-- Add structured metrics and queue lag observability.
-- Add signed S3 upload path (or managed storage SDK) for private bucket setups.
-- Extend Brightway validator coverage to `solve_batch` and multi-impact (`impact_count > 1`) paths.
-- Add compression telemetry fields (`raw_bytes`, `compressed_bytes`, `ratio`, `compress_sec`) to reports for sustained tuning.
-
-### P2
-
-- Optional L2 cache for warm startup.
-- Add CHOLMOD/SPQR backends behind unified trait.
-- Add richer post-processing (top contributors/path analysis).
-
-## 7. Safe change rules
-
-- Keep solver invariant: factorize once, solve many.
-- Keep heavy compute off synchronous request paths.
-- Keep C FFI behind safe Rust wrappers.
-- Always validate sparse matrix structure before numeric factorization.
-- Never introduce explicit matrix inverse.
-- For schema migration work: additive-first unless explicitly approved.
-- If behavior/contracts/status changes, update this file in the same change set.
-
-## 8. Local runbook (agent)
-
-Install system deps (Ubuntu):
-
-```bash
-sudo apt-get update
-sudo apt-get install -y libsuitesparse-dev libopenblas-dev liblapack-dev pkg-config cmake
-```
-
-Run checks:
+Build/check:
 
 ```bash
 make check
 ```
 
-Run worker:
+Run worker (local):
 
 ```bash
 set -a && source .env && set +a
-cargo run -p solver-worker --release
+cargo run -p solver-worker --release -- --mode worker
 ```
 
-Production-stable worker (systemd + release binary):
+Recommended production mode:
+
+- `systemd` + release binary (multi-instance)
+- keep `WORKER_VT_SECONDS` above slow-job runtime
+
+Snapshot build:
 
 ```bash
-# build binary
-cd /home/ubuntu/projects/lca_workspace/tiangong-lca-calculator
-cargo build -p solver-worker --bin solver-worker --release
-
-# write /etc/systemd/system/solver-worker@.service
-# (template documented in README 6.2)
-
-# start 2 worker instances
-sudo systemctl daemon-reload
-sudo systemctl enable --now solver-worker@1 solver-worker@2
-
-# check logs
-systemctl status solver-worker@1 solver-worker@2 --no-pager
-journalctl -u solver-worker@1 -f
+./scripts/build_snapshot_from_ilcd.sh
 ```
 
-Operational notes:
-
-- Prefer `systemd` over `cargo run` for long-running production deployment.
-- Baseline instance count: start from 2 workers, then tune with queue lag + CPU metrics.
-- Keep `WORKER_VT_SECONDS` larger than slow-job runtime to avoid duplicate processing.
-
-Build one snapshot artifact:
-
-```bash
-./scripts/build_snapshot_from_ilcd.sh --process-limit 100
-```
-
-Run end-to-end debug (`prepare` + `solve_one`):
+Full compute debug:
 
 ```bash
 ./scripts/run_full_compute_debug.sh --snapshot-id <snapshot_id>
 ```
 
-Run benchmark-oriented debug (skip artifact encode/upload, keep inline result for validation):
+Result GC:
 
 ```bash
-./scripts/run_full_compute_debug.sh --snapshot-id <snapshot_id> --result-persist-mode inline-only
+./scripts/gc_lca_results.sh
+./scripts/gc_lca_results.sh --dry-run
 ```
 
-Run manual Brightway25 validation (default pipeline does not trigger this automatically):
+Manual Brightway validation:
 
 ```bash
 ./scripts/run_bw25_validation.sh --snapshot-id <snapshot_id>
 ```
 
-Clean local generated artifacts:
+## 9. Validation tool status
 
-```bash
-./scripts/cleanup_local_artifacts.sh
-./scripts/cleanup_local_artifacts.sh --dry-run
-./scripts/cleanup_local_artifacts.sh --with-target
-```
+`tools/bw25-validator` is manual-only and out-of-band.
 
-## 9. Definition of done
+- validates `solve_one`
+- reads snapshot/result artifacts from S3 (`snapshot-hdf5:v1` + `hdf5:v1`)
+- compares Rust vs Brightway (`x/g/h`, residuals, timing)
+- Linux x64 installs `pypardiso` to remove warning and speed sparse solves
 
-A task is complete only when:
+## 10. Current TODO (priority)
+
+P0:
+
+- integrate snapshot build as queue job (`build_snapshot`) instead of CLI-only path
+- add integration tests for artifact-first end-to-end flow
+- add CI smoke for `bw25-validator` with fixture artifact pair
+- keep three-repo contract synced (calculator / edge / frontend)
+
+P1:
+
+- retry/backoff/dead-letter strategy for failed jobs
+- structured queue lag / throughput metrics
+- explicit diagnostics schema versioning
+- distributed factorization coordination if/when needed
+
+P2:
+
+- optional CHOLMOD/SPQR backend abstraction
+- richer contribution/post-processing outputs
+
+## 11. Known risks
+
+- Same-source snapshot reuse depends on source table `modified_at` triggers being reliable.
+- Factorization cache is process-local only; restart loses warm cache.
+- Internal HTTP endpoints are for trusted internal network only.
+- Snapshot artifact fallback to legacy `lca_*` tables is compatibility code path; those tables may not exist after cleanup migration.
+
+## 12. Done criteria for agent tasks
+
+A task is done only when:
 
 - code compiles
-- `fmt/clippy/test` pass
-- worker queue flow still works
-- docs stay in sync (`AGENTS.md` + human-facing `README.md`)
+- checks/tests for touched area pass (or failure is explicitly reported)
+- contracts/docs are synced (`AGENTS.md` + README + docs if affected)
+- no stale legacy behavior is left undocumented

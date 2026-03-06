@@ -106,6 +106,51 @@ impl ObjectStoreClient {
         self.upload_object(&key, content_type, bytes).await
     }
 
+    /// Deletes an object by full object URL.
+    pub async fn delete_object_url(&self, object_url: &str) -> anyhow::Result<()> {
+        let url = Url::parse(object_url)
+            .map_err(|err| anyhow::anyhow!("invalid object URL {object_url}: {err}"))?;
+        let host = canonical_host(&url)?;
+
+        let payload_hash = EMPTY_PAYLOAD_SHA256;
+        let (amz_date, date_stamp) = sigv4_timestamps();
+        let signed = self.sign_request(
+            &Method::DELETE,
+            SigV4Input {
+                canonical_uri: url.path(),
+                canonical_query: url.query().unwrap_or_default(),
+                host: &host,
+                content_type: None,
+                payload_hash,
+                amz_date: &amz_date,
+                date_stamp: &date_stamp,
+            },
+        )?;
+
+        let mut request = self
+            .client
+            .delete(url)
+            .header("host", host)
+            .header("x-amz-content-sha256", payload_hash)
+            .header("x-amz-date", amz_date)
+            .header("authorization", signed.authorization);
+        if let Some(token) = &self.session_token {
+            request = request.header("x-amz-security-token", token);
+        }
+
+        let response = request.send().await?;
+        if response.status().is_success() || response.status() == StatusCode::NOT_FOUND {
+            return Ok(());
+        }
+
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        let body_preview = body.chars().take(400).collect::<String>();
+        Err(anyhow::anyhow!(
+            "object delete failed status={status} body={body_preview}"
+        ))
+    }
+
     /// Downloads bytes from object URL.
     pub async fn download_object_url(&self, object_url: &str) -> anyhow::Result<Vec<u8>> {
         let url = Url::parse(object_url)

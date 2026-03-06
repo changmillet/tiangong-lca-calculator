@@ -33,9 +33,9 @@
   - `lca_jobs` / `lca_results`（作业与结果）
   - `lca_network_snapshots`（snapshot 元信息）
   - `lca_snapshot_artifacts`（矩阵 artifact 元信息）
-- 已支持结果混合存储：
-  - 小结果：写 `lca_results.payload`（JSON）
-  - 大结果：写对象存储，`lca_results` 仅存元数据
+- 已切换为结果 S3-only：
+  - 所有 `solve` 结果统一上传对象存储（HDF5）
+  - `lca_results` 仅存 artifact 元数据 + diagnostics（不存 inline payload）
 - 已支持 snapshot artifact-first：
   - builder 直接生成 `M/B/C` 并上传 `HDF5`
   - worker 优先从 `lca_snapshot_artifacts` 下载 artifact，失败才回退到旧 `lca_*_entries` 读取
@@ -55,11 +55,7 @@
 - 压缩作用在 `envelope_json` dataset（不是额外包一层 `.gz`）
 - `hdf5:v1` / `snapshot-hdf5:v1` 的读写接口保持不变，读取端会透明解压
 
-默认阈值：
-
-- `RESULT_INLINE_MAX_BYTES=262144`（256KB）
-
-当编码后字节数超过阈值时，worker 会上传 artifact 到 S3 兼容存储，并在 `lca_results` 中写入：
+worker 上传 artifact 到 S3 兼容存储，并在 `lca_results` 中写入：
 
 - `artifact_url`
 - `artifact_sha256`
@@ -77,6 +73,7 @@
 - `supabase/migrations/20260305070000_lca_rls_lockdown.sql`（启用 RLS + 收紧 anon/authenticated 权限）
 - `supabase/migrations/20260305093000_lca_enqueue_job_rpc.sql`（新增 `public.lca_enqueue_job` RPC，供 Edge Functions 通过 supabase.rpc 入队）
 - `supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql`（收紧 RPC 权限，仅 `service_role` 可执行）
+- `supabase/migrations/20260306090000_lca_results_s3_strict_and_retention.sql`（破坏性：清理旧结果并切换为 S3-only + retention 字段）
 
 对已有业务源表（`processes/flows/lciamethods/...`）不做修改。
 其中 `20260304120000` 会删除旧的 `lca_*_entries/index` 中间表，只保留 artifact-first 所需表。
@@ -94,6 +91,7 @@
 ./scripts/validate_additive_migration.sh supabase/migrations/20260305070000_lca_rls_lockdown.sql
 ./scripts/validate_additive_migration.sh supabase/migrations/20260305093000_lca_enqueue_job_rpc.sql
 ./scripts/validate_additive_migration.sh supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql
+./scripts/validate_additive_migration.sh supabase/migrations/20260306090000_lca_results_s3_strict_and_retention.sql
 ```
 
 执行迁移：
@@ -107,6 +105,7 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305052000_lca_reques
 psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305070000_lca_rls_lockdown.sql
 psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305093000_lca_enqueue_job_rpc.sql
 psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql
+psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260306090000_lca_results_s3_strict_and_retention.sql
 ```
 
 ### 4.0.1 访问控制基线（RLS）
@@ -179,7 +178,7 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305094000_lca_enqueu
 - `SOLVER_MODE`（`worker` / `http` / `both`）
 - `HTTP_ADDR`（默认 `0.0.0.0:8080`）
 
-对象存储（snapshot builder 必需，结果 artifact 建议配置）：
+对象存储（snapshot builder / solver-worker / result_gc 必需）：
 
 - `S3_ENDPOINT`
 - `S3_REGION`
@@ -188,9 +187,8 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305094000_lca_enqueu
 - `S3_SECRET_ACCESS_KEY`
 - `S3_SESSION_TOKEN`（可选，临时凭证时使用）
 - `S3_PREFIX`（默认 `lca-results`）
-- `RESULT_INLINE_MAX_BYTES`（默认 `262144`）
 
-说明：`S3_ENDPOINT/S3_REGION/S3_BUCKET/S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY` 需要同时提供。上传请求使用 SigV4 签名认证。
+说明：结果持久化已改为 S3-only。`S3_ENDPOINT/S3_REGION/S3_BUCKET/S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY` 必须同时提供。上传请求使用 SigV4 签名认证。
 
 ## 6. 启动与检查
 
@@ -215,12 +213,6 @@ make check
 ./scripts/run_full_compute_debug.sh --snapshot-id <your-snapshot-uuid>
 ```
 
-低 I/O benchmark 路径（跳过 HDF5 编码与上传，仅 inline 写库）：
-
-```bash
-./scripts/run_full_compute_debug.sh --snapshot-id <your-snapshot-uuid> --result-persist-mode inline-only
-```
-
 说明：
 
 - 脚本会启动 `solver-worker`（queue 模式）、投递 `prepare_factorization` 和 `solve_one` 两个 job、轮询状态并打印诊断。
@@ -235,9 +227,7 @@ make check
   - 同时写入数据库作业计时 `job_timing_sec`（`queue_wait/run/end_to_end`）
 - 若不传 `--snapshot-id`，会自动选最新 snapshot。
 - 脚本会优先读取 `lca_snapshot_artifacts` 的矩阵规模；若不存在则回退读取旧 `lca_*_entries`。
-- `--result-persist-mode` 支持：
-  - `normal`（默认）：大结果走 HDF5 + 对象存储
-  - `inline-only`：总是 inline JSON（用于 benchmark，保留可校验结果）
+- 结果固定走 HDF5 + 对象存储（S3-only，无 inline payload fallback）
 
 ### 6.1 Brightway25 手动校验（默认不触发）
 
@@ -356,6 +346,30 @@ sudo systemctl restart solver-worker@1 solver-worker@2
 
 - 先从 2 个 worker 实例开始，再根据队列积压和 CPU 使用率调整。
 - `WORKER_VT_SECONDS` 需要大于慢任务耗时，避免消息重复消费。
+
+### 6.3 结果保留与 GC（S3 + DB）
+
+`lca_results` 采用过期字段 + 保留规则：
+
+- `expires_at` 到期才进入删除候选
+- `is_pinned=true` 永不自动删除
+- 被 `lca_result_cache` 引用（`pending/running/ready`）的结果不会删
+- 同一请求分组（`requested_by + snapshot_id + request_key`）至少保留最新 1 条
+
+执行 GC：
+
+```bash
+# 实际删除（先删 S3 对象，再删 DB 行）
+./scripts/gc_lca_results.sh
+
+# 仅查看候选，不执行删除
+./scripts/gc_lca_results.sh --dry-run
+```
+
+可选参数：
+
+- `--batch-size <n>`（默认 `200`）
+- `--max-batches <n>`（限制本次最多处理批次数）
 
 ## 7. 内部 API
 

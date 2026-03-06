@@ -36,13 +36,10 @@ Conclusion:
   - `scripts/run_full_compute_debug.sh` (result timing fields in JSON/MD report)
   - `tools/bw25-validator/src/bw25_validator/cli.py` (`speed_comparison.rust_persistence`)
 
-2. Add benchmark mode for solve jobs (Completed 2026-03-05)
-- Skip result upload (or force inline payload) when running benchmarking.
-- Goal: compare solver-only and compute-only paths without storage noise.
-- Implemented in:
-  - `crates/solver-worker/src/config.rs` (`RESULT_PERSIST_MODE=normal|inline-only`)
-  - `crates/solver-worker/src/db.rs` (`inline-only` skips artifact encode/upload)
-  - `scripts/run_full_compute_debug.sh --result-persist-mode <mode>`
+2. Add benchmark mode for solve jobs (Retired 2026-03-06)
+- Historical note: there was an `inline-only` benchmark mode used for profiling.
+- Current status: removed after switching to strict S3-only result persistence.
+- Current recommendation: compare compute lane via `diagnostics.compute_timing_sec` and keep persistence lane explicit.
 
 3. Improve full-run report precision (Completed 2026-03-05)
 - Current shell report rounds to integer seconds for some fields.
@@ -60,7 +57,7 @@ Conclusion:
 - Goal: reduce CPU and payload bytes.
 - Implemented in:
   - `crates/solver-core/src/service.rs` (`solve_one_timed` output assembly avoids eager default evaluation)
-  - `crates/solver-worker/src/db.rs` (normal mode result JSON serialization is lazy and only executed on inline path)
+  - `crates/solver-worker/src/db.rs` (result assembly only computes requested vectors before artifact encode)
 
 5. Add queue and DB latency telemetry (Completed 2026-03-05)
 - Track time from enqueue to worker pickup, and DB write latency.

@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     artifacts::{EncodedArtifact, encode_solve_batch_artifact, encode_solve_one_artifact},
-    config::{AppConfig, ResultPersistMode},
+    config::AppConfig,
     snapshot_artifacts::decode_snapshot_artifact,
     storage::ObjectStoreClient,
     types::{JobPayload, SolveOptionsPayload},
@@ -33,64 +33,47 @@ pub struct AppState {
     pub pool: PgPool,
     /// Core solver service.
     pub solver: SolverService,
-    /// Optional object storage for large result artifacts.
-    pub object_store: Option<ObjectStoreClient>,
-    /// Threshold for keeping result payload inline in DB.
-    pub result_inline_max_bytes: usize,
-    /// Result persistence mode for solve jobs.
-    pub result_persist_mode: ResultPersistMode,
+    /// Object storage for result/snapshot artifacts.
+    pub object_store: ObjectStoreClient,
 }
 
 impl AppState {
-    /// Creates app state with DB pool and optional object storage.
+    /// Creates app state with DB pool and required object storage.
     pub async fn new(config: &AppConfig) -> anyhow::Result<Self> {
         let pool = PgPool::connect(config.resolved_database_url()?).await?;
 
-        let s3_any_set = config.s3_endpoint.is_some()
-            || config.s3_region.is_some()
-            || config.s3_bucket.is_some()
-            || config.s3_access_key_id.is_some()
-            || config.s3_secret_access_key.is_some()
-            || config.s3_session_token.is_some();
-
-        let object_store = if s3_any_set {
-            let endpoint = config.s3_endpoint.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("incomplete S3 config: missing S3_ENDPOINT for object storage")
-            })?;
-            let region = config.s3_region.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("incomplete S3 config: missing S3_REGION for object storage")
-            })?;
-            let bucket = config.s3_bucket.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("incomplete S3 config: missing S3_BUCKET for object storage")
-            })?;
-            let access_key_id = config.s3_access_key_id.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("incomplete S3 config: missing S3_ACCESS_KEY_ID for object storage")
-            })?;
-            let secret_access_key = config.s3_secret_access_key.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "incomplete S3 config: missing S3_SECRET_ACCESS_KEY for object storage"
-                )
-            })?;
-
-            Some(ObjectStoreClient::new(
-                endpoint,
-                region,
-                bucket,
-                &config.s3_prefix,
-                access_key_id,
-                secret_access_key,
-                config.s3_session_token.clone(),
-            )?)
-        } else {
-            None
-        };
+        let endpoint = config
+            .s3_endpoint
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("missing S3_ENDPOINT: result persistence is S3-only"))?;
+        let region = config
+            .s3_region
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("missing S3_REGION: result persistence is S3-only"))?;
+        let bucket = config
+            .s3_bucket
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("missing S3_BUCKET: result persistence is S3-only"))?;
+        let access_key_id = config.s3_access_key_id.as_deref().ok_or_else(|| {
+            anyhow::anyhow!("missing S3_ACCESS_KEY_ID: result persistence is S3-only")
+        })?;
+        let secret_access_key = config.s3_secret_access_key.as_deref().ok_or_else(|| {
+            anyhow::anyhow!("missing S3_SECRET_ACCESS_KEY: result persistence is S3-only")
+        })?;
+        let object_store = ObjectStoreClient::new(
+            endpoint,
+            region,
+            bucket,
+            &config.s3_prefix,
+            access_key_id,
+            secret_access_key,
+            config.s3_session_token.clone(),
+        )?;
 
         Ok(Self {
             pool,
             solver: SolverService::new(),
             object_store,
-            result_inline_max_bytes: config.result_inline_max_bytes,
-            result_persist_mode: config.result_persist_mode,
         })
     }
 }
@@ -177,12 +160,11 @@ pub async fn update_job_status(
 
 #[derive(Debug, Default)]
 struct ResultInsert {
-    payload: Option<Value>,
     diagnostics: Value,
-    artifact_url: Option<String>,
-    artifact_sha256: Option<String>,
-    artifact_byte_size: Option<i64>,
-    artifact_format: Option<String>,
+    artifact_url: String,
+    artifact_sha256: String,
+    artifact_byte_size: i64,
+    artifact_format: String,
 }
 
 /// Inserts one `lca_results` row.
@@ -198,7 +180,6 @@ async fn insert_result(
         INSERT INTO lca_results (
             job_id,
             snapshot_id,
-            payload,
             diagnostics,
             artifact_url,
             artifact_sha256,
@@ -206,13 +187,12 @@ async fn insert_result(
             artifact_format,
             created_at
         )
-        VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, $6, $7, $8, NOW())
+        VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, NOW())
         RETURNING id
         ",
     )
     .bind(job_id)
     .bind(snapshot_id)
-    .bind(data.payload)
     .bind(data.diagnostics)
     .bind(data.artifact_url)
     .bind(data.artifact_sha256)
@@ -533,19 +513,10 @@ async fn fetch_snapshot_payload_from_artifact(
     snapshot_id: Uuid,
     meta: &SnapshotArtifactMeta,
 ) -> anyhow::Result<ModelSparseData> {
-    let bytes = if let Some(store) = &state.object_store {
-        store.download_object_url(&meta.artifact_url).await?
-    } else {
-        let response = reqwest::get(&meta.artifact_url).await?;
-        if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
-                "artifact download failed status={} url={}",
-                response.status(),
-                meta.artifact_url
-            ));
-        }
-        response.bytes().await?.to_vec()
-    };
+    let bytes = state
+        .object_store
+        .download_object_url(&meta.artifact_url)
+        .await?;
 
     let decoded = decode_snapshot_artifact(bytes.as_slice())?;
     if decoded.snapshot_id != snapshot_id {
@@ -771,33 +742,20 @@ async fn persist_solve_one_result(
     timing: &SolveComputationTiming,
 ) -> anyhow::Result<Value> {
     let timing_json = serde_json::to_value(timing)?;
-    if state.result_persist_mode == ResultPersistMode::InlineOnly {
-        let payload_json = serde_json::to_value(solved)?;
-        return persist_inline_only_result(
-            state,
-            job_id,
-            snapshot_id,
-            payload_json,
-            Some(timing_json),
-        )
-        .await;
-    }
-
     let encode_started = Instant::now();
     let encoded = encode_solve_one_artifact(snapshot_id, job_id, solved)?;
     let encode_artifact_sec = encode_started.elapsed().as_secs_f64();
 
-    persist_result_payload(
+    persist_result_artifact(
         state,
         job_id,
         snapshot_id,
-        PersistPayloadInput {
+        PersistArtifactInput {
             suffix: "solve_one",
             encoded,
             compute_timing: Some(timing_json),
             encode_artifact_sec,
         },
-        || -> anyhow::Result<Value> { Ok(serde_json::to_value(solved)?) },
     )
     .await
 }
@@ -808,31 +766,25 @@ async fn persist_solve_batch_result(
     snapshot_id: Uuid,
     solved: &SolveBatchResult,
 ) -> anyhow::Result<Value> {
-    if state.result_persist_mode == ResultPersistMode::InlineOnly {
-        let payload_json = serde_json::to_value(solved)?;
-        return persist_inline_only_result(state, job_id, snapshot_id, payload_json, None).await;
-    }
-
     let encode_started = Instant::now();
     let encoded = encode_solve_batch_artifact(snapshot_id, job_id, solved)?;
     let encode_artifact_sec = encode_started.elapsed().as_secs_f64();
 
-    persist_result_payload(
+    persist_result_artifact(
         state,
         job_id,
         snapshot_id,
-        PersistPayloadInput {
+        PersistArtifactInput {
             suffix: "solve_batch",
             encoded,
             compute_timing: None,
             encode_artifact_sec,
         },
-        || -> anyhow::Result<Value> { Ok(serde_json::to_value(solved)?) },
     )
     .await
 }
 
-struct PersistPayloadInput {
+struct PersistArtifactInput {
     suffix: &'static str,
     encoded: EncodedArtifact,
     compute_timing: Option<Value>,
@@ -843,24 +795,23 @@ struct ArtifactMeta {
     format: String,
     sha256: String,
     encoded_len: usize,
-    artifact_len: Option<i64>,
+    artifact_len: i64,
 }
 
 #[derive(Clone)]
 struct PersistTimingContext {
     compute_timing: Option<Value>,
     encode_artifact_sec: f64,
-    upload_artifact_sec: Option<f64>,
+    upload_artifact_sec: f64,
 }
 
-async fn persist_result_payload(
+async fn persist_result_artifact(
     state: &AppState,
     job_id: Uuid,
     snapshot_id: Uuid,
-    input: PersistPayloadInput,
-    payload_json_builder: impl FnOnce() -> anyhow::Result<Value>,
+    input: PersistArtifactInput,
 ) -> anyhow::Result<Value> {
-    let PersistPayloadInput {
+    let PersistArtifactInput {
         suffix,
         encoded,
         compute_timing,
@@ -878,54 +829,26 @@ async fn persist_result_payload(
         format: format.to_owned(),
         sha256,
         encoded_len,
-        artifact_len: i64::try_from(encoded_len).ok(),
+        artifact_len: i64::try_from(encoded_len)
+            .map_err(|_| anyhow::anyhow!("artifact size overflow: {encoded_len}"))?,
     };
-    let mut timing = PersistTimingContext {
+    let upload_started = Instant::now();
+    let artifact_url = state
+        .object_store
+        .upload_result(snapshot_id, job_id, suffix, extension, content_type, bytes)
+        .await?;
+    let timing = PersistTimingContext {
         compute_timing,
         encode_artifact_sec,
-        upload_artifact_sec: None,
+        upload_artifact_sec: upload_started.elapsed().as_secs_f64(),
     };
-    let mut payload_json_builder = Some(payload_json_builder);
-
-    if encoded_len > state.result_inline_max_bytes
-        && let Some(object_store) = &state.object_store
-    {
-        let upload_started = Instant::now();
-        match object_store
-            .upload_result(snapshot_id, job_id, suffix, extension, content_type, bytes)
-            .await
-        {
-            Ok(url) => {
-                timing.upload_artifact_sec = Some(upload_started.elapsed().as_secs_f64());
-                return persist_object_storage_result(
-                    state,
-                    job_id,
-                    snapshot_id,
-                    &artifact_meta,
-                    &timing,
-                    &url,
-                )
-                .await;
-            }
-            Err(err) => {
-                timing.upload_artifact_sec = Some(upload_started.elapsed().as_secs_f64());
-                warn!(error = %err, "artifact upload failed; falling back to inline payload storage");
-            }
-        }
-    }
-
-    let payload_json = payload_json_builder
-        .take()
-        .ok_or_else(|| anyhow::anyhow!("missing payload JSON builder for inline fallback"))?(
-    )?;
-
-    persist_inline_result(
+    persist_object_storage_result(
         state,
         job_id,
         snapshot_id,
-        payload_json,
         &artifact_meta,
         &timing,
+        &artifact_url,
     )
     .await
 }
@@ -940,7 +863,7 @@ async fn persist_object_storage_result(
 ) -> anyhow::Result<Value> {
     let diagnostics_without_db_write = serde_json::json!({
         "storage": "object_storage",
-        "persist_mode": "normal",
+        "persist_mode": "s3-strict",
         "artifact_format": artifact_meta.format,
         "artifact_sha256": artifact_meta.sha256,
         "artifact_bytes": artifact_meta.encoded_len,
@@ -948,7 +871,7 @@ async fn persist_object_storage_result(
         "compute_timing_sec": timing.compute_timing,
         "persistence_timing_sec": persistence_timing_json(
             Some(timing.encode_artifact_sec),
-            timing.upload_artifact_sec,
+            Some(timing.upload_artifact_sec),
             None,
         ),
     });
@@ -959,12 +882,11 @@ async fn persist_object_storage_result(
         job_id,
         snapshot_id,
         ResultInsert {
-            payload: None,
             diagnostics: diagnostics_without_db_write.clone(),
-            artifact_url: Some(artifact_url.to_owned()),
-            artifact_sha256: Some(artifact_meta.sha256.clone()),
+            artifact_url: artifact_url.to_owned(),
+            artifact_sha256: artifact_meta.sha256.clone(),
             artifact_byte_size: artifact_meta.artifact_len,
-            artifact_format: Some(artifact_meta.format.clone()),
+            artifact_format: artifact_meta.format.clone(),
         },
     )
     .await?;
@@ -972,7 +894,7 @@ async fn persist_object_storage_result(
 
     let diagnostics = serde_json::json!({
         "storage": "object_storage",
-        "persist_mode": "normal",
+        "persist_mode": "s3-strict",
         "artifact_format": artifact_meta.format,
         "artifact_sha256": artifact_meta.sha256,
         "artifact_bytes": artifact_meta.encoded_len,
@@ -980,112 +902,9 @@ async fn persist_object_storage_result(
         "compute_timing_sec": timing.compute_timing,
         "persistence_timing_sec": persistence_timing_json(
             Some(timing.encode_artifact_sec),
-            timing.upload_artifact_sec,
+            Some(timing.upload_artifact_sec),
             Some(db_write_sec),
         ),
-    });
-    if diagnostics != diagnostics_without_db_write {
-        update_result_diagnostics(&state.pool, result_id, diagnostics.clone()).await?;
-    }
-
-    Ok(diagnostics)
-}
-
-async fn persist_inline_result(
-    state: &AppState,
-    job_id: Uuid,
-    snapshot_id: Uuid,
-    payload_json: Value,
-    artifact_meta: &ArtifactMeta,
-    timing: &PersistTimingContext,
-) -> anyhow::Result<Value> {
-    let upload_failed_fallback_inline = timing.upload_artifact_sec.is_some();
-    let diagnostics_without_db_write = serde_json::json!({
-        "storage": "inline_json",
-        "persist_mode": "normal",
-        "artifact_format": artifact_meta.format,
-        "encoded_bytes": artifact_meta.encoded_len,
-        "compute_timing_sec": timing.compute_timing,
-        "upload_failed_fallback_inline": upload_failed_fallback_inline,
-        "persistence_timing_sec": persistence_timing_json(
-            Some(timing.encode_artifact_sec),
-            timing.upload_artifact_sec,
-            None,
-        ),
-    });
-
-    let db_write_started = Instant::now();
-    let result_id = insert_result(
-        &state.pool,
-        job_id,
-        snapshot_id,
-        ResultInsert {
-            payload: Some(payload_json),
-            diagnostics: diagnostics_without_db_write.clone(),
-            artifact_url: None,
-            artifact_sha256: None,
-            artifact_byte_size: None,
-            artifact_format: Some(artifact_meta.format.clone()),
-        },
-    )
-    .await?;
-    let db_write_sec = db_write_started.elapsed().as_secs_f64();
-    let diagnostics = serde_json::json!({
-        "storage": "inline_json",
-        "persist_mode": "normal",
-        "artifact_format": artifact_meta.format,
-        "encoded_bytes": artifact_meta.encoded_len,
-        "compute_timing_sec": timing.compute_timing,
-        "upload_failed_fallback_inline": upload_failed_fallback_inline,
-        "persistence_timing_sec": persistence_timing_json(
-            Some(timing.encode_artifact_sec),
-            timing.upload_artifact_sec,
-            Some(db_write_sec),
-        ),
-    });
-    if diagnostics != diagnostics_without_db_write {
-        update_result_diagnostics(&state.pool, result_id, diagnostics.clone()).await?;
-    }
-
-    Ok(diagnostics)
-}
-
-async fn persist_inline_only_result(
-    state: &AppState,
-    job_id: Uuid,
-    snapshot_id: Uuid,
-    payload_json: Value,
-    compute_timing: Option<Value>,
-) -> anyhow::Result<Value> {
-    let diagnostics_without_db_write = serde_json::json!({
-        "storage": "inline_json",
-        "persist_mode": "inline-only",
-        "compute_timing_sec": compute_timing.clone(),
-        "persistence_timing_sec": persistence_timing_json(None, None, None),
-    });
-
-    let db_write_started = Instant::now();
-    let result_id = insert_result(
-        &state.pool,
-        job_id,
-        snapshot_id,
-        ResultInsert {
-            payload: Some(payload_json),
-            diagnostics: diagnostics_without_db_write.clone(),
-            artifact_url: None,
-            artifact_sha256: None,
-            artifact_byte_size: None,
-            artifact_format: None,
-        },
-    )
-    .await?;
-    let db_write_sec = db_write_started.elapsed().as_secs_f64();
-
-    let diagnostics = serde_json::json!({
-        "storage": "inline_json",
-        "persist_mode": "inline-only",
-        "compute_timing_sec": compute_timing,
-        "persistence_timing_sec": persistence_timing_json(None, None, Some(db_write_sec)),
     });
     if diagnostics != diagnostics_without_db_write {
         update_result_diagnostics(&state.pool, result_id, diagnostics.clone()).await?;

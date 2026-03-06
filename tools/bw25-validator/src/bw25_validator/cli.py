@@ -31,7 +31,6 @@ class TargetResult:
     job_id: str
     snapshot_id: str
     job_type: str
-    result_payload: dict[str, Any] | None
     result_artifact_url: str | None
     result_artifact_format: str | None
     result_diagnostics: dict[str, Any] | None
@@ -355,7 +354,6 @@ def resolve_target_result(
                 r.job_id::text AS job_id,
                 r.snapshot_id::text AS snapshot_id,
                 j.job_type AS job_type,
-                r.payload AS result_payload,
                 r.diagnostics AS result_diagnostics,
                 r.artifact_url AS result_artifact_url,
                 r.artifact_format AS result_artifact_format,
@@ -374,7 +372,6 @@ def resolve_target_result(
                 r.job_id::text AS job_id,
                 r.snapshot_id::text AS snapshot_id,
                 j.job_type AS job_type,
-                r.payload AS result_payload,
                 r.diagnostics AS result_diagnostics,
                 r.artifact_url AS result_artifact_url,
                 r.artifact_format AS result_artifact_format,
@@ -396,7 +393,6 @@ def resolve_target_result(
                     r.job_id::text AS job_id,
                     r.snapshot_id::text AS snapshot_id,
                     j.job_type AS job_type,
-                    r.payload AS result_payload,
                     r.diagnostics AS result_diagnostics,
                     r.artifact_url AS result_artifact_url,
                     r.artifact_format AS result_artifact_format,
@@ -417,7 +413,6 @@ def resolve_target_result(
                     r.job_id::text AS job_id,
                     r.snapshot_id::text AS snapshot_id,
                     j.job_type AS job_type,
-                    r.payload AS result_payload,
                     r.diagnostics AS result_diagnostics,
                     r.artifact_url AS result_artifact_url,
                     r.artifact_format AS result_artifact_format,
@@ -444,7 +439,6 @@ def resolve_target_result(
         job_id=row["job_id"],
         snapshot_id=row["snapshot_id"],
         job_type=row["job_type"],
-        result_payload=as_json_dict(row["result_payload"]),
         result_diagnostics=as_json_dict(row["result_diagnostics"]),
         result_artifact_url=row["result_artifact_url"],
         result_artifact_format=row["result_artifact_format"],
@@ -532,11 +526,8 @@ def extract_rust_persistence_timing(
 
 
 def load_result_payload(target: TargetResult, s3: S3Config) -> dict[str, Any]:
-    if target.result_payload is not None:
-        return extract_result_payload_object(target.result_payload)
-
     if not target.result_artifact_url:
-        raise SystemExit("result row has no inline payload and no artifact_url")
+        raise SystemExit("result row has no artifact_url")
     if target.result_artifact_format and target.result_artifact_format != RESULT_FORMAT:
         raise SystemExit(
             "unsupported result artifact format: "
