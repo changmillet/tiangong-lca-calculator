@@ -86,6 +86,20 @@ Behavior:
 - writes metadata to `lca_network_snapshots` + `lca_snapshot_artifacts`
 - emits coverage report (`reports/snapshot-coverage/...`)
 - supports same-source skip-rebuild via source fingerprint (`count + max(modified_at) + config`)
+- provider matching supports:
+  - `strict_unique_provider` (legacy strict behavior)
+  - `best_provider_strict` (auto-link select one provider by geo+time score)
+  - `split_by_evidence` (strict weighted split by geo+time score)
+  - `split_by_evidence_hybrid` (weighted split, fallback to equal split)
+  - `split_equal` (always equal split for multi-provider)
+- auto-link scoring currently uses only:
+  - geography (`@location`) from process geography block
+  - reference year (`common:referenceYear`) from process time block
+- snapshot coverage now includes additional matching diagnostics:
+  - `matched_multi_resolved`
+  - `matched_multi_unresolved`
+  - `matched_multi_fallback_equal`
+  - `a_input_edges_written`
 
 ## 3. Storage/result policy (strict)
 

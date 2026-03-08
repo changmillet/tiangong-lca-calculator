@@ -74,6 +74,7 @@ struct Cli {
 
 #[derive(Debug, Clone)]
 struct ProcessRow {
+    id: Uuid,
     json: Value,
 }
 
@@ -89,6 +90,32 @@ struct ParsedExchange {
     flow_id: Uuid,
     direction: ExchangeDirection,
     amount: Option<f64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProviderRule {
+    StrictUniqueProvider,
+    BestProviderStrict,
+    SplitByEvidenceStrict,
+    SplitByEvidenceHybrid,
+    SplitEqual,
+}
+
+#[derive(Debug, Clone)]
+struct ProcessMeta {
+    process_idx: i32,
+    process_id: Uuid,
+    location: Option<String>,
+    reference_year: Option<i32>,
+}
+
+#[derive(Debug, Clone)]
+struct ProviderCandidateScore {
+    provider_idx: i32,
+    provider_id: Uuid,
+    geo_score: f64,
+    time_score: f64,
+    final_score: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -142,15 +169,26 @@ struct BuildTimingSec {
     persist_metadata_sec: f64,
 }
 
+impl ProviderRule {
+    fn parse(value: &str) -> anyhow::Result<Self> {
+        match value {
+            "strict_unique_provider" => Ok(Self::StrictUniqueProvider),
+            "best_provider_strict" => Ok(Self::BestProviderStrict),
+            "split_by_evidence" => Ok(Self::SplitByEvidenceStrict),
+            "split_by_evidence_hybrid" => Ok(Self::SplitByEvidenceHybrid),
+            "split_equal" => Ok(Self::SplitEqual),
+            _ => Err(anyhow::anyhow!(
+                "unsupported provider_rule={value}; expected one of: strict_unique_provider, best_provider_strict, split_by_evidence, split_by_evidence_hybrid, split_equal"
+            )),
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let total_started = Instant::now();
     let cli = Cli::parse();
-    if cli.provider_rule != "strict_unique_provider" {
-        return Err(anyhow::anyhow!(
-            "only strict_unique_provider is supported in snapshot-builder"
-        ));
-    }
+    let provider_rule = ProviderRule::parse(&cli.provider_rule)?;
 
     let db_url = cli
         .database_url
@@ -285,6 +323,7 @@ async fn main() -> anyhow::Result<()> {
         all_states,
         &state_codes,
         cli.process_limit,
+        provider_rule,
         cli.self_loop_cutoff,
         cli.singular_eps,
         method.has_lcia,
@@ -548,6 +587,7 @@ async fn build_sparse_payload(
     all_states: bool,
     state_codes: &[i32],
     process_limit: usize,
+    provider_rule: ProviderRule,
     self_loop_cutoff: f64,
     singular_eps: f64,
     has_lcia: bool,
@@ -567,9 +607,15 @@ async fn build_sparse_payload(
         .par_iter()
         .enumerate()
         .map(
-            |(idx, proc_row)| -> anyhow::Result<(Vec<ParsedExchange>, BTreeSet<Uuid>)> {
+            |(idx, proc_row)| -> anyhow::Result<(ProcessMeta, Vec<ParsedExchange>, BTreeSet<Uuid>)> {
                 let process_idx =
                     i32::try_from(idx).map_err(|_| anyhow::anyhow!("process index overflow"))?;
+                let process_meta = ProcessMeta {
+                    process_idx,
+                    process_id: proc_row.id,
+                    location: parse_process_location(&proc_row.json),
+                    reference_year: parse_process_reference_year(&proc_row.json),
+                };
                 let mut local_exchanges = Vec::new();
                 let mut local_flow_ids = BTreeSet::new();
 
@@ -606,17 +652,28 @@ async fn build_sparse_payload(
                     local_flow_ids.insert(flow_id);
                 }
 
-                Ok((local_exchanges, local_flow_ids))
+                Ok((process_meta, local_exchanges, local_flow_ids))
             },
         )
         .collect::<Vec<_>>();
 
     let mut exchanges = Vec::<ParsedExchange>::new();
+    let mut process_meta_by_idx = HashMap::<i32, ProcessMeta>::with_capacity(processes.len());
     let mut flow_candidates: BTreeSet<Uuid> = BTreeSet::new();
     for chunk in chunks {
-        let (chunk_exchanges, chunk_flow_ids) = chunk?;
+        let (meta, chunk_exchanges, chunk_flow_ids) = chunk?;
+        process_meta_by_idx.insert(meta.process_idx, meta);
         exchanges.extend(chunk_exchanges);
         flow_candidates.extend(chunk_flow_ids);
+    }
+
+    let mut process_meta = Vec::with_capacity(processes.len());
+    for idx in 0..process_count_i32 {
+        process_meta.push(
+            process_meta_by_idx
+                .remove(&idx)
+                .ok_or_else(|| anyhow::anyhow!("missing process meta for idx={idx}"))?,
+        );
     }
 
     for flow_id in factor_map.keys() {
@@ -639,14 +696,22 @@ async fn build_sparse_payload(
         }
     }
 
-    let mut provider_map: HashMap<Uuid, HashSet<i32>> = HashMap::new();
+    let mut provider_sets: HashMap<Uuid, HashSet<i32>> = HashMap::new();
     for ex in &exchanges {
         if ex.direction == ExchangeDirection::Output {
-            provider_map
+            provider_sets
                 .entry(ex.flow_id)
                 .or_default()
                 .insert(ex.process_idx);
         }
+    }
+    let mut provider_map: HashMap<Uuid, Vec<i32>> = HashMap::with_capacity(provider_sets.len());
+    for (flow_id, providers) in provider_sets {
+        let mut sorted = providers.into_iter().collect::<Vec<_>>();
+        sorted.sort_by_key(|idx| {
+            process_meta_for_idx(&process_meta, *idx).map_or(Uuid::nil(), |meta| meta.process_id)
+        });
+        provider_map.insert(flow_id, sorted);
     }
 
     let mut a_map: HashMap<(i32, i32), f64> = HashMap::new();
@@ -654,6 +719,10 @@ async fn build_sparse_payload(
     let mut input_edges_total: i64 = 0;
     let mut matched_unique: i64 = 0;
     let mut matched_multi: i64 = 0;
+    let mut matched_multi_resolved: i64 = 0;
+    let mut matched_multi_unresolved: i64 = 0;
+    let mut matched_multi_fallback_equal: i64 = 0;
+    let mut a_input_edges_written: i64 = 0;
     let mut unmatched: i64 = 0;
 
     for ex in &exchanges {
@@ -679,16 +748,38 @@ async fn build_sparse_payload(
             continue;
         };
         input_edges_total += 1;
-        let provider_cnt = provider_map.get(&ex.flow_id).map_or(0, HashSet::len);
+        let providers = provider_map.get(&ex.flow_id);
+        let provider_cnt = providers.map_or(0, Vec::len);
         if provider_cnt == 1 {
             matched_unique += 1;
-            let provider_idx = *provider_map
-                .get(&ex.flow_id)
-                .and_then(|set| set.iter().next())
+            a_input_edges_written += 1;
+            let provider_idx = *providers
+                .and_then(|vec| vec.first())
                 .ok_or_else(|| anyhow::anyhow!("missing provider idx"))?;
             *a_map.entry((ex.process_idx, provider_idx)).or_insert(0.0) += amount;
         } else if provider_cnt > 1 {
             matched_multi += 1;
+            let resolution = resolve_multi_provider(
+                provider_rule,
+                ex,
+                providers.ok_or_else(|| anyhow::anyhow!("missing provider list"))?,
+                &process_meta,
+            )?;
+            if let Some(resolution) = resolution {
+                matched_multi_resolved += 1;
+                if resolution.used_equal_fallback {
+                    matched_multi_fallback_equal += 1;
+                }
+                a_input_edges_written += 1;
+                for (provider_idx, weight) in resolution.allocations {
+                    let weighted = amount * weight;
+                    if weighted.abs() > f64::EPSILON {
+                        *a_map.entry((ex.process_idx, provider_idx)).or_insert(0.0) += weighted;
+                    }
+                }
+            } else {
+                matched_multi_unresolved += 1;
+            }
         } else {
             unmatched += 1;
         }
@@ -804,6 +895,10 @@ async fn build_sparse_payload(
             matched_unique_provider: matched_unique,
             matched_multi_provider: matched_multi,
             unmatched_no_provider: unmatched,
+            matched_multi_resolved,
+            matched_multi_unresolved,
+            matched_multi_fallback_equal,
+            a_input_edges_written,
             unique_provider_match_pct,
             any_provider_match_pct,
         },
@@ -837,6 +932,283 @@ async fn build_sparse_payload(
     };
 
     Ok(BuildOutput { data, coverage })
+}
+
+#[derive(Debug, Clone)]
+struct MultiProviderResolution {
+    allocations: Vec<(i32, f64)>,
+    used_equal_fallback: bool,
+}
+
+const AUTO_LINK_GEO_WEIGHT: f64 = 0.7;
+const AUTO_LINK_TIME_WEIGHT: f64 = 0.3;
+const AUTO_LINK_MIN_SCORE: f64 = 0.35;
+const AUTO_LINK_TOP1_MIN_SCORE: f64 = 0.55;
+const AUTO_LINK_TOP1_TOP2_MIN_RATIO: f64 = 1.2;
+
+fn resolve_multi_provider(
+    provider_rule: ProviderRule,
+    exchange: &ParsedExchange,
+    providers: &[i32],
+    process_meta: &[ProcessMeta],
+) -> anyhow::Result<Option<MultiProviderResolution>> {
+    if providers.is_empty() {
+        return Ok(None);
+    }
+
+    let split_equal = || -> MultiProviderResolution {
+        let share = 1.0 / providers.len() as f64;
+        MultiProviderResolution {
+            allocations: providers.iter().map(|idx| (*idx, share)).collect(),
+            used_equal_fallback: true,
+        }
+    };
+
+    let scored_candidates = |min_score: f64| -> anyhow::Result<Vec<ProviderCandidateScore>> {
+        let mut scored = score_provider_candidates(exchange.process_idx, providers, process_meta)?;
+        scored.retain(|candidate| candidate.final_score >= min_score);
+        Ok(scored)
+    };
+
+    let debug_label = format!(
+        "flow={} consumer_idx={}",
+        exchange.flow_id, exchange.process_idx
+    );
+
+    match provider_rule {
+        ProviderRule::StrictUniqueProvider => Ok(None),
+        ProviderRule::SplitEqual => Ok(Some(split_equal())),
+        ProviderRule::BestProviderStrict => {
+            let scored = scored_candidates(AUTO_LINK_MIN_SCORE)?;
+            let top1 = scored.first().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "best_provider_strict failed (no candidate >= min_score): {debug_label}"
+                )
+            })?;
+            if top1.final_score < AUTO_LINK_TOP1_MIN_SCORE {
+                return Err(anyhow::anyhow!(
+                    "best_provider_strict failed (top1 score < {}): {}",
+                    AUTO_LINK_TOP1_MIN_SCORE,
+                    debug_label
+                ));
+            }
+            if let Some(top2) = scored.get(1)
+                && top2.final_score > f64::EPSILON
+                && (top1.final_score / top2.final_score) < AUTO_LINK_TOP1_TOP2_MIN_RATIO
+            {
+                return Err(anyhow::anyhow!(
+                    "best_provider_strict failed (top1/top2 ratio < {}): {}",
+                    AUTO_LINK_TOP1_TOP2_MIN_RATIO,
+                    debug_label
+                ));
+            }
+
+            Ok(Some(MultiProviderResolution {
+                allocations: vec![(top1.provider_idx, 1.0)],
+                used_equal_fallback: false,
+            }))
+        }
+        ProviderRule::SplitByEvidenceStrict => {
+            let scored = scored_candidates(AUTO_LINK_MIN_SCORE)?;
+            if scored.is_empty() {
+                return Err(anyhow::anyhow!(
+                    "split_by_evidence failed (no candidate >= min_score): {debug_label}"
+                ));
+            }
+            let score_sum = scored
+                .iter()
+                .map(|candidate| candidate.final_score)
+                .sum::<f64>();
+            if score_sum <= f64::EPSILON {
+                return Err(anyhow::anyhow!(
+                    "split_by_evidence failed (score sum <= 0): {debug_label}"
+                ));
+            }
+            Ok(Some(MultiProviderResolution {
+                allocations: scored
+                    .iter()
+                    .map(|candidate| (candidate.provider_idx, candidate.final_score / score_sum))
+                    .collect(),
+                used_equal_fallback: false,
+            }))
+        }
+        ProviderRule::SplitByEvidenceHybrid => {
+            let scored = scored_candidates(AUTO_LINK_MIN_SCORE)?;
+            if scored.is_empty() {
+                return Ok(Some(split_equal()));
+            }
+            let score_sum = scored
+                .iter()
+                .map(|candidate| candidate.final_score)
+                .sum::<f64>();
+            if score_sum <= f64::EPSILON {
+                return Ok(Some(split_equal()));
+            }
+            Ok(Some(MultiProviderResolution {
+                allocations: scored
+                    .iter()
+                    .map(|candidate| (candidate.provider_idx, candidate.final_score / score_sum))
+                    .collect(),
+                used_equal_fallback: false,
+            }))
+        }
+    }
+}
+
+fn score_provider_candidates(
+    consumer_idx: i32,
+    providers: &[i32],
+    process_meta: &[ProcessMeta],
+) -> anyhow::Result<Vec<ProviderCandidateScore>> {
+    let consumer = process_meta_for_idx(process_meta, consumer_idx)
+        .ok_or_else(|| anyhow::anyhow!("missing consumer process meta idx={consumer_idx}"))?;
+    let mut scored = Vec::with_capacity(providers.len());
+    for provider_idx in providers {
+        let provider = process_meta_for_idx(process_meta, *provider_idx)
+            .ok_or_else(|| anyhow::anyhow!("missing provider process meta idx={provider_idx}"))?;
+        let geo = geo_score(consumer.location.as_deref(), provider.location.as_deref());
+        let time = time_score(consumer.reference_year, provider.reference_year);
+        let final_score = AUTO_LINK_GEO_WEIGHT * geo + AUTO_LINK_TIME_WEIGHT * time;
+        scored.push(ProviderCandidateScore {
+            provider_idx: *provider_idx,
+            provider_id: provider.process_id,
+            geo_score: geo,
+            time_score: time,
+            final_score,
+        });
+    }
+
+    scored.sort_by(|left, right| {
+        right
+            .final_score
+            .total_cmp(&left.final_score)
+            .then_with(|| right.geo_score.total_cmp(&left.geo_score))
+            .then_with(|| right.time_score.total_cmp(&left.time_score))
+            .then_with(|| left.provider_id.cmp(&right.provider_id))
+    });
+    Ok(scored)
+}
+
+fn process_meta_for_idx(process_meta: &[ProcessMeta], process_idx: i32) -> Option<&ProcessMeta> {
+    usize::try_from(process_idx)
+        .ok()
+        .and_then(|idx| process_meta.get(idx))
+}
+
+#[derive(Debug, Clone)]
+struct LocationDescriptor {
+    canonical: Option<String>,
+    country_code: Option<String>,
+    region_group: Option<&'static str>,
+    is_subnational: bool,
+    is_global: bool,
+}
+
+fn geo_score(consumer_location: Option<&str>, provider_location: Option<&str>) -> f64 {
+    let consumer = parse_location_descriptor(consumer_location);
+    let provider = parse_location_descriptor(provider_location);
+    if consumer.is_subnational
+        && provider.is_subnational
+        && consumer.canonical.is_some()
+        && consumer.canonical == provider.canonical
+    {
+        return 1.0;
+    }
+    if consumer.country_code.is_some() && consumer.country_code == provider.country_code {
+        return 0.85;
+    }
+    if consumer.region_group.is_some() && consumer.region_group == provider.region_group {
+        return 0.6;
+    }
+    if provider.is_global {
+        return 0.4;
+    }
+    0.1
+}
+
+fn time_score(consumer_year: Option<i32>, provider_year: Option<i32>) -> f64 {
+    match (consumer_year, provider_year) {
+        (Some(left), Some(right)) => {
+            let diff = (left - right).abs();
+            if diff <= 1 {
+                1.0
+            } else if diff <= 3 {
+                0.85
+            } else if diff <= 5 {
+                0.65
+            } else if diff <= 10 {
+                0.4
+            } else {
+                0.2
+            }
+        }
+        _ => 0.5,
+    }
+}
+
+fn parse_location_descriptor(location: Option<&str>) -> LocationDescriptor {
+    let canonical = location
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_ascii_uppercase().replace('_', "-"));
+    let Some(canonical) = canonical else {
+        return LocationDescriptor {
+            canonical: None,
+            country_code: None,
+            region_group: None,
+            is_subnational: false,
+            is_global: false,
+        };
+    };
+
+    let is_global = canonical == "GLO";
+    let country_code = extract_country_code(&canonical);
+    let is_subnational = canonical.contains('-') && country_code.is_some();
+    let region_group = region_group_from_code(&canonical)
+        .or_else(|| country_code.as_deref().and_then(region_group_from_code));
+    LocationDescriptor {
+        canonical: Some(canonical),
+        country_code,
+        region_group,
+        is_subnational,
+        is_global,
+    }
+}
+
+fn extract_country_code(location: &str) -> Option<String> {
+    if location == "GLO" {
+        return None;
+    }
+    let token = location
+        .split(['-', '_', ' '])
+        .next()
+        .map(str::trim)
+        .unwrap_or_default();
+    if token.len() == 2 && token.chars().all(|chr| chr.is_ascii_alphabetic()) {
+        Some(token.to_owned())
+    } else {
+        None
+    }
+}
+
+fn region_group_from_code(code: &str) -> Option<&'static str> {
+    match code {
+        "GLO" => Some("GLOBAL"),
+        "RER" | "EU" | "EU27" | "EU28" | "EFTA" | "WEU" | "EEU" | "AT" | "BE" | "BG" | "CH"
+        | "CY" | "CZ" | "DE" | "DK" | "EE" | "ES" | "FI" | "FR" | "GB" | "GR" | "HR" | "HU"
+        | "IE" | "IS" | "IT" | "LI" | "LT" | "LU" | "LV" | "MT" | "NL" | "NO" | "PL" | "PT"
+        | "RO" | "SE" | "SI" | "SK" => Some("EUROPE"),
+        "APAC" | "RAS" | "SAS" | "EAS" | "OCE" | "CN" | "JP" | "KR" | "IN" | "AU" | "NZ" | "ID"
+        | "TH" | "VN" | "MY" | "SG" | "PH" | "PK" | "BD" => Some("APAC"),
+        "RNA" | "NAM" | "US" | "CA" | "MX" => Some("NORTH_AMERICA"),
+        "RLA" | "LATAM" | "BR" | "AR" | "CL" | "CO" | "PE" | "UY" | "PY" | "BO" | "EC" | "VE"
+        | "CR" | "GT" | "HN" | "NI" | "SV" | "PA" | "DO" | "CU" => Some("LATAM"),
+        "RAF" | "AFR" | "ZA" | "EG" | "NG" | "KE" | "GH" | "DZ" | "MA" | "TN" | "ET" | "TZ"
+        | "UG" => Some("AFRICA"),
+        "RME" | "MEA" | "AE" | "SA" | "QA" | "KW" | "OM" | "BH" | "IL" | "TR" | "IR" | "IQ"
+        | "JO" | "LB" => Some("MIDDLE_EAST"),
+        _ => None,
+    }
 }
 
 fn pct(numerator: i64, denominator: i64) -> f64 {
@@ -1061,7 +1433,7 @@ async fn fetch_processes(
     let rows = if all_states {
         sqlx::query(
             r#"
-            SELECT json
+            SELECT id, json
             FROM public.processes
             WHERE json ? 'processDataSet'
             ORDER BY id, version
@@ -1072,7 +1444,7 @@ async fn fetch_processes(
     } else {
         sqlx::query(
             r#"
-            SELECT json
+            SELECT id, json
             FROM public.processes
             WHERE state_code = ANY($1)
               AND json ? 'processDataSet'
@@ -1087,6 +1459,7 @@ async fn fetch_processes(
     let mut out = Vec::with_capacity(rows.len());
     for row in rows {
         out.push(ProcessRow {
+            id: row.try_get::<Uuid, _>("id")?,
             json: row.try_get::<Value, _>("json")?,
         });
     }
@@ -1168,6 +1541,32 @@ fn parse_number(value: Option<&Value>) -> Option<f64> {
             cleaned.parse::<f64>().ok()
         }
         Some(Value::Number(number)) => number.as_f64(),
+        _ => None,
+    }
+}
+
+fn parse_process_location(process_json: &Value) -> Option<String> {
+    process_json
+        .get("processDataSet")
+        .and_then(|v| v.get("processInformation"))
+        .and_then(|v| v.get("geography"))
+        .and_then(|v| v.get("locationOfOperationSupplyOrProduction"))
+        .and_then(|v| v.get("@location"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn parse_process_reference_year(process_json: &Value) -> Option<i32> {
+    let value = process_json
+        .get("processDataSet")
+        .and_then(|v| v.get("processInformation"))
+        .and_then(|v| v.get("time"))
+        .and_then(|v| v.get("common:referenceYear"))?;
+    match value {
+        Value::Number(number) => number.as_i64().and_then(|year| i32::try_from(year).ok()),
+        Value::String(text) => text.trim().parse::<i32>().ok(),
         _ => None,
     }
 }
@@ -1447,8 +1846,24 @@ fn write_report_files(
         coverage.matching.matched_multi_provider
     ));
     md.push_str(&format!(
+        "- matched_multi_resolved: `{}`\n",
+        coverage.matching.matched_multi_resolved
+    ));
+    md.push_str(&format!(
+        "- matched_multi_unresolved: `{}`\n",
+        coverage.matching.matched_multi_unresolved
+    ));
+    md.push_str(&format!(
+        "- matched_multi_fallback_equal: `{}`\n",
+        coverage.matching.matched_multi_fallback_equal
+    ));
+    md.push_str(&format!(
         "- unmatched_no_provider: `{}`\n",
         coverage.matching.unmatched_no_provider
+    ));
+    md.push_str(&format!(
+        "- a_input_edges_written: `{}`\n",
+        coverage.matching.a_input_edges_written
     ));
     md.push_str(&format!(
         "- unique_provider_match_pct: `{}`\n",
@@ -1508,4 +1923,103 @@ fn write_report_files(
 
     fs::write(md_path, md)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ExchangeDirection, ParsedExchange, ProcessMeta, ProviderRule, geo_score,
+        resolve_multi_provider, time_score,
+    };
+    use uuid::Uuid;
+
+    fn assert_close(actual: f64, expected: f64) {
+        let delta = (actual - expected).abs();
+        assert!(
+            delta <= 1e-12,
+            "expected {expected}, got {actual}, delta={delta}"
+        );
+    }
+
+    #[test]
+    fn provider_rule_parse_supports_new_modes() {
+        assert_eq!(
+            ProviderRule::parse("strict_unique_provider").expect("parse"),
+            ProviderRule::StrictUniqueProvider
+        );
+        assert_eq!(
+            ProviderRule::parse("best_provider_strict").expect("parse"),
+            ProviderRule::BestProviderStrict
+        );
+        assert_eq!(
+            ProviderRule::parse("split_by_evidence").expect("parse"),
+            ProviderRule::SplitByEvidenceStrict
+        );
+        assert_eq!(
+            ProviderRule::parse("split_by_evidence_hybrid").expect("parse"),
+            ProviderRule::SplitByEvidenceHybrid
+        );
+        assert_eq!(
+            ProviderRule::parse("split_equal").expect("parse"),
+            ProviderRule::SplitEqual
+        );
+    }
+
+    #[test]
+    fn geo_score_prefers_subnational_match() {
+        assert_close(geo_score(Some("CN-BJ"), Some("CN-BJ")), 1.0);
+        assert_close(geo_score(Some("CN-BJ"), Some("CN-SH")), 0.85);
+        assert_close(geo_score(Some("CN"), Some("GLO")), 0.4);
+    }
+
+    #[test]
+    fn time_score_handles_missing_and_thresholds() {
+        assert_close(time_score(None, Some(2020)), 0.5);
+        assert_close(time_score(Some(2026), Some(2026)), 1.0);
+        assert_close(time_score(Some(2026), Some(2024)), 0.85);
+        assert_close(time_score(Some(2026), Some(2016)), 0.4);
+        assert_close(time_score(Some(2026), Some(2010)), 0.2);
+    }
+
+    #[test]
+    fn best_provider_strict_selects_single_top_candidate() {
+        let process_meta = vec![
+            ProcessMeta {
+                process_idx: 0,
+                process_id: Uuid::new_v4(),
+                location: Some("CN-BJ".to_owned()),
+                reference_year: Some(2026),
+            },
+            ProcessMeta {
+                process_idx: 1,
+                process_id: Uuid::new_v4(),
+                location: Some("CN-BJ".to_owned()),
+                reference_year: Some(2026),
+            },
+            ProcessMeta {
+                process_idx: 2,
+                process_id: Uuid::new_v4(),
+                location: Some("GLO".to_owned()),
+                reference_year: Some(2010),
+            },
+        ];
+        let exchange = ParsedExchange {
+            process_idx: 0,
+            flow_id: Uuid::new_v4(),
+            direction: ExchangeDirection::Input,
+            amount: Some(1.0),
+        };
+
+        let resolution = resolve_multi_provider(
+            ProviderRule::BestProviderStrict,
+            &exchange,
+            &[1, 2],
+            &process_meta,
+        )
+        .expect("resolve")
+        .expect("resolved");
+        assert_eq!(resolution.allocations.len(), 1);
+        assert_eq!(resolution.allocations[0].0, 1);
+        assert_close(resolution.allocations[0].1, 1.0);
+    }
 }

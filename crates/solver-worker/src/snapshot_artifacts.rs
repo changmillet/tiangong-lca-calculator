@@ -49,6 +49,14 @@ pub struct SnapshotMatchingCoverage {
     pub matched_unique_provider: i64,
     pub matched_multi_provider: i64,
     pub unmatched_no_provider: i64,
+    #[serde(default)]
+    pub matched_multi_resolved: i64,
+    #[serde(default)]
+    pub matched_multi_unresolved: i64,
+    #[serde(default)]
+    pub matched_multi_fallback_equal: i64,
+    #[serde(default)]
+    pub a_input_edges_written: i64,
     pub unique_provider_match_pct: f64,
     pub any_provider_match_pct: f64,
 }
@@ -248,6 +256,10 @@ mod tests {
                 matched_unique_provider: 7,
                 matched_multi_provider: 2,
                 unmatched_no_provider: 1,
+                matched_multi_resolved: 1,
+                matched_multi_unresolved: 1,
+                matched_multi_fallback_equal: 0,
+                a_input_edges_written: 8,
                 unique_provider_match_pct: 70.0,
                 any_provider_match_pct: 90.0,
             },
