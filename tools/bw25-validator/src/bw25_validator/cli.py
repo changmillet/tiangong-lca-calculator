@@ -95,12 +95,18 @@ class RustPersistenceTiming:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="bw25-validate",
-        description="Manual Brightway25 cross-validation for solve_one artifacts",
+        description="Manual Brightway25 cross-validation for solve_one/solve_all_unit artifacts",
     )
     parser.add_argument("--database-url", default=os.getenv("DATABASE_URL") or os.getenv("CONN"))
     parser.add_argument("--result-id", default=None)
     parser.add_argument("--job-id", default=None)
     parser.add_argument("--snapshot-id", default=None)
+    parser.add_argument(
+        "--job-type",
+        choices=["solve_one", "solve_all_unit"],
+        default="solve_one",
+        help="Used only when selecting latest result by --snapshot-id or default latest lookup",
+    )
     parser.add_argument(
         "--report-dir",
         default="reports/bw25-validation",
@@ -116,6 +122,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--s3-access-key-id", default=os.getenv("S3_ACCESS_KEY_ID"))
     parser.add_argument("--s3-secret-access-key", default=os.getenv("S3_SECRET_ACCESS_KEY"))
     parser.add_argument("--s3-session-token", default=os.getenv("S3_SESSION_TOKEN"))
+    parser.add_argument(
+        "--all-unit-max-processes",
+        type=int,
+        default=None,
+        help="Optional cap for solve_all_unit validation (validate first N processes)",
+    )
     return parser.parse_args()
 
 
@@ -125,6 +137,8 @@ def main() -> None:
         raise SystemExit("missing DB connection: provide --database-url or DATABASE_URL/CONN")
     if sum(1 for v in [args.result_id, args.job_id] if v) > 1:
         raise SystemExit("use only one of --result-id or --job-id")
+    if args.all_unit_max_processes is not None and args.all_unit_max_processes <= 0:
+        raise SystemExit("--all-unit-max-processes must be > 0 when provided")
 
     s3 = S3Config(
         endpoint=args.s3_endpoint,
@@ -138,7 +152,9 @@ def main() -> None:
     total_started = time.perf_counter()
     with psycopg.connect(args.database_url, row_factory=dict_row) as conn:
         resolve_started = time.perf_counter()
-        target = resolve_target_result(conn, args.result_id, args.job_id, args.snapshot_id)
+        target = resolve_target_result(
+            conn, args.result_id, args.job_id, args.snapshot_id, args.job_type
+        )
         resolve_sec = time.perf_counter() - resolve_started
         rust_job_timing = fetch_rust_job_timing(conn, target.job_id)
         rust_compute_timing = extract_rust_compute_timing(target.result_diagnostics)
@@ -147,7 +163,6 @@ def main() -> None:
         load_started = time.perf_counter()
         result_payload = load_result_payload(target, s3)
         snapshot_payload = load_snapshot_payload(conn, target.snapshot_id, s3)
-        rhs = extract_rhs(target.job_payload)
         load_sec = time.perf_counter() - load_started
 
     build_started = time.perf_counter()
@@ -157,45 +172,51 @@ def main() -> None:
     m, b, c = build_matrices(snapshot_payload)
     build_sec = time.perf_counter() - build_started
 
-    if rhs.shape[0] != n:
-        raise SystemExit(f"rhs length mismatch: rhs={rhs.shape[0]} process_count={n}")
+    validation: dict[str, Any]
+    if target.job_type == "solve_one":
+        validation = validate_solve_one(
+            m=m,
+            b=b,
+            c=c,
+            n=n,
+            result_payload=result_payload,
+            job_payload=target.job_payload,
+            atol=args.atol,
+            rtol=args.rtol,
+        )
+    elif target.job_type == "solve_all_unit":
+        validation = validate_solve_all_unit(
+            m=m,
+            b=b,
+            c=c,
+            n=n,
+            result_payload=result_payload,
+            atol=args.atol,
+            rtol=args.rtol,
+            max_processes=args.all_unit_max_processes,
+        )
+    else:
+        raise SystemExit(f"unsupported job_type for validation: {target.job_type}")
 
-    solve_started = time.perf_counter()
-    x_bw, bw_score = run_brightway_lca(m, b, c, rhs)
-    g_bw = (b @ x_bw).astype(np.float64)
-    h_bw = (c @ g_bw).astype(np.float64)
-    solve_sec = time.perf_counter() - solve_started
-
-    compare_started = time.perf_counter()
-    rust_x = as_float_vector(result_payload.get("x"))
-    rust_g = as_float_vector(result_payload.get("g"))
-    rust_h = as_float_vector(result_payload.get("h"))
-    x_metrics = compare_vector("x", rust_x, x_bw, args.atol, args.rtol)
-    g_metrics = compare_vector("g", rust_g, g_bw, args.atol, args.rtol)
-    h_metrics = compare_vector("h", rust_h, h_bw, args.atol, args.rtol)
-
-    bw_residual_rel = normalized_residual(m, x_bw, rhs)
-    rust_residual_rel = normalized_residual(m, rust_x, rhs) if rust_x is not None else None
-    lcia_check = None
-    if bw_score is not None and rust_h is not None and rust_h.size > 0:
-        abs_delta = float(abs(rust_h[0] - bw_score))
-        rel_delta = float(abs_delta / max(abs(rust_h[0]), 1.0))
-        lcia_check = {
-            "bw_score": float(bw_score),
-            "rust_h0": float(rust_h[0]),
-            "abs_delta": abs_delta,
-            "rel_delta": rel_delta,
-            "pass_threshold": bool(abs_delta <= args.atol or rel_delta <= args.rtol),
-            "considered_for_verdict": False,
-        }
+    x_metrics = validation["x_metrics"]
+    g_metrics = validation["g_metrics"]
+    h_metrics = validation["h_metrics"]
+    lcia_check = validation["lcia_check"]
+    bw_residual_rel = validation["bw_residual_rel"]
+    rust_residual_rel = validation["rust_residual_rel"]
+    solve_sec = float(validation["solve_sec"])
+    compare_sec = float(validation["compare_sec"])
 
     passes = [
         metric["pass_threshold"]
         for metric in [x_metrics, g_metrics, h_metrics]
         if metric is not None
     ]
+    if not passes:
+        raise SystemExit(
+            "no comparable vectors found in result payload (x/g/h all missing)"
+        )
     verdict = "pass" if all(passes) else "fail"
-    compare_sec = time.perf_counter() - compare_started
 
     total_sec = time.perf_counter() - total_started
     bw_build_plus_solve_sec = build_sec + solve_sec
@@ -262,6 +283,8 @@ def main() -> None:
             "h": h_metrics,
             "lcia_score": lcia_check,
         },
+        "validation_mode": validation["mode"],
+        "validation_scope": validation["scope"],
         "speed_comparison": {
             "rust_job": {
                 "status": rust_job_timing.status,
@@ -346,6 +369,7 @@ def resolve_target_result(
     result_id: str | None,
     job_id: str | None,
     snapshot_id: str | None,
+    selected_job_type: str,
 ) -> TargetResult:
     if result_id:
         query = """
@@ -401,11 +425,11 @@ def resolve_target_result(
                 FROM public.lca_results r
                 JOIN public.lca_jobs j ON j.id = r.job_id
                 WHERE r.snapshot_id = %s::uuid
-                  AND j.job_type = 'solve_one'
+                  AND j.job_type = %s
                 ORDER BY r.created_at DESC
                 LIMIT 1
             """
-            params = (snapshot_id,)
+            params = (snapshot_id, selected_job_type)
         else:
             query = """
                 SELECT
@@ -420,18 +444,19 @@ def resolve_target_result(
                     to_char(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at_utc
                 FROM public.lca_results r
                 JOIN public.lca_jobs j ON j.id = r.job_id
-                WHERE j.job_type = 'solve_one'
+                WHERE j.job_type = %s
                 ORDER BY r.created_at DESC
                 LIMIT 1
             """
-            params = ()
+            params = (selected_job_type,)
         row = conn.execute(query, params).fetchone()
 
     if not row:
         raise SystemExit("no result row found for selected target")
-    if row["job_type"] != "solve_one":
+    if row["job_type"] not in {"solve_one", "solve_all_unit"}:
         raise SystemExit(
-            f"only solve_one validation is supported currently, got job_type={row['job_type']}"
+            "unsupported job_type for bw25 validator: "
+            f"{row['job_type']} (supported: solve_one, solve_all_unit)"
         )
 
     return TargetResult(
@@ -543,7 +568,7 @@ def load_result_payload(target: TargetResult, s3: S3Config) -> dict[str, Any]:
     payload = envelope["envelope"].get("payload")
     if not isinstance(payload, dict):
         raise SystemExit("invalid result artifact payload")
-    return extract_result_payload_object(payload)
+    return payload
 
 
 def extract_result_payload_object(payload: dict[str, Any]) -> dict[str, Any]:
@@ -603,6 +628,293 @@ def extract_rhs(job_payload: dict[str, Any]) -> np.ndarray:
     if vector is None:
         return np.array([], dtype=np.float64)
     return vector
+
+
+def extract_result_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    items = payload.get("items")
+    if not isinstance(items, list) or not items:
+        raise SystemExit("solve_all_unit result payload has empty items")
+    out: list[dict[str, Any]] = []
+    for idx, item in enumerate(items):
+        if not isinstance(item, dict):
+            raise SystemExit(f"invalid solve_all_unit item at index={idx}")
+        out.append(item)
+    return out
+
+
+def validate_solve_one(
+    *,
+    m: sparse.csc_matrix,
+    b: sparse.csc_matrix,
+    c: sparse.csc_matrix,
+    n: int,
+    result_payload: dict[str, Any],
+    job_payload: dict[str, Any],
+    atol: float,
+    rtol: float,
+) -> dict[str, Any]:
+    result = extract_result_payload_object(result_payload)
+    rhs = extract_rhs(job_payload)
+    if rhs.shape[0] != n:
+        raise SystemExit(f"rhs length mismatch: rhs={rhs.shape[0]} process_count={n}")
+
+    solve_started = time.perf_counter()
+    x_bw, bw_score = run_brightway_lca(m, b, c, rhs)
+    g_bw = (b @ x_bw).astype(np.float64)
+    h_bw = (c @ g_bw).astype(np.float64)
+    solve_sec = time.perf_counter() - solve_started
+
+    compare_started = time.perf_counter()
+    rust_x = as_float_vector(result.get("x"))
+    rust_g = as_float_vector(result.get("g"))
+    rust_h = as_float_vector(result.get("h"))
+    x_metrics = compare_vector("x", rust_x, x_bw, atol, rtol)
+    g_metrics = compare_vector("g", rust_g, g_bw, atol, rtol)
+    h_metrics = compare_vector("h", rust_h, h_bw, atol, rtol)
+
+    bw_residual_rel = normalized_residual(m, x_bw, rhs)
+    rust_residual_rel = normalized_residual(m, rust_x, rhs) if rust_x is not None else None
+    lcia_check = None
+    if bw_score is not None and rust_h is not None and rust_h.size > 0:
+        abs_delta = float(abs(rust_h[0] - bw_score))
+        rel_delta = float(abs_delta / max(abs(rust_h[0]), 1.0))
+        lcia_check = {
+            "bw_score": float(bw_score),
+            "rust_h0": float(rust_h[0]),
+            "abs_delta": abs_delta,
+            "rel_delta": rel_delta,
+            "pass_threshold": bool(abs_delta <= atol or rel_delta <= rtol),
+            "considered_for_verdict": False,
+        }
+    compare_sec = time.perf_counter() - compare_started
+
+    return {
+        "mode": "solve_one",
+        "scope": {
+            "compared_process_count": 1,
+            "total_process_count": n,
+        },
+        "x_metrics": x_metrics,
+        "g_metrics": g_metrics,
+        "h_metrics": h_metrics,
+        "lcia_check": lcia_check,
+        "bw_residual_rel": bw_residual_rel,
+        "rust_residual_rel": rust_residual_rel,
+        "solve_sec": solve_sec,
+        "compare_sec": compare_sec,
+    }
+
+
+def validate_solve_all_unit(
+    *,
+    m: sparse.csc_matrix,
+    b: sparse.csc_matrix,
+    c: sparse.csc_matrix,
+    n: int,
+    result_payload: dict[str, Any],
+    atol: float,
+    rtol: float,
+    max_processes: int | None,
+) -> dict[str, Any]:
+    items = extract_result_items(result_payload)
+    if len(items) != n:
+        raise SystemExit(
+            f"solve_all_unit item count mismatch: items={len(items)} process_count={n}"
+        )
+
+    compared_count = min(n, max_processes or n)
+    if compared_count <= 0:
+        raise SystemExit("solve_all_unit has no process selected for validation")
+    indices = list(range(compared_count))
+    selected_items = [items[idx] for idx in indices]
+
+    compare_x = any(item.get("x") is not None for item in selected_items)
+    compare_g = any(item.get("g") is not None for item in selected_items)
+    compare_h = any(item.get("h") is not None for item in selected_items)
+
+    if compare_x and not all(item.get("x") is not None for item in selected_items):
+        raise SystemExit("solve_all_unit payload has mixed x presence across items")
+    if compare_g and not all(item.get("g") is not None for item in selected_items):
+        raise SystemExit("solve_all_unit payload has mixed g presence across items")
+    if compare_h and not all(item.get("h") is not None for item in selected_items):
+        raise SystemExit("solve_all_unit payload has mixed h presence across items")
+
+    x_agg = init_metric_aggregate()
+    g_agg = init_metric_aggregate()
+    h_agg = init_metric_aggregate()
+
+    lcia_count = 0
+    lcia_abs_max = 0.0
+    lcia_rel_max = 0.0
+    lcia_pass = True
+    lcia_worst_idx: int | None = None
+    lcia_worst_bw: float | None = None
+    lcia_worst_rust: float | None = None
+
+    bw_residual_rel_max: float | None = None
+    rust_residual_rel_max: float | None = None
+
+    dp = bwp.create_datapackage()
+    add_sparse_matrix_to_datapackage(dp, "technosphere_matrix", m)
+    add_sparse_matrix_to_datapackage(dp, "biosphere_matrix", b)
+    if c.nnz > 0:
+        add_sparse_matrix_to_datapackage(dp, "characterization_matrix", c)
+
+    lca = bc.LCA(
+        demand={indices[0]: 1.0},
+        data_objs=[dp],
+        use_arrays=False,
+        use_distributions=False,
+    )
+
+    solve_sec = 0.0
+    compare_sec = 0.0
+
+    for pos, process_index in enumerate(indices):
+        solve_started = time.perf_counter()
+        demand = {process_index: 1.0}
+        if pos == 0:
+            lca.lci()
+        else:
+            lca.redo_lci(demand)
+
+        x_bw = np.array(lca.supply_array, dtype=np.float64).reshape(-1)
+        g_bw = (b @ x_bw).astype(np.float64)
+        h_bw = (c @ g_bw).astype(np.float64)
+        solve_sec += time.perf_counter() - solve_started
+
+        compare_started = time.perf_counter()
+        rust_item = selected_items[pos]
+        rust_x = as_float_vector(rust_item.get("x"))
+        rust_g = as_float_vector(rust_item.get("g"))
+        rust_h = as_float_vector(rust_item.get("h"))
+
+        x_metric = compare_vector("x", rust_x, x_bw, atol, rtol)
+        g_metric = compare_vector("g", rust_g, g_bw, atol, rtol)
+        h_metric = compare_vector("h", rust_h, h_bw, atol, rtol)
+
+        update_metric_aggregate(x_agg, x_metric, process_index)
+        update_metric_aggregate(g_agg, g_metric, process_index)
+        update_metric_aggregate(h_agg, h_metric, process_index)
+
+        if rust_x is not None:
+            rhs = np.zeros(n, dtype=np.float64)
+            rhs[process_index] = 1.0
+            bw_res = normalized_residual(m, x_bw, rhs)
+            rust_res = normalized_residual(m, rust_x, rhs)
+            if bw_res is not None:
+                bw_residual_rel_max = (
+                    bw_res
+                    if bw_residual_rel_max is None
+                    else max(bw_residual_rel_max, bw_res)
+                )
+            if rust_res is not None:
+                rust_residual_rel_max = (
+                    rust_res
+                    if rust_residual_rel_max is None
+                    else max(rust_residual_rel_max, rust_res)
+                )
+
+        if h_bw.size > 0 and rust_h is not None and rust_h.size > 0:
+            bw_h0 = float(h_bw[0])
+            rust_h0 = float(rust_h[0])
+            abs_delta = float(abs(rust_h0 - bw_h0))
+            rel_delta = float(abs_delta / max(abs(rust_h0), 1.0))
+            lcia_count += 1
+            lcia_pass = lcia_pass and bool(abs_delta <= atol or rel_delta <= rtol)
+            if abs_delta >= lcia_abs_max:
+                lcia_abs_max = abs_delta
+                lcia_rel_max = rel_delta
+                lcia_worst_idx = process_index
+                lcia_worst_bw = bw_h0
+                lcia_worst_rust = rust_h0
+
+        compare_sec += time.perf_counter() - compare_started
+
+    lcia_check = None
+    if lcia_count > 0:
+        lcia_check = {
+            "bw_score": lcia_worst_bw,
+            "rust_h0": lcia_worst_rust,
+            "abs_delta": lcia_abs_max,
+            "rel_delta": lcia_rel_max,
+            "pass_threshold": lcia_pass,
+            "considered_for_verdict": False,
+            "compared_count": lcia_count,
+            "worst_process_index": lcia_worst_idx,
+        }
+
+    return {
+        "mode": "solve_all_unit",
+        "scope": {
+            "compared_process_count": compared_count,
+            "total_process_count": n,
+            "max_processes": max_processes,
+        },
+        "x_metrics": finalize_metric_aggregate(x_agg),
+        "g_metrics": finalize_metric_aggregate(g_agg),
+        "h_metrics": finalize_metric_aggregate(h_agg),
+        "lcia_check": lcia_check,
+        "bw_residual_rel": bw_residual_rel_max,
+        "rust_residual_rel": rust_residual_rel_max,
+        "solve_sec": solve_sec,
+        "compare_sec": compare_sec,
+    }
+
+
+def init_metric_aggregate() -> dict[str, Any]:
+    return {
+        "count": 0,
+        "size": None,
+        "abs_inf": 0.0,
+        "rel_inf": 0.0,
+        "abs_l2": 0.0,
+        "pass_threshold": True,
+        "worst_process_index": None,
+    }
+
+
+def update_metric_aggregate(
+    aggregate: dict[str, Any],
+    metric: dict[str, Any] | None,
+    process_index: int,
+) -> None:
+    if metric is None:
+        return
+
+    aggregate["count"] = int(aggregate["count"]) + 1
+    if aggregate["size"] is None:
+        aggregate["size"] = int(metric["size"])
+
+    metric_abs_inf = float(metric["abs_inf"])
+    metric_rel_inf = float(metric["rel_inf"])
+    metric_abs_l2 = float(metric["abs_l2"])
+
+    if metric_abs_inf >= float(aggregate["abs_inf"]):
+        aggregate["abs_inf"] = metric_abs_inf
+        aggregate["worst_process_index"] = process_index
+    aggregate["rel_inf"] = max(float(aggregate["rel_inf"]), metric_rel_inf)
+    aggregate["abs_l2"] = max(float(aggregate["abs_l2"]), metric_abs_l2)
+    aggregate["pass_threshold"] = bool(
+        aggregate["pass_threshold"] and bool(metric["pass_threshold"])
+    )
+
+
+def finalize_metric_aggregate(
+    aggregate: dict[str, Any],
+) -> dict[str, Any] | None:
+    count = int(aggregate["count"])
+    if count <= 0:
+        return None
+    return {
+        "size": int(aggregate["size"]),
+        "compared_count": count,
+        "abs_inf": float(aggregate["abs_inf"]),
+        "rel_inf": float(aggregate["rel_inf"]),
+        "abs_l2": float(aggregate["abs_l2"]),
+        "pass_threshold": bool(aggregate["pass_threshold"]),
+        "worst_process_index": aggregate["worst_process_index"],
+    }
 
 
 def build_matrices(
@@ -841,13 +1153,20 @@ def render_markdown_report(report: dict[str, Any]) -> str:
     residual = report["residual"]
     compare = report["comparison"]
     speed = report["speed_comparison"]
+    validation_mode = report.get("validation_mode")
+    validation_scope = report.get("validation_scope")
 
     def metric_line(name: str, metric: dict[str, Any] | None) -> str:
         if metric is None:
             return f"- {name}: `n/a`"
+        extra = ""
+        if metric.get("compared_count") is not None:
+            extra += f" compared_count=`{metric['compared_count']}`"
+        if metric.get("worst_process_index") is not None:
+            extra += f" worst_process_index=`{metric['worst_process_index']}`"
         return (
             f"- {name}: pass=`{metric['pass_threshold']}` "
-            f"abs_inf=`{metric['abs_inf']:.6e}` rel_inf=`{metric['rel_inf']:.6e}` abs_l2=`{metric['abs_l2']:.6e}`"
+            f"abs_inf=`{metric['abs_inf']:.6e}` rel_inf=`{metric['rel_inf']:.6e}` abs_l2=`{metric['abs_l2']:.6e}`{extra}"
         )
 
     lcia = compare.get("lcia_score")
@@ -868,6 +1187,9 @@ def render_markdown_report(report: dict[str, Any]) -> str:
             f"- result_id: `{target['result_id']}`",
             f"- job_id: `{target['job_id']}`",
             f"- snapshot_id: `{target['snapshot_id']}`",
+            f"- job_type: `{target['job_type']}`",
+            f"- validation_mode: `{validation_mode}`",
+            f"- validation_scope: `{validation_scope}`",
             "",
             "## Thresholds",
             "",

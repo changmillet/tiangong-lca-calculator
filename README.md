@@ -249,11 +249,24 @@ make check
 ./scripts/run_bw25_validation.sh --snapshot-id <snapshot_id>
 ```
 
+按作业类型选择（`--snapshot-id` 或默认最新时生效，默认 `solve_one`）：
+
+```bash
+./scripts/run_bw25_validation.sh --snapshot-id <snapshot_id> --job-type solve_one
+./scripts/run_bw25_validation.sh --snapshot-id <snapshot_id> --job-type solve_all_unit
+```
+
 可选指定目标：
 
 ```bash
 ./scripts/run_bw25_validation.sh --result-id <result_uuid>
 ./scripts/run_bw25_validation.sh --job-id <job_uuid>
+```
+
+`solve_all_unit` 可选做抽样校验（只校验前 N 个 process）：
+
+```bash
+./scripts/run_bw25_validation.sh --result-id <result_uuid> --all-unit-max-processes 200
 ```
 
 输出：
@@ -265,6 +278,8 @@ make check
 
 - Brightway 重建 `M` 并求 `x`
 - 对比 Rust 的 `x/g/h`
+  - `solve_one`：单个 `rhs`
+  - `solve_all_unit`：按 unit demand `e_i` 逐过程重算，并输出聚合后的最坏误差
 - 记录残差与阈值判断（`atol/rtol`）
 - 输出速度对比（优先比较“可比计算时间”）：
   - Rust：`solve_mx_sec + bx_sec + cg_sec`（来自 `lca_results.diagnostics.compute_timing_sec`）
