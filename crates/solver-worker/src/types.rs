@@ -87,6 +87,49 @@ pub enum JobPayload {
         #[serde(default)]
         print_level: Option<f64>,
     },
+    /// Build one snapshot artifact for later solve jobs.
+    BuildSnapshot {
+        /// `jobs.id`
+        job_id: Uuid,
+        /// Requested snapshot id to persist.
+        snapshot_id: Uuid,
+        /// Active scope pointer to update after build.
+        #[serde(default)]
+        scope: Option<String>,
+        /// Process state filter, e.g. `100` or `100,200`.
+        #[serde(default)]
+        process_states: Option<String>,
+        /// Optional user_id inclusion.
+        #[serde(default)]
+        include_user_id: Option<Uuid>,
+        /// Optional provider matching rule.
+        #[serde(default)]
+        provider_rule: Option<String>,
+        /// Optional quantitative reference normalization mode.
+        #[serde(default)]
+        reference_normalization_mode: Option<String>,
+        /// Optional allocation fraction mode.
+        #[serde(default)]
+        allocation_fraction_mode: Option<String>,
+        /// Optional process_limit.
+        #[serde(default)]
+        process_limit: Option<i32>,
+        /// Optional self-loop cutoff.
+        #[serde(default)]
+        self_loop_cutoff: Option<f64>,
+        /// Optional near-singular epsilon.
+        #[serde(default)]
+        singular_eps: Option<f64>,
+        /// Optional LCIA method id.
+        #[serde(default)]
+        method_id: Option<Uuid>,
+        /// Optional LCIA method version.
+        #[serde(default)]
+        method_version: Option<String>,
+        /// Disable LCIA factors.
+        #[serde(default)]
+        no_lcia: Option<bool>,
+    },
 }
 
 /// Solve output flags from payload.

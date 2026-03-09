@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{io::ErrorKind, path::PathBuf, process::Command, time::Instant};
 
 use serde_json::{Map, Value};
 use solver_core::{
@@ -10,7 +10,10 @@ use tracing::{instrument, warn};
 use uuid::Uuid;
 
 use crate::{
-    artifacts::{EncodedArtifact, encode_solve_batch_artifact, encode_solve_one_artifact},
+    artifacts::{
+        EncodedArtifact, encode_solve_all_unit_query_artifact, encode_solve_batch_artifact,
+        encode_solve_one_artifact,
+    },
     config::AppConfig,
     snapshot_artifacts::decode_snapshot_artifact,
     storage::ObjectStoreClient,
@@ -730,6 +733,19 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
             }
 
             let solved = SolveBatchResult { items };
+            let query_artifact_meta =
+                persist_solve_all_unit_query_artifact(state, job_id, snapshot_id, &solved)
+                    .await
+                    .map_err(|err| {
+                        warn!(
+                            error = %err,
+                            job_id = %job_id,
+                            snapshot_id = %snapshot_id,
+                            "failed to persist solve_all_unit query sidecar artifact"
+                        );
+                        err
+                    })
+                    .ok();
             let result_diag =
                 persist_solve_batch_result(state, job_id, snapshot_id, &solved, "solve_all_unit")
                     .await?;
@@ -747,15 +763,34 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
             );
             let _ = update_job_status(&state.pool, job_id, "completed", completed_diag).await?;
 
-            if let Some(result_id) = latest_result_id_for_job(&state.pool, job_id).await?
-                && let Err(err) = mark_result_cache_ready(&state.pool, job_id, result_id).await
-            {
-                warn!(
-                    error = %err,
-                    job_id = %job_id,
-                    result_id = %result_id,
-                    "failed to mark result cache ready"
-                );
+            if let Some(result_id) = latest_result_id_for_job(&state.pool, job_id).await? {
+                if let Err(err) = mark_result_cache_ready(&state.pool, job_id, result_id).await {
+                    warn!(
+                        error = %err,
+                        job_id = %job_id,
+                        result_id = %result_id,
+                        "failed to mark result cache ready"
+                    );
+                }
+
+                if let Some(meta) = query_artifact_meta
+                    && let Err(err) = upsert_latest_all_unit_result(
+                        &state.pool,
+                        snapshot_id,
+                        job_id,
+                        result_id,
+                        &meta,
+                    )
+                    .await
+                {
+                    warn!(
+                        error = %err,
+                        job_id = %job_id,
+                        snapshot_id = %snapshot_id,
+                        result_id = %result_id,
+                        "failed to upsert lca_latest_all_unit_results"
+                    );
+                }
             }
         }
         JobPayload::InvalidateFactorization {
@@ -791,6 +826,74 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
                 serde_json::to_value(prepared)?,
             )
             .await?;
+        }
+        JobPayload::BuildSnapshot {
+            job_id,
+            snapshot_id,
+            scope,
+            process_states,
+            include_user_id,
+            provider_rule,
+            reference_normalization_mode,
+            allocation_fraction_mode,
+            process_limit,
+            self_loop_cutoff,
+            singular_eps,
+            method_id,
+            method_version,
+            no_lcia,
+        } => {
+            let running_db_write_sec = update_job_status(
+                &state.pool,
+                job_id,
+                "running",
+                serde_json::json!({
+                    "phase": "build_snapshot",
+                    "snapshot_id": snapshot_id,
+                }),
+            )
+            .await?;
+
+            let executed = run_snapshot_builder_job(
+                snapshot_id,
+                process_states.as_deref(),
+                include_user_id,
+                provider_rule.as_deref(),
+                reference_normalization_mode.as_deref(),
+                allocation_fraction_mode.as_deref(),
+                process_limit,
+                self_loop_cutoff,
+                singular_eps,
+                method_id,
+                method_version.as_deref(),
+                no_lcia.unwrap_or(false),
+            )
+            .await?;
+
+            let source_hash = fetch_snapshot_source_hash(&state.pool, snapshot_id).await?;
+            if let Some(scope_value) = scope.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+                upsert_active_snapshot(
+                    &state.pool,
+                    scope_value,
+                    snapshot_id,
+                    source_hash.as_deref(),
+                    include_user_id,
+                    job_id,
+                )
+                .await?;
+            }
+
+            let completed_diag = merge_job_status_update_timing(
+                serde_json::json!({
+                    "phase": "build_snapshot",
+                    "snapshot_id": snapshot_id,
+                    "builder": executed,
+                    "source_hash": source_hash,
+                }),
+                "running",
+                running_db_write_sec,
+            );
+            let _ = update_job_status(&state.pool, job_id, "completed", completed_diag).await?;
         }
     }
 
@@ -867,6 +970,82 @@ async fn persist_solve_batch_result(
     .await
 }
 
+async fn persist_solve_all_unit_query_artifact(
+    state: &AppState,
+    job_id: Uuid,
+    snapshot_id: Uuid,
+    solved: &SolveBatchResult,
+) -> anyhow::Result<QueryArtifactMeta> {
+    let encoded = encode_solve_all_unit_query_artifact(snapshot_id, job_id, solved)?;
+    let artifact_len = i64::try_from(encoded.bytes.len())
+        .map_err(|_| anyhow::anyhow!("query artifact size overflow"))?;
+    let artifact_url = state
+        .object_store
+        .upload_result(
+            snapshot_id,
+            job_id,
+            "solve_all_unit_query",
+            encoded.extension,
+            encoded.content_type,
+            encoded.bytes,
+        )
+        .await?;
+
+    Ok(QueryArtifactMeta {
+        url: artifact_url,
+        sha256: encoded.sha256,
+        byte_size: artifact_len,
+        format: encoded.format.to_owned(),
+    })
+}
+
+async fn upsert_latest_all_unit_result(
+    pool: &PgPool,
+    snapshot_id: Uuid,
+    job_id: Uuid,
+    result_id: Uuid,
+    query_artifact: &QueryArtifactMeta,
+) -> anyhow::Result<()> {
+    sqlx::query(
+        r"
+        INSERT INTO public.lca_latest_all_unit_results (
+            snapshot_id,
+            job_id,
+            result_id,
+            query_artifact_url,
+            query_artifact_sha256,
+            query_artifact_byte_size,
+            query_artifact_format,
+            status,
+            computed_at,
+            updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'ready', NOW(), NOW())
+        ON CONFLICT (snapshot_id)
+        DO UPDATE SET
+            job_id = EXCLUDED.job_id,
+            result_id = EXCLUDED.result_id,
+            query_artifact_url = EXCLUDED.query_artifact_url,
+            query_artifact_sha256 = EXCLUDED.query_artifact_sha256,
+            query_artifact_byte_size = EXCLUDED.query_artifact_byte_size,
+            query_artifact_format = EXCLUDED.query_artifact_format,
+            status = EXCLUDED.status,
+            computed_at = EXCLUDED.computed_at,
+            updated_at = NOW()
+        ",
+    )
+    .bind(snapshot_id)
+    .bind(job_id)
+    .bind(result_id)
+    .bind(query_artifact.url.as_str())
+    .bind(query_artifact.sha256.as_str())
+    .bind(query_artifact.byte_size)
+    .bind(query_artifact.format.as_str())
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 struct PersistArtifactInput {
     suffix: &'static str,
     encoded: EncodedArtifact,
@@ -879,6 +1058,30 @@ struct ArtifactMeta {
     sha256: String,
     encoded_len: usize,
     artifact_len: i64,
+}
+
+#[derive(Debug, Clone)]
+struct QueryArtifactMeta {
+    url: String,
+    sha256: String,
+    byte_size: i64,
+    format: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct SnapshotBuilderExecution {
+    snapshot_id: Uuid,
+    command: Vec<String>,
+    exit_code: i32,
+    stdout_tail: String,
+    stderr_tail: String,
+}
+
+#[derive(Debug, Clone)]
+struct BuilderCommandCandidate {
+    program: String,
+    args: Vec<String>,
+    current_dir: Option<PathBuf>,
 }
 
 #[derive(Clone)]
@@ -934,6 +1137,234 @@ async fn persist_result_artifact(
         &artifact_url,
     )
     .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_snapshot_builder_job(
+    snapshot_id: Uuid,
+    process_states: Option<&str>,
+    include_user_id: Option<Uuid>,
+    provider_rule: Option<&str>,
+    reference_normalization_mode: Option<&str>,
+    allocation_fraction_mode: Option<&str>,
+    process_limit: Option<i32>,
+    self_loop_cutoff: Option<f64>,
+    singular_eps: Option<f64>,
+    method_id: Option<Uuid>,
+    method_version: Option<&str>,
+    no_lcia: bool,
+) -> anyhow::Result<SnapshotBuilderExecution> {
+    let mut builder_args = vec![
+        "--snapshot-id".to_owned(),
+        snapshot_id.to_string(),
+        "--process-states".to_owned(),
+        process_states.unwrap_or("100").to_owned(),
+        "--provider-rule".to_owned(),
+        provider_rule.unwrap_or("strict_unique_provider").to_owned(),
+        "--reference-normalization-mode".to_owned(),
+        reference_normalization_mode.unwrap_or("lenient").to_owned(),
+        "--allocation-fraction-mode".to_owned(),
+        allocation_fraction_mode.unwrap_or("lenient").to_owned(),
+    ];
+
+    if let Some(user_id) = include_user_id {
+        builder_args.push("--include-user-id".to_owned());
+        builder_args.push(user_id.to_string());
+    }
+    if let Some(limit) = process_limit {
+        builder_args.push("--process-limit".to_owned());
+        builder_args.push(limit.max(0).to_string());
+    }
+    if let Some(cutoff) = self_loop_cutoff {
+        builder_args.push("--self-loop-cutoff".to_owned());
+        builder_args.push(cutoff.to_string());
+    }
+    if let Some(eps) = singular_eps {
+        builder_args.push("--singular-eps".to_owned());
+        builder_args.push(eps.to_string());
+    }
+    if let Some(mid) = method_id {
+        builder_args.push("--method-id".to_owned());
+        builder_args.push(mid.to_string());
+    }
+    if let Some(mver) = method_version.map(str::trim).filter(|s| !s.is_empty()) {
+        builder_args.push("--method-version".to_owned());
+        builder_args.push(mver.to_owned());
+    }
+    if no_lcia {
+        builder_args.push("--no-lcia".to_owned());
+    }
+
+    let candidates = snapshot_builder_candidates(builder_args);
+    let mut last_not_found = false;
+    for candidate in candidates {
+        let cmd_vec = std::iter::once(candidate.program.clone())
+            .chain(candidate.args.iter().cloned())
+            .collect::<Vec<_>>();
+        let program = candidate.program.clone();
+        let args = candidate.args.clone();
+        let current_dir = candidate.current_dir.clone();
+        let output = match tokio::task::spawn_blocking(move || {
+            let mut command = Command::new(&program);
+            command.args(&args);
+            if let Some(dir) = current_dir {
+                command.current_dir(dir);
+            }
+            command.output()
+        })
+        .await
+        .map_err(|err| anyhow::anyhow!("snapshot_builder join error: {err}"))?
+        {
+            Ok(output) => output,
+            Err(err) if err.kind() == ErrorKind::NotFound => {
+                last_not_found = true;
+                continue;
+            }
+            Err(err) => return Err(err.into()),
+        };
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        if !output.status.success() {
+            let code = output.status.code().unwrap_or(-1);
+            return Err(anyhow::anyhow!(
+                "snapshot_builder failed: code={} cmd={} stdout_tail={} stderr_tail={}",
+                code,
+                cmd_vec.join(" "),
+                tail_text(&stdout, 2000),
+                tail_text(&stderr, 2000),
+            ));
+        }
+
+        return Ok(SnapshotBuilderExecution {
+            snapshot_id,
+            command: cmd_vec,
+            exit_code: output.status.code().unwrap_or(0),
+            stdout_tail: tail_text(&stdout, 4000),
+            stderr_tail: tail_text(&stderr, 2000),
+        });
+    }
+
+    if last_not_found {
+        return Err(anyhow::anyhow!(
+            "snapshot_builder command not found; set SNAPSHOT_BUILDER_BIN or install cargo"
+        ));
+    }
+    Err(anyhow::anyhow!("failed to execute snapshot_builder"))
+}
+
+fn snapshot_builder_candidates(builder_args: Vec<String>) -> Vec<BuilderCommandCandidate> {
+    let mut out = Vec::new();
+
+    if let Ok(custom) = std::env::var("SNAPSHOT_BUILDER_BIN")
+        && !custom.trim().is_empty()
+    {
+        out.push(BuilderCommandCandidate {
+            program: custom,
+            args: builder_args.clone(),
+            current_dir: None,
+        });
+    }
+
+    if let Ok(current_exe) = std::env::current_exe()
+        && let Some(parent) = current_exe.parent()
+    {
+        let sibling = parent.join("snapshot_builder");
+        out.push(BuilderCommandCandidate {
+            program: sibling.to_string_lossy().to_string(),
+            args: builder_args.clone(),
+            current_dir: None,
+        });
+    }
+
+    out.push(BuilderCommandCandidate {
+        program: "snapshot_builder".to_owned(),
+        args: builder_args.clone(),
+        current_dir: None,
+    });
+
+    let root = std::env::var("LCA_CALCULATOR_ROOT")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .map(PathBuf::from)
+        .or_else(|| std::env::current_dir().ok());
+
+    let mut cargo_args = vec![
+        "run".to_owned(),
+        "-p".to_owned(),
+        "solver-worker".to_owned(),
+        "--bin".to_owned(),
+        "snapshot_builder".to_owned(),
+        "--release".to_owned(),
+        "--".to_owned(),
+    ];
+    cargo_args.extend(builder_args);
+    out.push(BuilderCommandCandidate {
+        program: "cargo".to_owned(),
+        args: cargo_args,
+        current_dir: root,
+    });
+
+    out
+}
+
+fn tail_text(input: &str, max_len: usize) -> String {
+    if input.len() <= max_len {
+        return input.to_owned();
+    }
+    input[input.len() - max_len..].to_owned()
+}
+
+async fn fetch_snapshot_source_hash(
+    pool: &PgPool,
+    snapshot_id: Uuid,
+) -> anyhow::Result<Option<String>> {
+    let row = sqlx::query("SELECT source_hash FROM public.lca_network_snapshots WHERE id = $1")
+        .bind(snapshot_id)
+        .fetch_optional(pool)
+        .await?;
+    match row {
+        Some(row) => Ok(row.try_get::<Option<String>, _>("source_hash")?),
+        None => Ok(None),
+    }
+}
+
+async fn upsert_active_snapshot(
+    pool: &PgPool,
+    scope: &str,
+    snapshot_id: Uuid,
+    source_hash: Option<&str>,
+    activated_by: Option<Uuid>,
+    job_id: Uuid,
+) -> anyhow::Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO public.lca_active_snapshots (
+            scope,
+            snapshot_id,
+            source_hash,
+            activated_at,
+            activated_by,
+            note
+        )
+        VALUES ($1, $2, $3, NOW(), $4, $5)
+        ON CONFLICT (scope)
+        DO UPDATE SET
+            snapshot_id = EXCLUDED.snapshot_id,
+            source_hash = EXCLUDED.source_hash,
+            activated_at = EXCLUDED.activated_at,
+            activated_by = EXCLUDED.activated_by,
+            note = EXCLUDED.note
+        "#,
+    )
+    .bind(scope)
+    .bind(snapshot_id)
+    .bind(source_hash)
+    .bind(activated_by)
+    .bind(format!("auto build_snapshot job {job_id}"))
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 async fn persist_object_storage_result(

@@ -76,6 +76,7 @@ worker 上传 artifact 到 S3 兼容存储，并在 `lca_results` 中写入：
 - `supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql`（收紧 RPC 权限，仅 `service_role` 可执行）
 - `supabase/migrations/20260306090000_lca_results_s3_strict_and_retention.sql`（破坏性：清理旧结果并切换为 S3-only + retention 字段）
 - `supabase/migrations/20260308104000_lca_jobs_add_solve_all_unit.sql`（扩展 `lca_jobs.job_type` 约束，支持 `solve_all_unit`）
+- `supabase/migrations/20260309042000_lca_latest_all_unit_results.sql`（新增 snapshot 级 latest all-unit 查询指针表）
 
 对已有业务源表（`processes/flows/lciamethods/...`）不做修改。
 其中 `20260304120000` 会删除旧的 `lca_*_entries/index` 中间表，只保留 artifact-first 所需表。
@@ -95,6 +96,7 @@ worker 上传 artifact 到 S3 兼容存储，并在 `lca_results` 中写入：
 ./scripts/validate_additive_migration.sh supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql
 ./scripts/validate_additive_migration.sh supabase/migrations/20260306090000_lca_results_s3_strict_and_retention.sql
 ./scripts/validate_additive_migration.sh supabase/migrations/20260308104000_lca_jobs_add_solve_all_unit.sql
+./scripts/validate_additive_migration.sh supabase/migrations/20260309042000_lca_latest_all_unit_results.sql
 ```
 
 执行迁移：
@@ -110,6 +112,7 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305093000_lca_enqueu
 psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260305094000_lca_enqueue_job_rpc_acl.sql
 psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260306090000_lca_results_s3_strict_and_retention.sql
 psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260308104000_lca_jobs_add_solve_all_unit.sql
+psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260309042000_lca_latest_all_unit_results.sql
 ```
 
 ### 4.0.1 访问控制基线（RLS）
@@ -141,6 +144,7 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260308104000_lca_jobs_a
 
 - `--process-limit 100`：先做小样本调试 snapshot（正式跑不要加）
 - `--process-states all`：取消 `state_code` 过滤，按所有 `processes` 构建 snapshot
+- `--include-user-id <uuid>`：在 `process_states` 过滤基础上，额外包含该 `user_id` 的 process（并集）
 - `--no-lcia`：先不构建 C 矩阵（只跑到 LCI）
 - `--method-id <uuid> --method-version <ver>`：指定 LCIA 方法
 - `--self-loop-cutoff 0.999999`：过滤会导致 `M = I - A` 奇异的对角自环（`|A_ii|` 过大）

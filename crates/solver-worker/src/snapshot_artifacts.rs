@@ -26,6 +26,9 @@ pub const SNAPSHOT_ARTIFACT_CONTENT_TYPE: &str = "application/x-hdf5";
 pub struct SnapshotBuildConfig {
     /// `state_code` selection used in builder.
     pub process_states: String,
+    /// Optional `user_id` inclusion in process selection.
+    #[serde(default)]
+    pub include_user_id: Option<Uuid>,
     /// Process cap (`0` means unlimited).
     pub process_limit: i32,
     /// Provider matching mode.
@@ -284,6 +287,7 @@ mod tests {
         let snapshot_id = uuid::Uuid::new_v4();
         let config = SnapshotBuildConfig {
             process_states: "100".to_owned(),
+            include_user_id: None,
             process_limit: 0,
             provider_rule: "strict_unique_provider".to_owned(),
             reference_normalization_mode: "strict".to_owned(),
@@ -412,6 +416,7 @@ mod tests {
         });
         let parsed: SnapshotBuildConfig = serde_json::from_value(legacy).expect("parse legacy");
         assert_eq!(parsed.biosphere_sign_mode, "signed");
+        assert_eq!(parsed.include_user_id, None);
     }
 
     fn write_and_open_hdf5(bytes: &[u8]) -> File {

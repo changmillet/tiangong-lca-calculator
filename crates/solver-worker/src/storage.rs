@@ -106,6 +106,23 @@ impl ObjectStoreClient {
         self.upload_object(&key, content_type, bytes).await
     }
 
+    /// Uploads snapshot index sidecar and returns object URL.
+    pub async fn upload_snapshot_index(
+        &self,
+        snapshot_id: Uuid,
+        bytes: Vec<u8>,
+    ) -> anyhow::Result<String> {
+        let key = if self.prefix.is_empty() {
+            format!("snapshots/{snapshot_id}/snapshot/snapshot-index-v1.json")
+        } else {
+            format!(
+                "{}/snapshots/{snapshot_id}/snapshot/snapshot-index-v1.json",
+                self.prefix
+            )
+        };
+        self.upload_object(&key, "application/json", bytes).await
+    }
+
     /// Deletes an object by full object URL.
     pub async fn delete_object_url(&self, object_url: &str) -> anyhow::Result<()> {
         let url = Url::parse(object_url)

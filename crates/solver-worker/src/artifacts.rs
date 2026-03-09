@@ -20,6 +20,12 @@ pub const ARTIFACT_FORMAT: &str = "hdf5:v1";
 pub const ARTIFACT_EXTENSION: &str = "h5";
 /// MIME type used for uploads.
 pub const ARTIFACT_CONTENT_TYPE: &str = "application/x-hdf5";
+/// Query-friendly sidecar format for `solve_all_unit` H results.
+pub const ALL_UNIT_QUERY_ARTIFACT_FORMAT: &str = "all-unit-query:v1";
+/// File extension for query sidecar artifacts.
+pub const ALL_UNIT_QUERY_ARTIFACT_EXTENSION: &str = "json";
+/// MIME type for query sidecar artifacts.
+pub const ALL_UNIT_QUERY_ARTIFACT_CONTENT_TYPE: &str = "application/json";
 
 #[derive(Debug, Clone, Serialize)]
 struct ArtifactEnvelope<T>
@@ -78,6 +84,67 @@ pub fn encode_solve_batch_artifact(
         payload: result,
     };
     encode(&envelope)
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AllUnitQueryEnvelope {
+    version: u8,
+    format: &'static str,
+    snapshot_id: Uuid,
+    job_id: Uuid,
+    process_count: usize,
+    impact_count: usize,
+    h_matrix: Vec<Vec<f64>>,
+}
+
+/// Encodes `solve_all_unit` results into a query-friendly JSON artifact.
+pub fn encode_solve_all_unit_query_artifact(
+    snapshot_id: Uuid,
+    job_id: Uuid,
+    result: &SolveBatchResult,
+) -> anyhow::Result<EncodedArtifact> {
+    let mut h_matrix = Vec::with_capacity(result.items.len());
+    let mut impact_count = None::<usize>;
+    for (idx, item) in result.items.iter().enumerate() {
+        let h = item
+            .h
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("solve_all_unit item[{idx}] missing h payload"))?;
+        let this_impact_count = h.len();
+        match impact_count {
+            None => impact_count = Some(this_impact_count),
+            Some(expected) if expected == this_impact_count => {}
+            Some(expected) => {
+                return Err(anyhow::anyhow!(
+                    "inconsistent h length at item[{idx}]: expected={expected} got={this_impact_count}"
+                ));
+            }
+        }
+        h_matrix.push(h.clone());
+    }
+
+    let envelope = AllUnitQueryEnvelope {
+        version: SCHEMA_VERSION,
+        format: ALL_UNIT_QUERY_ARTIFACT_FORMAT,
+        snapshot_id,
+        job_id,
+        process_count: h_matrix.len(),
+        impact_count: impact_count.unwrap_or(0),
+        h_matrix,
+    };
+
+    let bytes = serde_json::to_vec(&envelope)?;
+    let mut hasher = Sha256::new();
+    hasher.update(bytes.as_slice());
+    let digest = format!("{:x}", hasher.finalize());
+
+    Ok(EncodedArtifact {
+        bytes,
+        sha256: digest,
+        format: ALL_UNIT_QUERY_ARTIFACT_FORMAT,
+        content_type: ALL_UNIT_QUERY_ARTIFACT_CONTENT_TYPE,
+        extension: ALL_UNIT_QUERY_ARTIFACT_EXTENSION,
+    })
 }
 
 fn encode<T>(value: &T) -> anyhow::Result<EncodedArtifact>

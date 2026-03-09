@@ -39,6 +39,7 @@ Usage:
 Options:
   --snapshot-id <uuid>         explicit snapshot id (default: auto generated)
   --process-states <csv|all>   process state_code filter, use "all" to disable filter (default: "100")
+  --include-user-id <uuid>     include processes from this user_id in addition to --process-states
   --process-limit <n>          limit processes for debug snapshot, 0 = no limit (default: 0)
   --provider-rule <rule>       provider matching rule (default: strict_unique_provider)
   --self-loop-cutoff <float>   drop technosphere diagonal edges with |value| >= cutoff (default: 0.999999)

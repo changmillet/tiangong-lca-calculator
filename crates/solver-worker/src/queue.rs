@@ -7,8 +7,8 @@ use uuid::Uuid;
 
 use crate::{
     db::{
-        archive_queue_message, handle_job_payload, mark_result_cache_failed,
-        read_one_queue_message, update_job_status, AppState,
+        AppState, archive_queue_message, handle_job_payload, mark_result_cache_failed,
+        read_one_queue_message, update_job_status,
     },
     types::JobPayload,
 };

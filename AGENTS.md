@@ -87,6 +87,9 @@ Behavior:
 - writes metadata to `lca_network_snapshots` + `lca_snapshot_artifacts`
 - emits coverage report (`reports/snapshot-coverage/...`)
 - supports same-source skip-rebuild via source fingerprint (`count + max(modified_at) + config`)
+- process selection supports:
+  - `--process-states <csv|all>` for `state_code` filtering
+  - `--include-user-id <uuid>` to include one user's processes in addition to `process-states` (OR union)
 - provider matching supports:
   - `strict_unique_provider` (legacy strict behavior)
   - `best_provider_strict` (auto-link select one provider by geo+time score)
