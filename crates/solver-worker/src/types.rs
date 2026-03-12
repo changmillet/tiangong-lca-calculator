@@ -99,7 +99,7 @@ pub enum JobPayload {
         /// Process state filter, e.g. `100` or `100,200`.
         #[serde(default)]
         process_states: Option<String>,
-        /// Optional user_id inclusion.
+        /// Optional `user_id` inclusion.
         #[serde(default)]
         include_user_id: Option<Uuid>,
         /// Optional provider matching rule.
@@ -111,7 +111,7 @@ pub enum JobPayload {
         /// Optional allocation fraction mode.
         #[serde(default)]
         allocation_fraction_mode: Option<String>,
-        /// Optional process_limit.
+        /// Optional `process_limit`.
         #[serde(default)]
         process_limit: Option<i32>,
         /// Optional self-loop cutoff.

@@ -2815,7 +2815,7 @@ mod tests {
         add_technosphere_edge(&mut a_map, 10, 20, 0.4);
 
         assert_close(*a_map.get(&(10, 20)).expect("provider->consumer"), 0.4);
-        assert!(a_map.get(&(20, 10)).is_none());
+        assert!(!a_map.contains_key(&(20, 10)));
     }
 
     #[test]

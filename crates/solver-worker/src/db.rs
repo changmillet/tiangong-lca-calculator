@@ -1338,7 +1338,7 @@ async fn upsert_active_snapshot(
     job_id: Uuid,
 ) -> anyhow::Result<()> {
     sqlx::query(
-        r#"
+        r"
         INSERT INTO public.lca_active_snapshots (
             scope,
             snapshot_id,
@@ -1355,7 +1355,7 @@ async fn upsert_active_snapshot(
             activated_at = EXCLUDED.activated_at,
             activated_by = EXCLUDED.activated_by,
             note = EXCLUDED.note
-        "#,
+        ",
     )
     .bind(scope)
     .bind(snapshot_id)

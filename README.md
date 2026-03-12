@@ -377,6 +377,33 @@ USER_API_KEY=<base64-email-password> \
 - 如果 expected 来自当前 snapshot 的手动求解，它是“回归基线验证”（保证实现一致性）。
 - 如果 expected 来自外部审定结果，它可用于“绝对准确性验证”。
 
+#### 6.2.5 导出最新矩阵（A/B/M + 单一 LCIA）
+
+若要查看“当前最新 `solve_all_unit` 对应 snapshot”的矩阵，可使用：
+
+```bash
+./scripts/export_latest_matrices.sh
+```
+
+默认行为：
+
+- 导出 `A`、`B`、`M=I-A` 三个矩阵（triplets TSV）
+- 仅导出一个 impact 的 `C` 行和 `H` 列向量（默认 GWP: `6209b35f-9447-40b5-b68c-a1099e3674a0`）
+- 输出到 `reports/result-matrices/`
+
+常用参数：
+
+```bash
+# 指定 impact（例如 climate change / GWP）
+./scripts/export_latest_matrices.sh --impact-id 6209b35f-9447-40b5-b68c-a1099e3674a0
+
+# 指定 snapshot（会选该 snapshot 下最新 solve_all_unit 结果）
+./scripts/export_latest_matrices.sh --snapshot-id <snapshot_id>
+
+# 直接指定 result
+./scripts/export_latest_matrices.sh --result-id <result_id>
+```
+
 ### 6.3 生产常驻（systemd，推荐）
 
 `cargo run` 适合开发调试。生产环境建议使用 `systemd` 托管 `release` 二进制（开机自启、崩溃自恢复、统一日志）。

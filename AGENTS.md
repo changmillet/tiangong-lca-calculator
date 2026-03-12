@@ -246,6 +246,12 @@ Build/check:
 make check
 ```
 
+Export latest matrices (A/B/M + one-impact C/H from latest `solve_all_unit`):
+
+```bash
+./scripts/export_latest_matrices.sh --impact-id <impact_uuid>
+```
+
 Mandatory lint gate after every code edit:
 
 ```bash
