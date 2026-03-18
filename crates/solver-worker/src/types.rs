@@ -323,7 +323,7 @@ mod tests {
                 assert_eq!(process_index, 12);
                 assert_eq!(parsed_impact_id, impact_id);
                 assert_eq!(impact_index, 3);
-                assert_eq!(amount, 1.0);
+                assert!((amount - 1.0).abs() < f64::EPSILON);
                 assert_eq!(options, super::ContributionPathOptions::default());
             }
             other => panic!("unexpected payload: {other:?}"),

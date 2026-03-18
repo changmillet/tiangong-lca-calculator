@@ -22,13 +22,13 @@ use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use solver_core::{ModelSparseData, SparseTriplet};
-use solver_worker::snapshot_index::{
-    SnapshotImpactMapEntry, SnapshotIndexDocument, SnapshotProcessMapEntry,
-};
 use solver_worker::snapshot_artifacts::{
     SNAPSHOT_ARTIFACT_FORMAT, SnapshotAllocationCoverage, SnapshotBuildConfig,
     SnapshotCoverageReport, SnapshotMatchingCoverage, SnapshotMatrixScale,
     SnapshotReferenceCoverage, SnapshotSingularRisk, encode_snapshot_artifact,
+};
+use solver_worker::snapshot_index::{
+    SnapshotImpactMapEntry, SnapshotIndexDocument, SnapshotProcessMapEntry,
 };
 use solver_worker::storage::ObjectStoreClient;
 use sqlx::{PgPool, Row, postgres::PgPoolOptions};

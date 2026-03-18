@@ -1,8 +1,8 @@
 //! Worker crate library modules shared by binaries.
 
 pub mod artifacts;
-pub mod contribution_path;
 pub mod config;
+pub mod contribution_path;
 pub mod db;
 pub mod http;
 pub mod queue;

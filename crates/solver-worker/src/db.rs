@@ -11,9 +11,8 @@ use uuid::Uuid;
 
 use crate::{
     artifacts::{
-        EncodedArtifact, encode_contribution_path_artifact,
-        encode_solve_all_unit_query_artifact, encode_solve_batch_artifact,
-        encode_solve_one_artifact,
+        EncodedArtifact, encode_contribution_path_artifact, encode_solve_all_unit_query_artifact,
+        encode_solve_batch_artifact, encode_solve_one_artifact,
     },
     config::AppConfig,
     contribution_path::{ContributionPathArtifact, analyze_contribution_path},
