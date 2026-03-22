@@ -7,6 +7,7 @@
 - Edge Function 对接：`docs/edge-function-integration.md`
 - 前端对接：`docs/frontend-integration.md`
 - 统一契约（jobs/results/payload/status）：`docs/lca-api-contract.md`
+- TIDAS package 异步契约：`docs/tidas-package-contract.md`
 
 ## 1. 架构定位
 
@@ -77,6 +78,7 @@ worker 上传 artifact 到 S3 兼容存储，并在 `lca_results` 中写入：
 - `supabase/migrations/20260306090000_lca_results_s3_strict_and_retention.sql`（破坏性：清理旧结果并切换为 S3-only + retention 字段）
 - `supabase/migrations/20260308104000_lca_jobs_add_solve_all_unit.sql`（扩展 `lca_jobs.job_type` 约束，支持 `solve_all_unit`）
 - `supabase/migrations/20260309042000_lca_latest_all_unit_results.sql`（新增 snapshot 级 latest all-unit 查询指针表）
+- `supabase/migrations/20260319120000_tidas_package_job_tables.sql`（新增 `lca_package_*` 异步 job/artifact/cache 表、队列、RPC 和 RLS，用于 TIDAS package）
 
 对已有业务源表（`processes/flows/lciamethods/...`）不做修改。
 其中 `20260304120000` 会删除旧的 `lca_*_entries/index` 中间表，只保留 artifact-first 所需表。
@@ -205,6 +207,14 @@ Ubuntu 依赖：
 ```bash
 sudo apt-get update
 sudo apt-get install -y libsuitesparse-dev libopenblas-dev liblapack-dev pkg-config cmake
+```
+
+macOS (Homebrew) 依赖：
+
+```bash
+brew install cmake suite-sparse
+export PKG_CONFIG_PATH=/opt/homebrew/lib/pkgconfig
+export LIBRARY_PATH=/opt/homebrew/lib
 ```
 
 说明：`HDF5` 通过 `hdf5-sys(static,zlib)` 在编译期构建，因此需要本机可用 `cmake`。

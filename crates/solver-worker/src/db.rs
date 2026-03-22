@@ -1,11 +1,16 @@
-use std::{io::ErrorKind, path::PathBuf, process::Command, time::Instant};
+use std::{
+    io::ErrorKind,
+    path::PathBuf,
+    process::Command,
+    time::{Duration, Instant},
+};
 
 use serde_json::{Map, Value};
 use solver_core::{
     ModelSparseData, NumericOptions, PrepareResult, SolveBatchResult, SolveComputationTiming,
     SolveOptions, SolveResult, SolverService, SparseTriplet,
 };
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Row, postgres::PgPoolOptions};
 use tracing::{instrument, warn};
 use uuid::Uuid;
 
@@ -48,7 +53,15 @@ const MAX_ALL_UNIT_BATCH_SIZE: usize = 2_048;
 impl AppState {
     /// Creates app state with DB pool and required object storage.
     pub async fn new(config: &AppConfig) -> anyhow::Result<Self> {
-        let pool = PgPool::connect(config.resolved_database_url()?).await?;
+        let pool = PgPoolOptions::new()
+            .max_connections(8)
+            .min_connections(1)
+            .acquire_timeout(Duration::from_secs(30))
+            .idle_timeout(Duration::from_secs(300))
+            .max_lifetime(Duration::from_secs(1_800))
+            .test_before_acquire(true)
+            .connect(config.resolved_database_url()?)
+            .await?;
 
         let endpoint = config
             .s3_endpoint

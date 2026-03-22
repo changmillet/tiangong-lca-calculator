@@ -73,6 +73,22 @@ Hard invariants:
 - writes `lca_results` rows (artifact metadata only)
 - updates request cache state in `lca_result_cache` by `job_id`
 
+Package export/import worker path:
+
+- binary: `crates/solver-worker/src/bin/package_worker.rs`
+- consumes `pgmq` queue `lca_package_jobs`
+- executes:
+  - `export_package`
+  - `import_package`
+- updates `lca_package_jobs` status/diagnostics
+- writes `lca_package_artifacts` rows for export ZIP / reports
+- updates request cache state in `lca_package_request_cache`
+- persists resumable export traversal state in `lca_package_export_items`
+- full-scope export seed scanning currently:
+  - rehydrates traversal cache from `lca_package_export_items` seed/external rows
+  - scans source datasets with DB-side `jsonb_path_query_array(...)` extraction so the worker fetches reference payloads instead of full `json_ordered` blobs where possible
+  - casts `json_ordered` / `json_tg` to `jsonb` inside the seed-scan query because source columns are not uniformly stored as `jsonb`
+
 ### 2.3 Snapshot builder
 
 Canonical entry:
@@ -181,6 +197,8 @@ Applied/expected migrations:
 - `20260305094000_lca_enqueue_job_rpc_acl.sql`
 - `20260306090000_lca_results_s3_strict_and_retention.sql` (destructive for old results)
 - `20260308104000_lca_jobs_add_solve_all_unit.sql`
+- `20260319120000_tidas_package_job_tables.sql`
+- `20260319143000_tidas_package_export_items.sql`
 
 Current runtime tables:
 
@@ -191,6 +209,10 @@ Current runtime tables:
 - `lca_active_snapshots`
 - `lca_result_cache`
 - `lca_factorization_registry` (schema ready, runtime usage limited)
+- `lca_package_jobs`
+- `lca_package_artifacts`
+- `lca_package_request_cache`
+- `lca_package_export_items`
 
 ## 5. Security/permission baseline
 

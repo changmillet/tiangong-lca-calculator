@@ -123,6 +123,26 @@ impl ObjectStoreClient {
         self.upload_object(&key, "application/json", bytes).await
     }
 
+    /// Uploads one package artifact object and returns object URL.
+    pub async fn upload_package_artifact(
+        &self,
+        job_id: Uuid,
+        suffix: &str,
+        extension: &str,
+        content_type: &str,
+        bytes: Vec<u8>,
+    ) -> anyhow::Result<String> {
+        let key = if self.prefix.is_empty() {
+            format!("packages/jobs/{job_id}/{suffix}.{extension}")
+        } else {
+            format!(
+                "{}/packages/jobs/{job_id}/{suffix}.{extension}",
+                self.prefix
+            )
+        };
+        self.upload_object(&key, content_type, bytes).await
+    }
+
     /// Deletes an object by full object URL.
     pub async fn delete_object_url(&self, object_url: &str) -> anyhow::Result<()> {
         let url = Url::parse(object_url)
