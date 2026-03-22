@@ -44,6 +44,9 @@ use solver_worker::storage::ObjectStoreClient;
 use sqlx::{PgPool, Row, postgres::PgPoolOptions};
 use uuid::Uuid;
 
+const FLOW_META_BATCH_SIZE: usize = 2_048;
+const PROCESS_FETCH_BATCH_SIZE: i64 = 256;
+
 #[derive(Debug, Clone, Parser)]
 #[command(name = "snapshot-builder")]
 struct Cli {
@@ -338,7 +341,8 @@ async fn main() -> anyhow::Result<()> {
         .or(cli.conn.as_deref())
         .ok_or_else(|| anyhow::anyhow!("missing DB connection: set DATABASE_URL or CONN"))?;
     let pool = PgPoolOptions::new()
-        .max_connections(4)
+        .max_connections(1)
+        .min_connections(1)
         .after_connect(|conn, _meta| {
             Box::pin(async move {
                 sqlx::query("SET statement_timeout = 0")
@@ -2603,57 +2607,77 @@ async fn fetch_processes(
     state_codes: &[i32],
     include_user_id: Option<Uuid>,
 ) -> anyhow::Result<Vec<ProcessRow>> {
-    let rows = if all_states {
-        sqlx::query(
-            r#"
-            SELECT id, version, model_id, user_id, modified_at, json
-            FROM public.processes
-            WHERE json ? 'processDataSet'
-            ORDER BY id, version
-            "#,
-        )
-        .fetch_all(pool)
-        .await?
-    } else if let Some(user_id) = include_user_id {
-        sqlx::query(
-            r#"
-            SELECT id, version, model_id, user_id, modified_at, json
-            FROM public.processes
-            WHERE (state_code = ANY($1) OR user_id = $2)
-              AND json ? 'processDataSet'
-            ORDER BY id, version
-            "#,
-        )
-        .bind(state_codes)
-        .bind(user_id)
-        .fetch_all(pool)
-        .await?
-    } else {
-        sqlx::query(
-            r#"
-            SELECT id, version, model_id, user_id, modified_at, json
-            FROM public.processes
-            WHERE state_code = ANY($1)
-              AND json ? 'processDataSet'
-            ORDER BY id, version
-            "#,
-        )
-        .bind(state_codes)
-        .fetch_all(pool)
-        .await?
-    };
+    let process_page_sql = r#"
+        SELECT
+          id,
+          version,
+          model_id,
+          user_id,
+          modified_at,
+          jsonb_build_object(
+            'processDataSet',
+            jsonb_strip_nulls(
+              jsonb_build_object(
+                'processInformation',
+                jsonb_strip_nulls(
+                  jsonb_build_object(
+                    'quantitativeReference', json #> '{processDataSet,processInformation,quantitativeReference}',
+                    'geography', json #> '{processDataSet,processInformation,geography}',
+                    'dataSetInformation', json #> '{processDataSet,processInformation,dataSetInformation}',
+                    'time', json #> '{processDataSet,processInformation,time}'
+                  )
+                ),
+                'exchanges',
+                jsonb_build_object(
+                  'exchange',
+                  json #> '{processDataSet,exchanges,exchange}'
+                )
+              )
+            )
+          ) AS compact_json
+        FROM public.processes
+        WHERE json ? 'processDataSet'
+          AND ($1::boolean OR state_code = ANY($2) OR user_id = $3)
+        ORDER BY id, version
+        LIMIT $4 OFFSET $5
+    "#;
 
-    let mut out = Vec::with_capacity(rows.len());
-    for row in rows {
-        out.push(ProcessRow {
-            id: row.try_get::<Uuid, _>("id")?,
-            version: row.try_get::<String, _>("version")?.trim().to_owned(),
-            model_id: row.try_get::<Option<Uuid>, _>("model_id")?,
-            user_id: row.try_get::<Option<Uuid>, _>("user_id")?,
-            modified_at: row.try_get::<Option<DateTime<Utc>>, _>("modified_at")?,
-            json: row.try_get::<Value, _>("json")?,
-        });
+    let mut out = Vec::new();
+    let mut offset = 0_i64;
+
+    loop {
+        let rows = sqlx::query(process_page_sql)
+            .bind(all_states)
+            .bind(state_codes)
+            .bind(include_user_id)
+            .bind(PROCESS_FETCH_BATCH_SIZE)
+            .bind(offset)
+            .fetch_all(pool)
+            .await?;
+
+        let row_count = rows.len();
+        if row_count == 0 {
+            break;
+        }
+
+        out.reserve(row_count);
+        for row in rows {
+            out.push(ProcessRow {
+                id: row.try_get::<Uuid, _>("id")?,
+                version: row.try_get::<String, _>("version")?.trim().to_owned(),
+                model_id: row.try_get::<Option<Uuid>, _>("model_id")?,
+                user_id: row.try_get::<Option<Uuid>, _>("user_id")?,
+                modified_at: row.try_get::<Option<DateTime<Utc>>, _>("modified_at")?,
+                json: row.try_get::<Value, _>("compact_json")?,
+            });
+        }
+
+        if row_count < usize::try_from(PROCESS_FETCH_BATCH_SIZE).unwrap_or(usize::MAX) {
+            break;
+        }
+        offset += PROCESS_FETCH_BATCH_SIZE;
     }
+
     Ok(out)
 }
 
@@ -2665,22 +2689,29 @@ async fn fetch_flow_meta(
         return Ok(HashMap::new());
     }
     let candidate_ids = flow_candidates.iter().copied().collect::<Vec<_>>();
-    let rows = sqlx::query(
-        r#"
-        SELECT DISTINCT ON (id) id, json
-        FROM public.flows
-        WHERE id = ANY($1)
-        ORDER BY id, state_code DESC, modified_at DESC NULLS LAST, created_at DESC NULLS LAST
-        "#,
-    )
-    .bind(&candidate_ids)
-    .fetch_all(pool)
-    .await?;
-
     let mut out = HashMap::<Uuid, Value>::new();
-    for row in rows {
-        let id = row.try_get::<Uuid, _>("id")?;
-        out.insert(id, row.try_get::<Value, _>("json")?);
+    for chunk in candidate_ids.chunks(FLOW_META_BATCH_SIZE) {
+        let rows = sqlx::query(
+            r#"
+            SELECT DISTINCT ON (id)
+              id,
+              json #> '{flowDataSet,flowInformation,dataSetInformation,classificationInformation,common:elementaryFlowCategorization,common:category}' AS elementary_category
+            FROM public.flows
+            WHERE id = ANY($1)
+            ORDER BY id, state_code DESC, modified_at DESC NULLS LAST, created_at DESC NULLS LAST
+            "#,
+        )
+        .bind(chunk)
+        .fetch_all(pool)
+        .await?;
+
+        for row in rows {
+            let id = row.try_get::<Uuid, _>("id")?;
+            let category = row
+                .try_get::<Option<Value>, _>("elementary_category")?
+                .unwrap_or(Value::Null);
+            out.insert(id, category);
+        }
     }
     Ok(out)
 }
@@ -2782,16 +2813,17 @@ fn parse_process_reference_year(process_json: &Value) -> Option<i32> {
 }
 
 fn classify_flow_kind(flow_json: &Value) -> &'static str {
-    let Some(category) = flow_json
+    let category = flow_json
         .get("flowDataSet")
         .and_then(|v| v.get("flowInformation"))
         .and_then(|v| v.get("dataSetInformation"))
         .and_then(|v| v.get("classificationInformation"))
         .and_then(|v| v.get("common:elementaryFlowCategorization"))
         .and_then(|v| v.get("common:category"))
-    else {
+        .unwrap_or(flow_json);
+    if category.is_null() {
         return "product";
-    };
+    }
 
     let category_text = match category {
         Value::Array(arr) => arr
@@ -3427,13 +3459,13 @@ mod tests {
     use super::{
         AllocationMode, ExchangeDirection, ImpactFactorSet, MethodSelection, NormalizationMode,
         ParsedExchange, ProcessMeta, ProcessRow, ProviderRule, add_technosphere_edge,
-        assemble_sparse_payload, biosphere_gross_value, compile_scope_graph_with_flow_meta,
-        compute_scope_hash, geo_score, normalize_request_roots, parse_process_states,
-        resolve_allocation_fraction, resolve_multi_provider, resolve_process_selection,
-        resolve_reference_normalization, time_score,
+        assemble_sparse_payload, biosphere_gross_value, classify_flow_kind,
+        compile_scope_graph_with_flow_meta, compute_scope_hash, geo_score, normalize_request_roots,
+        parse_process_states, resolve_allocation_fraction, resolve_multi_provider,
+        resolve_process_selection, resolve_reference_normalization, time_score,
     };
     use chrono::Utc;
-    use serde_json::json;
+    use serde_json::{Value, json};
     use std::collections::{BTreeSet, HashMap};
     use uuid::Uuid;
 
@@ -3696,6 +3728,19 @@ mod tests {
                 }
             }),
         }
+    }
+
+    #[test]
+    fn classify_flow_kind_accepts_compact_category_payloads() {
+        assert_eq!(
+            classify_flow_kind(&json!({"#text": "Emissions"})),
+            "elementary"
+        );
+        assert_eq!(
+            classify_flow_kind(&json!([{"#text": "Resources"}])),
+            "elementary"
+        );
+        assert_eq!(classify_flow_kind(&Value::Null), "product");
     }
 
     fn solve_h_for_process_id(

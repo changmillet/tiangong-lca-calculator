@@ -49,6 +49,8 @@ pub struct AppState {
 
 const DEFAULT_ALL_UNIT_BATCH_SIZE: usize = 128;
 const MAX_ALL_UNIT_BATCH_SIZE: usize = 2_048;
+const SNAPSHOT_BUILDER_MAX_DB_EOF_RETRIES: usize = 3;
+const SNAPSHOT_BUILDER_DB_EOF_RETRY_BACKOFF_MS: u64 = 1_500;
 
 impl AppState {
     /// Creates app state with DB pool and required object storage.
@@ -1244,6 +1246,7 @@ struct SnapshotBuilderExecution {
     snapshot_id: Uuid,
     command: Vec<String>,
     exit_code: i32,
+    attempt_count: usize,
     stdout_tail: String,
     stderr_tail: String,
 }
@@ -1383,48 +1386,70 @@ async fn run_snapshot_builder_job(
         let cmd_vec = std::iter::once(candidate.program.clone())
             .chain(candidate.args.iter().cloned())
             .collect::<Vec<_>>();
-        let program = candidate.program.clone();
-        let args = candidate.args.clone();
-        let current_dir = candidate.current_dir.clone();
-        let output = match tokio::task::spawn_blocking(move || {
-            let mut command = Command::new(&program);
-            command.args(&args);
-            if let Some(dir) = current_dir {
-                command.current_dir(dir);
+        for attempt in 1..=SNAPSHOT_BUILDER_MAX_DB_EOF_RETRIES + 1 {
+            let program = candidate.program.clone();
+            let args = candidate.args.clone();
+            let current_dir = candidate.current_dir.clone();
+            let output = match tokio::task::spawn_blocking(move || {
+                let mut command = Command::new(&program);
+                command.args(&args);
+                if let Some(dir) = current_dir {
+                    command.current_dir(dir);
+                }
+                command.output()
+            })
+            .await
+            .map_err(|err| anyhow::anyhow!("snapshot_builder join error: {err}"))?
+            {
+                Ok(output) => output,
+                Err(err) if err.kind() == ErrorKind::NotFound => {
+                    last_not_found = true;
+                    break;
+                }
+                Err(err) => return Err(err.into()),
+            };
+
+            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            if output.status.success() {
+                return Ok(SnapshotBuilderExecution {
+                    snapshot_id,
+                    command: cmd_vec,
+                    exit_code: output.status.code().unwrap_or(0),
+                    attempt_count: attempt,
+                    stdout_tail: tail_text(&stdout, 4000),
+                    stderr_tail: tail_text(&stderr, 2000),
+                });
             }
-            command.output()
-        })
-        .await
-        .map_err(|err| anyhow::anyhow!("snapshot_builder join error: {err}"))?
-        {
-            Ok(output) => output,
-            Err(err) if err.kind() == ErrorKind::NotFound => {
-                last_not_found = true;
+
+            let code = output.status.code().unwrap_or(-1);
+            if attempt <= SNAPSHOT_BUILDER_MAX_DB_EOF_RETRIES
+                && is_retryable_snapshot_builder_db_error(&stdout, &stderr)
+            {
+                warn!(
+                    attempt,
+                    max_attempts = SNAPSHOT_BUILDER_MAX_DB_EOF_RETRIES + 1,
+                    code,
+                    cmd = %cmd_vec.join(" "),
+                    stderr_tail = %tail_text(&stderr, 400),
+                    "retrying transient snapshot_builder database EOF failure"
+                );
+                tokio::time::sleep(Duration::from_millis(
+                    SNAPSHOT_BUILDER_DB_EOF_RETRY_BACKOFF_MS * u64::try_from(attempt).unwrap_or(1),
+                ))
+                .await;
                 continue;
             }
-            Err(err) => return Err(err.into()),
-        };
 
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        if !output.status.success() {
-            let code = output.status.code().unwrap_or(-1);
             return Err(anyhow::anyhow!(
-                "snapshot_builder failed: code={} cmd={} stdout_tail={} stderr_tail={}",
+                "snapshot_builder failed after {} attempt(s): code={} cmd={} stdout_tail={} stderr_tail={}",
+                attempt,
                 code,
                 cmd_vec.join(" "),
                 tail_text(&stdout, 2000),
                 tail_text(&stderr, 2000),
             ));
         }
-
-        return Ok(SnapshotBuilderExecution {
-            snapshot_id,
-            command: cmd_vec,
-            exit_code: output.status.code().unwrap_or(0),
-            stdout_tail: tail_text(&stdout, 4000),
-            stderr_tail: tail_text(&stderr, 2000),
-        });
     }
 
     if last_not_found {
@@ -1495,6 +1520,13 @@ fn tail_text(input: &str, max_len: usize) -> String {
         return input.to_owned();
     }
     input[input.len() - max_len..].to_owned()
+}
+
+fn is_retryable_snapshot_builder_db_error(stdout: &str, stderr: &str) -> bool {
+    let combined = format!("{stdout}\n{stderr}").to_ascii_lowercase();
+    combined.contains("error communicating with database")
+        && combined.contains("expected to read")
+        && combined.contains("at eof")
 }
 
 async fn fetch_snapshot_source_hash(
@@ -1765,8 +1797,8 @@ fn _assert_result_types(_a: SolveResult, _b: SolveBatchResult) {}
 #[cfg(test)]
 mod tests {
     use super::{
-        SolveOptionsPayload, build_all_unit_rhs_batch, normalize_all_unit_batch_size,
-        resolve_solve_all_unit_options,
+        SolveOptionsPayload, build_all_unit_rhs_batch, is_retryable_snapshot_builder_db_error,
+        normalize_all_unit_batch_size, resolve_solve_all_unit_options,
     };
 
     #[test]
@@ -1802,5 +1834,17 @@ mod tests {
         assert_eq!(batch[0], vec![0.0, 1.0, 0.0, 0.0, 0.0]);
         assert_eq!(batch[1], vec![0.0, 0.0, 1.0, 0.0, 0.0]);
         assert_eq!(batch[2], vec![0.0, 0.0, 0.0, 1.0, 0.0]);
+    }
+
+    #[test]
+    fn retries_only_transient_snapshot_builder_db_eof_errors() {
+        assert!(is_retryable_snapshot_builder_db_error(
+            "",
+            "Error: error communicating with database: expected to read 26357 bytes, got 14059 bytes at EOF",
+        ));
+        assert!(!is_retryable_snapshot_builder_db_error(
+            "",
+            "Error: no processes matched filter",
+        ));
     }
 }

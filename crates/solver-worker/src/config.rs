@@ -2,6 +2,9 @@ use std::{net::SocketAddr, str::FromStr, time::Duration};
 
 use clap::{Parser, ValueEnum};
 
+pub const DEFAULT_WORKER_VT_SECONDS: i32 = 900;
+pub const MIN_RECOMMENDED_WORKER_VT_SECONDS: i32 = 900;
+
 /// Solver worker launch mode.
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum RunMode {
@@ -33,7 +36,7 @@ pub struct AppConfig {
     #[arg(long, env = "WORKER_POLL_MS", default_value_t = 1_000_u64)]
     pub worker_poll_ms: u64,
     /// Message visibility timeout for pgmq.read.
-    #[arg(long, env = "WORKER_VT_SECONDS", default_value_t = 30_i32)]
+    #[arg(long, env = "WORKER_VT_SECONDS", default_value_t = DEFAULT_WORKER_VT_SECONDS)]
     pub worker_vt_seconds: i32,
     /// Internal HTTP bind address.
     #[arg(long, env = "HTTP_ADDR", default_value = "0.0.0.0:8080")]
@@ -78,6 +81,12 @@ impl AppConfig {
     #[must_use]
     pub fn poll_interval(&self) -> Duration {
         Duration::from_millis(self.worker_poll_ms)
+    }
+
+    /// Visibility timeout used by queue reads.
+    #[must_use]
+    pub fn effective_worker_vt_seconds(&self) -> i32 {
+        self.worker_vt_seconds
     }
 
     /// Parsed http socket addr.

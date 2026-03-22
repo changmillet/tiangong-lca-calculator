@@ -3,12 +3,12 @@ use std::sync::Arc;
 use axum::serve;
 use clap::Parser;
 use solver_worker::{
-    config::{AppConfig, RunMode},
+    config::{AppConfig, MIN_RECOMMENDED_WORKER_VT_SECONDS, RunMode},
     db::AppState,
     http, queue,
 };
 use tokio::net::TcpListener;
-use tracing::info;
+use tracing::{info, warn};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -17,6 +17,14 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let config = AppConfig::parse();
+    let effective_vt_seconds = config.effective_worker_vt_seconds();
+    if effective_vt_seconds < MIN_RECOMMENDED_WORKER_VT_SECONDS {
+        warn!(
+            configured_vt_seconds = config.worker_vt_seconds,
+            recommended_min_vt_seconds = MIN_RECOMMENDED_WORKER_VT_SECONDS,
+            "worker visibility timeout is shorter than recommended for build_snapshot jobs; long tasks may be re-delivered"
+        );
+    }
     let state = Arc::new(AppState::new(&config).await?);
 
     match config.mode {
@@ -26,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
             queue::run_worker_loop(
                 state,
                 queue_name,
-                config.worker_vt_seconds,
+                effective_vt_seconds,
                 config.poll_interval(),
             )
             .await?;
@@ -39,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
             info!("starting worker + internal HTTP mode");
             let worker_state = Arc::clone(&state);
             let queue_name = config.pgmq_queue.clone();
-            let vt = config.worker_vt_seconds;
+            let vt = effective_vt_seconds;
             let poll = config.poll_interval();
             let worker_handle = tokio::spawn(async move {
                 queue::run_worker_loop(worker_state, queue_name, vt, poll).await
