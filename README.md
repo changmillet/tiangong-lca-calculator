@@ -147,10 +147,22 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260309042000_lca_latest
 - `--process-limit 100`：先做小样本调试 snapshot（正式跑不要加）
 - `--process-states all`：取消 `state_code` 过滤，按所有 `processes` 构建 snapshot
 - `--include-user-id <uuid>`：在 `process_states` 过滤基础上，额外包含该 `user_id` 的 process（并集）
+- `--root-process <uuid@version>`：显式给出一个或多个 request roots，只构建从这些 roots 可达的 public+private process 闭包
 - `--no-lcia`：先不构建 C 矩阵（只跑到 LCI）
 - `--method-id <uuid> --method-version <ver>`：指定 LCIA 方法
 - `--self-loop-cutoff 0.999999`：过滤会导致 `M = I - A` 奇异的对角自环（`|A_ii|` 过大）
 - `--report-dir <path>`：指定 coverage 报表输出目录
+
+`--root-process` 模式说明：
+
+- roots 语法是 `<process_id>@<version>`，可重复传多个
+- builder 先按 `process_states` / `include_user_id` 取候选集，再从 roots 出发按当前 `provider_rule` 解析可达 public+private process 闭包
+- snapshot 元数据会记录：
+  - `selection_mode`
+  - `request_roots`
+  - `scope_hash`
+  - resolved scope 的 public/private process 数量
+- `--root-process` 与 `--process-limit` 不能同时使用；前者要求闭包完整，后者会破坏 scope 语义
 
 脚本行为：
 
@@ -165,6 +177,7 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260309042000_lca_latest
   - 基于 `processes/flows/lciamethods` 的 `count(*) + max(modified_at)` 和构建参数计算 fingerprint
   - 若命中已有 `ready` snapshot artifact，则直接复用并秒级返回
   - 若传了 `--snapshot-id`，会按该 ID 执行构建（不走自动复用）
+- request-root 模式下，process source summary 会按 resolved closure 收窄，而不是继续按整个 broad candidate scope 统计
 - 冷构建优化：
   - flow 元数据按候选 `id` 查询（避免全表扫 `flows`）
   - process JSON 解析使用并行分片

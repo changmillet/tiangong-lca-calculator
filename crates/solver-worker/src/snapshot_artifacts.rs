@@ -7,6 +7,8 @@ use solver_core::ModelSparseData;
 use tempfile::Builder;
 use uuid::Uuid;
 
+use crate::graph_types::{RequestRootProcess, SnapshotSelectionMode};
+
 const SCHEMA_VERSION: u8 = 1;
 const DATASET_SCHEMA_VERSION: &str = "schema_version";
 const DATASET_FORMAT: &str = "format";
@@ -29,6 +31,12 @@ pub struct SnapshotBuildConfig {
     /// Optional `user_id` inclusion in process selection.
     #[serde(default)]
     pub include_user_id: Option<Uuid>,
+    /// Snapshot selection mode (`filtered_library` / `request_roots_closure`).
+    #[serde(default)]
+    pub selection_mode: SnapshotSelectionMode,
+    /// Explicit request roots for request-scoped graph builds.
+    #[serde(default)]
+    pub request_roots: Vec<RequestRootProcess>,
     /// Process cap (`0` means unlimited).
     pub process_limit: i32,
     /// Provider matching mode.
@@ -278,7 +286,8 @@ mod tests {
         DATASET_ENVELOPE_JSON, HDF5_DEFLATE_LEVEL, SNAPSHOT_ARTIFACT_FORMAT,
         SnapshotAllocationCoverage, SnapshotBuildConfig, SnapshotCoverageReport,
         SnapshotMatchingCoverage, SnapshotMatrixScale, SnapshotReferenceCoverage,
-        SnapshotSingularRisk, decode_snapshot_artifact, encode_snapshot_artifact,
+        SnapshotSelectionMode, SnapshotSingularRisk, decode_snapshot_artifact,
+        encode_snapshot_artifact,
     };
 
     #[test]
@@ -288,6 +297,8 @@ mod tests {
         let config = SnapshotBuildConfig {
             process_states: crate::default_snapshot_process_states_arg(),
             include_user_id: None,
+            selection_mode: SnapshotSelectionMode::FilteredLibrary,
+            request_roots: Vec::new(),
             process_limit: 0,
             provider_rule: "strict_unique_provider".to_owned(),
             reference_normalization_mode: "strict".to_owned(),
@@ -417,6 +428,11 @@ mod tests {
         let parsed: SnapshotBuildConfig = serde_json::from_value(legacy).expect("parse legacy");
         assert_eq!(parsed.biosphere_sign_mode, "signed");
         assert_eq!(parsed.include_user_id, None);
+        assert_eq!(
+            parsed.selection_mode,
+            SnapshotSelectionMode::FilteredLibrary
+        );
+        assert!(parsed.request_roots.is_empty());
     }
 
     fn write_and_open_hdf5(bytes: &[u8]) -> File {

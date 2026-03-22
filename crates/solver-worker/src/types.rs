@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::contribution_path::ContributionPathOptions;
+use crate::graph_types::RequestRootProcess;
 
 /// Queue payload for worker jobs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -129,6 +130,9 @@ pub enum JobPayload {
         /// Optional `user_id` inclusion.
         #[serde(default)]
         include_user_id: Option<Uuid>,
+        /// Explicit request roots (`<process_id, version>`) for request-scoped graph builds.
+        #[serde(default)]
+        request_roots: Option<Vec<RequestRootProcess>>,
         /// Optional provider matching rule.
         #[serde(default)]
         provider_rule: Option<String>,

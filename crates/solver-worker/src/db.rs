@@ -981,6 +981,7 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
             scope,
             process_states,
             include_user_id,
+            request_roots,
             provider_rule,
             reference_normalization_mode,
             allocation_fraction_mode,
@@ -1006,6 +1007,7 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
                 snapshot_id,
                 process_states.as_deref(),
                 include_user_id,
+                request_roots.as_deref(),
                 provider_rule.as_deref(),
                 reference_normalization_mode.as_deref(),
                 allocation_fraction_mode.as_deref(),
@@ -1309,10 +1311,12 @@ async fn persist_result_artifact(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)]
 async fn run_snapshot_builder_job(
     snapshot_id: Uuid,
     process_states: Option<&str>,
     include_user_id: Option<Uuid>,
+    request_roots: Option<&[crate::graph_types::RequestRootProcess]>,
     provider_rule: Option<&str>,
     reference_normalization_mode: Option<&str>,
     allocation_fraction_mode: Option<&str>,
@@ -1342,6 +1346,12 @@ async fn run_snapshot_builder_job(
     if let Some(user_id) = include_user_id {
         builder_args.push("--include-user-id".to_owned());
         builder_args.push(user_id.to_string());
+    }
+    if let Some(roots) = request_roots {
+        for root in roots {
+            builder_args.push("--root-process".to_owned());
+            builder_args.push(root.to_string());
+        }
     }
     if let Some(limit) = process_limit {
         builder_args.push("--process-limit".to_owned());

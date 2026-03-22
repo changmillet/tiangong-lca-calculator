@@ -15,6 +15,7 @@ pub mod artifacts;
 pub mod config;
 pub mod contribution_path;
 pub mod db;
+pub mod graph_types;
 pub mod http;
 pub mod package_artifacts;
 pub mod package_db;

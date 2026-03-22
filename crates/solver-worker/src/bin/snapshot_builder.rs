@@ -16,12 +16,16 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 
+use chrono::{DateTime, Utc};
 use clap::Parser;
 use rayon::prelude::*;
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use solver_core::{ModelSparseData, SparseTriplet};
+use solver_worker::graph_types::{
+    RequestRootProcess, ResolvedScopeProcess, ScopeProcessPartition, SnapshotSelectionMode,
+};
 use solver_worker::snapshot_artifacts::{
     SNAPSHOT_ARTIFACT_FORMAT, SnapshotAllocationCoverage, SnapshotBuildConfig,
     SnapshotCoverageReport, SnapshotMatchingCoverage, SnapshotMatrixScale,
@@ -61,6 +65,8 @@ struct Cli {
     process_states: String,
     #[arg(long)]
     include_user_id: Option<Uuid>,
+    #[arg(long = "root-process")]
+    root_processes: Vec<RequestRootProcess>,
     #[arg(long, default_value_t = 0)]
     process_limit: usize,
     #[arg(long, default_value = "strict_unique_provider")]
@@ -88,6 +94,8 @@ struct ProcessRow {
     id: Uuid,
     version: String,
     model_id: Option<Uuid>,
+    user_id: Option<Uuid>,
+    modified_at: Option<DateTime<Utc>>,
     json: Value,
 }
 
@@ -220,6 +228,22 @@ struct ReuseCandidate {
     c_nnz: i64,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct ResolvedRequestScopeSummary {
+    selection_mode: SnapshotSelectionMode,
+    scope_hash: String,
+    roots: Vec<RequestRootProcess>,
+    public_process_count: i64,
+    private_process_count: i64,
+    processes: Vec<ResolvedScopeProcess>,
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedProcessSelection {
+    processes: Vec<ProcessRow>,
+    scope_summary: ResolvedRequestScopeSummary,
+}
+
 #[derive(Debug, Clone, Default, Serialize)]
 struct BuildTimingSec {
     reused_snapshot: bool,
@@ -236,6 +260,16 @@ struct BuildTimingSec {
 }
 
 impl ProviderRule {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::StrictUniqueProvider => "strict_unique_provider",
+            Self::BestProviderStrict => "best_provider_strict",
+            Self::SplitByEvidenceStrict => "split_by_evidence",
+            Self::SplitByEvidenceHybrid => "split_by_evidence_hybrid",
+            Self::SplitEqual => "split_equal",
+        }
+    }
+
     fn parse(value: &str) -> anyhow::Result<Self> {
         match value {
             "strict_unique_provider" => Ok(Self::StrictUniqueProvider),
@@ -304,6 +338,17 @@ async fn main() -> anyhow::Result<()> {
     let requested_snapshot_id = cli.snapshot_id;
     let (all_states, state_codes, process_states_label) =
         parse_process_states(&cli.process_states)?;
+    let request_roots = normalize_request_roots(&cli.root_processes);
+    if !request_roots.is_empty() && cli.process_limit > 0 {
+        return Err(anyhow::anyhow!(
+            "--process-limit is not supported when --root-process is used"
+        ));
+    }
+    let selection_mode = if request_roots.is_empty() {
+        SnapshotSelectionMode::FilteredLibrary
+    } else {
+        SnapshotSelectionMode::RequestRootsClosure
+    };
     let mut build_timing = BuildTimingSec::default();
     let method_started = Instant::now();
     let method = resolve_method_identity(&pool, &cli).await?;
@@ -311,6 +356,8 @@ async fn main() -> anyhow::Result<()> {
     let build_config = SnapshotBuildConfig {
         process_states: process_states_label.clone(),
         include_user_id: cli.include_user_id,
+        selection_mode,
+        request_roots: request_roots.clone(),
         process_limit: i32::try_from(cli.process_limit)
             .map_err(|_| anyhow::anyhow!("process_limit overflow"))?,
         provider_rule: cli.provider_rule.clone(),
@@ -323,16 +370,20 @@ async fn main() -> anyhow::Result<()> {
         method_id: method.method_id,
         method_version: method.method_version.clone(),
     };
-    let fingerprint_started = Instant::now();
-    let (source_summary, source_fingerprint) = compute_source_fingerprint(
-        &pool,
+    let candidate_processes =
+        fetch_processes(&pool, all_states, &state_codes, cli.include_user_id).await?;
+    let resolved_scope = resolve_process_selection(
+        candidate_processes,
         all_states,
         &state_codes,
         cli.include_user_id,
+        &request_roots,
+        provider_rule,
         cli.process_limit,
-        &build_config,
-    )
-    .await?;
+    )?;
+    let fingerprint_started = Instant::now();
+    let (source_summary, source_fingerprint) =
+        compute_source_fingerprint(&pool, &resolved_scope.processes, &build_config).await?;
     build_timing.compute_source_fingerprint_sec = fingerprint_started.elapsed().as_secs_f64();
 
     if let Some(snapshot_id) = requested_snapshot_id {
@@ -346,6 +397,15 @@ async fn main() -> anyhow::Result<()> {
     } else {
         println!("[info] include_user_id=none");
     }
+    println!("[info] selection_mode={selection_mode}");
+    println!(
+        "[info] request_root_count={}",
+        resolved_scope.scope_summary.roots.len()
+    );
+    println!(
+        "[info] scope_hash={}",
+        resolved_scope.scope_summary.scope_hash
+    );
     println!("[info] process_limit={}", cli.process_limit);
     println!("[info] provider_rule={}", cli.provider_rule);
     println!(
@@ -404,6 +464,7 @@ async fn main() -> anyhow::Result<()> {
                             all_states,
                             &state_codes,
                             cli.include_user_id,
+                            &resolved_scope.scope_summary,
                             &source_fingerprint,
                             &method,
                             &reused,
@@ -421,6 +482,7 @@ async fn main() -> anyhow::Result<()> {
                     &cli.report_dir,
                     resolved_snapshot_id,
                     &build_config,
+                    &resolved_scope.scope_summary,
                     &reused.coverage,
                     &reused.artifact_url,
                     &source_summary,
@@ -470,10 +532,7 @@ async fn main() -> anyhow::Result<()> {
         &pool,
         snapshot_id,
         &method,
-        all_states,
-        &state_codes,
-        cli.include_user_id,
-        cli.process_limit,
+        resolved_scope.processes.clone(),
         provider_rule,
         reference_normalization_mode,
         allocation_mode,
@@ -520,6 +579,7 @@ async fn main() -> anyhow::Result<()> {
         all_states,
         &state_codes,
         cli.include_user_id,
+        &resolved_scope.scope_summary,
         &source_fingerprint,
         &method,
         &built,
@@ -536,6 +596,7 @@ async fn main() -> anyhow::Result<()> {
         &cli.report_dir,
         snapshot_id,
         &build_config,
+        &resolved_scope.scope_summary,
         &built.coverage,
         &artifact_url,
         &source_summary,
@@ -912,10 +973,7 @@ async fn build_sparse_payload(
     pool: &PgPool,
     snapshot_id: Uuid,
     method: &MethodSelection,
-    all_states: bool,
-    state_codes: &[i32],
-    include_user_id: Option<Uuid>,
-    process_limit: usize,
+    processes: Vec<ProcessRow>,
     provider_rule: ProviderRule,
     reference_normalization_mode: NormalizationMode,
     allocation_mode: AllocationMode,
@@ -924,10 +982,6 @@ async fn build_sparse_payload(
     has_lcia: bool,
     impact_factor_sets: &[ImpactFactorSet],
 ) -> anyhow::Result<BuildOutput> {
-    let mut processes = fetch_processes(pool, all_states, state_codes, include_user_id).await?;
-    if process_limit > 0 && processes.len() > process_limit {
-        processes.truncate(process_limit);
-    }
     if processes.is_empty() {
         return Err(anyhow::anyhow!("no processes matched filter"));
     }
@@ -1824,22 +1878,287 @@ fn biosphere_gross_value(amount: f64) -> f64 {
     amount
 }
 
-async fn compute_source_fingerprint(
-    pool: &PgPool,
+fn normalize_request_roots(roots: &[RequestRootProcess]) -> Vec<RequestRootProcess> {
+    let mut normalized = roots
+        .iter()
+        .map(|root| RequestRootProcess::new(root.process_id, root.process_version.clone()))
+        .collect::<Vec<_>>();
+    normalized.sort_unstable();
+    normalized.dedup();
+    normalized
+}
+
+fn compute_scope_hash(
     all_states: bool,
     state_codes: &[i32],
     include_user_id: Option<Uuid>,
+    request_roots: &[RequestRootProcess],
     process_limit: usize,
-    config: &SnapshotBuildConfig,
-) -> anyhow::Result<(SourceSnapshotSummary, String)> {
-    let (process_count, process_max_modified_at_utc) = fetch_process_source_summary(
-        pool,
+    provider_rule: ProviderRule,
+) -> anyhow::Result<String> {
+    let selection_mode = if request_roots.is_empty() {
+        SnapshotSelectionMode::FilteredLibrary
+    } else {
+        SnapshotSelectionMode::RequestRootsClosure
+    };
+    let body = serde_json::json!({
+        "schema": "request-scope:v1",
+        "selection_mode": selection_mode,
+        "all_states": all_states,
+        "process_states": state_codes,
+        "include_user_id": include_user_id,
+        "request_roots": request_roots,
+        "process_limit": process_limit,
+        "provider_rule": provider_rule.as_str(),
+    });
+    let mut hasher = Sha256::new();
+    hasher.update(serde_json::to_vec(&body)?);
+    Ok(hex::encode(hasher.finalize()))
+}
+
+fn classify_scope_partition(
+    row: &ProcessRow,
+    include_user_id: Option<Uuid>,
+) -> ScopeProcessPartition {
+    if include_user_id.is_some() && row.user_id == include_user_id {
+        ScopeProcessPartition::Private
+    } else {
+        ScopeProcessPartition::Public
+    }
+}
+
+fn resolve_process_selection(
+    mut candidate_processes: Vec<ProcessRow>,
+    all_states: bool,
+    state_codes: &[i32],
+    include_user_id: Option<Uuid>,
+    request_roots: &[RequestRootProcess],
+    provider_rule: ProviderRule,
+    process_limit: usize,
+) -> anyhow::Result<ResolvedProcessSelection> {
+    if request_roots.is_empty() {
+        if process_limit > 0 && candidate_processes.len() > process_limit {
+            candidate_processes.truncate(process_limit);
+        }
+        let processes = candidate_processes
+            .iter()
+            .map(|row| ResolvedScopeProcess {
+                process_id: row.id,
+                process_version: row.version.clone(),
+                partition: classify_scope_partition(row, include_user_id),
+            })
+            .collect::<Vec<_>>();
+        let public_process_count = i64::try_from(
+            processes
+                .iter()
+                .filter(|row| row.partition == ScopeProcessPartition::Public)
+                .count(),
+        )
+        .map_err(|_| anyhow::anyhow!("public process count overflow"))?;
+        let private_process_count = i64::try_from(
+            processes
+                .iter()
+                .filter(|row| row.partition == ScopeProcessPartition::Private)
+                .count(),
+        )
+        .map_err(|_| anyhow::anyhow!("private process count overflow"))?;
+        let scope_hash = compute_scope_hash(
+            all_states,
+            state_codes,
+            include_user_id,
+            request_roots,
+            process_limit,
+            provider_rule,
+        )?;
+        return Ok(ResolvedProcessSelection {
+            processes: candidate_processes,
+            scope_summary: ResolvedRequestScopeSummary {
+                selection_mode: SnapshotSelectionMode::FilteredLibrary,
+                scope_hash,
+                roots: Vec::new(),
+                public_process_count,
+                private_process_count,
+                processes,
+            },
+        });
+    }
+
+    let processes = candidate_processes;
+    let mut process_meta = Vec::with_capacity(processes.len());
+    let mut input_exchanges_by_idx = Vec::<Vec<ParsedExchange>>::with_capacity(processes.len());
+    let mut provider_sets: HashMap<Uuid, HashSet<i32>> = HashMap::new();
+    let mut process_lookup = HashMap::<(Uuid, String), i32>::with_capacity(processes.len());
+
+    for (idx, proc_row) in processes.iter().enumerate() {
+        let process_idx =
+            i32::try_from(idx).map_err(|_| anyhow::anyhow!("process index overflow"))?;
+        process_lookup.insert((proc_row.id, proc_row.version.clone()), process_idx);
+        process_meta.push(ProcessMeta {
+            process_idx,
+            process_id: proc_row.id,
+            process_version: proc_row.version.clone(),
+            process_name: parse_process_name(&proc_row.json),
+            model_id: proc_row.model_id,
+            location: parse_process_location(&proc_row.json),
+            reference_year: parse_process_reference_year(&proc_row.json),
+        });
+
+        let mut input_exchanges = Vec::new();
+        for exchange in process_exchange_items(&proc_row.json) {
+            let direction = match exchange
+                .get("exchangeDirection")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+            {
+                "Input" => Some(ExchangeDirection::Input),
+                "Output" => Some(ExchangeDirection::Output),
+                _ => None,
+            };
+            let Some(direction) = direction else {
+                continue;
+            };
+            let Some(flow_id) =
+                parse_uuid_at(exchange, &["referenceToFlowDataSet", "@refObjectId"])
+            else {
+                continue;
+            };
+
+            if direction == ExchangeDirection::Output {
+                provider_sets
+                    .entry(flow_id)
+                    .or_default()
+                    .insert(process_idx);
+            } else {
+                input_exchanges.push(ParsedExchange {
+                    process_idx,
+                    flow_id,
+                    direction,
+                    amount: None,
+                });
+            }
+        }
+        input_exchanges_by_idx.push(input_exchanges);
+    }
+
+    let mut provider_map = HashMap::<Uuid, Vec<i32>>::with_capacity(provider_sets.len());
+    for (flow_id, providers) in provider_sets {
+        let mut sorted = providers.into_iter().collect::<Vec<_>>();
+        sorted.sort_by_key(|idx| {
+            process_meta_for_idx(&process_meta, *idx).map_or(Uuid::nil(), |meta| meta.process_id)
+        });
+        provider_map.insert(flow_id, sorted);
+    }
+
+    let normalized_roots = normalize_request_roots(request_roots);
+    let mut selected = HashSet::<i32>::new();
+    let mut queue = Vec::<i32>::new();
+    for root in &normalized_roots {
+        let key = (root.process_id, root.process_version.clone());
+        let process_idx = process_lookup
+            .get(&key)
+            .copied()
+            .ok_or_else(|| anyhow::anyhow!("request root not found in candidate scope: {root}"))?;
+        if selected.insert(process_idx) {
+            queue.push(process_idx);
+        }
+    }
+
+    let mut cursor = 0usize;
+    while cursor < queue.len() {
+        let current = queue[cursor];
+        cursor += 1;
+        let input_exchanges = input_exchanges_by_idx
+            .get(usize::try_from(current).map_err(|_| anyhow::anyhow!("negative process idx"))?)
+            .ok_or_else(|| anyhow::anyhow!("missing input exchanges for process idx={current}"))?;
+        for exchange in input_exchanges {
+            let providers = provider_map.get(&exchange.flow_id);
+            let provider_cnt = providers.map_or(0, Vec::len);
+            let next_indices = if provider_cnt == 1 {
+                providers.cloned().unwrap_or_default()
+            } else if provider_cnt > 1 {
+                match resolve_multi_provider(
+                    provider_rule,
+                    exchange,
+                    providers.ok_or_else(|| anyhow::anyhow!("missing provider list"))?,
+                    &process_meta,
+                )? {
+                    Some(resolution) => resolution
+                        .allocations
+                        .into_iter()
+                        .map(|(provider_idx, _weight)| provider_idx)
+                        .collect::<Vec<_>>(),
+                    None => Vec::new(),
+                }
+            } else {
+                Vec::new()
+            };
+            for provider_idx in next_indices {
+                if selected.insert(provider_idx) {
+                    queue.push(provider_idx);
+                }
+            }
+        }
+    }
+
+    let mut selected_indices = selected.into_iter().collect::<Vec<_>>();
+    selected_indices.sort_unstable();
+    let mut resolved_processes = Vec::with_capacity(selected_indices.len());
+    let mut selected_rows = Vec::with_capacity(selected_indices.len());
+    for idx in selected_indices {
+        let row = processes
+            .get(usize::try_from(idx).map_err(|_| anyhow::anyhow!("negative process idx"))?)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("selected process idx out of bounds: {idx}"))?;
+        resolved_processes.push(ResolvedScopeProcess {
+            process_id: row.id,
+            process_version: row.version.clone(),
+            partition: classify_scope_partition(&row, include_user_id),
+        });
+        selected_rows.push(row);
+    }
+    let public_process_count = i64::try_from(
+        resolved_processes
+            .iter()
+            .filter(|row| row.partition == ScopeProcessPartition::Public)
+            .count(),
+    )
+    .map_err(|_| anyhow::anyhow!("public process count overflow"))?;
+    let private_process_count = i64::try_from(
+        resolved_processes
+            .iter()
+            .filter(|row| row.partition == ScopeProcessPartition::Private)
+            .count(),
+    )
+    .map_err(|_| anyhow::anyhow!("private process count overflow"))?;
+    let scope_hash = compute_scope_hash(
         all_states,
         state_codes,
         include_user_id,
-        process_limit,
-    )
-    .await?;
+        &normalized_roots,
+        0,
+        provider_rule,
+    )?;
+
+    Ok(ResolvedProcessSelection {
+        processes: selected_rows,
+        scope_summary: ResolvedRequestScopeSummary {
+            selection_mode: SnapshotSelectionMode::RequestRootsClosure,
+            scope_hash,
+            roots: normalized_roots,
+            public_process_count,
+            private_process_count,
+            processes: resolved_processes,
+        },
+    })
+}
+
+async fn compute_source_fingerprint(
+    pool: &PgPool,
+    selected_processes: &[ProcessRow],
+    config: &SnapshotBuildConfig,
+) -> anyhow::Result<(SourceSnapshotSummary, String)> {
+    let (process_count, process_max_modified_at_utc) =
+        summarize_selected_processes(selected_processes)?;
     let (flow_count, flow_max_modified_at_utc) = fetch_flow_source_summary(pool).await?;
     let (lciamethod_count, lciamethod_max_modified_at_utc) =
         fetch_lciamethod_source_summary(pool).await?;
@@ -1878,92 +2197,18 @@ async fn compute_source_fingerprint(
     Ok((summary, fingerprint))
 }
 
-async fn fetch_process_source_summary(
-    pool: &PgPool,
-    all_states: bool,
-    state_codes: &[i32],
-    include_user_id: Option<Uuid>,
-    process_limit: usize,
-) -> anyhow::Result<(i64, String)> {
-    let limit =
-        i64::try_from(process_limit).map_err(|_| anyhow::anyhow!("process_limit overflow"))?;
-    let row = if all_states {
-        sqlx::query(
-            r#"
-            WITH candidate AS (
-              SELECT modified_at
-              FROM public.processes
-              WHERE json ? 'processDataSet'
-              ORDER BY id, version
-              LIMIT NULLIF($1::bigint, 0)
-            )
-            SELECT
-              COUNT(*)::bigint AS process_count,
-              COALESCE(
-                to_char(MAX(modified_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
-                'none'
-              ) AS process_max_modified_at_utc
-            FROM candidate
-            "#,
-        )
-        .bind(limit)
-        .fetch_one(pool)
-        .await?
-    } else if let Some(user_id) = include_user_id {
-        sqlx::query(
-            r#"
-            WITH candidate AS (
-              SELECT modified_at
-              FROM public.processes
-              WHERE (state_code = ANY($1) OR user_id = $2)
-                AND json ? 'processDataSet'
-              ORDER BY id, version
-              LIMIT NULLIF($3::bigint, 0)
-            )
-            SELECT
-              COUNT(*)::bigint AS process_count,
-              COALESCE(
-                to_char(MAX(modified_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
-                'none'
-              ) AS process_max_modified_at_utc
-            FROM candidate
-            "#,
-        )
-        .bind(state_codes)
-        .bind(user_id)
-        .bind(limit)
-        .fetch_one(pool)
-        .await?
-    } else {
-        sqlx::query(
-            r#"
-            WITH candidate AS (
-              SELECT modified_at
-              FROM public.processes
-              WHERE state_code = ANY($1)
-                AND json ? 'processDataSet'
-              ORDER BY id, version
-              LIMIT NULLIF($2::bigint, 0)
-            )
-            SELECT
-              COUNT(*)::bigint AS process_count,
-              COALESCE(
-                to_char(MAX(modified_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
-                'none'
-              ) AS process_max_modified_at_utc
-            FROM candidate
-            "#,
-        )
-        .bind(state_codes)
-        .bind(limit)
-        .fetch_one(pool)
-        .await?
-    };
+fn summarize_selected_processes(processes: &[ProcessRow]) -> anyhow::Result<(i64, String)> {
+    let process_count =
+        i64::try_from(processes.len()).map_err(|_| anyhow::anyhow!("process count overflow"))?;
+    let max_modified_at = processes.iter().filter_map(|row| row.modified_at).max();
+    Ok((process_count, format_modified_at_utc(max_modified_at)))
+}
 
-    Ok((
-        row.try_get::<i64, _>("process_count")?,
-        row.try_get::<String, _>("process_max_modified_at_utc")?,
-    ))
+fn format_modified_at_utc(timestamp: Option<DateTime<Utc>>) -> String {
+    timestamp.map_or_else(
+        || "none".to_owned(),
+        |value| value.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string(),
+    )
 }
 
 async fn fetch_flow_source_summary(pool: &PgPool) -> anyhow::Result<(i64, String)> {
@@ -2078,7 +2323,7 @@ async fn fetch_processes(
     let rows = if all_states {
         sqlx::query(
             r#"
-            SELECT id, version, model_id, json
+            SELECT id, version, model_id, user_id, modified_at, json
             FROM public.processes
             WHERE json ? 'processDataSet'
             ORDER BY id, version
@@ -2089,7 +2334,7 @@ async fn fetch_processes(
     } else if let Some(user_id) = include_user_id {
         sqlx::query(
             r#"
-            SELECT id, version, model_id, json
+            SELECT id, version, model_id, user_id, modified_at, json
             FROM public.processes
             WHERE (state_code = ANY($1) OR user_id = $2)
               AND json ? 'processDataSet'
@@ -2103,7 +2348,7 @@ async fn fetch_processes(
     } else {
         sqlx::query(
             r#"
-            SELECT id, version, model_id, json
+            SELECT id, version, model_id, user_id, modified_at, json
             FROM public.processes
             WHERE state_code = ANY($1)
               AND json ? 'processDataSet'
@@ -2121,6 +2366,8 @@ async fn fetch_processes(
             id: row.try_get::<Uuid, _>("id")?,
             version: row.try_get::<String, _>("version")?.trim().to_owned(),
             model_id: row.try_get::<Option<Uuid>, _>("model_id")?,
+            user_id: row.try_get::<Option<Uuid>, _>("user_id")?,
+            modified_at: row.try_get::<Option<DateTime<Utc>>, _>("modified_at")?,
             json: row.try_get::<Value, _>("json")?,
         });
     }
@@ -2288,6 +2535,7 @@ async fn persist_snapshot_metadata(
     all_states: bool,
     state_codes: &[i32],
     include_user_id: Option<Uuid>,
+    scope_summary: &ResolvedRequestScopeSummary,
     source_hash: &str,
     method: &MethodSelection,
     built: &BuildOutput,
@@ -2297,15 +2545,44 @@ async fn persist_snapshot_metadata(
     artifact_format: &str,
 ) -> anyhow::Result<()> {
     let process_filter = if all_states {
-        serde_json::json!({"all_states": true})
+        serde_json::json!({
+            "all_states": true,
+            "selection_mode": scope_summary.selection_mode,
+            "request_roots": scope_summary.roots,
+            "scope_hash": scope_summary.scope_hash,
+            "resolved_scope": {
+                "public_process_count": scope_summary.public_process_count,
+                "private_process_count": scope_summary.private_process_count,
+                "process_count": scope_summary.processes.len(),
+            }
+        })
     } else if let Some(user_id) = include_user_id {
         serde_json::json!({
             "all_states": false,
             "process_states": state_codes,
             "include_user_id": user_id,
+            "selection_mode": scope_summary.selection_mode,
+            "request_roots": scope_summary.roots,
+            "scope_hash": scope_summary.scope_hash,
+            "resolved_scope": {
+                "public_process_count": scope_summary.public_process_count,
+                "private_process_count": scope_summary.private_process_count,
+                "process_count": scope_summary.processes.len(),
+            }
         })
     } else {
-        serde_json::json!({"all_states": false, "process_states": state_codes})
+        serde_json::json!({
+            "all_states": false,
+            "process_states": state_codes,
+            "selection_mode": scope_summary.selection_mode,
+            "request_roots": scope_summary.roots,
+            "scope_hash": scope_summary.scope_hash,
+            "resolved_scope": {
+                "public_process_count": scope_summary.public_process_count,
+                "private_process_count": scope_summary.private_process_count,
+                "process_count": scope_summary.processes.len(),
+            }
+        })
     };
 
     let mut tx = pool.begin().await?;
@@ -2410,20 +2687,50 @@ async fn persist_reused_snapshot_metadata(
     all_states: bool,
     state_codes: &[i32],
     include_user_id: Option<Uuid>,
+    scope_summary: &ResolvedRequestScopeSummary,
     source_hash: &str,
     method: &MethodSelection,
     reused: &ReuseCandidate,
 ) -> anyhow::Result<()> {
     let process_filter = if all_states {
-        serde_json::json!({"all_states": true})
+        serde_json::json!({
+            "all_states": true,
+            "selection_mode": scope_summary.selection_mode,
+            "request_roots": scope_summary.roots,
+            "scope_hash": scope_summary.scope_hash,
+            "resolved_scope": {
+                "public_process_count": scope_summary.public_process_count,
+                "private_process_count": scope_summary.private_process_count,
+                "process_count": scope_summary.processes.len(),
+            }
+        })
     } else if let Some(user_id) = include_user_id {
         serde_json::json!({
             "all_states": false,
             "process_states": state_codes,
             "include_user_id": user_id,
+            "selection_mode": scope_summary.selection_mode,
+            "request_roots": scope_summary.roots,
+            "scope_hash": scope_summary.scope_hash,
+            "resolved_scope": {
+                "public_process_count": scope_summary.public_process_count,
+                "private_process_count": scope_summary.private_process_count,
+                "process_count": scope_summary.processes.len(),
+            }
         })
     } else {
-        serde_json::json!({"all_states": false, "process_states": state_codes})
+        serde_json::json!({
+            "all_states": false,
+            "process_states": state_codes,
+            "selection_mode": scope_summary.selection_mode,
+            "request_roots": scope_summary.roots,
+            "scope_hash": scope_summary.scope_hash,
+            "resolved_scope": {
+                "public_process_count": scope_summary.public_process_count,
+                "private_process_count": scope_summary.private_process_count,
+                "process_count": scope_summary.processes.len(),
+            }
+        })
     };
 
     let mut tx = pool.begin().await?;
@@ -2525,6 +2832,7 @@ fn write_report_files(
     report_dir: &PathBuf,
     snapshot_id: Uuid,
     config: &SnapshotBuildConfig,
+    scope_summary: &ResolvedRequestScopeSummary,
     coverage: &SnapshotCoverageReport,
     artifact_url: &str,
     source_summary: &SourceSnapshotSummary,
@@ -2540,6 +2848,7 @@ fn write_report_files(
         "snapshot_id": snapshot_id,
         "generated_at_utc": generated_at,
         "config": config,
+        "resolved_scope": scope_summary,
         "source": {
             "fingerprint": source_fingerprint,
             "summary": source_summary,
@@ -2563,6 +2872,20 @@ fn write_report_files(
             .include_user_id
             .map_or_else(|| "none".to_owned(), |id| id.to_string())
     ));
+    md.push_str(&format!("- selection_mode: `{}`\n", config.selection_mode));
+    md.push_str(&format!(
+        "- request_root_count: `{}`\n",
+        config.request_roots.len()
+    ));
+    if !config.request_roots.is_empty() {
+        let roots = config
+            .request_roots
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(", ");
+        md.push_str(&format!("- request_roots: `{roots}`\n"));
+    }
     md.push_str(&format!("- process_limit: `{}`\n", config.process_limit));
     md.push_str(&format!("- provider_rule: `{}`\n", config.provider_rule));
     md.push_str(&format!(
@@ -2595,8 +2918,23 @@ fn write_report_files(
         "all_methods".to_owned()
     };
     md.push_str(&format!("- method: `{method_desc}`\n"));
+    md.push_str(&format!("- scope_hash: `{}`\n", scope_summary.scope_hash));
     md.push_str(&format!("- source_fingerprint: `{source_fingerprint}`\n"));
     md.push_str(&format!("- artifact_url: `{artifact_url}`\n\n"));
+
+    md.push_str("## Resolved Scope\n\n");
+    md.push_str(&format!(
+        "- public_process_count: `{}`\n",
+        scope_summary.public_process_count
+    ));
+    md.push_str(&format!(
+        "- private_process_count: `{}`\n",
+        scope_summary.private_process_count
+    ));
+    md.push_str(&format!(
+        "- resolved_process_count: `{}`\n\n",
+        scope_summary.processes.len()
+    ));
 
     md.push_str("## Build Timing (sec)\n\n");
     md.push_str(&format!(
@@ -2793,13 +3131,17 @@ fn write_report_files(
 mod tests {
     use super::{
         AllocationMode, ExchangeDirection, NormalizationMode, ParsedExchange, ProcessMeta,
-        ProviderRule, add_technosphere_edge, biosphere_gross_value, geo_score,
-        parse_process_states, resolve_allocation_fraction, resolve_multi_provider,
-        resolve_reference_normalization, time_score,
+        ProcessRow, ProviderRule, add_technosphere_edge, biosphere_gross_value, compute_scope_hash,
+        geo_score, normalize_request_roots, parse_process_states, resolve_allocation_fraction,
+        resolve_multi_provider, resolve_process_selection, resolve_reference_normalization,
+        time_score,
     };
+    use chrono::Utc;
     use serde_json::json;
     use std::collections::HashMap;
     use uuid::Uuid;
+
+    use solver_worker::graph_types::{RequestRootProcess, ScopeProcessPartition};
 
     fn assert_close(actual: f64, expected: f64) {
         let delta = (actual - expected).abs();
@@ -2866,10 +3208,114 @@ mod tests {
     }
 
     #[test]
+    fn normalize_request_roots_sorts_and_deduplicates() {
+        let process_a =
+            Uuid::parse_str("00000000-0000-0000-0000-000000000001").expect("process_a uuid");
+        let process_b =
+            Uuid::parse_str("00000000-0000-0000-0000-000000000002").expect("process_b uuid");
+        let normalized = normalize_request_roots(&[
+            RequestRootProcess::new(process_b, "02.00.000".to_owned()),
+            RequestRootProcess::new(process_a, "01.00.000".to_owned()),
+            RequestRootProcess::new(process_b, "02.00.000".to_owned()),
+        ]);
+
+        assert_eq!(normalized.len(), 2);
+        assert_eq!(
+            normalized,
+            vec![
+                RequestRootProcess::new(process_a, "01.00.000".to_owned()),
+                RequestRootProcess::new(process_b, "02.00.000".to_owned())
+            ]
+        );
+    }
+
+    #[test]
+    fn scope_hash_is_stable_for_root_order() {
+        let root_a = RequestRootProcess::new(Uuid::new_v4(), "01.00.000".to_owned());
+        let root_b = RequestRootProcess::new(Uuid::new_v4(), "02.00.000".to_owned());
+        let user_id = Uuid::new_v4();
+        let left = compute_scope_hash(
+            false,
+            &[100, 101],
+            Some(user_id),
+            &normalize_request_roots(&[root_b.clone(), root_a.clone()]),
+            0,
+            ProviderRule::StrictUniqueProvider,
+        )
+        .expect("left hash");
+        let right = compute_scope_hash(
+            false,
+            &[100, 101],
+            Some(user_id),
+            &normalize_request_roots(&[root_a, root_b]),
+            0,
+            ProviderRule::StrictUniqueProvider,
+        )
+        .expect("right hash");
+
+        assert_eq!(left, right);
+    }
+
+    #[test]
     fn geo_score_prefers_subnational_match() {
         assert_close(geo_score(Some("CN-BJ"), Some("CN-BJ")), 1.0);
         assert_close(geo_score(Some("CN-BJ"), Some("CN-SH")), 0.85);
         assert_close(geo_score(Some("CN"), Some("GLO")), 0.4);
+    }
+
+    #[test]
+    fn request_roots_resolve_private_to_public_closure() {
+        let private_user = Uuid::new_v4();
+        let private_process_id = Uuid::new_v4();
+        let public_process_id = Uuid::new_v4();
+        let selected = resolve_process_selection(
+            vec![
+                ProcessRow {
+                    id: public_process_id,
+                    version: "01.00.000".to_owned(),
+                    model_id: None,
+                    user_id: None,
+                    modified_at: Some(Utc::now()),
+                    json: process_json(&[
+                        ("Output", Uuid::new_v4()),
+                        ("Output", fixed_flow_id("public-output")),
+                    ]),
+                },
+                ProcessRow {
+                    id: private_process_id,
+                    version: "01.00.000".to_owned(),
+                    model_id: None,
+                    user_id: Some(private_user),
+                    modified_at: Some(Utc::now()),
+                    json: process_json(&[
+                        ("Input", fixed_flow_id("public-output")),
+                        ("Output", Uuid::new_v4()),
+                    ]),
+                },
+            ],
+            false,
+            &[100],
+            Some(private_user),
+            &[RequestRootProcess::new(
+                private_process_id,
+                "01.00.000".to_owned(),
+            )],
+            ProviderRule::StrictUniqueProvider,
+            0,
+        )
+        .expect("resolve scope");
+
+        assert_eq!(selected.processes.len(), 2);
+        assert_eq!(selected.scope_summary.public_process_count, 1);
+        assert_eq!(selected.scope_summary.private_process_count, 1);
+        assert_eq!(
+            selected.scope_summary.processes[0].partition,
+            ScopeProcessPartition::Public
+        );
+        assert_eq!(
+            selected.scope_summary.processes[1].partition,
+            ScopeProcessPartition::Private
+        );
     }
 
     #[test]
@@ -2879,6 +3325,44 @@ mod tests {
         assert_close(time_score(Some(2026), Some(2024)), 0.85);
         assert_close(time_score(Some(2026), Some(2016)), 0.4);
         assert_close(time_score(Some(2026), Some(2010)), 0.2);
+    }
+
+    fn process_json(exchanges: &[(&str, Uuid)]) -> serde_json::Value {
+        json!({
+            "processDataSet": {
+                "processInformation": {
+                    "quantitativeReference": {
+                        "referenceToReferenceFlow": "1"
+                    }
+                },
+                "exchanges": {
+                    "exchange": exchanges.iter().enumerate().map(|(idx, (direction, flow_id))| {
+                        json!({
+                            "@dataSetInternalID": (idx + 1).to_string(),
+                            "exchangeDirection": direction,
+                            "referenceToFlowDataSet": {
+                                "@refObjectId": flow_id
+                            },
+                            "meanAmount": 1.0,
+                            "allocations": {
+                                "allocation": {
+                                    "@allocatedFraction": 1.0
+                                }
+                            }
+                        })
+                    }).collect::<Vec<_>>()
+                }
+            }
+        })
+    }
+
+    fn fixed_flow_id(label: &str) -> Uuid {
+        let bytes = label.as_bytes();
+        let mut raw = [0_u8; 16];
+        for (idx, byte) in bytes.iter().copied().enumerate().take(16) {
+            raw[idx] = byte;
+        }
+        Uuid::from_bytes(raw)
     }
 
     #[test]

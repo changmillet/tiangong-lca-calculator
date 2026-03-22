@@ -106,6 +106,10 @@ Behavior:
 - process selection supports:
   - `--process-states <csv|all>` for `state_code` filtering (default runtime scope: `100..=199`)
   - `--include-user-id <uuid>` to include one user's processes in addition to `process-states` (OR union)
+  - `--root-process <uuid@version>` to switch from broad filtered-library selection to request-scoped closure selection
+  - request-root mode resolves the reachable public+private closure from explicit roots under the current `provider_rule`
+  - request-root mode persists `selection_mode`, `request_roots`, `scope_hash`, and resolved-scope public/private counts into snapshot metadata
+  - request-root mode does not allow `--process-limit`, because truncation would break closure semantics
 - provider matching supports:
   - `strict_unique_provider` (legacy strict behavior)
   - `best_provider_strict` (auto-link select one provider by geo+time score)
@@ -128,6 +132,7 @@ Behavior:
   - model priority pre-filter: prefer providers with the same `processes.model_id` as consumer when available
   - geography (`@location`) from process geography block
   - reference year (`common:referenceYear`) from process time block
+- process source summary in request-root mode is now based on the resolved closure, not the entire broad candidate process scope
 - snapshot coverage now includes additional matching diagnostics:
   - `matched_multi_resolved`
   - `matched_multi_unresolved`
