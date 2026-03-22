@@ -104,7 +104,7 @@ Create a small state module that defines:
 
 **Step 2: Change one-shot execution to one-stage execution**
 
-Today [package_db.rs](/Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-calculator/crates/solver-worker/src/package_db.rs#L254) awaits the entire export path in one call. Replace that with:
+Today `crates/solver-worker/src/package_db.rs` around line 254 awaits the entire export path in one call. Replace that with:
 - load current job stage
 - execute only one batch of work for that stage
 - persist updated `stage` + `progress`
@@ -164,7 +164,7 @@ git commit -m "feat: refactor tidas export into staged worker flow"
 
 **Step 1: Split seed discovery from dependency collection**
 
-Replace the current one-shot call at [package_execution.rs](/Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-calculator/crates/solver-worker/src/package_execution.rs#L183) and [package_execution.rs](/Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-calculator/crates/solver-worker/src/package_execution.rs#L412) with two explicit stages:
+Replace the current one-shot call in `crates/solver-worker/src/package_execution.rs` around lines 183 and 412 with two explicit stages:
 - `seed_scan`: insert user-scope or selected-root datasets into `lca_package_export_items`
 - `collect_refs`: read a small batch of unresolved items, extract references, and upsert newly discovered dependencies
 
@@ -253,7 +253,7 @@ Add a `materialize_files` stage:
 
 **Step 3: Build ZIP from filesystem, not from a giant in-memory Vec**
 
-Replace the current [build_package_zip()](/Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-calculator/crates/solver-worker/src/package_execution.rs#L550) call with:
+Replace the current `build_package_zip()` call in `crates/solver-worker/src/package_execution.rs` around line 550 with:
 - write manifest file
 - stream workspace files into a ZIP on disk
 - upload the resulting file
@@ -296,11 +296,11 @@ git commit -m "feat: materialize tidas export files incrementally"
 ### Task 5: Expose Progress Through Existing APIs
 
 **Files:**
-- Modify: `/Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-edge-functions/supabase/functions/_shared/tidas_package.ts`
-- Modify: `/Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-edge-functions/supabase/functions/tidas_package_jobs/index.ts`
-- Modify: `/Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-next/src/services/general/api.ts`
-- Modify: `/Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-next/src/components/ExportTidasPackage/index.tsx`
-- Modify: `/Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-next/src/components/ExportData/index.tsx`
+- Modify: `tiangong-lca-edge-functions/supabase/functions/_shared/tidas_package.ts`
+- Modify: `tiangong-lca-edge-functions/supabase/functions/tidas_package_jobs/index.ts`
+- Modify: `tiangong-lca-next/src/services/general/api.ts`
+- Modify: `tiangong-lca-next/src/components/ExportTidasPackage/index.tsx`
+- Modify: `tiangong-lca-next/src/components/ExportData/index.tsx`
 
 **Step 1: Keep request contract stable**
 
@@ -339,7 +339,7 @@ Expected:
 **Step 4: Commit**
 
 ```bash
-git add /Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-edge-functions/supabase/functions/_shared/tidas_package.ts /Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-edge-functions/supabase/functions/tidas_package_jobs/index.ts /Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-next/src/services/general/api.ts /Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-next/src/components/ExportTidasPackage/index.tsx /Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-next/src/components/ExportData/index.tsx
+git add tiangong-lca-edge-functions/supabase/functions/_shared/tidas_package.ts tiangong-lca-edge-functions/supabase/functions/tidas_package_jobs/index.ts tiangong-lca-next/src/services/general/api.ts tiangong-lca-next/src/components/ExportTidasPackage/index.tsx tiangong-lca-next/src/components/ExportData/index.tsx
 git commit -m "feat: expose tidas export stage progress"
 ```
 
@@ -347,9 +347,9 @@ git commit -m "feat: expose tidas export stage progress"
 
 **Files:**
 - Modify: `README.md`
-- Modify: `/Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-edge-functions/README.md`
-- Modify: `/Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-next/src/locales/zh-CN/component_tidasPackage.ts`
-- Modify: `/Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-next/src/locales/en-US/component_tidasPackage.ts`
+- Modify: `tiangong-lca-edge-functions/README.md`
+- Modify: `tiangong-lca-next/src/locales/zh-CN/component_tidasPackage.ts`
+- Modify: `tiangong-lca-next/src/locales/en-US/component_tidasPackage.ts`
 
 **Step 1: Run end-to-end validation**
 
@@ -390,7 +390,7 @@ Add notes for:
 **Step 4: Commit**
 
 ```bash
-git add README.md /Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-edge-functions/README.md /Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-next/src/locales/zh-CN/component_tidasPackage.ts /Users/biao/Code/lca-workspace/lca-workspace/tiangong-lca-next/src/locales/en-US/component_tidasPackage.ts
+git add README.md tiangong-lca-edge-functions/README.md tiangong-lca-next/src/locales/zh-CN/component_tidasPackage.ts tiangong-lca-next/src/locales/en-US/component_tidasPackage.ts
 git commit -m "docs: add tidas export recovery runbook"
 ```
 
@@ -415,4 +415,3 @@ git commit -m "docs: add tidas export recovery runbook"
   - resumable
   - visible by stage
   - able to finish even if the worker restarts mid-export
-

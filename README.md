@@ -136,7 +136,7 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260309042000_lca_latest
 
 默认就是“全库正式版”：
 
-- 只取 `state_code=100`（`--process-states` 默认 `100`）
+- 默认纳入 `state_code=100~199`（`--process-states` 默认覆盖 `100,101,...,199`）
 - 不限 process 数量（`--process-limit` 默认 `0`，即 no limit）
 - 生成 coverage 报表到 `reports/snapshot-coverage/<snapshot_id>.{json,md}`
 - 报表包含：匹配率、奇异风险、矩阵规模、build 分阶段耗时
