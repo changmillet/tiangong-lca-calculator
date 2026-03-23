@@ -86,7 +86,7 @@ Package export/import worker path:
 - persists resumable export traversal state in `lca_package_export_items`
 - export ZIP finalization now writes the package to a local temp file first, then uploads the final `export_zip` artifact via multipart S3 upload once the file exceeds the large-object threshold
 - package job failure diagnostics for object-storage uploads now record structured fields such as `error_code`, `stage`, `upload_mode`, `artifact_byte_size`, `http_status`, and `storage_error_code`, with oversize uploads normalized to `artifact_too_large`
-- package export `open_data` scope treats published rows as `state_code` `100..=199`; legacy `99` is not considered open data anymore
+- package export `open_data` scope treats published rows as `state_code` `100..=199`
 - full-scope export seed scanning currently:
   - rehydrates traversal cache from `lca_package_export_items` seed/external rows
   - scans source datasets with DB-side `jsonb_path_query_array(...)` extraction so the worker fetches reference payloads instead of full `json_ordered` blobs where possible
