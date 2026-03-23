@@ -8,6 +8,7 @@ use uuid::Uuid;
 use crate::{
     artifacts::EncodedArtifact,
     db::AppState,
+    package_artifacts::{PackageArtifactUploadMeta, package_artifact_meta_from_encoded},
     package_execution::{
         clear_runtime_export_traversal_cache, execute_export_package, execute_import_package,
     },
@@ -23,8 +24,14 @@ pub struct PackageArtifactInsert {
     pub artifact_kind: PackageArtifactKind,
     /// Object storage URL.
     pub artifact_url: String,
-    /// Encoded artifact bytes and metadata.
-    pub encoded: EncodedArtifact,
+    /// Artifact checksum in hex.
+    pub artifact_sha256: String,
+    /// Artifact byte size.
+    pub artifact_byte_size: u64,
+    /// Artifact format identifier.
+    pub artifact_format: &'static str,
+    /// Artifact content type.
+    pub content_type: &'static str,
     /// Additional JSON metadata for status APIs.
     pub metadata: Value,
     /// Row status.
@@ -32,23 +39,44 @@ pub struct PackageArtifactInsert {
 }
 
 impl PackageArtifactInsert {
-    /// Creates a ready artifact row from one encoded artifact.
+    /// Creates a ready artifact row from one prepared upload metadata payload.
     #[must_use]
     pub fn ready(
         job_id: Uuid,
         artifact_kind: PackageArtifactKind,
         artifact_url: String,
-        encoded: EncodedArtifact,
+        meta: PackageArtifactUploadMeta,
         metadata: Value,
     ) -> Self {
         Self {
             job_id,
             artifact_kind,
             artifact_url,
-            encoded,
+            artifact_sha256: meta.sha256,
+            artifact_byte_size: meta.byte_size,
+            artifact_format: meta.format,
+            content_type: meta.content_type,
             metadata,
             status: "ready",
         }
+    }
+
+    /// Creates a ready artifact row from one in-memory encoded artifact payload.
+    pub fn ready_from_encoded(
+        job_id: Uuid,
+        artifact_kind: PackageArtifactKind,
+        artifact_url: String,
+        encoded: &EncodedArtifact,
+        metadata: Value,
+    ) -> anyhow::Result<Self> {
+        let meta = package_artifact_meta_from_encoded(encoded)?;
+        Ok(Self::ready(
+            job_id,
+            artifact_kind,
+            artifact_url,
+            meta,
+            metadata,
+        ))
     }
 }
 
@@ -98,7 +126,7 @@ pub async fn insert_package_artifact(
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("failed to serialize artifact kind"))?
         .to_owned();
-    let byte_size = i64::try_from(insert.encoded.bytes.len())
+    let byte_size = i64::try_from(insert.artifact_byte_size)
         .map_err(|_| anyhow::anyhow!("artifact size exceeds i64"))?;
 
     let row = sqlx::query(
@@ -133,10 +161,10 @@ pub async fn insert_package_artifact(
     .bind(artifact_kind)
     .bind(insert.status)
     .bind(insert.artifact_url)
-    .bind(insert.encoded.sha256)
+    .bind(insert.artifact_sha256)
     .bind(byte_size)
-    .bind(insert.encoded.format)
-    .bind(insert.encoded.content_type)
+    .bind(insert.artifact_format)
+    .bind(insert.content_type)
     .bind(insert.metadata)
     .fetch_one(pool)
     .await?;

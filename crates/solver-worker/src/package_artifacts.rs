@@ -1,3 +1,5 @@
+use std::{fs::File, io::Read, path::Path};
+
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -15,6 +17,15 @@ const PACKAGE_SCHEMA_VERSION: u8 = 1;
 pub const PACKAGE_ZIP_EXTENSION: &str = "zip";
 /// File extension for package JSON report artifacts.
 pub const PACKAGE_REPORT_EXTENSION: &str = "json";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PackageArtifactUploadMeta {
+    pub sha256: String,
+    pub format: &'static str,
+    pub content_type: &'static str,
+    pub extension: &'static str,
+    pub byte_size: u64,
+}
 
 #[derive(Debug, Clone, Serialize)]
 struct PackageReportEnvelope<T>
@@ -55,6 +66,47 @@ pub fn encode_package_zip_artifact(bytes: Vec<u8>) -> EncodedArtifact {
     }
 }
 
+pub fn package_artifact_meta_from_encoded(
+    encoded: &EncodedArtifact,
+) -> anyhow::Result<PackageArtifactUploadMeta> {
+    Ok(PackageArtifactUploadMeta {
+        sha256: encoded.sha256.clone(),
+        format: encoded.format,
+        content_type: encoded.content_type,
+        extension: encoded.extension,
+        byte_size: u64::try_from(encoded.bytes.len())
+            .map_err(|_| anyhow::anyhow!("artifact size exceeds u64"))?,
+    })
+}
+
+pub fn prepare_package_zip_artifact_from_path(
+    path: &Path,
+) -> anyhow::Result<PackageArtifactUploadMeta> {
+    let mut file = File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0_u8; 64 * 1024];
+    let mut byte_size = 0_u64;
+
+    loop {
+        let read_len = file.read(buffer.as_mut_slice())?;
+        if read_len == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read_len]);
+        byte_size = byte_size
+            .checked_add(u64::try_from(read_len).map_err(|_| anyhow::anyhow!("read overflow"))?)
+            .ok_or_else(|| anyhow::anyhow!("artifact size exceeds u64"))?;
+    }
+
+    Ok(PackageArtifactUploadMeta {
+        sha256: format!("{:x}", hasher.finalize()),
+        format: PACKAGE_ZIP_ARTIFACT_FORMAT,
+        content_type: PACKAGE_ZIP_CONTENT_TYPE,
+        extension: PACKAGE_ZIP_EXTENSION,
+        byte_size,
+    })
+}
+
 fn encode_report_artifact<T: Serialize>(
     job_id: Uuid,
     report: &T,
@@ -91,6 +143,7 @@ mod tests {
     use super::{
         PACKAGE_REPORT_EXTENSION, PACKAGE_ZIP_EXTENSION, encode_export_report_artifact,
         encode_import_report_artifact, encode_package_zip_artifact,
+        package_artifact_meta_from_encoded, prepare_package_zip_artifact_from_path,
     };
     use crate::package_types::{
         PACKAGE_EXPORT_REPORT_ARTIFACT_FORMAT, PACKAGE_IMPORT_REPORT_ARTIFACT_FORMAT,
@@ -157,5 +210,29 @@ mod tests {
         assert_eq!(encoded.content_type, PACKAGE_ZIP_CONTENT_TYPE);
         assert_eq!(encoded.extension, PACKAGE_ZIP_EXTENSION);
         assert!(!encoded.sha256.is_empty());
+    }
+
+    #[test]
+    fn package_artifact_meta_from_encoded_tracks_byte_size() {
+        let encoded = encode_package_zip_artifact(b"zip-bytes".to_vec());
+        let meta = package_artifact_meta_from_encoded(&encoded).expect("build artifact meta");
+
+        assert_eq!(meta.byte_size, 9);
+        assert_eq!(meta.format, PACKAGE_ZIP_ARTIFACT_FORMAT);
+        assert_eq!(meta.content_type, PACKAGE_ZIP_CONTENT_TYPE);
+    }
+
+    #[test]
+    fn prepare_package_zip_artifact_from_path_reads_sha_and_size() {
+        let temp = tempfile::NamedTempFile::new().expect("create temp file");
+        std::fs::write(temp.path(), b"zip-bytes").expect("write zip bytes");
+
+        let meta =
+            prepare_package_zip_artifact_from_path(temp.path()).expect("read package zip meta");
+
+        assert_eq!(meta.byte_size, 9);
+        assert_eq!(meta.format, PACKAGE_ZIP_ARTIFACT_FORMAT);
+        assert_eq!(meta.extension, PACKAGE_ZIP_EXTENSION);
+        assert!(!meta.sha256.is_empty());
     }
 }

@@ -13,6 +13,7 @@ use solver_worker::{
     },
     package_execution::clear_runtime_export_traversal_cache,
     package_types::{PACKAGE_QUEUE_NAME, PackageJobPayload},
+    storage::ObjectStoreUploadError,
 };
 use tokio::time::sleep;
 use tracing::{error, info, instrument, warn};
@@ -100,18 +101,24 @@ async fn run_package_worker_loop(
                                 }
                             }
                             if !rescheduled {
+                                let diagnostics =
+                                    build_package_job_failure_diagnostics(&payload, &err);
+                                let cache_error_code =
+                                    package_request_cache_error_code(&err).to_owned();
+                                let cache_error_message =
+                                    package_request_cache_error_message(&payload, &err);
                                 let _ = update_package_job_status(
                                     &state.pool,
                                     job_id,
                                     "failed",
-                                    json!({"error": err_message}),
+                                    diagnostics,
                                 )
                                 .await;
                                 let _ = mark_package_request_cache_failed(
                                     &state.pool,
                                     job_id,
-                                    "job_execution_failed",
-                                    &err_message,
+                                    cache_error_code.as_str(),
+                                    cache_error_message.as_str(),
                                 )
                                 .await;
                             }
@@ -165,5 +172,135 @@ fn resolve_queue_name(requested: &str) -> String {
         PACKAGE_QUEUE_NAME.to_owned()
     } else {
         requested.to_owned()
+    }
+}
+
+fn build_package_job_failure_diagnostics(
+    payload: &PackageJobPayload,
+    err: &anyhow::Error,
+) -> serde_json::Value {
+    let phase = match payload {
+        PackageJobPayload::ExportPackage { .. } => "export_package",
+        PackageJobPayload::ImportPackage { .. } => "import_package",
+    };
+    let message = package_request_cache_error_message(payload, err);
+    if let Some(upload_err) = find_object_store_upload_error(err) {
+        return json!({
+            "phase": phase,
+            "stage": upload_err.stage,
+            "result": "failed",
+            "error_code": upload_err.error_code(),
+            "message": message,
+            "error": err.to_string(),
+            "upload_mode": upload_err.upload_mode,
+            "artifact_byte_size": upload_err.object_byte_size,
+            "http_status": upload_err.status_code,
+            "storage_error_code": upload_err.s3_error_code,
+            "part_number": upload_err.part_number,
+            "part_count": upload_err.part_count,
+            "is_oversize": upload_err.is_oversize(),
+        });
+    }
+
+    json!({
+        "phase": phase,
+        "stage": phase,
+        "result": "failed",
+        "error_code": "job_execution_failed",
+        "message": message,
+        "error": err.to_string(),
+    })
+}
+
+fn package_request_cache_error_code(err: &anyhow::Error) -> &'static str {
+    find_object_store_upload_error(err)
+        .map_or("job_execution_failed", ObjectStoreUploadError::error_code)
+}
+
+fn package_request_cache_error_message(payload: &PackageJobPayload, err: &anyhow::Error) -> String {
+    if let Some(upload_err) = find_object_store_upload_error(err)
+        && upload_err.is_oversize()
+    {
+        let operation = match payload {
+            PackageJobPayload::ExportPackage { .. } => "export package",
+            PackageJobPayload::ImportPackage { .. } => "package artifact",
+        };
+        return format!(
+            "The {operation} exceeded the object storage upload size limit; upload mode={}, stage={}, artifact_byte_size={}.",
+            upload_err.upload_mode,
+            upload_err.stage,
+            upload_err
+                .object_byte_size
+                .map_or_else(|| "unknown".to_owned(), |size| size.to_string())
+        );
+    }
+
+    err.to_string()
+}
+
+fn find_object_store_upload_error(err: &anyhow::Error) -> Option<&ObjectStoreUploadError> {
+    err.chain()
+        .find_map(|cause| cause.downcast_ref::<ObjectStoreUploadError>())
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Error;
+    use reqwest::StatusCode;
+    use solver_worker::package_types::PackageExportScope;
+    use solver_worker::storage::ObjectStoreUploadError;
+    use uuid::Uuid;
+
+    use super::{
+        build_package_job_failure_diagnostics, package_request_cache_error_code,
+        package_request_cache_error_message,
+    };
+    fn export_payload() -> solver_worker::package_types::PackageJobPayload {
+        solver_worker::package_types::PackageJobPayload::ExportPackage {
+            job_id: Uuid::nil(),
+            requested_by: Uuid::nil(),
+            scope: PackageExportScope::OpenData,
+            roots: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn package_failure_diagnostics_surface_structured_upload_fields() {
+        let payload = export_payload();
+        let err = Error::new(ObjectStoreUploadError {
+            stage: "upload_object",
+            upload_mode: "single_put",
+            status_code: Some(StatusCode::PAYLOAD_TOO_LARGE.as_u16()),
+            s3_error_code: Some("EntityTooLarge".to_owned()),
+            object_byte_size: Some(12),
+            part_number: None,
+            part_count: None,
+            message: "object upload failed".to_owned(),
+        });
+
+        let diagnostics = build_package_job_failure_diagnostics(&payload, &err);
+
+        assert_eq!(diagnostics["error_code"], "artifact_too_large");
+        assert_eq!(diagnostics["upload_mode"], "single_put");
+        assert_eq!(diagnostics["artifact_byte_size"], 12);
+        assert_eq!(diagnostics["is_oversize"], true);
+    }
+
+    #[test]
+    fn package_request_cache_error_message_humanizes_oversize_uploads() {
+        let payload = export_payload();
+        let err = Error::new(ObjectStoreUploadError {
+            stage: "upload_object",
+            upload_mode: "single_put",
+            status_code: Some(StatusCode::PAYLOAD_TOO_LARGE.as_u16()),
+            s3_error_code: Some("EntityTooLarge".to_owned()),
+            object_byte_size: Some(34),
+            part_number: None,
+            part_count: None,
+            message: "object upload failed".to_owned(),
+        });
+
+        assert_eq!(package_request_cache_error_code(&err), "artifact_too_large");
+        assert!(package_request_cache_error_message(&payload, &err).contains("upload size limit"));
     }
 }

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fs::File, io::Read, path::Path};
 
 use chrono::Utc;
 use hmac::{Hmac, Mac};
@@ -9,6 +9,9 @@ use uuid::Uuid;
 const SIGV4_ALGORITHM: &str = "AWS4-HMAC-SHA256";
 const SIGV4_SERVICE: &str = "s3";
 const SIGV4_TERMINATOR: &str = "aws4_request";
+const MULTIPART_UPLOAD_THRESHOLD_BYTES: u64 = 8 * 1024 * 1024;
+const MULTIPART_UPLOAD_PART_SIZE_BYTES: usize = 8 * 1024 * 1024;
+const XML_CONTENT_TYPE: &str = "application/xml";
 
 type HmacSha256 = Hmac<Sha256>;
 const EMPTY_PAYLOAD_SHA256: &str =
@@ -26,6 +29,50 @@ pub struct ObjectStoreClient {
     session_token: Option<String>,
     client: reqwest::Client,
 }
+
+#[derive(Debug, Clone)]
+pub struct ObjectUploadResult {
+    pub object_url: String,
+    pub upload_mode: &'static str,
+    pub part_count: Option<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ObjectStoreUploadError {
+    pub stage: &'static str,
+    pub upload_mode: &'static str,
+    pub status_code: Option<u16>,
+    pub s3_error_code: Option<String>,
+    pub object_byte_size: Option<u64>,
+    pub part_number: Option<usize>,
+    pub part_count: Option<usize>,
+    pub message: String,
+}
+
+impl ObjectStoreUploadError {
+    #[must_use]
+    pub fn error_code(&self) -> &'static str {
+        if self.is_oversize() {
+            "artifact_too_large"
+        } else {
+            "object_store_upload_failed"
+        }
+    }
+
+    #[must_use]
+    pub fn is_oversize(&self) -> bool {
+        self.status_code == Some(StatusCode::PAYLOAD_TOO_LARGE.as_u16())
+            || self.s3_error_code.as_deref() == Some("EntityTooLarge")
+    }
+}
+
+impl std::fmt::Display for ObjectStoreUploadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.message.as_str())
+    }
+}
+
+impl std::error::Error for ObjectStoreUploadError {}
 
 impl ObjectStoreClient {
     /// Creates storage client from config.
@@ -84,7 +131,9 @@ impl ObjectStoreClient {
         bytes: Vec<u8>,
     ) -> anyhow::Result<String> {
         let key = self.object_key(snapshot_id, job_id, suffix, extension);
-        self.upload_object(&key, content_type, bytes).await
+        self.upload_object(&key, content_type, bytes, None)
+            .await
+            .map(|result| result.object_url)
     }
 
     /// Uploads one snapshot artifact object and returns object URL.
@@ -103,7 +152,9 @@ impl ObjectStoreClient {
                 self.prefix
             )
         };
-        self.upload_object(&key, content_type, bytes).await
+        self.upload_object(&key, content_type, bytes, None)
+            .await
+            .map(|result| result.object_url)
     }
 
     /// Uploads snapshot index sidecar and returns object URL.
@@ -120,7 +171,9 @@ impl ObjectStoreClient {
                 self.prefix
             )
         };
-        self.upload_object(&key, "application/json", bytes).await
+        self.upload_object(&key, "application/json", bytes, None)
+            .await
+            .map(|result| result.object_url)
     }
 
     /// Uploads one package artifact object and returns object URL.
@@ -132,15 +185,32 @@ impl ObjectStoreClient {
         content_type: &str,
         bytes: Vec<u8>,
     ) -> anyhow::Result<String> {
-        let key = if self.prefix.is_empty() {
-            format!("packages/jobs/{job_id}/{suffix}.{extension}")
-        } else {
-            format!(
-                "{}/packages/jobs/{job_id}/{suffix}.{extension}",
-                self.prefix
-            )
-        };
-        self.upload_object(&key, content_type, bytes).await
+        let key = self.package_object_key(job_id, suffix, extension);
+        self.upload_object(&key, content_type, bytes, None)
+            .await
+            .map(|result| result.object_url)
+    }
+
+    /// Uploads one package artifact from a local file and returns upload metadata.
+    pub async fn upload_package_artifact_file(
+        &self,
+        job_id: Uuid,
+        suffix: &str,
+        extension: &str,
+        content_type: &str,
+        file_path: &Path,
+        artifact_byte_size: u64,
+    ) -> anyhow::Result<ObjectUploadResult> {
+        let key = self.package_object_key(job_id, suffix, extension);
+        if artifact_byte_size < MULTIPART_UPLOAD_THRESHOLD_BYTES {
+            let bytes = std::fs::read(file_path)?;
+            return self
+                .upload_object(&key, content_type, bytes, Some(artifact_byte_size))
+                .await;
+        }
+
+        self.upload_object_multipart(&key, content_type, file_path, artifact_byte_size)
+            .await
     }
 
     /// Deletes an object by full object URL.
@@ -238,18 +308,31 @@ impl ObjectStoreClient {
         ))
     }
 
+    fn package_object_key(&self, job_id: Uuid, suffix: &str, extension: &str) -> String {
+        if self.prefix.is_empty() {
+            format!("packages/jobs/{job_id}/{suffix}.{extension}")
+        } else {
+            format!(
+                "{}/packages/jobs/{job_id}/{suffix}.{extension}",
+                self.prefix
+            )
+        }
+    }
+
     async fn upload_object(
         &self,
         key: &str,
         content_type: &str,
         bytes: Vec<u8>,
-    ) -> anyhow::Result<String> {
+        object_byte_size: Option<u64>,
+    ) -> anyhow::Result<ObjectUploadResult> {
         let object_url = format!("{}/{}/{}", self.endpoint, self.bucket, key);
         let url = Url::parse(&object_url)
             .map_err(|err| anyhow::anyhow!("invalid S3 URL {object_url}: {err}"))?;
         let host = canonical_host(&url)?;
 
         let payload_hash = sha256_hex(bytes.as_slice());
+        let payload_size = object_byte_size.or_else(|| u64::try_from(bytes.len()).ok());
         let (amz_date, date_stamp) = sigv4_timestamps();
         let signed = self.sign_request(
             &Method::PUT,
@@ -280,20 +363,325 @@ impl ObjectStoreClient {
 
         let response = request.send().await?;
         if response.status().is_success() {
-            return Ok(object_url);
+            return Ok(ObjectUploadResult {
+                object_url,
+                upload_mode: "single_put",
+                part_count: None,
+            });
         }
 
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
-        let body_preview = body.chars().take(400).collect::<String>();
-        let auth_hint = if status == StatusCode::FORBIDDEN || status == StatusCode::UNAUTHORIZED {
-            " (check S3 key/secret/region, bucket policy, and endpoint)"
-        } else {
-            ""
-        };
+        Err(object_upload_error(
+            "upload_object",
+            "single_put",
+            status,
+            &body,
+            payload_size,
+            None,
+            None,
+        ))
+    }
 
-        Err(anyhow::anyhow!(
-            "object upload failed status={status}{auth_hint} body={body_preview}"
+    async fn upload_object_multipart(
+        &self,
+        key: &str,
+        content_type: &str,
+        file_path: &Path,
+        object_byte_size: u64,
+    ) -> anyhow::Result<ObjectUploadResult> {
+        let upload_id = self
+            .create_multipart_upload(key, content_type, object_byte_size)
+            .await?;
+        let mut file = File::open(file_path)?;
+        let mut parts = Vec::new();
+        let mut part_number = 1usize;
+        let mut buffer = vec![0_u8; MULTIPART_UPLOAD_PART_SIZE_BYTES];
+
+        loop {
+            let read_len = file.read(buffer.as_mut_slice())?;
+            if read_len == 0 {
+                break;
+            }
+
+            let etag = match self
+                .upload_multipart_part(
+                    key,
+                    upload_id.as_str(),
+                    part_number,
+                    buffer[..read_len].to_vec(),
+                    object_byte_size,
+                )
+                .await
+            {
+                Ok(etag) => etag,
+                Err(err) => {
+                    let _ = self.abort_multipart_upload(key, upload_id.as_str()).await;
+                    return Err(err);
+                }
+            };
+            parts.push((part_number, etag));
+            part_number += 1;
+        }
+
+        if parts.is_empty() {
+            let _ = self.abort_multipart_upload(key, upload_id.as_str()).await;
+            return Err(anyhow::anyhow!(
+                "multipart upload cannot start with an empty file"
+            ));
+        }
+
+        if let Err(err) = self
+            .complete_multipart_upload(key, upload_id.as_str(), parts.as_slice(), object_byte_size)
+            .await
+        {
+            let _ = self.abort_multipart_upload(key, upload_id.as_str()).await;
+            return Err(err);
+        }
+
+        Ok(ObjectUploadResult {
+            object_url: format!("{}/{}/{}", self.endpoint, self.bucket, key),
+            upload_mode: "multipart",
+            part_count: Some(parts.len()),
+        })
+    }
+
+    async fn create_multipart_upload(
+        &self,
+        key: &str,
+        content_type: &str,
+        object_byte_size: u64,
+    ) -> anyhow::Result<String> {
+        let object_url = format!("{}/{}/{}", self.endpoint, self.bucket, key);
+        let mut url = Url::parse(&object_url)
+            .map_err(|err| anyhow::anyhow!("invalid S3 URL {object_url}: {err}"))?;
+        url.query_pairs_mut().append_pair("uploads", "");
+        let host = canonical_host(&url)?;
+        let payload_hash = EMPTY_PAYLOAD_SHA256;
+        let (amz_date, date_stamp) = sigv4_timestamps();
+        let signed = self.sign_request(
+            &Method::POST,
+            SigV4Input {
+                canonical_uri: url.path(),
+                canonical_query: url.query().unwrap_or_default(),
+                host: &host,
+                content_type: Some(content_type),
+                payload_hash,
+                amz_date: &amz_date,
+                date_stamp: &date_stamp,
+            },
+        )?;
+
+        let mut request = self
+            .client
+            .post(url)
+            .header("host", host)
+            .header("content-type", content_type)
+            .header("x-amz-content-sha256", payload_hash)
+            .header("x-amz-date", amz_date)
+            .header("authorization", signed.authorization);
+        if let Some(token) = &self.session_token {
+            request = request.header("x-amz-security-token", token);
+        }
+
+        let response = request.send().await?;
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        if !status.is_success() {
+            return Err(object_upload_error(
+                "create_multipart_upload",
+                "multipart",
+                status,
+                &body,
+                Some(object_byte_size),
+                None,
+                None,
+            ));
+        }
+
+        extract_xml_tag(body.as_str(), "UploadId").ok_or_else(|| {
+            anyhow::anyhow!("multipart upload succeeded but response did not include an UploadId")
+        })
+    }
+
+    async fn upload_multipart_part(
+        &self,
+        key: &str,
+        upload_id: &str,
+        part_number: usize,
+        bytes: Vec<u8>,
+        object_byte_size: u64,
+    ) -> anyhow::Result<String> {
+        let object_url = format!("{}/{}/{}", self.endpoint, self.bucket, key);
+        let mut url = Url::parse(&object_url)
+            .map_err(|err| anyhow::anyhow!("invalid S3 URL {object_url}: {err}"))?;
+        url.query_pairs_mut()
+            .append_pair("partNumber", &part_number.to_string())
+            .append_pair("uploadId", upload_id);
+        let host = canonical_host(&url)?;
+        let payload_hash = sha256_hex(bytes.as_slice());
+        let (amz_date, date_stamp) = sigv4_timestamps();
+        let signed = self.sign_request(
+            &Method::PUT,
+            SigV4Input {
+                canonical_uri: url.path(),
+                canonical_query: url.query().unwrap_or_default(),
+                host: &host,
+                content_type: None,
+                payload_hash: &payload_hash,
+                amz_date: &amz_date,
+                date_stamp: &date_stamp,
+            },
+        )?;
+
+        let mut request = self
+            .client
+            .put(url)
+            .header("host", host)
+            .header("x-amz-content-sha256", payload_hash)
+            .header("x-amz-date", amz_date)
+            .header("authorization", signed.authorization)
+            .body(bytes);
+        if let Some(token) = &self.session_token {
+            request = request.header("x-amz-security-token", token);
+        }
+
+        let response = request.send().await?;
+        if response.status().is_success() {
+            return response
+                .headers()
+                .get("etag")
+                .and_then(|etag| etag.to_str().ok())
+                .map(str::to_owned)
+                .ok_or_else(|| anyhow::anyhow!("multipart upload part response missing ETag"));
+        }
+
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        Err(object_upload_error(
+            "upload_multipart_part",
+            "multipart",
+            status,
+            &body,
+            Some(object_byte_size),
+            Some(part_number),
+            None,
+        ))
+    }
+
+    async fn complete_multipart_upload(
+        &self,
+        key: &str,
+        upload_id: &str,
+        parts: &[(usize, String)],
+        object_byte_size: u64,
+    ) -> anyhow::Result<()> {
+        let object_url = format!("{}/{}/{}", self.endpoint, self.bucket, key);
+        let mut url = Url::parse(&object_url)
+            .map_err(|err| anyhow::anyhow!("invalid S3 URL {object_url}: {err}"))?;
+        url.query_pairs_mut().append_pair("uploadId", upload_id);
+        let host = canonical_host(&url)?;
+        let mut part_entries = String::new();
+        for (part_number, etag) in parts {
+            part_entries.push_str(
+                format!("<Part><PartNumber>{part_number}</PartNumber><ETag>{etag}</ETag></Part>")
+                    .as_str(),
+            );
+        }
+        let body = format!("<CompleteMultipartUpload>{part_entries}</CompleteMultipartUpload>");
+        let payload_hash = sha256_hex(body.as_bytes());
+        let (amz_date, date_stamp) = sigv4_timestamps();
+        let signed = self.sign_request(
+            &Method::POST,
+            SigV4Input {
+                canonical_uri: url.path(),
+                canonical_query: url.query().unwrap_or_default(),
+                host: &host,
+                content_type: Some(XML_CONTENT_TYPE),
+                payload_hash: &payload_hash,
+                amz_date: &amz_date,
+                date_stamp: &date_stamp,
+            },
+        )?;
+
+        let mut request = self
+            .client
+            .post(url)
+            .header("host", host)
+            .header("content-type", XML_CONTENT_TYPE)
+            .header("x-amz-content-sha256", payload_hash)
+            .header("x-amz-date", amz_date)
+            .header("authorization", signed.authorization)
+            .body(body);
+        if let Some(token) = &self.session_token {
+            request = request.header("x-amz-security-token", token);
+        }
+
+        let response = request.send().await?;
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        if status.is_success() && !body.contains("<Error>") {
+            return Ok(());
+        }
+
+        Err(object_upload_error(
+            "complete_multipart_upload",
+            "multipart",
+            status,
+            &body,
+            Some(object_byte_size),
+            None,
+            Some(parts.len()),
+        ))
+    }
+
+    async fn abort_multipart_upload(&self, key: &str, upload_id: &str) -> anyhow::Result<()> {
+        let object_url = format!("{}/{}/{}", self.endpoint, self.bucket, key);
+        let mut url = Url::parse(&object_url)
+            .map_err(|err| anyhow::anyhow!("invalid S3 URL {object_url}: {err}"))?;
+        url.query_pairs_mut().append_pair("uploadId", upload_id);
+        let host = canonical_host(&url)?;
+        let payload_hash = EMPTY_PAYLOAD_SHA256;
+        let (amz_date, date_stamp) = sigv4_timestamps();
+        let signed = self.sign_request(
+            &Method::DELETE,
+            SigV4Input {
+                canonical_uri: url.path(),
+                canonical_query: url.query().unwrap_or_default(),
+                host: &host,
+                content_type: None,
+                payload_hash,
+                amz_date: &amz_date,
+                date_stamp: &date_stamp,
+            },
+        )?;
+
+        let mut request = self
+            .client
+            .delete(url)
+            .header("host", host)
+            .header("x-amz-content-sha256", payload_hash)
+            .header("x-amz-date", amz_date)
+            .header("authorization", signed.authorization);
+        if let Some(token) = &self.session_token {
+            request = request.header("x-amz-security-token", token);
+        }
+
+        let response = request.send().await?;
+        if response.status().is_success() || response.status() == StatusCode::NOT_FOUND {
+            return Ok(());
+        }
+
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        Err(object_upload_error(
+            "abort_multipart_upload",
+            "multipart",
+            status,
+            &body,
+            None,
+            None,
+            None,
         ))
     }
 
@@ -403,6 +791,59 @@ fn canonical_host(url: &Url) -> anyhow::Result<String> {
     }
 }
 
+fn extract_xml_tag(body: &str, tag: &str) -> Option<String> {
+    let open = format!("<{tag}>");
+    let close = format!("</{tag}>");
+    let start = body.find(open.as_str())?;
+    let content_start = start + open.len();
+    let end = body[content_start..].find(close.as_str())?;
+    Some(body[content_start..content_start + end].trim().to_owned())
+}
+
+fn object_upload_error(
+    stage: &'static str,
+    upload_mode: &'static str,
+    status: StatusCode,
+    body: &str,
+    object_byte_size: Option<u64>,
+    part_number: Option<usize>,
+    part_count: Option<usize>,
+) -> anyhow::Error {
+    let body_preview = body.chars().take(400).collect::<String>();
+    let s3_error_code = extract_xml_tag(body, "Code");
+    let auth_hint = if status == StatusCode::FORBIDDEN || status == StatusCode::UNAUTHORIZED {
+        " (check S3 key/secret/region, bucket policy, and endpoint)"
+    } else {
+        ""
+    };
+    let size_hint = object_byte_size
+        .map(|size| format!(" object_byte_size={size}"))
+        .unwrap_or_default();
+    let part_hint = match (part_number, part_count) {
+        (Some(number), Some(count)) => format!(" part_number={number} part_count={count}"),
+        (Some(number), None) => format!(" part_number={number}"),
+        (None, Some(count)) => format!(" part_count={count}"),
+        (None, None) => String::new(),
+    };
+    let code_hint = s3_error_code
+        .as_deref()
+        .map(|code| format!(" s3_code={code}"))
+        .unwrap_or_default();
+
+    anyhow::Error::new(ObjectStoreUploadError {
+        stage,
+        upload_mode,
+        status_code: Some(status.as_u16()),
+        s3_error_code,
+        object_byte_size,
+        part_number,
+        part_count,
+        message: format!(
+            "object upload failed stage={stage} upload_mode={upload_mode} status={status}{code_hint}{size_hint}{part_hint}{auth_hint} body={body_preview}"
+        ),
+    })
+}
+
 fn sha256_hex(input: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(input);
@@ -419,4 +860,38 @@ fn hmac_sha256_bytes(key: &[u8], data: &str) -> anyhow::Result<Vec<u8>> {
 fn hmac_sha256_hex(key: &[u8], data: &str) -> anyhow::Result<String> {
     let bytes = hmac_sha256_bytes(key, data)?;
     Ok(hex::encode(bytes))
+}
+
+#[cfg(test)]
+mod tests {
+    use reqwest::StatusCode;
+
+    use super::{ObjectStoreUploadError, extract_xml_tag, object_upload_error};
+
+    #[test]
+    fn extract_xml_tag_reads_s3_error_code() {
+        let body = r"<Error><Code>EntityTooLarge</Code><Message>too large</Message></Error>";
+        assert_eq!(
+            extract_xml_tag(body, "Code").as_deref(),
+            Some("EntityTooLarge")
+        );
+    }
+
+    #[test]
+    fn upload_error_classifies_oversize_failures() {
+        let err = object_upload_error(
+            "upload_object",
+            "single_put",
+            StatusCode::PAYLOAD_TOO_LARGE,
+            r"<Error><Code>EntityTooLarge</Code></Error>",
+            Some(42),
+            None,
+            None,
+        );
+        let upload_err = err
+            .downcast_ref::<ObjectStoreUploadError>()
+            .expect("downcast upload error");
+        assert!(upload_err.is_oversize());
+        assert_eq!(upload_err.error_code(), "artifact_too_large");
+    }
 }
