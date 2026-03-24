@@ -222,9 +222,6 @@ struct SourceSnapshotSummary {
 struct ReuseCandidate {
     snapshot_id: Uuid,
     artifact_url: String,
-    artifact_sha256: String,
-    artifact_byte_size: i64,
-    artifact_format: String,
     coverage: SnapshotCoverageReport,
     process_count: i64,
     flow_count: i64,
@@ -461,26 +458,7 @@ async fn main() -> anyhow::Result<()> {
         let snapshot_index_url = derive_snapshot_index_url(&reused.artifact_url);
         match store.download_object_url(&snapshot_index_url).await {
             Ok(_) => {
-                let resolved_snapshot_id = if let Some(requested) = requested_snapshot_id {
-                    if requested != reused.snapshot_id {
-                        persist_reused_snapshot_metadata(
-                            &pool,
-                            requested,
-                            &cli.provider_rule,
-                            all_states,
-                            &state_codes,
-                            cli.include_user_id,
-                            &resolved_scope.scope_summary,
-                            &source_fingerprint,
-                            &method,
-                            &reused,
-                        )
-                        .await?;
-                    }
-                    requested
-                } else {
-                    reused.snapshot_id
-                };
+                let resolved_snapshot_id = reused.snapshot_id;
 
                 build_timing.reused_snapshot = true;
                 build_timing.total_sec = total_started.elapsed().as_secs_f64();
@@ -499,6 +477,7 @@ async fn main() -> anyhow::Result<()> {
                     "[reuse] matched existing ready snapshot={}",
                     reused.snapshot_id
                 );
+                println!("[resolved_snapshot_id] {resolved_snapshot_id}");
                 println!("[done] snapshot ready: {resolved_snapshot_id}");
                 println!("[artifact] {}", reused.artifact_url);
                 println!("[snapshot_index] {snapshot_index_url}");
@@ -611,6 +590,7 @@ async fn main() -> anyhow::Result<()> {
         &build_timing,
     )?;
 
+    println!("[resolved_snapshot_id] {snapshot_id}");
     println!("[done] snapshot ready: {snapshot_id}");
     println!("[artifact] {artifact_url}");
     println!("[snapshot_index] {snapshot_index_url}");
@@ -2500,9 +2480,6 @@ async fn find_reusable_snapshot(
         SELECT
           s.id AS snapshot_id,
           a.artifact_url,
-          a.artifact_sha256,
-          a.artifact_byte_size,
-          a.artifact_format,
           a.coverage,
           a.process_count::bigint AS process_count,
           a.flow_count::bigint AS flow_count,
@@ -2539,9 +2516,6 @@ async fn find_reusable_snapshot(
     Ok(Some(ReuseCandidate {
         snapshot_id: row.try_get::<Uuid, _>("snapshot_id")?,
         artifact_url: row.try_get::<String, _>("artifact_url")?,
-        artifact_sha256: row.try_get::<String, _>("artifact_sha256")?,
-        artifact_byte_size: row.try_get::<i64, _>("artifact_byte_size")?,
-        artifact_format: row.try_get::<String, _>("artifact_format")?,
         coverage,
         process_count: row.try_get::<i64, _>("process_count")?,
         flow_count: row.try_get::<i64, _>("flow_count")?,
@@ -2911,154 +2885,6 @@ async fn persist_snapshot_metadata(
     .bind(built.coverage.matrix_scale.b_nnz)
     .bind(built.coverage.matrix_scale.c_nnz)
     .bind(serde_json::to_value(&built.coverage)?)
-    .execute(&mut *tx)
-    .await?;
-
-    tx.commit().await?;
-    Ok(())
-}
-
-async fn persist_reused_snapshot_metadata(
-    pool: &PgPool,
-    snapshot_id: Uuid,
-    provider_rule: &str,
-    all_states: bool,
-    state_codes: &[i32],
-    include_user_id: Option<Uuid>,
-    scope_summary: &ResolvedRequestScopeSummary,
-    source_hash: &str,
-    method: &MethodSelection,
-    reused: &ReuseCandidate,
-) -> anyhow::Result<()> {
-    let process_filter = if all_states {
-        serde_json::json!({
-            "all_states": true,
-            "selection_mode": scope_summary.selection_mode,
-            "request_roots": scope_summary.roots,
-            "scope_hash": scope_summary.scope_hash,
-            "resolved_scope": {
-                "public_process_count": scope_summary.public_process_count,
-                "private_process_count": scope_summary.private_process_count,
-                "process_count": scope_summary.processes.len(),
-            }
-        })
-    } else if let Some(user_id) = include_user_id {
-        serde_json::json!({
-            "all_states": false,
-            "process_states": state_codes,
-            "include_user_id": user_id,
-            "selection_mode": scope_summary.selection_mode,
-            "request_roots": scope_summary.roots,
-            "scope_hash": scope_summary.scope_hash,
-            "resolved_scope": {
-                "public_process_count": scope_summary.public_process_count,
-                "private_process_count": scope_summary.private_process_count,
-                "process_count": scope_summary.processes.len(),
-            }
-        })
-    } else {
-        serde_json::json!({
-            "all_states": false,
-            "process_states": state_codes,
-            "selection_mode": scope_summary.selection_mode,
-            "request_roots": scope_summary.roots,
-            "scope_hash": scope_summary.scope_hash,
-            "resolved_scope": {
-                "public_process_count": scope_summary.public_process_count,
-                "private_process_count": scope_summary.private_process_count,
-                "process_count": scope_summary.processes.len(),
-            }
-        })
-    };
-
-    let mut tx = pool.begin().await?;
-    sqlx::query(
-        r#"
-        INSERT INTO public.lca_network_snapshots (
-            id,
-            scope,
-            process_filter,
-            lcia_method_id,
-            lcia_method_version,
-            provider_matching_rule,
-            source_hash,
-            status,
-            created_at,
-            updated_at
-        )
-        VALUES ($1, 'full_library', $2::jsonb, $3, $4::bpchar, $5, $6, 'ready', NOW(), NOW())
-        ON CONFLICT (id)
-        DO UPDATE SET
-            process_filter = EXCLUDED.process_filter,
-            lcia_method_id = EXCLUDED.lcia_method_id,
-            lcia_method_version = EXCLUDED.lcia_method_version,
-            provider_matching_rule = EXCLUDED.provider_matching_rule,
-            source_hash = EXCLUDED.source_hash,
-            status = EXCLUDED.status,
-            updated_at = NOW()
-        "#,
-    )
-    .bind(snapshot_id)
-    .bind(process_filter)
-    .bind(method.method_id)
-    .bind(method.method_version.clone())
-    .bind(provider_rule)
-    .bind(source_hash)
-    .execute(&mut *tx)
-    .await?;
-
-    sqlx::query(
-        r#"
-        INSERT INTO public.lca_snapshot_artifacts (
-            snapshot_id,
-            artifact_url,
-            artifact_sha256,
-            artifact_byte_size,
-            artifact_format,
-            process_count,
-            flow_count,
-            impact_count,
-            a_nnz,
-            b_nnz,
-            c_nnz,
-            coverage,
-            status,
-            created_at,
-            updated_at
-        )
-        VALUES (
-            $1, $2, $3, $4, $5,
-            $6, $7, $8, $9, $10, $11,
-            $12::jsonb, 'ready', NOW(), NOW()
-        )
-        ON CONFLICT (snapshot_id, artifact_format)
-        DO UPDATE SET
-            artifact_url = EXCLUDED.artifact_url,
-            artifact_sha256 = EXCLUDED.artifact_sha256,
-            artifact_byte_size = EXCLUDED.artifact_byte_size,
-            process_count = EXCLUDED.process_count,
-            flow_count = EXCLUDED.flow_count,
-            impact_count = EXCLUDED.impact_count,
-            a_nnz = EXCLUDED.a_nnz,
-            b_nnz = EXCLUDED.b_nnz,
-            c_nnz = EXCLUDED.c_nnz,
-            coverage = EXCLUDED.coverage,
-            status = EXCLUDED.status,
-            updated_at = NOW()
-        "#,
-    )
-    .bind(snapshot_id)
-    .bind(reused.artifact_url.as_str())
-    .bind(reused.artifact_sha256.as_str())
-    .bind(reused.artifact_byte_size)
-    .bind(reused.artifact_format.as_str())
-    .bind(reused.process_count)
-    .bind(reused.flow_count)
-    .bind(reused.impact_count)
-    .bind(reused.a_nnz)
-    .bind(reused.b_nnz)
-    .bind(reused.c_nnz)
-    .bind(serde_json::to_value(&reused.coverage)?)
     .execute(&mut *tx)
     .await?;
 

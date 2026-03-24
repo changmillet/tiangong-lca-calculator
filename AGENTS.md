@@ -106,6 +106,10 @@ Behavior:
 - writes metadata to `lca_network_snapshots` + `lca_snapshot_artifacts`
 - emits coverage report (`reports/snapshot-coverage/...`)
 - supports same-source skip-rebuild via source fingerprint (`count + max(modified_at) + config`)
+- same-source snapshot reuse is canonical-only:
+  - when reuse hits an existing ready snapshot, the builder now resolves to the reused canonical `snapshot_id`
+  - the builder must not persist alias snapshot rows that point a new `snapshot_id` at an older artifact URL
+  - `build_snapshot` jobs must update `lca_jobs.snapshot_id` and `lca_active_snapshots.snapshot_id` to that resolved canonical id before completion
 - process selection supports:
   - `--process-states <csv|all>` for `state_code` filtering (default runtime scope: `100..=199`)
   - `--include-user-id <uuid>` to include one user's processes in addition to `process-states` (OR union)

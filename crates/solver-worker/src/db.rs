@@ -1020,12 +1020,17 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
             )
             .await?;
 
-            let source_hash = fetch_snapshot_source_hash(&state.pool, snapshot_id).await?;
+            let resolved_snapshot_id = executed.resolved_snapshot_id;
+            if resolved_snapshot_id != snapshot_id {
+                set_job_snapshot_id(&state.pool, job_id, resolved_snapshot_id).await?;
+            }
+
+            let source_hash = fetch_snapshot_source_hash(&state.pool, resolved_snapshot_id).await?;
             if let Some(scope_value) = scope.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
                 upsert_active_snapshot(
                     &state.pool,
                     scope_value,
-                    snapshot_id,
+                    resolved_snapshot_id,
                     source_hash.as_deref(),
                     include_user_id,
                     job_id,
@@ -1036,7 +1041,8 @@ pub async fn handle_job_payload(state: &AppState, payload: JobPayload) -> anyhow
             let completed_diag = merge_job_status_update_timing(
                 serde_json::json!({
                     "phase": "build_snapshot",
-                    "snapshot_id": snapshot_id,
+                    "requested_snapshot_id": snapshot_id,
+                    "snapshot_id": resolved_snapshot_id,
                     "builder": executed,
                     "source_hash": source_hash,
                 }),
@@ -1241,7 +1247,8 @@ struct QueryArtifactMeta {
 
 #[derive(Debug, Clone, serde::Serialize)]
 struct SnapshotBuilderExecution {
-    snapshot_id: Uuid,
+    requested_snapshot_id: Uuid,
+    resolved_snapshot_id: Uuid,
     command: Vec<String>,
     exit_code: i32,
     stdout_tail: String,
@@ -1418,8 +1425,16 @@ async fn run_snapshot_builder_job(
             ));
         }
 
+        let resolved_snapshot_id = parse_snapshot_builder_resolved_snapshot_id(&stdout)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "snapshot_builder succeeded but did not report resolved snapshot id"
+                )
+            })?;
+
         return Ok(SnapshotBuilderExecution {
-            snapshot_id,
+            requested_snapshot_id: snapshot_id,
+            resolved_snapshot_id,
             command: cmd_vec,
             exit_code: output.status.code().unwrap_or(0),
             stdout_tail: tail_text(&stdout, 4000),
@@ -1497,6 +1512,14 @@ fn tail_text(input: &str, max_len: usize) -> String {
     input[input.len() - max_len..].to_owned()
 }
 
+fn parse_snapshot_builder_resolved_snapshot_id(stdout: &str) -> Option<Uuid> {
+    stdout
+        .lines()
+        .rev()
+        .find_map(|line| line.strip_prefix("[resolved_snapshot_id] "))
+        .and_then(|value| Uuid::parse_str(value.trim()).ok())
+}
+
 async fn fetch_snapshot_source_hash(
     pool: &PgPool,
     snapshot_id: Uuid,
@@ -1509,6 +1532,22 @@ async fn fetch_snapshot_source_hash(
         Some(row) => Ok(row.try_get::<Option<String>, _>("source_hash")?),
         None => Ok(None),
     }
+}
+
+async fn set_job_snapshot_id(pool: &PgPool, job_id: Uuid, snapshot_id: Uuid) -> anyhow::Result<()> {
+    let _ = sqlx::query(
+        r"
+        UPDATE lca_jobs
+        SET snapshot_id = $2,
+            updated_at = NOW()
+        WHERE id = $1
+        ",
+    )
+    .bind(job_id)
+    .bind(snapshot_id)
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 async fn upsert_active_snapshot(
@@ -1766,8 +1805,9 @@ fn _assert_result_types(_a: SolveResult, _b: SolveBatchResult) {}
 mod tests {
     use super::{
         SolveOptionsPayload, build_all_unit_rhs_batch, normalize_all_unit_batch_size,
-        resolve_solve_all_unit_options,
+        parse_snapshot_builder_resolved_snapshot_id, resolve_solve_all_unit_options,
     };
+    use uuid::Uuid;
 
     #[test]
     fn solve_all_unit_options_default_to_h_only() {
@@ -1802,5 +1842,26 @@ mod tests {
         assert_eq!(batch[0], vec![0.0, 1.0, 0.0, 0.0, 0.0]);
         assert_eq!(batch[1], vec![0.0, 0.0, 1.0, 0.0, 0.0]);
         assert_eq!(batch[2], vec![0.0, 0.0, 0.0, 1.0, 0.0]);
+    }
+
+    #[test]
+    fn parses_resolved_snapshot_id_from_builder_stdout() {
+        let expected = Uuid::new_v4();
+        let stdout = format!(
+            "[reuse] matched existing ready snapshot={expected}\n[resolved_snapshot_id] {expected}\n[done] snapshot ready: {expected}\n"
+        );
+
+        assert_eq!(
+            parse_snapshot_builder_resolved_snapshot_id(&stdout),
+            Some(expected)
+        );
+    }
+
+    #[test]
+    fn missing_resolved_snapshot_id_returns_none() {
+        assert_eq!(
+            parse_snapshot_builder_resolved_snapshot_id("[done] snapshot ready: not-used\n"),
+            None
+        );
     }
 }
