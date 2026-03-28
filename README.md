@@ -199,6 +199,28 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260309042000_lca_latest
 - multi-provider case 先按证据加权分配；只有没有候选达到最低分时才回退到 equal split
 - 如需复现旧行为，可显式传 `--provider-rule strict_unique_provider`
 
+### 4.1.1 导出 provider link 问题 process 诊断 Excel
+
+```bash
+./scripts/export_provider_link_diagnostics.sh
+```
+
+默认输出到：
+
+- `reports/provider-link-diagnostics/provider_link_problem_processes_<timestamp>.xlsx`
+
+常用参数：
+
+- `--report-dir <path>`：指定输出目录
+- `--output <path.xlsx>`：指定完整输出文件路径
+- `--filename-prefix <name>`：自定义文件名前缀
+
+输出内容包括：
+
+- `summary`：统计汇总、中文 tag 说明、关键字段说明
+- `service_loop_candidates`：同 flow input/output 金额完全相等的可疑 service-loop process
+- `pn_pm_candidates`：PN / PM0.2 / particle 相关的可疑 process
+
 ## 5. 环境变量
 
 最小必需：
