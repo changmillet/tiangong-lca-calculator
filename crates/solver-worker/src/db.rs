@@ -1343,7 +1343,9 @@ async fn run_snapshot_builder_job(
             ToOwned::to_owned,
         ),
         "--provider-rule".to_owned(),
-        provider_rule.unwrap_or("strict_unique_provider").to_owned(),
+        provider_rule
+            .unwrap_or("split_by_evidence_hybrid")
+            .to_owned(),
         "--reference-normalization-mode".to_owned(),
         reference_normalization_mode.unwrap_or("lenient").to_owned(),
         "--allocation-fraction-mode".to_owned(),

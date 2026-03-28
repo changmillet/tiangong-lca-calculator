@@ -11,7 +11,7 @@
     clippy::uninlined_format_args
 )]
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -26,7 +26,8 @@ use solver_core::{ModelSparseData, SparseTriplet};
 use solver_worker::compiled_graph::{
     CompiledAllocationStats, CompiledBiosphereEdge, CompiledEdgePartition, CompiledFlow,
     CompiledFlowKind, CompiledGraph, CompiledMatchingStats, CompiledProcess,
-    CompiledProviderAllocation, CompiledProviderDecision, CompiledReferenceStats,
+    CompiledProviderAllocation, CompiledProviderDecision, CompiledProviderDecisionKind,
+    CompiledProviderFailureReason, CompiledProviderResolutionStrategy, CompiledReferenceStats,
     CompiledTechnosphereEdge,
 };
 use solver_worker::graph_types::{
@@ -35,7 +36,8 @@ use solver_worker::graph_types::{
 use solver_worker::snapshot_artifacts::{
     SNAPSHOT_ARTIFACT_FORMAT, SnapshotAllocationCoverage, SnapshotBuildConfig,
     SnapshotCoverageReport, SnapshotMatchingCoverage, SnapshotMatrixScale,
-    SnapshotReferenceCoverage, SnapshotSingularRisk, encode_snapshot_artifact,
+    SnapshotProviderDecisionDiagnostics, SnapshotReferenceCoverage, SnapshotSingularRisk,
+    encode_snapshot_artifact,
 };
 use solver_worker::snapshot_index::{
     SnapshotImpactMapEntry, SnapshotIndexDocument, SnapshotProcessMapEntry,
@@ -75,8 +77,17 @@ struct Cli {
     root_processes: Vec<RequestRootProcess>,
     #[arg(long, default_value_t = 0)]
     process_limit: usize,
-    #[arg(long, default_value = "strict_unique_provider")]
+    #[arg(long, default_value = "split_by_evidence_hybrid")]
     provider_rule: String,
+    #[arg(long, default_value_t = false)]
+    provider_rule_replay: bool,
+    #[arg(long, default_value_t = false)]
+    provider_rule_replay_only: bool,
+    #[arg(
+        long,
+        default_value = "strict_unique_provider,best_provider_strict,split_by_evidence,split_by_evidence_hybrid,split_equal"
+    )]
+    provider_rule_replay_rules: String,
     #[arg(long, default_value = "strict")]
     reference_normalization_mode: String,
     #[arg(long, default_value = "strict")]
@@ -198,6 +209,23 @@ struct BuildOutput {
     data: ModelSparseData,
     coverage: SnapshotCoverageReport,
     snapshot_index: SnapshotIndexDocument,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ProviderRuleReplayRow {
+    provider_rule: String,
+    input_edges_total: i64,
+    matched_unique_provider: i64,
+    matched_multi_provider: i64,
+    matched_multi_resolved: i64,
+    matched_multi_unresolved: i64,
+    matched_multi_fallback_equal: i64,
+    unmatched_no_provider: i64,
+    a_input_edges_written: i64,
+    a_write_pct: f64,
+    provider_present_resolved_pct: f64,
+    resolved_strategy_counts: BTreeMap<String, i64>,
+    unresolved_reason_counts: BTreeMap<String, i64>,
 }
 
 type ParsedProcessChunk = (
@@ -337,7 +365,6 @@ async fn main() -> anyhow::Result<()> {
         .connect(db_url)
         .await?;
 
-    let store = build_object_store(&cli)?;
     let requested_snapshot_id = cli.snapshot_id;
     let (all_states, state_codes, process_states_label) =
         parse_process_states(&cli.process_states)?;
@@ -449,6 +476,47 @@ async fn main() -> anyhow::Result<()> {
         source_summary.lciamethod_max_modified_at_utc
     );
     println!("[source] fingerprint={source_fingerprint}");
+
+    if cli.provider_rule_replay || cli.provider_rule_replay_only {
+        let replay_rules = parse_provider_rule_list(&cli.provider_rule_replay_rules)?;
+        let replay_rows = run_provider_rule_replay(
+            &pool,
+            &resolved_scope.processes,
+            cli.include_user_id,
+            &replay_rules,
+            reference_normalization_mode,
+            allocation_mode,
+        )
+        .await?;
+        let replay_base = requested_snapshot_id.map_or_else(
+            || resolved_scope.scope_summary.scope_hash.clone(),
+            |id| id.to_string(),
+        );
+        let (replay_json_path, replay_md_path) = write_provider_rule_replay_report_files(
+            &cli.report_dir,
+            &replay_base,
+            &build_config,
+            &resolved_scope.scope_summary,
+            &replay_rows,
+        )?;
+        println!("[provider_rule_replay_json] {}", replay_json_path.display());
+        println!("[provider_rule_replay_md] {}", replay_md_path.display());
+        for row in &replay_rows {
+            println!(
+                "[provider_rule_replay] rule={} a_write_pct={} provider_present_resolved_pct={} multi_unresolved={} fallback_equal={}",
+                row.provider_rule,
+                row.a_write_pct,
+                row.provider_present_resolved_pct,
+                row.matched_multi_unresolved,
+                row.matched_multi_fallback_equal
+            );
+        }
+        if cli.provider_rule_replay_only {
+            return Ok(());
+        }
+    }
+
+    let store = build_object_store(&cli)?;
 
     let reuse_lookup_started = Instant::now();
     let reused_candidate = find_reusable_snapshot(&pool, &source_fingerprint).await?;
@@ -1241,6 +1309,9 @@ async fn compile_scope_graph(
                 flow_id: ex.flow_id,
                 candidate_provider_count,
                 matched_provider_count: 1,
+                decision_kind: Some(CompiledProviderDecisionKind::UniqueProvider),
+                resolution_strategy: Some(CompiledProviderResolutionStrategy::UniqueProvider),
+                failure_reason: None,
                 used_equal_fallback: false,
                 allocations: vec![CompiledProviderAllocation {
                     provider_idx,
@@ -1273,69 +1344,78 @@ async fn compile_scope_graph(
                 providers.ok_or_else(|| anyhow::anyhow!("missing provider list"))?,
                 &process_meta,
             )?;
-            if let Some(resolution) = resolution {
-                matching_stats.matched_multi_resolved += 1;
-                if resolution.used_equal_fallback {
-                    matching_stats.matched_multi_fallback_equal += 1;
-                }
-                matching_stats.a_input_edges_written += 1;
-                let allocations = resolution
-                    .allocations
-                    .into_iter()
-                    .map(|(provider_idx, weight)| CompiledProviderAllocation {
-                        provider_idx,
-                        weight,
-                    })
-                    .collect::<Vec<_>>();
-                provider_decisions.push(CompiledProviderDecision {
-                    consumer_idx: ex.process_idx,
-                    flow_id: ex.flow_id,
-                    candidate_provider_count,
-                    matched_provider_count: i32::try_from(allocations.len())
-                        .map_err(|_| anyhow::anyhow!("provider allocation overflow"))?,
-                    used_equal_fallback: resolution.used_equal_fallback,
-                    allocations: allocations.clone(),
-                });
-                let consumer = compiled_process_for_idx(&compiled_processes, ex.process_idx)
-                    .ok_or_else(|| {
-                        anyhow::anyhow!("missing compiled consumer idx={}", ex.process_idx)
-                    })?;
-                for allocation in &allocations {
-                    let weighted = amount * allocation.weight;
-                    if weighted.abs() <= f64::EPSILON {
-                        continue;
+            match resolution {
+                MultiProviderDecision::Resolved(resolution) => {
+                    matching_stats.matched_multi_resolved += 1;
+                    if resolution.used_equal_fallback {
+                        matching_stats.matched_multi_fallback_equal += 1;
                     }
-                    let provider =
-                        compiled_process_for_idx(&compiled_processes, allocation.provider_idx)
-                            .ok_or_else(|| {
-                                anyhow::anyhow!(
-                                    "missing compiled provider idx={}",
-                                    allocation.provider_idx
-                                )
-                            })?;
-                    technosphere_edges.push(CompiledTechnosphereEdge {
-                        provider_idx: allocation.provider_idx,
+                    matching_stats.a_input_edges_written += 1;
+                    let allocations = resolution
+                        .allocations
+                        .into_iter()
+                        .map(|(provider_idx, weight)| CompiledProviderAllocation {
+                            provider_idx,
+                            weight,
+                        })
+                        .collect::<Vec<_>>();
+                    provider_decisions.push(CompiledProviderDecision {
                         consumer_idx: ex.process_idx,
                         flow_id: ex.flow_id,
-                        amount: weighted,
-                        provider_partition: provider.partition,
-                        consumer_partition: consumer.partition,
-                        partition: CompiledEdgePartition::from_partitions(
-                            provider.partition,
-                            consumer.partition,
-                        ),
+                        candidate_provider_count,
+                        matched_provider_count: i32::try_from(allocations.len())
+                            .map_err(|_| anyhow::anyhow!("provider allocation overflow"))?,
+                        decision_kind: Some(CompiledProviderDecisionKind::MultiResolved),
+                        resolution_strategy: Some(resolution.resolution_strategy),
+                        failure_reason: None,
+                        used_equal_fallback: resolution.used_equal_fallback,
+                        allocations: allocations.clone(),
+                    });
+                    let consumer = compiled_process_for_idx(&compiled_processes, ex.process_idx)
+                        .ok_or_else(|| {
+                            anyhow::anyhow!("missing compiled consumer idx={}", ex.process_idx)
+                        })?;
+                    for allocation in &allocations {
+                        let weighted = amount * allocation.weight;
+                        if weighted.abs() <= f64::EPSILON {
+                            continue;
+                        }
+                        let provider =
+                            compiled_process_for_idx(&compiled_processes, allocation.provider_idx)
+                                .ok_or_else(|| {
+                                    anyhow::anyhow!(
+                                        "missing compiled provider idx={}",
+                                        allocation.provider_idx
+                                    )
+                                })?;
+                        technosphere_edges.push(CompiledTechnosphereEdge {
+                            provider_idx: allocation.provider_idx,
+                            consumer_idx: ex.process_idx,
+                            flow_id: ex.flow_id,
+                            amount: weighted,
+                            provider_partition: provider.partition,
+                            consumer_partition: consumer.partition,
+                            partition: CompiledEdgePartition::from_partitions(
+                                provider.partition,
+                                consumer.partition,
+                            ),
+                        });
+                    }
+                }
+                MultiProviderDecision::Unresolved(failure_reason) => {
+                    matching_stats.matched_multi_unresolved += 1;
+                    provider_decisions.push(CompiledProviderDecision {
+                        consumer_idx: ex.process_idx,
+                        flow_id: ex.flow_id,
+                        candidate_provider_count,
+                        matched_provider_count: 0,
+                        decision_kind: Some(CompiledProviderDecisionKind::MultiUnresolved),
+                        resolution_strategy: None,
+                        failure_reason: Some(failure_reason),
+                        used_equal_fallback: false,
+                        allocations: Vec::new(),
                     });
                 }
-            } else {
-                matching_stats.matched_multi_unresolved += 1;
-                provider_decisions.push(CompiledProviderDecision {
-                    consumer_idx: ex.process_idx,
-                    flow_id: ex.flow_id,
-                    candidate_provider_count,
-                    matched_provider_count: 0,
-                    used_equal_fallback: false,
-                    allocations: Vec::new(),
-                });
             }
         } else {
             matching_stats.unmatched_no_provider += 1;
@@ -1344,6 +1424,9 @@ async fn compile_scope_graph(
                 flow_id: ex.flow_id,
                 candidate_provider_count: 0,
                 matched_provider_count: 0,
+                decision_kind: Some(CompiledProviderDecisionKind::NoProvider),
+                resolution_strategy: None,
+                failure_reason: Some(CompiledProviderFailureReason::NoProviderCandidates),
                 used_equal_fallback: false,
                 allocations: Vec::new(),
             });
@@ -1529,10 +1612,22 @@ fn assemble_sparse_payload(
             + compiled_graph.matching_stats.matched_multi_provider,
         compiled_graph.matching_stats.input_edges_total,
     );
+    let a_write_pct = pct(
+        compiled_graph.matching_stats.a_input_edges_written,
+        compiled_graph.matching_stats.input_edges_total,
+    );
+    let provider_present_total = compiled_graph.matching_stats.matched_unique_provider
+        + compiled_graph.matching_stats.matched_multi_provider;
+    let provider_present_resolved_pct = pct(
+        compiled_graph.matching_stats.a_input_edges_written,
+        provider_present_total,
+    );
     let allocation_fraction_present_pct = pct(
         compiled_graph.allocation_stats.fraction_present_count,
         compiled_graph.allocation_stats.exchange_total,
     );
+    let provider_decision_diagnostics =
+        summarize_provider_decision_diagnostics(&compiled_graph.provider_decisions);
 
     let coverage = SnapshotCoverageReport {
         matching: SnapshotMatchingCoverage {
@@ -1546,8 +1641,11 @@ fn assemble_sparse_payload(
                 .matching_stats
                 .matched_multi_fallback_equal,
             a_input_edges_written: compiled_graph.matching_stats.a_input_edges_written,
+            a_write_pct,
+            provider_present_resolved_pct,
             unique_provider_match_pct,
             any_provider_match_pct,
+            provider_decision_diagnostics,
         },
         reference: SnapshotReferenceCoverage {
             process_total: process_count_i64,
@@ -1659,7 +1757,14 @@ fn build_snapshot_impact_map(
 #[derive(Debug, Clone)]
 struct MultiProviderResolution {
     allocations: Vec<(i32, f64)>,
+    resolution_strategy: CompiledProviderResolutionStrategy,
     used_equal_fallback: bool,
+}
+
+#[derive(Debug, Clone)]
+enum MultiProviderDecision {
+    Resolved(MultiProviderResolution),
+    Unresolved(CompiledProviderFailureReason),
 }
 
 const AUTO_LINK_GEO_WEIGHT: f64 = 0.7;
@@ -1801,17 +1906,27 @@ fn resolve_multi_provider(
     exchange: &ParsedExchange,
     providers: &[i32],
     process_meta: &[ProcessMeta],
-) -> anyhow::Result<Option<MultiProviderResolution>> {
+) -> anyhow::Result<MultiProviderDecision> {
     if providers.is_empty() {
-        return Ok(None);
+        return Ok(MultiProviderDecision::Unresolved(
+            CompiledProviderFailureReason::NoProviderCandidates,
+        ));
     }
 
     let split_equal = || -> MultiProviderResolution {
         let share = 1.0 / providers.len() as f64;
         MultiProviderResolution {
             allocations: providers.iter().map(|idx| (*idx, share)).collect(),
-            used_equal_fallback: true,
+            resolution_strategy: CompiledProviderResolutionStrategy::SplitEqual,
+            used_equal_fallback: false,
         }
+    };
+
+    let split_equal_fallback = || -> MultiProviderResolution {
+        let mut resolution = split_equal();
+        resolution.resolution_strategy = CompiledProviderResolutionStrategy::SplitEqualFallback;
+        resolution.used_equal_fallback = true;
+        resolution
     };
 
     let scored_candidates = |min_score: f64| -> anyhow::Result<Vec<ProviderCandidateScore>> {
@@ -1820,49 +1935,43 @@ fn resolve_multi_provider(
         Ok(scored)
     };
 
-    let debug_label = format!(
-        "flow={} consumer_idx={}",
-        exchange.flow_id, exchange.process_idx
-    );
-
     match provider_rule {
-        ProviderRule::StrictUniqueProvider => Ok(None),
-        ProviderRule::SplitEqual => Ok(Some(split_equal())),
+        ProviderRule::StrictUniqueProvider => Ok(MultiProviderDecision::Unresolved(
+            CompiledProviderFailureReason::RuleRequiresUniqueProvider,
+        )),
+        ProviderRule::SplitEqual => Ok(MultiProviderDecision::Resolved(split_equal())),
         ProviderRule::BestProviderStrict => {
             let scored = scored_candidates(AUTO_LINK_MIN_SCORE)?;
-            let top1 = scored.first().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "best_provider_strict failed (no candidate >= min_score): {debug_label}"
-                )
-            })?;
+            let Some(top1) = scored.first() else {
+                return Ok(MultiProviderDecision::Unresolved(
+                    CompiledProviderFailureReason::NoCandidateGeMinScore,
+                ));
+            };
             if top1.final_score < AUTO_LINK_TOP1_MIN_SCORE {
-                return Err(anyhow::anyhow!(
-                    "best_provider_strict failed (top1 score < {}): {}",
-                    AUTO_LINK_TOP1_MIN_SCORE,
-                    debug_label
+                return Ok(MultiProviderDecision::Unresolved(
+                    CompiledProviderFailureReason::Top1BelowTop1MinScore,
                 ));
             }
             if let Some(top2) = scored.get(1)
                 && top2.final_score > f64::EPSILON
                 && (top1.final_score / top2.final_score) < AUTO_LINK_TOP1_TOP2_MIN_RATIO
             {
-                return Err(anyhow::anyhow!(
-                    "best_provider_strict failed (top1/top2 ratio < {}): {}",
-                    AUTO_LINK_TOP1_TOP2_MIN_RATIO,
-                    debug_label
+                return Ok(MultiProviderDecision::Unresolved(
+                    CompiledProviderFailureReason::Top1Top2RatioTooClose,
                 ));
             }
 
-            Ok(Some(MultiProviderResolution {
+            Ok(MultiProviderDecision::Resolved(MultiProviderResolution {
                 allocations: vec![(top1.provider_idx, 1.0)],
+                resolution_strategy: CompiledProviderResolutionStrategy::BestProviderStrict,
                 used_equal_fallback: false,
             }))
         }
         ProviderRule::SplitByEvidenceStrict => {
             let scored = scored_candidates(AUTO_LINK_MIN_SCORE)?;
             if scored.is_empty() {
-                return Err(anyhow::anyhow!(
-                    "split_by_evidence failed (no candidate >= min_score): {debug_label}"
+                return Ok(MultiProviderDecision::Unresolved(
+                    CompiledProviderFailureReason::NoCandidateGeMinScore,
                 ));
             }
             let score_sum = scored
@@ -1870,35 +1979,37 @@ fn resolve_multi_provider(
                 .map(|candidate| candidate.final_score)
                 .sum::<f64>();
             if score_sum <= f64::EPSILON {
-                return Err(anyhow::anyhow!(
-                    "split_by_evidence failed (score sum <= 0): {debug_label}"
+                return Ok(MultiProviderDecision::Unresolved(
+                    CompiledProviderFailureReason::ScoreSumNonPositive,
                 ));
             }
-            Ok(Some(MultiProviderResolution {
+            Ok(MultiProviderDecision::Resolved(MultiProviderResolution {
                 allocations: scored
                     .iter()
                     .map(|candidate| (candidate.provider_idx, candidate.final_score / score_sum))
                     .collect(),
+                resolution_strategy: CompiledProviderResolutionStrategy::SplitByEvidence,
                 used_equal_fallback: false,
             }))
         }
         ProviderRule::SplitByEvidenceHybrid => {
             let scored = scored_candidates(AUTO_LINK_MIN_SCORE)?;
             if scored.is_empty() {
-                return Ok(Some(split_equal()));
+                return Ok(MultiProviderDecision::Resolved(split_equal_fallback()));
             }
             let score_sum = scored
                 .iter()
                 .map(|candidate| candidate.final_score)
                 .sum::<f64>();
             if score_sum <= f64::EPSILON {
-                return Ok(Some(split_equal()));
+                return Ok(MultiProviderDecision::Resolved(split_equal_fallback()));
             }
-            Ok(Some(MultiProviderResolution {
+            Ok(MultiProviderDecision::Resolved(MultiProviderResolution {
                 allocations: scored
                     .iter()
                     .map(|candidate| (candidate.provider_idx, candidate.final_score / score_sum))
                     .collect(),
+                resolution_strategy: CompiledProviderResolutionStrategy::SplitByEvidence,
                 used_equal_fallback: false,
             }))
         }
@@ -2089,6 +2200,56 @@ fn pct(numerator: i64, denominator: i64) -> f64 {
         0.0
     } else {
         ((numerator as f64 / denominator as f64) * 10000.0).round() / 100.0
+    }
+}
+
+fn summarize_provider_decision_diagnostics(
+    decisions: &[CompiledProviderDecision],
+) -> SnapshotProviderDecisionDiagnostics {
+    let mut resolved_strategy_counts = BTreeMap::<String, i64>::new();
+    let mut unresolved_reason_counts = BTreeMap::<String, i64>::new();
+
+    for decision in decisions {
+        if let Some(strategy) = decision.resolution_strategy {
+            *resolved_strategy_counts
+                .entry(provider_resolution_strategy_label(strategy).to_owned())
+                .or_insert(0) += 1;
+        }
+        if let Some(reason) = decision.failure_reason {
+            *unresolved_reason_counts
+                .entry(provider_failure_reason_label(reason).to_owned())
+                .or_insert(0) += 1;
+        }
+    }
+
+    SnapshotProviderDecisionDiagnostics {
+        resolved_strategy_counts,
+        unresolved_reason_counts,
+    }
+}
+
+fn provider_resolution_strategy_label(
+    strategy: CompiledProviderResolutionStrategy,
+) -> &'static str {
+    match strategy {
+        CompiledProviderResolutionStrategy::UniqueProvider => "unique_provider",
+        CompiledProviderResolutionStrategy::BestProviderStrict => "best_provider_strict",
+        CompiledProviderResolutionStrategy::SplitByEvidence => "split_by_evidence",
+        CompiledProviderResolutionStrategy::SplitEqual => "split_equal",
+        CompiledProviderResolutionStrategy::SplitEqualFallback => "split_equal_fallback",
+    }
+}
+
+fn provider_failure_reason_label(reason: CompiledProviderFailureReason) -> &'static str {
+    match reason {
+        CompiledProviderFailureReason::NoProviderCandidates => "no_provider_candidates",
+        CompiledProviderFailureReason::RuleRequiresUniqueProvider => {
+            "rule_requires_unique_provider"
+        }
+        CompiledProviderFailureReason::NoCandidateGeMinScore => "no_candidate_ge_min_score",
+        CompiledProviderFailureReason::Top1BelowTop1MinScore => "top1_below_top1_min_score",
+        CompiledProviderFailureReason::Top1Top2RatioTooClose => "top1_top2_ratio_too_close",
+        CompiledProviderFailureReason::ScoreSumNonPositive => "score_sum_non_positive",
     }
 }
 
@@ -2300,12 +2461,12 @@ fn resolve_process_selection(
                     providers.ok_or_else(|| anyhow::anyhow!("missing provider list"))?,
                     &process_meta,
                 )? {
-                    Some(resolution) => resolution
+                    MultiProviderDecision::Resolved(resolution) => resolution
                         .allocations
                         .into_iter()
                         .map(|(provider_idx, _weight)| provider_idx)
                         .collect::<Vec<_>>(),
-                    None => Vec::new(),
+                    MultiProviderDecision::Unresolved(_) => Vec::new(),
                 }
             } else {
                 Vec::new()
@@ -3096,13 +3257,52 @@ fn write_report_files(
         coverage.matching.a_input_edges_written
     ));
     md.push_str(&format!(
+        "- a_write_pct: `{}`\n",
+        coverage.matching.a_write_pct
+    ));
+    md.push_str(&format!(
+        "- provider_present_resolved_pct: `{}`\n",
+        coverage.matching.provider_present_resolved_pct
+    ));
+    md.push_str(&format!(
         "- unique_provider_match_pct: `{}`\n",
         coverage.matching.unique_provider_match_pct
     ));
     md.push_str(&format!(
-        "- any_provider_match_pct: `{}`\n\n",
+        "- any_provider_match_pct: `{}`\n",
         coverage.matching.any_provider_match_pct
     ));
+    if !coverage
+        .matching
+        .provider_decision_diagnostics
+        .resolved_strategy_counts
+        .is_empty()
+    {
+        md.push_str("- resolved_strategy_counts:\n");
+        for (strategy, count) in &coverage
+            .matching
+            .provider_decision_diagnostics
+            .resolved_strategy_counts
+        {
+            md.push_str(&format!("  - `{strategy}`: `{count}`\n"));
+        }
+    }
+    if !coverage
+        .matching
+        .provider_decision_diagnostics
+        .unresolved_reason_counts
+        .is_empty()
+    {
+        md.push_str("- unresolved_reason_counts:\n");
+        for (reason, count) in &coverage
+            .matching
+            .provider_decision_diagnostics
+            .unresolved_reason_counts
+        {
+            md.push_str(&format!("  - `{reason}`: `{count}`\n"));
+        }
+    }
+    md.push('\n');
 
     md.push_str("## Reference Coverage\n\n");
     md.push_str(&format!(
@@ -3191,20 +3391,190 @@ fn write_report_files(
     Ok(())
 }
 
+fn parse_provider_rule_list(input: &str) -> anyhow::Result<Vec<ProviderRule>> {
+    let mut out = Vec::<ProviderRule>::new();
+    for token in input.split(',') {
+        let trimmed = token.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let rule = ProviderRule::parse(trimmed)?;
+        if !out.contains(&rule) {
+            out.push(rule);
+        }
+    }
+    if out.is_empty() {
+        return Err(anyhow::anyhow!(
+            "provider replay rules cannot be empty; pass at least one provider rule"
+        ));
+    }
+    Ok(out)
+}
+
+async fn run_provider_rule_replay(
+    pool: &PgPool,
+    processes: &[ProcessRow],
+    include_user_id: Option<Uuid>,
+    rules: &[ProviderRule],
+    reference_normalization_mode: NormalizationMode,
+    allocation_mode: AllocationMode,
+) -> anyhow::Result<Vec<ProviderRuleReplayRow>> {
+    let mut out = Vec::with_capacity(rules.len());
+    for rule in rules {
+        let compiled_graph = compile_scope_graph(
+            pool,
+            processes.to_vec(),
+            include_user_id,
+            *rule,
+            reference_normalization_mode,
+            allocation_mode,
+            &[],
+        )
+        .await?;
+        out.push(build_provider_rule_replay_row(*rule, &compiled_graph));
+    }
+    Ok(out)
+}
+
+fn build_provider_rule_replay_row(
+    provider_rule: ProviderRule,
+    compiled_graph: &CompiledGraph,
+) -> ProviderRuleReplayRow {
+    let stats = compiled_graph.matching_stats;
+    let diagnostics = summarize_provider_decision_diagnostics(&compiled_graph.provider_decisions);
+    let provider_present_total = stats.matched_unique_provider + stats.matched_multi_provider;
+
+    ProviderRuleReplayRow {
+        provider_rule: provider_rule.as_str().to_owned(),
+        input_edges_total: stats.input_edges_total,
+        matched_unique_provider: stats.matched_unique_provider,
+        matched_multi_provider: stats.matched_multi_provider,
+        matched_multi_resolved: stats.matched_multi_resolved,
+        matched_multi_unresolved: stats.matched_multi_unresolved,
+        matched_multi_fallback_equal: stats.matched_multi_fallback_equal,
+        unmatched_no_provider: stats.unmatched_no_provider,
+        a_input_edges_written: stats.a_input_edges_written,
+        a_write_pct: pct(stats.a_input_edges_written, stats.input_edges_total),
+        provider_present_resolved_pct: pct(stats.a_input_edges_written, provider_present_total),
+        resolved_strategy_counts: diagnostics.resolved_strategy_counts,
+        unresolved_reason_counts: diagnostics.unresolved_reason_counts,
+    }
+}
+
+fn write_provider_rule_replay_report_files(
+    report_dir: &PathBuf,
+    base_name: &str,
+    config: &SnapshotBuildConfig,
+    scope_summary: &ResolvedRequestScopeSummary,
+    rows: &[ProviderRuleReplayRow],
+) -> anyhow::Result<(PathBuf, PathBuf)> {
+    fs::create_dir_all(report_dir)?;
+    let json_path = report_dir.join(format!("provider-rule-replay-{base_name}.json"));
+    let md_path = report_dir.join(format!("provider-rule-replay-{base_name}.md"));
+    let generated_at = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+
+    let doc = serde_json::json!({
+        "generated_at_utc": generated_at,
+        "config": config,
+        "resolved_scope": scope_summary,
+        "results": rows,
+    });
+    fs::write(&json_path, serde_json::to_vec_pretty(&doc)?)?;
+
+    let mut md = String::new();
+    md.push_str("# Provider Rule Replay Report\n\n");
+    md.push_str(&format!("- generated_at_utc: `{generated_at}`\n"));
+    md.push_str(&format!("- base_name: `{base_name}`\n"));
+    md.push_str(&format!("- selection_mode: `{}`\n", config.selection_mode));
+    md.push_str(&format!("- process_states: `{}`\n", config.process_states));
+    md.push_str(&format!(
+        "- configured_provider_rule: `{}`\n",
+        config.provider_rule
+    ));
+    md.push_str(&format!("- scope_hash: `{}`\n", scope_summary.scope_hash));
+    md.push_str(&format!(
+        "- resolved_process_count: `{}`\n\n",
+        scope_summary.processes.len()
+    ));
+
+    md.push_str("## Replay Results\n\n");
+    for row in rows {
+        md.push_str(&format!("### `{}`\n\n", row.provider_rule));
+        md.push_str(&format!(
+            "- input_edges_total: `{}`\n",
+            row.input_edges_total
+        ));
+        md.push_str(&format!(
+            "- matched_unique_provider: `{}`\n",
+            row.matched_unique_provider
+        ));
+        md.push_str(&format!(
+            "- matched_multi_provider: `{}`\n",
+            row.matched_multi_provider
+        ));
+        md.push_str(&format!(
+            "- matched_multi_resolved: `{}`\n",
+            row.matched_multi_resolved
+        ));
+        md.push_str(&format!(
+            "- matched_multi_unresolved: `{}`\n",
+            row.matched_multi_unresolved
+        ));
+        md.push_str(&format!(
+            "- matched_multi_fallback_equal: `{}`\n",
+            row.matched_multi_fallback_equal
+        ));
+        md.push_str(&format!(
+            "- unmatched_no_provider: `{}`\n",
+            row.unmatched_no_provider
+        ));
+        md.push_str(&format!(
+            "- a_input_edges_written: `{}`\n",
+            row.a_input_edges_written
+        ));
+        md.push_str(&format!("- a_write_pct: `{}`\n", row.a_write_pct));
+        md.push_str(&format!(
+            "- provider_present_resolved_pct: `{}`\n",
+            row.provider_present_resolved_pct
+        ));
+        if !row.resolved_strategy_counts.is_empty() {
+            md.push_str("- resolved_strategy_counts:\n");
+            for (strategy, count) in &row.resolved_strategy_counts {
+                md.push_str(&format!("  - `{strategy}`: `{count}`\n"));
+            }
+        }
+        if !row.unresolved_reason_counts.is_empty() {
+            md.push_str("- unresolved_reason_counts:\n");
+            for (reason, count) in &row.unresolved_reason_counts {
+                md.push_str(&format!("  - `{reason}`: `{count}`\n"));
+            }
+        }
+        md.push('\n');
+    }
+
+    fs::write(&md_path, md)?;
+    Ok((json_path, md_path))
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        AllocationMode, ExchangeDirection, NormalizationMode, ParsedExchange, ProcessMeta,
-        ProcessRow, ProviderRule, add_technosphere_edge, biosphere_gross_value, compute_scope_hash,
-        geo_score, normalize_request_roots, parse_process_states, resolve_allocation_fraction,
+        AllocationMode, Cli, ExchangeDirection, MultiProviderDecision, NormalizationMode,
+        ParsedExchange, ProcessMeta, ProcessRow, ProviderRule, add_technosphere_edge,
+        biosphere_gross_value, compute_scope_hash, geo_score, normalize_request_roots,
+        parse_process_states, parse_provider_rule_list, resolve_allocation_fraction,
         resolve_multi_provider, resolve_process_selection, resolve_reference_normalization,
         time_score,
     };
     use chrono::Utc;
+    use clap::Parser;
     use serde_json::json;
     use std::collections::HashMap;
     use uuid::Uuid;
 
+    use solver_worker::compiled_graph::{
+        CompiledProviderFailureReason, CompiledProviderResolutionStrategy,
+    };
     use solver_worker::graph_types::{RequestRootProcess, ScopeProcessPartition};
 
     fn assert_close(actual: f64, expected: f64) {
@@ -3246,6 +3616,29 @@ mod tests {
             ProviderRule::parse("split_equal").expect("parse"),
             ProviderRule::SplitEqual
         );
+    }
+
+    #[test]
+    fn provider_rule_list_parses_and_deduplicates() {
+        let parsed = parse_provider_rule_list(
+            "strict_unique_provider, split_by_evidence, split_by_evidence , split_equal",
+        )
+        .expect("parse");
+
+        assert_eq!(
+            parsed,
+            vec![
+                ProviderRule::StrictUniqueProvider,
+                ProviderRule::SplitByEvidenceStrict,
+                ProviderRule::SplitEqual,
+            ]
+        );
+    }
+
+    #[test]
+    fn snapshot_builder_defaults_to_explainable_multi_provider_rule() {
+        let cli = Cli::parse_from(["snapshot_builder"]);
+        assert_eq!(cli.provider_rule, "split_by_evidence_hybrid");
     }
 
     #[test]
@@ -3473,11 +3866,17 @@ mod tests {
             &[1, 2],
             &process_meta,
         )
-        .expect("resolve")
-        .expect("resolved");
+        .expect("resolve");
+        let MultiProviderDecision::Resolved(resolution) = resolution else {
+            panic!("expected resolved decision");
+        };
         assert_eq!(resolution.allocations.len(), 1);
         assert_eq!(resolution.allocations[0].0, 1);
         assert_close(resolution.allocations[0].1, 1.0);
+        assert_eq!(
+            resolution.resolution_strategy,
+            CompiledProviderResolutionStrategy::BestProviderStrict
+        );
     }
 
     #[test]
@@ -3526,11 +3925,172 @@ mod tests {
             &[1, 2],
             &process_meta,
         )
-        .expect("resolve")
-        .expect("resolved");
+        .expect("resolve");
+        let MultiProviderDecision::Resolved(resolution) = resolution else {
+            panic!("expected resolved decision");
+        };
         assert_eq!(resolution.allocations.len(), 1);
         assert_eq!(resolution.allocations[0].0, 1);
         assert_close(resolution.allocations[0].1, 1.0);
+    }
+
+    #[test]
+    fn strict_unique_provider_marks_rule_requires_unique_provider() {
+        let process_meta = vec![
+            ProcessMeta {
+                process_idx: 0,
+                process_id: Uuid::new_v4(),
+                process_version: "01.00.000".to_owned(),
+                process_name: None,
+                model_id: None,
+                location: Some("CN-BJ".to_owned()),
+                reference_year: Some(2026),
+            },
+            ProcessMeta {
+                process_idx: 1,
+                process_id: Uuid::new_v4(),
+                process_version: "01.00.000".to_owned(),
+                process_name: None,
+                model_id: None,
+                location: Some("CN-BJ".to_owned()),
+                reference_year: Some(2026),
+            },
+            ProcessMeta {
+                process_idx: 2,
+                process_id: Uuid::new_v4(),
+                process_version: "01.00.000".to_owned(),
+                process_name: None,
+                model_id: None,
+                location: Some("CN".to_owned()),
+                reference_year: Some(2024),
+            },
+        ];
+        let exchange = ParsedExchange {
+            process_idx: 0,
+            flow_id: Uuid::new_v4(),
+            direction: ExchangeDirection::Input,
+            amount: Some(1.0),
+        };
+
+        let decision = resolve_multi_provider(
+            ProviderRule::StrictUniqueProvider,
+            &exchange,
+            &[1, 2],
+            &process_meta,
+        )
+        .expect("resolve");
+
+        let MultiProviderDecision::Unresolved(reason) = decision else {
+            panic!("expected unresolved decision");
+        };
+        assert_eq!(
+            reason,
+            CompiledProviderFailureReason::RuleRequiresUniqueProvider
+        );
+    }
+
+    #[test]
+    fn best_provider_strict_marks_ratio_too_close() {
+        let process_meta = vec![
+            ProcessMeta {
+                process_idx: 0,
+                process_id: Uuid::new_v4(),
+                process_version: "01.00.000".to_owned(),
+                process_name: None,
+                model_id: None,
+                location: Some("CN-BJ".to_owned()),
+                reference_year: Some(2026),
+            },
+            ProcessMeta {
+                process_idx: 1,
+                process_id: Uuid::new_v4(),
+                process_version: "01.00.000".to_owned(),
+                process_name: None,
+                model_id: None,
+                location: Some("CN-BJ".to_owned()),
+                reference_year: Some(2026),
+            },
+            ProcessMeta {
+                process_idx: 2,
+                process_id: Uuid::new_v4(),
+                process_version: "01.00.000".to_owned(),
+                process_name: None,
+                model_id: None,
+                location: Some("CN-BJ".to_owned()),
+                reference_year: Some(2026),
+            },
+        ];
+        let exchange = ParsedExchange {
+            process_idx: 0,
+            flow_id: Uuid::new_v4(),
+            direction: ExchangeDirection::Input,
+            amount: Some(1.0),
+        };
+
+        let decision = resolve_multi_provider(
+            ProviderRule::BestProviderStrict,
+            &exchange,
+            &[1, 2],
+            &process_meta,
+        )
+        .expect("resolve");
+
+        let MultiProviderDecision::Unresolved(reason) = decision else {
+            panic!("expected unresolved decision");
+        };
+        assert_eq!(reason, CompiledProviderFailureReason::Top1Top2RatioTooClose);
+    }
+
+    #[test]
+    fn best_provider_strict_marks_top1_below_min_score() {
+        let process_meta = vec![
+            ProcessMeta {
+                process_idx: 0,
+                process_id: Uuid::new_v4(),
+                process_version: "01.00.000".to_owned(),
+                process_name: None,
+                model_id: None,
+                location: Some("CN-BJ".to_owned()),
+                reference_year: Some(2026),
+            },
+            ProcessMeta {
+                process_idx: 1,
+                process_id: Uuid::new_v4(),
+                process_version: "01.00.000".to_owned(),
+                process_name: None,
+                model_id: None,
+                location: Some("GLO".to_owned()),
+                reference_year: None,
+            },
+            ProcessMeta {
+                process_idx: 2,
+                process_id: Uuid::new_v4(),
+                process_version: "01.00.000".to_owned(),
+                process_name: None,
+                model_id: None,
+                location: Some("US".to_owned()),
+                reference_year: Some(2010),
+            },
+        ];
+        let exchange = ParsedExchange {
+            process_idx: 0,
+            flow_id: Uuid::new_v4(),
+            direction: ExchangeDirection::Input,
+            amount: Some(1.0),
+        };
+
+        let decision = resolve_multi_provider(
+            ProviderRule::BestProviderStrict,
+            &exchange,
+            &[1, 2],
+            &process_meta,
+        )
+        .expect("resolve");
+
+        let MultiProviderDecision::Unresolved(reason) = decision else {
+            panic!("expected unresolved decision");
+        };
+        assert_eq!(reason, CompiledProviderFailureReason::Top1BelowTop1MinScore);
     }
 
     #[test]

@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use hdf5::File;
@@ -63,6 +64,15 @@ pub struct SnapshotBuildConfig {
 }
 
 /// Matching coverage diagnostics.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct SnapshotProviderDecisionDiagnostics {
+    #[serde(default)]
+    pub resolved_strategy_counts: BTreeMap<String, i64>,
+    #[serde(default)]
+    pub unresolved_reason_counts: BTreeMap<String, i64>,
+}
+
+/// Matching coverage diagnostics.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SnapshotMatchingCoverage {
     pub input_edges_total: i64,
@@ -77,8 +87,14 @@ pub struct SnapshotMatchingCoverage {
     pub matched_multi_fallback_equal: i64,
     #[serde(default)]
     pub a_input_edges_written: i64,
+    #[serde(default)]
+    pub a_write_pct: f64,
+    #[serde(default)]
+    pub provider_present_resolved_pct: f64,
     pub unique_provider_match_pct: f64,
     pub any_provider_match_pct: f64,
+    #[serde(default)]
+    pub provider_decision_diagnostics: SnapshotProviderDecisionDiagnostics,
 }
 
 /// Quantitative reference diagnostics.
@@ -280,14 +296,15 @@ mod tests {
     use hdf5::filters::Filter;
     use serde_json::json;
     use solver_core::{ModelSparseData, SparseTriplet};
+    use std::collections::BTreeMap;
     use tempfile::Builder;
 
     use super::{
         DATASET_ENVELOPE_JSON, HDF5_DEFLATE_LEVEL, SNAPSHOT_ARTIFACT_FORMAT,
         SnapshotAllocationCoverage, SnapshotBuildConfig, SnapshotCoverageReport,
-        SnapshotMatchingCoverage, SnapshotMatrixScale, SnapshotReferenceCoverage,
-        SnapshotSelectionMode, SnapshotSingularRisk, decode_snapshot_artifact,
-        encode_snapshot_artifact,
+        SnapshotMatchingCoverage, SnapshotMatrixScale, SnapshotProviderDecisionDiagnostics,
+        SnapshotReferenceCoverage, SnapshotSelectionMode, SnapshotSingularRisk,
+        decode_snapshot_artifact, encode_snapshot_artifact,
     };
 
     #[test]
@@ -320,8 +337,20 @@ mod tests {
                 matched_multi_unresolved: 1,
                 matched_multi_fallback_equal: 0,
                 a_input_edges_written: 8,
+                a_write_pct: 80.0,
+                provider_present_resolved_pct: 88.88888888888889,
                 unique_provider_match_pct: 70.0,
                 any_provider_match_pct: 90.0,
+                provider_decision_diagnostics: SnapshotProviderDecisionDiagnostics {
+                    resolved_strategy_counts: BTreeMap::from([
+                        ("unique_provider".to_owned(), 7),
+                        ("split_by_evidence".to_owned(), 1),
+                    ]),
+                    unresolved_reason_counts: BTreeMap::from([(
+                        "rule_requires_unique_provider".to_owned(),
+                        1,
+                    )]),
+                },
             },
             reference: SnapshotReferenceCoverage {
                 process_total: 2,

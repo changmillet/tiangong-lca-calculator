@@ -65,12 +65,48 @@ pub struct CompiledProviderAllocation {
     pub weight: f64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CompiledProviderDecisionKind {
+    UniqueProvider,
+    MultiResolved,
+    MultiUnresolved,
+    NoProvider,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CompiledProviderResolutionStrategy {
+    UniqueProvider,
+    BestProviderStrict,
+    SplitByEvidence,
+    SplitEqual,
+    SplitEqualFallback,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CompiledProviderFailureReason {
+    NoProviderCandidates,
+    RuleRequiresUniqueProvider,
+    NoCandidateGeMinScore,
+    Top1BelowTop1MinScore,
+    Top1Top2RatioTooClose,
+    ScoreSumNonPositive,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompiledProviderDecision {
     pub consumer_idx: i32,
     pub flow_id: Uuid,
     pub candidate_provider_count: i32,
     pub matched_provider_count: i32,
+    #[serde(default)]
+    pub decision_kind: Option<CompiledProviderDecisionKind>,
+    #[serde(default)]
+    pub resolution_strategy: Option<CompiledProviderResolutionStrategy>,
+    #[serde(default)]
+    pub failure_reason: Option<CompiledProviderFailureReason>,
     pub used_equal_fallback: bool,
     pub allocations: Vec<CompiledProviderAllocation>,
 }

@@ -192,6 +192,13 @@ psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/migrations/20260309042000_lca_latest
 ./scripts/run_full_compute_debug.sh --snapshot-id <snapshot_id>
 ```
 
+当前默认 provider rule：
+
+- `split_by_evidence_hybrid`
+- 单 provider case 仍然直接按唯一 provider 写入 `A`
+- multi-provider case 先按证据加权分配；只有没有候选达到最低分时才回退到 equal split
+- 如需复现旧行为，可显式传 `--provider-rule strict_unique_provider`
+
 ## 5. 环境变量
 
 最小必需：
