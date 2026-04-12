@@ -40,6 +40,85 @@ async fn fetch_snapshot_coverage(pool: &sqlx::PgPool, snapshot_id: Uuid) -> Opti
     .flatten()
 }
 
+/// Detects processes with identical exchange structures within a snapshot's scope.
+///
+/// Returns groups of processes whose `(flow_id, direction, amount)` tuples are identical,
+/// which produce linearly dependent columns in the technosphere matrix.
+async fn detect_duplicate_exchange_processes(
+    pool: &sqlx::PgPool,
+    snapshot_id: Uuid,
+) -> Option<Value> {
+    let result = sqlx::query_scalar::<_, Value>(
+        r"
+        WITH snapshot_scope AS (
+            SELECT
+                process_filter->>'include_user_id' AS uid,
+                process_filter->'process_states' AS states
+            FROM public.lca_network_snapshots
+            WHERE id = $1
+        ),
+        state_array AS (
+            SELECT array_agg(s::int) AS codes
+            FROM snapshot_scope, jsonb_array_elements_text(snapshot_scope.states) AS s
+        ),
+        scope_procs AS (
+            SELECT DISTINCT ON (p.id) p.id, p.version, p.json
+            FROM public.processes p, snapshot_scope ss, state_array sa
+            WHERE (p.state_code = ANY(sa.codes) OR p.user_id = ss.uid::uuid)
+              AND p.json ? 'processDataSet'
+            ORDER BY p.id, p.version DESC
+        ),
+        exchange_fp AS (
+            SELECT
+                sp.id AS process_id,
+                sp.version,
+                COALESCE(
+                    sp.json #>> '{processDataSet,processInformation,dataSetInformation,name,baseName}',
+                    ''
+                ) AS name,
+                md5((SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'f', ex.value -> 'referenceToFlowDataSet' ->> '@refObjectId',
+                        'd', ex.value ->> 'exchangeDirection',
+                        'a', COALESCE(ex.value ->> 'meanAmount', ex.value ->> 'resultingAmount', '')
+                    ) ORDER BY
+                        ex.value -> 'referenceToFlowDataSet' ->> '@refObjectId',
+                        ex.value ->> 'exchangeDirection'
+                ) FROM jsonb_array_elements(
+                    CASE jsonb_typeof(sp.json #> '{processDataSet,exchanges,exchange}')
+                        WHEN 'array' THEN sp.json #> '{processDataSet,exchanges,exchange}'
+                        ELSE '[]'::jsonb
+                    END
+                ) ex)::text) AS fp
+            FROM scope_procs sp
+        ),
+        dup_groups AS (
+            SELECT fp, jsonb_agg(jsonb_build_object(
+                'process_id', process_id,
+                'version', version,
+                'name', name
+            ) ORDER BY process_id) AS processes, COUNT(*) AS cnt
+            FROM exchange_fp
+            GROUP BY fp
+            HAVING COUNT(*) > 1
+        )
+        SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'count', cnt,
+            'processes', processes
+        ) ORDER BY cnt DESC), '[]'::jsonb)
+        FROM dup_groups
+        ",
+    )
+    .bind(snapshot_id)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten();
+
+    // Only return non-empty arrays.
+    result.filter(|v| v.as_array().is_some_and(|a| !a.is_empty()))
+}
+
 /// Builds enriched diagnostics JSON when a job fails with a factorization error.
 async fn build_failure_diagnostics(
     pool: &sqlx::PgPool,
@@ -48,13 +127,16 @@ async fn build_failure_diagnostics(
 ) -> Value {
     let mut diag = serde_json::json!({"error": err_message});
 
-    // For factorization/singular errors, attach snapshot coverage for context.
+    // For factorization/singular errors, attach snapshot coverage and duplicate process info.
     if (err_message.contains("singular") || err_message.contains("factorization"))
         && let Some(snapshot_id) = extract_snapshot_id(payload)
     {
         diag["snapshot_id"] = serde_json::json!(snapshot_id.to_string());
         if let Some(coverage) = fetch_snapshot_coverage(pool, snapshot_id).await {
             diag["snapshot_coverage"] = coverage;
+        }
+        if let Some(duplicates) = detect_duplicate_exchange_processes(pool, snapshot_id).await {
+            diag["duplicate_exchange_processes"] = duplicates;
         }
     }
 
