@@ -2696,10 +2696,10 @@ async fn fetch_processes(
     let rows = if all_states {
         sqlx::query(
             r#"
-            SELECT id, version, model_id, user_id, modified_at, json
+            SELECT DISTINCT ON (id) id, version, model_id, user_id, modified_at, json
             FROM public.processes
             WHERE json ? 'processDataSet'
-            ORDER BY id, version
+            ORDER BY id, version DESC
             "#,
         )
         .fetch_all(pool)
@@ -2707,11 +2707,11 @@ async fn fetch_processes(
     } else if let Some(user_id) = include_user_id {
         sqlx::query(
             r#"
-            SELECT id, version, model_id, user_id, modified_at, json
+            SELECT DISTINCT ON (id) id, version, model_id, user_id, modified_at, json
             FROM public.processes
             WHERE (state_code = ANY($1) OR user_id = $2)
               AND json ? 'processDataSet'
-            ORDER BY id, version
+            ORDER BY id, version DESC
             "#,
         )
         .bind(state_codes)
@@ -2721,11 +2721,11 @@ async fn fetch_processes(
     } else {
         sqlx::query(
             r#"
-            SELECT id, version, model_id, user_id, modified_at, json
+            SELECT DISTINCT ON (id) id, version, model_id, user_id, modified_at, json
             FROM public.processes
             WHERE state_code = ANY($1)
               AND json ? 'processDataSet'
-            ORDER BY id, version
+            ORDER BY id, version DESC
             "#,
         )
         .bind(state_codes)
