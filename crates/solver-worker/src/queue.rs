@@ -49,12 +49,12 @@ async fn build_failure_diagnostics(
     let mut diag = serde_json::json!({"error": err_message});
 
     // For factorization/singular errors, attach snapshot coverage for context.
-    if err_message.contains("singular") || err_message.contains("factorization") {
-        if let Some(snapshot_id) = extract_snapshot_id(payload) {
-            diag["snapshot_id"] = serde_json::json!(snapshot_id.to_string());
-            if let Some(coverage) = fetch_snapshot_coverage(pool, snapshot_id).await {
-                diag["snapshot_coverage"] = coverage;
-            }
+    if (err_message.contains("singular") || err_message.contains("factorization"))
+        && let Some(snapshot_id) = extract_snapshot_id(payload)
+    {
+        diag["snapshot_id"] = serde_json::json!(snapshot_id.to_string());
+        if let Some(coverage) = fetch_snapshot_coverage(pool, snapshot_id).await {
+            diag["snapshot_coverage"] = coverage;
         }
     }
 
