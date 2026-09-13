@@ -25,9 +25,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: "2026-09-09"
-lastReviewedCommit: "dd549b2e4ac8610f17c2e20619ccfe2fd631ee33"
-lastReviewedNote: "Worker #283: reviewed additive root_closure_v2 import, package-local validation, transactional group receipts and v2 artifacts; legacy v1 and calculation contracts remain unchanged."
+lastReviewedAt: "2026-09-13"
+lastReviewedCommit: "805f8e6c67dcb43f8532e6dce72e60aa110e82bd"
+lastReviewedNote: "Worker #286: active canonicalRepo is tiangong-lca/worker; stable versioned compatibility-schema IDs and commit-pinned legacy cache provenance remain unchanged. Ownership, package names, runtime behavior and quality gates are preserved."
 related:
   - AGENTS.md
   - .docpact/config.yaml
