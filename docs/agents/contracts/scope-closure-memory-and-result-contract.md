@@ -27,9 +27,9 @@ checkPaths:
   - docs/agents/contracts/scope-closure-external-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-owned-result.v1.schema.json
-lastReviewedAt: 2026-09-03
-lastReviewedCommit: 0b853ac7b79a0c438abd4f5dfbb08af0a3bcab32
-lastReviewedNote: "Reviewed for the Issue #279 production hotfix; Clippy annotation compatibility does not alter Scope Closure results, memory, cancellation, or publication semantics."
+lastReviewedAt: 2026-09-13
+lastReviewedCommit: 805f8e6c67dcb43f8532e6dce72e60aa110e82bd
+lastReviewedNote: "Worker #286: active canonicalRepo is tiangong-lca/worker; stable versioned compatibility-schema IDs and commit-pinned legacy cache provenance remain unchanged. Ownership, package names, runtime behavior and quality gates are preserved."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml
