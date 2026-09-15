@@ -8,11 +8,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Native cache identity tests
+        run: python3 -m unittest scripts/test_ci_native_fingerprint.py
       - name: Install SuiteSparse dependencies
         run: sudo apt-get update && sudo apt-get install -y libsuitesparse-dev libopenblas-dev liblapack-dev pkg-config
+      - name: Fingerprint installed native environment
+        id: native
+        run: python3 scripts/ci_native_fingerprint.py >> "$GITHUB_OUTPUT"
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Restore dependency compilation cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # The custom key precedes every restore prefix, including lockfile fallbacks.
+          key: native-${{ steps.native.outputs.native_hash }}-${{ hashFiles('scripts/ci_native_fingerprint.py', 'scripts/test_ci_native_fingerprint.py', '.github/workflows/ci.yml', 'Makefile') }}
+          add-rust-environment-hash-key: "true"
+          env-vars: "PKG_CONFIG LD"
+          cache-bin: "false"
+          cache-workspace-crates: "false"
+          cache-all-crates: "false"
+          cache-on-failure: "false"
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
