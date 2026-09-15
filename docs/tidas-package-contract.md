@@ -19,9 +19,9 @@ checkPaths:
   - docs/agents/repo-validation.md
   - docs/scope-closure-contract.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: "2026-09-13"
-lastReviewedCommit: "805f8e6c67dcb43f8532e6dce72e60aa110e82bd"
-lastReviewedNote: "Worker #286: active canonicalRepo is tiangong-lca/worker; stable versioned compatibility-schema IDs and commit-pinned legacy cache provenance remain unchanged. Ownership, package names, runtime behavior and quality gates are preserved."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #289: added the published-Result (120) product-export exclusion for `processes` only, with the active/dead reader inventory and the fail-closed hydration rule. Import conflict reuse, support 100..=199 export semantics and the package state machine are unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -141,7 +141,46 @@ payload 必须仍携带有效 `job_id` compatibility UUID，因为 `lca_package_
    - 不执行任何 inserts
 6. 若无校验错误，再执行现有冲突检测和导入流程。
 
-冲突检测以 `table + UUID + 规范化 version` 为精确键。目标环境中已存在的 `state_code = 100..=200` 记录统一视为可复用记录：Worker 跳过 package 中的对应条目，并继续导入其余数据；为保持现有 consumer 兼容，这些记录仍投影到 `filtered_open_data_count` 与 `filtered_open_data`。`state_code` 为 `null` 或不在 `100..=200` 时仍属于 `user_conflicts`，任一此类冲突都会返回 `USER_DATA_CONFLICT` 并阻止整包写入。该导入规则不改变 `open_data` export scope；导出仍只选择 `state_code = 100..=199`。
+冲突检测以 `table + UUID + 规范化 version` 为精确键。目标环境中已存在的 `state_code = 100..=200` 记录统一视为可复用记录：Worker 跳过 package 中的对应条目，并继续导入其余数据；为保持现有 consumer 兼容，这些记录仍投影到 `filtered_open_data_count` 与 `filtered_open_data`。`state_code` 为 `null` 或不在 `100..=200` 时仍属于 `user_conflicts`，任一此类冲突都会返回 `USER_DATA_CONFLICT` 并阻止整包写入。该导入规则不改变 `open_data` export scope。
+
+### 6.3.1 产品导出暴露隔离（published Result）
+
+本节与上面的 import 规则相互独立。`state_code = 120` 表示已发布的 Result Process；它**不**通过通用产品读取、引用或导出路径暴露，也不得作为产品数据集出现在导出包中。其唯一回读途径是 Database Result 发布命令所拥有的受约束、绑定授权的回执路径；把它扩展为通用公开 Result 读取或导出属于另行授权的产品决定。Worker 通过 Worker-owned 的 `product-export-excludes-published-result-120:v1` policy 实施导出隔离。
+
+实际执行点（逐条按现有读取路径核对）：
+
+| 路径 | 执行方式 |
+| --- | --- |
+| scope seed（`current_user`） | 根引用查询对 `processes` 增加 `state_code IS DISTINCT FROM 120` 过滤 |
+| scope seed（`open_data`） | `state_code = ANY(100..199)` 之上再排除 120（`IS DISTINCT FROM 120`，NULL 安全）；support 表不受影响 |
+| seed scan 游标分页 | 每批查询对 `processes` 增加同一 NULL 安全排除条件 |
+| exact root / reference scan | `id = ANY(...)` 查询对 `processes` 增加同一排除条件 |
+| latest 引用解析 | 复用同一 root-ref 查询 |
+| model → process 展开 | 通过 Lifecycle Model 进入的 Process 查询同样排除 120 |
+| 最终 hydration | 按 queued item 精确回读，并校验返回集合与 queued 集合完全一致 |
+| 最终装配前 | 对 queued `processes` item 做一次 containment 复审 |
+
+语义边界：
+
+- 只有 `processes` 表受该 policy 约束；Flow、FlowProperty、UnitGroup、Source、Contact 等支持数据仍按原有 `100..=199` 语义参与 `open_data` 导出；
+- 判定使用 `state_code IS DISTINCT FROM 120`（与 Database 侧同形），不是 `<> 120`：`state_code` 可为 NULL，而 `NULL <> 120` 求值为 UNKNOWN，会静默丢弃此前可导出的 NULL 状态行。NULL 仍然不具数值计算资格，这里只是保持既有的导出行为；
+- 该 policy 只排除 `120`；`NULL`、`0`、`20`、`100`、`200` 等既有状态的可导出性不变；公开 `open_data` 的 `100..=199` 谓词本身不被改写；
+- `120` 留在既有 import 复用/冲突规则内，import 行为与 `state_code` 语义不变；
+- 最终 hydration 若读不到某个已排队 item（被 policy 过滤，或行在 traversal 之后消失），导出**失败**而不是产出一个缺条目的包，因此不会静默发布不完整的依赖闭包；
+- `lca_package_artifacts` 的 `export_zip` metadata 记录 `productExportPolicyVersion`，使下载到的包可追溯到产生它的暴露规则；
+- 该 policy 不是数值资格规则，也不与 `public-numerical-state-100-excluding-result-120:v1` 互相替代：数值入口按精确 `100` 准入，产品导出按排除 `120` 收敛。
+
+关于状态化路径的准确说法（避免过度声明）：
+
+- policy 生效范围内的**查询过滤**覆盖上述读取路径，包括 resume 时重新执行的 seed scan 与遍历查询；
+- 但跨 pass 的 resume 状态（`worker_jobs.diagnostics.seed_scan`、runtime traversal cache、`lca_package_export_items` 中已排队的行）**不会仅因为新旧 policy 不同而被自动失效**。旧策略任务恢复时，已排队的 120 item 会由最终 containment 复审拦下并 fail closed，而不是被静默剔除；
+- 已在对象存储中的历史 export artifact 按其精确 id 下载时是历史读取，本 policy 不改写也不重新授权它；
+- 因此 `productExportPolicyVersion` 是**可追溯的绑定标记**，不是缓存失效机制。需要主动失效时必须由运维在有界范围内重建对应 job/artifact，而不是依赖该标记。
+
+该 literal 由 Worker 拥有且为本期新增，尚未被 Database 或 Edge artifact 定义；依赖集成前须与 Database #646 的准入/candidate 规则和 Edge 请求契约对齐。
+
+`scope_root_refs_by_user_sql`、`scope_seed_scan_select_prefix_sql` 与 model→process 展开是**活跃路径**：它们分别服务于 `current_user`／`open_data` seed、seed 游标分页和 Lifecycle Model 展开，均已加过滤。`fetch_scope_entries` / `collect_package_entries` 仅保留为未接线的 legacy helper（`#[allow(dead_code)]`），不参与当前导出；保留它们是为了不改变历史行为，而不是作为安全边界。
+
 
 运行时不得探测 Python module、`tidas-validate` 或其他候选命令。统一 binary 无法启动、版本/协议不匹配、超时、report/spool 不完整或 hash/count 不一致时，任务必须 fail closed，并映射为稳定的 `tidas_*` error code；这些 system failures 不能伪装为数据 validation issue。Worker 继续独立持有 job lease、heartbeat、取消检查、request-cache 状态和 terminal result projection，`tidas` 不接管这些行为。等待长时 validation 时，worker-jobs executor 每个 lease 的三分之一周期续租；heartbeat 被拒绝即丢弃当前 operation future，禁止继续接受或投影 validator evidence。
 

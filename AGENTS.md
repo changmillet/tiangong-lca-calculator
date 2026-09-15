@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-09-15
-lastReviewedCommit: d9edc9daa72f429385e653fc7bea07c542698991
-lastReviewedNote: "Reviewed for Worker #291: dependency-only CI cache is bound to native image/package/alternative/compiler evidence plus existing Rust identity. Manual trigger, apt, format, Clippy, complete tests and local qualification remain; invalidation mutations and portable CLI fixtures pass, make check and hard gates pass. No runtime/API/data change; hosted cold/warm proof and integration remain pending."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "8dec9cba9288657a4360a8fb7d02c9570761cd21"
+lastReviewedNote: "Worker #289 + #291: added the exact-100 public numerical eligibility invariant and the published-Result (120) numerical/export exclusion with the numerical_policy_version snapshot marker, combined with the #291 dependency-only CI cache now bound to native image/package/alternative/compiler evidence plus the existing Rust identity. Manual trigger, apt, format, Clippy, complete tests and local qualification remain; #291's native-fingerprint qualification passes. Ownership boundaries, package names and quality gates are unchanged; the merged-tree baseline gates are run independently by the coordinator, and hosted cold/warm CI cache proof and integration remain pending."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md
@@ -176,6 +176,8 @@ Route those tasks to:
 
 ## Operational Invariants
 
+- public numerical eligibility is exactly `state_code = 100`; the reserved publication segment `100..=199` is a reserved metadata range and never a computation capability or generic display grant, so unknown or newly reserved public states fail closed. Owner draft `0` is admitted only by the versioned `public_plus_owner_draft` scope for the row's own actor, and the dedicated Review Admin diagnostic (`20` plus public `100`) is the single intentional numeric exception
+- a published Result Process (`120`) is never a numerical root, provider or matrix axis, is not exposed through generic product reads, references or exports, and never leaves the platform inside a product export package; its only readback is the authorization-bound Database publication receipt. Every newly built numerical snapshot records `numerical_policy_version = public-numerical-state-100-excluding-result-120:v1` in its artifact config and in the server-authored READY `process_filter`; new compute execution and reuse require that exact marker, while historical artifacts stay byte-identical and readable
 - solve result persistence is S3-only; `lca_results` stores artifact metadata and diagnostics, not inline payloads
 - snapshots never persist fresh `CompiledGraph` IR: ordinary numerical artifacts bind separate v2 release metadata and content-addressed v1 source closure, while Review baseline/overlay persist consumer-owned projections; Calculation Bundle sidecars load only during bundle materialization, legacy numerical payloads remain readable even when their compiler metadata schema has drifted, and compatible legacy graph/v1 evidence remains read-compatible
 - queue enqueue and protected writes must stay on service-side paths; do not move them to frontend clients or authenticated direct table writes

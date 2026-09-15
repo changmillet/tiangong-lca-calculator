@@ -136,7 +136,8 @@ updated AS (
 SELECT active_build_count
 FROM updated
 ";
-const REVIEW_QUALITY_DIAGNOSTIC_SNAPSHOT_ARTIFACT_PURPOSE: &str = "review_quality_diagnostic";
+const REVIEW_QUALITY_DIAGNOSTIC_SNAPSHOT_ARTIFACT_PURPOSE: &str =
+    crate::REVIEW_QUALITY_DIAGNOSTIC_SNAPSHOT_ARTIFACT_PURPOSE;
 const REVIEW_QUALITY_DIAGNOSTIC_SNAPSHOT_TTL_SECONDS: i64 = 24 * 60 * 60;
 
 fn pgmq_queue_name_literal(queue_name: &str) -> anyhow::Result<String> {
@@ -759,6 +760,7 @@ fn merge_job_status_update_timing(
 struct SnapshotArtifactMeta {
     url: String,
     sha256: String,
+    artifact_format: String,
 }
 
 /// Loads sparse snapshot data from snapshot artifact first, then falls back to `lca_*` tables.
@@ -796,7 +798,7 @@ async fn fetch_snapshot_artifact_meta(
 ) -> anyhow::Result<Option<SnapshotArtifactMeta>> {
     let row = match sqlx::query(
         r"
-        SELECT artifact_url, artifact_sha256
+        SELECT artifact_url, artifact_sha256, artifact_format
         FROM private.lca_snapshot_artifacts
         WHERE snapshot_id = $1
           AND status = 'ready'
@@ -817,6 +819,7 @@ async fn fetch_snapshot_artifact_meta(
         Ok(SnapshotArtifactMeta {
             url: r.try_get::<String, _>("artifact_url")?,
             sha256: r.try_get::<String, _>("artifact_sha256")?,
+            artifact_format: r.try_get::<String, _>("artifact_format")?,
         })
     })
     .transpose()
@@ -827,11 +830,9 @@ async fn fetch_snapshot_payload_from_artifact(
     snapshot_id: Uuid,
     meta: &SnapshotArtifactMeta,
 ) -> anyhow::Result<ModelSparseData> {
-    Ok(
-        fetch_decoded_snapshot_artifact_from_meta(state, snapshot_id, meta)
-            .await?
-            .payload,
-    )
+    let decoded = fetch_decoded_snapshot_artifact_from_meta(state, snapshot_id, meta).await?;
+    ensure_snapshot_build_contract_policy(&decoded, meta.artifact_format.as_str())?;
+    Ok(decoded.payload)
 }
 
 async fn fetch_decoded_snapshot_artifact_from_meta(
@@ -858,6 +859,56 @@ async fn fetch_decoded_snapshot_artifact_from_meta(
     }
 
     Ok(decoded)
+}
+
+/// Fails closed when an already-persisted snapshot was produced by a build contract that is not the
+/// current numeric-eligibility policy.
+///
+/// Snapshots remain readable as history, and the raw artifact bytes are never rewritten. New
+/// compute execution and reuse must not treat old eligibility evidence as still valid just because
+/// the artifact still decodes: a caller that names an exact pre-existing snapshot id would
+/// otherwise bypass the entrypoint filters entirely.
+///
+/// The global `numerical_policy_version` marker is mandatory for every persisted snapshot that new
+/// compute touches, so an artifact written before the marker existed fails closed for execution
+/// even though it still decodes. The Scope Closure binding hash is *additional* evidence, required
+/// only when `scopeClosureBinding` is present; its absence relaxes nothing.
+fn ensure_snapshot_build_contract_policy(
+    decoded: &DecodedSnapshotArtifact,
+    artifact_format: &str,
+) -> anyhow::Result<()> {
+    ensure_numerical_snapshot_policy(&decoded.config, decoded.snapshot_id, artifact_format)
+}
+
+/// Numerical-policy admission decision for an already-persisted snapshot.
+///
+/// Kept separate from artifact decoding so the decision is directly testable and so history reads
+/// never depend on it.
+fn ensure_numerical_snapshot_policy(
+    config: &crate::snapshot_artifacts::SnapshotBuildConfig,
+    snapshot_id: Uuid,
+    artifact_format: &str,
+) -> anyhow::Result<()> {
+    if !config.is_numerical_policy_current() {
+        return Err(anyhow::anyhow!(
+            "snapshot_policy_version_mismatch: snapshot {} declares numerical policy {:?} instead of {}; rebuild it under the current public numerical eligibility policy",
+            snapshot_id,
+            config.numerical_policy_version,
+            crate::NUMERICAL_SNAPSHOT_POLICY_VERSION
+        ));
+    }
+    let Some(binding) = config.scope_closure_binding.as_ref() else {
+        // Not closure-bound: the global policy marker above is its numerical evidence.
+        return Ok(());
+    };
+    let expected =
+        scope_closure_snapshot_build_contract_hash(binding, snapshot_id, artifact_format);
+    if config.snapshot_build_contract_hash.as_deref() == Some(expected.as_str()) {
+        return Ok(());
+    }
+    Err(anyhow::anyhow!(
+        "snapshot_policy_version_mismatch: snapshot {snapshot_id} was built under a retired numerical build contract; rebuild it under the current public numerical eligibility policy"
+    ))
 }
 
 async fn fetch_snapshot_release_evidence(
@@ -989,7 +1040,12 @@ pub(crate) async fn fetch_decoded_snapshot_artifact(
     let meta = fetch_snapshot_artifact_meta(&state.pool, snapshot_id)
         .await?
         .ok_or_else(|| anyhow::anyhow!("snapshot {snapshot_id} has no ready artifact"))?;
-    fetch_decoded_snapshot_artifact_from_meta(state, snapshot_id, &meta).await
+    let decoded = fetch_decoded_snapshot_artifact_from_meta(state, snapshot_id, &meta).await?;
+    // This helper is the crate-internal "decode for new compute" entrypoint, so the numerical
+    // policy is enforced here rather than left to each caller. History/administrative readers use
+    // artifact decoding directly and never consult the marker.
+    ensure_snapshot_build_contract_policy(&decoded, meta.artifact_format.as_str())?;
+    Ok(decoded)
 }
 
 pub(crate) async fn fetch_snapshot_index_document(
@@ -1954,6 +2010,13 @@ async fn solve_all_unit_with_calculation_bundle(
         .ok_or_else(|| anyhow::anyhow!("snapshot {snapshot_id} has no ready artifact"))?;
     let decoded =
         fetch_decoded_snapshot_artifact_from_meta(state, snapshot_id, &snapshot_meta).await?;
+    // Calculation Bundle materialization is new compute execution against a persisted snapshot, so
+    // it requires the current numerical-policy marker rather than just a decodable artifact.
+    ensure_numerical_snapshot_policy(
+        &decoded.config,
+        snapshot_id,
+        snapshot_meta.artifact_format.as_str(),
+    )?;
     let release_evidence = fetch_snapshot_release_evidence(state, snapshot_id, &decoded).await?;
     let snapshot_index = fetch_snapshot_index_document(state, snapshot_id).await?;
     if usize::try_from(decoded.payload.process_count)? != process_count {
@@ -2403,14 +2466,10 @@ pub(crate) async fn run_review_quality_diagnostic_snapshot_builder(
     snapshot_id: Uuid,
     request_roots: &[crate::graph_types::RequestRootProcess],
 ) -> anyhow::Result<SnapshotBuilderExecution> {
-    let process_states = std::iter::once("20".to_owned())
-        .chain(
-            (crate::DEFAULT_SNAPSHOT_PROCESS_STATE_START
-                ..=crate::DEFAULT_SNAPSHOT_PROCESS_STATE_END)
-                .map(|state| state.to_string()),
-        )
-        .collect::<Vec<_>>()
-        .join(",");
+    // Dedicated Review Admin diagnostic scope: in-review `20` plus public `100` only. This is the
+    // one intentional numeric exception and it stays inside this job family; the reserved
+    // publication segment and the published Result state remain outside it.
+    let process_states = crate::review_quality_diagnostic_process_states_arg();
     let lock_guard = acquire_build_snapshot_lock(
         &state.pool,
         state.build_snapshot_max_concurrency,
@@ -2468,7 +2527,9 @@ pub(crate) async fn run_scope_closure_snapshot_builder(
     request_roots: &[RequestRootProcess],
     scope_closure: &ScopeClosureSnapshotBuilderArgs,
 ) -> anyhow::Result<SnapshotBuilderExecution> {
-    let process_states = crate::default_snapshot_process_states_arg();
+    // Certificate-grade closure is a public numerical computation: exactly state 100, independent
+    // of whatever the offline builder default happens to be.
+    let process_states = crate::numerical_process_states_arg();
     let lock_guard = acquire_build_snapshot_lock(
         &state.pool,
         state.build_snapshot_max_concurrency,
@@ -2580,6 +2641,18 @@ pub(crate) async fn handle_lcia_result_package_build_worker_job(
     let (snapshot_id, snapshot_source) = if snapshot_execution_mode
         == PackageSnapshotExecutionMode::CertifiedReuse
     {
+        // A certified axis is exact-identity evidence, but it is only reusable for a *new*
+        // calculation when its selection predicate still describes the current public numerical
+        // rule. Older certificates selected the reserved `100..199` segment as a whole, so their
+        // process axis may include states that are no longer numerical inputs. Those artifacts stay
+        // readable as history and must be rebuilt rather than silently re-executed.
+        if manifest_declares_retired_numerical_predicate(input_manifest) {
+            return Err(anyhow::anyhow!(
+                "snapshot_policy_version_mismatch: certified input manifest was selected under a retired numerical eligibility predicate; rebuild the scope under {}",
+                crate::PUBLISHED_STATE_100_LATEST_PER_ID_PREDICATE_V2
+            ));
+        }
+        ensure_certified_manifest_predicate_is_current(input_manifest)?;
         let snapshot_id = closure_snapshot_id
             .ok_or_else(|| anyhow::anyhow!("certified package payload omitted snapshot_id"))?;
         let snapshot_hash = closure_snapshot_hash
@@ -3115,8 +3188,13 @@ async fn load_scope_closure_snapshot_facts(
     let meta = SnapshotArtifactMeta {
         url: row.try_get("artifact_url")?,
         sha256: artifact_sha256.clone(),
+        artifact_format: artifact_format.clone(),
     };
     let decoded = fetch_decoded_snapshot_artifact_from_meta(state, snapshot_id, &meta).await?;
+    // Certified package reuse is new compute execution: the closure binding proves the exact
+    // evidence, and the global marker additionally proves the artifact was built under the current
+    // numerical eligibility policy. Both are required; neither substitutes for the other.
+    ensure_numerical_snapshot_policy(&decoded.config, snapshot_id, meta.artifact_format.as_str())?;
     validate_certified_snapshot_contract(
         &decoded,
         binding.effective_scope_hash.as_str(),
@@ -3296,7 +3374,8 @@ async fn run_lcia_result_package_snapshot_builder(
     requested_snapshot_id: Uuid,
     request_roots: &[RequestRootProcess],
 ) -> anyhow::Result<(SnapshotBuilderExecution, Value)> {
-    let process_states = crate::default_snapshot_process_states_arg();
+    // Data-product package builds are public numerical computations: exactly state 100.
+    let process_states = crate::numerical_process_states_arg();
     let lock_guard = acquire_build_snapshot_lock(
         &state.pool,
         state.build_snapshot_max_concurrency,
@@ -5243,11 +5322,22 @@ fn lcia_result_package_request_roots(
             let state_code = state_code.ok_or_else(|| {
                 anyhow::anyhow!("LCIA result package process[{idx}] is missing stateCode")
             })?;
-            if !(100..=199).contains(&state_code) {
-                return Err(anyhow::anyhow!(
-                    "LCIA result package process[{idx}] must use a published process state, got {state_code}"
-                ));
-            }
+            let state_code = i32::try_from(state_code).map_err(|_| {
+                anyhow::anyhow!(
+                    "LCIA result package process[{idx}] stateCode is out of range, got {state_code}"
+                )
+            })?;
+            crate::ensure_numerical_process_eligible(process_id, process_version, Some(state_code))
+                .map_err(|error| anyhow::anyhow!("LCIA result package process[{idx}]: {error}"))?;
+        } else if state_code == Some(i64::from(crate::PUBLISHED_RESULT_PROCESS_STATE)) {
+            // Certificate-owned axes are exact identity evidence, but when the manifest still
+            // carries state metadata that names the published Result state the build must fail
+            // closed: otherwise a snapshot produced under the retired `100..199` numerical
+            // predicate could be reused as new compute evidence.
+            return Err(anyhow::anyhow!(
+                "LCIA result package process[{idx}]: {}: process {process_id}@{process_version}",
+                crate::numerical_ineligibility_reason(Some(crate::PUBLISHED_RESULT_PROCESS_STATE))
+            ));
         }
 
         roots.push(RequestRootProcess::new(process_id, process_version));
@@ -5258,6 +5348,41 @@ fn lcia_result_package_request_roots(
 
 fn lcia_result_package_version(build_id: Uuid) -> String {
     format!("lcia-result-{build_id}")
+}
+
+/// True when a manifest records a retired numerical eligibility predicate.
+///
+/// Covers both the package input-manifest key (`predicateVersion`) and the Scope Closure requested
+/// scope key (`eligibilityPredicateVersion`). Such artifacts remain readable as history; they are
+/// simply not reusable as eligibility evidence for a new calculation.
+#[must_use]
+fn manifest_declares_retired_numerical_predicate(manifest: &Value) -> bool {
+    ["predicateVersion", "eligibilityPredicateVersion"]
+        .iter()
+        .filter_map(|key| manifest.get(*key).and_then(Value::as_str))
+        .any(crate::is_retired_numerical_eligibility_predicate)
+}
+
+/// Requires a certified-reuse manifest to carry a *current* numerical eligibility predicate.
+///
+/// An exact certified axis is not by itself proof of the current policy: a manifest without a
+/// declared predicate cannot show which rule selected it, so it fails closed for new execution.
+/// The artifact itself stays readable; only reuse as new compute evidence is refused.
+fn ensure_certified_manifest_predicate_is_current(manifest: &Value) -> anyhow::Result<()> {
+    let declared = ["predicateVersion", "eligibilityPredicateVersion"]
+        .iter()
+        .filter_map(|key| manifest.get(*key).and_then(Value::as_str))
+        .filter(|value| !value.trim().is_empty())
+        .collect::<Vec<_>>();
+    if declared.is_empty() {
+        return Err(anyhow::anyhow!(
+            "numerical_eligibility_predicate_unknown: certified input manifest declares no eligibility predicate"
+        ));
+    }
+    for value in declared {
+        crate::ensure_current_numerical_eligibility_predicate(value)?;
+    }
+    Ok(())
 }
 
 async fn fetch_snapshot_process_count(pool: &PgPool, snapshot_id: Uuid) -> anyhow::Result<i32> {
@@ -5296,14 +5421,16 @@ mod tests {
         ScopeClosureSnapshotBuilderMode, SnapshotBuilderProcessFailure, SnapshotBuilderTerminal,
         SolveOptionsPayload, acquire_build_snapshot_worker_jobs_slot_sql,
         append_scope_closure_snapshot_args, build_all_unit_rhs_batch,
-        build_snapshot_heartbeat_interval, execute_portal_package_ready_with_response_loss_retry,
+        build_snapshot_heartbeat_interval, ensure_certified_manifest_predicate_is_current,
+        ensure_numerical_snapshot_policy, execute_portal_package_ready_with_response_loss_retry,
         lcia_result_package_impact_axis, lcia_result_package_request_roots,
-        lcia_result_package_version, normalize_all_unit_batch_size,
-        package_snapshot_execution_mode, parse_portal_package_ready_restart_readback,
-        parse_snapshot_builder_build_timing, parse_snapshot_builder_resolved_snapshot_id,
-        read_certified_closure_bundle_binding, redact_sensitive_diagnostics,
-        redacted_builder_command, resolve_solve_all_unit_options, retired_snapshot_fallback_error,
-        run_snapshot_builder_job, run_snapshot_builder_job_with_worker_heartbeat,
+        lcia_result_package_version, manifest_declares_retired_numerical_predicate,
+        normalize_all_unit_batch_size, package_snapshot_execution_mode,
+        parse_portal_package_ready_restart_readback, parse_snapshot_builder_build_timing,
+        parse_snapshot_builder_resolved_snapshot_id, read_certified_closure_bundle_binding,
+        redact_sensitive_diagnostics, redacted_builder_command, resolve_solve_all_unit_options,
+        retired_snapshot_fallback_error, run_snapshot_builder_job,
+        run_snapshot_builder_job_with_worker_heartbeat, scope_closure_snapshot_build_contract_hash,
         snapshot_builder_process_failure_code, snapshot_builder_wall_timeout_seconds_from,
         tail_text, utf8_safe_tail, validate_certified_process_axis,
     };
@@ -5936,15 +6063,15 @@ mod tests {
     }
 
     #[test]
-    fn lcia_result_package_manifest_roots_use_published_processes() {
+    fn lcia_result_package_manifest_roots_use_exact_public_numerical_processes() {
         let process_id = Uuid::new_v4();
         let manifest = json!({
-            "predicateVersion": "published-state-code-100-199:v1",
+            "predicateVersion": "public-numerical-process-state-100-excluding-result-120:v1",
             "processes": [
                 {
                     "id": process_id,
                     "version": "01.00.000",
-                    "stateCode": 150
+                    "stateCode": 100
                 }
             ]
         });
@@ -5970,14 +6097,39 @@ mod tests {
 
         let err = lcia_result_package_request_roots(&manifest, true).expect_err("draft rejected");
 
-        assert!(err.to_string().contains("published process state"));
+        assert!(
+            err.to_string()
+                .contains("process_state_is_not_numerically_eligible")
+        );
+    }
+
+    #[test]
+    fn lcia_result_package_manifest_rejects_published_result_state_120() {
+        let manifest = json!({
+            "predicateVersion": "public-numerical-process-state-100-excluding-result-120:v1",
+            "processes": [{
+                "id": Uuid::new_v4(),
+                "version": "01.00.000",
+                "stateCode": crate::PUBLISHED_RESULT_PROCESS_STATE
+            }]
+        });
+
+        let error = lcia_result_package_request_roots(&manifest, true)
+            .expect_err("published Result must not become a package input root");
+        let message = error.to_string();
+        assert!(
+            message.contains("published_result_process_is_not_a_numerical_input"),
+            "{message}"
+        );
+        // The diagnostic must be locatable: it names the offending manifest slot.
+        assert!(message.contains("process[0]"), "{message}");
     }
 
     #[test]
     fn certified_package_manifest_uses_exact_axis_without_live_state() {
         let process_id = Uuid::new_v4();
         let manifest = json!({
-            "predicateVersion": "published-state-code-100-199:v1",
+            "predicateVersion": "published-state-code-100:latest-per-id:v2",
             "selectionMode": "closure_certificate",
             "processes": [{"id": process_id, "version": "01.00.000"}]
         });
@@ -5992,6 +6144,21 @@ mod tests {
             .expect_err("legacy live build still requires a published state");
         assert!(error.to_string().contains("missing stateCode"));
 
+        // A certificate-owned axis is exact-identity evidence, but when it does carry state
+        // metadata that names the published Result state it must still fail closed rather than
+        // reuse evidence produced under the retired 100..199 numerical predicate.
+        let mut certificate_named_result = manifest.clone();
+        certificate_named_result["processes"][0]["stateCode"] =
+            json!(crate::PUBLISHED_RESULT_PROCESS_STATE);
+        let error = lcia_result_package_request_roots(&certificate_named_result, false)
+            .expect_err("certified axis naming state 120 must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("published_result_process_is_not_a_numerical_input"),
+            "{error}"
+        );
+
         let mut forged_state = manifest;
         forged_state["processes"][0]["stateCode"] = json!(0);
         let forged_roots = lcia_result_package_request_roots(&forged_state, false)
@@ -6000,7 +6167,69 @@ mod tests {
     }
 
     #[test]
-    fn legacy_package_manifest_rejects_non_public_inputs() {
+    fn retired_or_missing_certified_predicate_is_not_new_compute_evidence() {
+        let process_id = Uuid::new_v4();
+
+        // A certificate selected under the retired reserved-range predicate may contain Process
+        // states that are no longer numerical inputs. It stays readable, but it cannot be reused
+        // for a new calculation.
+        for retired in [
+            "published-state-code-100-199:v1",
+            "published-state-code-100-199:latest-per-id:v1",
+            "candidate-public-state-code-100-199:v1",
+        ] {
+            let manifest = json!({
+                "predicateVersion": retired,
+                "selectionMode": "closure_certificate",
+                "processes": [{"id": process_id, "version": "01.00.000"}]
+            });
+            assert!(manifest_declares_retired_numerical_predicate(&manifest));
+            let error = ensure_certified_manifest_predicate_is_current(&manifest)
+                .expect_err("retired predicate must not be reused");
+            assert!(
+                error
+                    .to_string()
+                    .contains("retired_numerical_eligibility_predicate"),
+                "{retired}: {error}"
+            );
+        }
+
+        // A manifest with no declared predicate cannot show which rule selected its axis.
+        let undeclared = json!({
+            "selectionMode": "closure_certificate",
+            "processes": [{"id": process_id, "version": "01.00.000"}]
+        });
+        assert!(!manifest_declares_retired_numerical_predicate(&undeclared));
+        let error = ensure_certified_manifest_predicate_is_current(&undeclared)
+            .expect_err("an undeclared predicate must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("numerical_eligibility_predicate_unknown"),
+            "{error}"
+        );
+
+        // The current literals are accepted, including the Scope Closure requested-scope key.
+        for current in [
+            crate::PUBLISHED_STATE_100_LATEST_PER_ID_PREDICATE_V2,
+            crate::CANDIDATE_PUBLIC_NUMERICAL_PREDICATE_V2,
+            crate::CURRENT_PUBLIC_RELEASE_MANIFEST_PREDICATE_V2,
+        ] {
+            ensure_certified_manifest_predicate_is_current(&json!({
+                "predicateVersion": current,
+                "processes": []
+            }))
+            .unwrap_or_else(|error| panic!("{current}: {error}"));
+            ensure_certified_manifest_predicate_is_current(&json!({
+                "eligibilityPredicateVersion": current,
+                "processes": []
+            }))
+            .unwrap_or_else(|error| panic!("{current}: {error}"));
+        }
+    }
+
+    #[test]
+    fn legacy_package_manifest_rejects_non_public_and_reserved_inputs() {
         let manifest = json!({
             "processes": [{
                 "id": Uuid::new_v4(),
@@ -6011,7 +6240,168 @@ mod tests {
 
         let error = lcia_result_package_request_roots(&manifest, true)
             .expect_err("non-public legacy input rejected");
-        assert!(error.to_string().contains("published process state"));
+        assert!(
+            error
+                .to_string()
+                .contains("process_state_is_not_numerically_eligible")
+        );
+
+        // The reserved publication segment is a read/display range only: a state inside
+        // 100..199 that is not exactly 100 fails closed instead of qualifying numerically.
+        for reserved_state in [101, 150, 199] {
+            let reserved = json!({
+                "processes": [{
+                    "id": Uuid::new_v4(),
+                    "version": "01.00.000",
+                    "stateCode": reserved_state
+                }]
+            });
+            let error = lcia_result_package_request_roots(&reserved, true)
+                .expect_err("reserved published state must not qualify numerically");
+            assert!(
+                error
+                    .to_string()
+                    .contains("process_state_is_not_numerically_eligible"),
+                "state {reserved_state}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn persisted_snapshots_require_the_current_numerical_policy_for_new_compute() {
+        use crate::snapshot_artifacts::{
+            SNAPSHOT_ARTIFACT_FORMAT, ScopeClosureSnapshotBinding, SnapshotBuildConfig,
+        };
+
+        let snapshot_id = Uuid::new_v4();
+        let config = |policy: Option<&str>,
+                      binding: Option<&ScopeClosureSnapshotBinding>,
+                      contract_hash: Option<String>| {
+            SnapshotBuildConfig {
+                process_states: crate::numerical_process_states_arg(),
+                numerical_policy_version: policy.map(str::to_owned),
+                include_user_id: None,
+                data_scope: None,
+                scope_manifest_sha256: None,
+                scope_closure_binding: binding.cloned(),
+                snapshot_build_contract_hash: contract_hash,
+                lcia_method_factor_source: None,
+                selection_mode: crate::graph_types::SnapshotSelectionMode::FilteredLibrary,
+                request_roots: Vec::new(),
+                process_limit: 0,
+                provider_rule: "split_by_process_volume".to_owned(),
+                provider_candidate_eligibility_mode: "opposite_sign_reference_port".to_owned(),
+                provider_lineage_policy: "version-exact-lineage-gate-v1".to_owned(),
+                provider_lineage_source_sha256: None,
+                reference_normalization_mode: "strict".to_owned(),
+                allocation_fraction_mode: "strict".to_owned(),
+                allocation_semantics_version: "tidas-reference-allocation-v3".to_owned(),
+                link_semantics_version: "signed-flow-balance-v1".to_owned(),
+                technosphere_boundary_policy: "cutoff".to_owned(),
+                flow_identity_policy: "exact-flow-version-reference-unit-v2".to_owned(),
+                source_closure_policy: "snapshot-exchange-flows-only-v0".to_owned(),
+                source_reference_policy: "source-reference-policy.legacy-unclassified-v1"
+                    .to_owned(),
+                biosphere_sign_mode: "gross".to_owned(),
+                self_loop_cutoff: 0.999_999,
+                singular_eps: 1e-12,
+                has_lcia: false,
+                artifact_purpose: None,
+                root_dependency_fingerprint: None,
+                root_revision_checksum: None,
+                method_id: None,
+                method_version: None,
+            }
+        };
+        let binding = ScopeClosureSnapshotBinding {
+            schema_version: "lcia.scope-closure-snapshot-binding.v1".to_owned(),
+            effective_scope_hash: "a".repeat(64),
+            data_snapshot_token: "b".repeat(64),
+            closure_bundle_hash: "c".repeat(64),
+        };
+        let current_policy = crate::NUMERICAL_SNAPSHOT_POLICY_VERSION;
+
+        // Fresh ordinary global/subset snapshot: admitted for new compute.
+        ensure_numerical_snapshot_policy(
+            &config(Some(current_policy), None, None),
+            snapshot_id,
+            SNAPSHOT_ARTIFACT_FORMAT,
+        )
+        .expect("a fresh ordinary snapshot under the current policy is admissible");
+
+        // Fresh closure-bound snapshot: marker plus its own binding contract.
+        ensure_numerical_snapshot_policy(
+            &config(
+                Some(current_policy),
+                Some(&binding),
+                Some(scope_closure_snapshot_build_contract_hash(
+                    &binding,
+                    snapshot_id,
+                    SNAPSHOT_ARTIFACT_FORMAT,
+                )),
+            ),
+            snapshot_id,
+            SNAPSHOT_ARTIFACT_FORMAT,
+        )
+        .expect("a fresh closure-bound snapshot under the current policy is admissible");
+
+        // Older ordinary snapshot without the marker: refused for new compute.
+        let error = ensure_numerical_snapshot_policy(
+            &config(None, None, None),
+            snapshot_id,
+            SNAPSHOT_ARTIFACT_FORMAT,
+        )
+        .expect_err("an unmarked ordinary snapshot must not launch a new calculation");
+        assert!(
+            error
+                .to_string()
+                .contains("snapshot_policy_version_mismatch"),
+            "{error}"
+        );
+
+        // Older closure-bound snapshot with a matching binding hash but no marker is still refused:
+        // a binding hash cannot replace the global policy identity.
+        let error = ensure_numerical_snapshot_policy(
+            &config(
+                None,
+                Some(&binding),
+                Some(scope_closure_snapshot_build_contract_hash(
+                    &binding,
+                    snapshot_id,
+                    SNAPSHOT_ARTIFACT_FORMAT,
+                )),
+            ),
+            snapshot_id,
+            SNAPSHOT_ARTIFACT_FORMAT,
+        )
+        .expect_err("an unmarked closure snapshot must not launch a new calculation");
+        assert!(
+            error
+                .to_string()
+                .contains("snapshot_policy_version_mismatch"),
+            "{error}"
+        );
+
+        // A retired marker value is refused as well.
+        assert!(
+            ensure_numerical_snapshot_policy(
+                &config(Some("published-state-code-100-199:v1"), None, None),
+                snapshot_id,
+                SNAPSHOT_ARTIFACT_FORMAT
+            )
+            .is_err()
+        );
+
+        // Stale binding contract under a current marker is refused.
+        assert!(
+            ensure_numerical_snapshot_policy(
+                &config(Some(current_policy), Some(&binding), Some("f".repeat(64))),
+                snapshot_id,
+                SNAPSHOT_ARTIFACT_FORMAT
+            )
+            .is_err()
+        );
     }
 
     #[test]

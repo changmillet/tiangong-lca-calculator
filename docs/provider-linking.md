@@ -22,9 +22,9 @@ checkPaths:
   - crates/solver-worker/src/bin/snapshot_builder.rs
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-09-03
-lastReviewedCommit: 0b853ac7b79a0c438abd4f5dfbb08af0a3bcab32
-lastReviewedNote: "Reviewed for the Issue #279 production query hotfix; provider decision order and lineage-gate semantics remain unchanged."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #289: recorded that provider matching only sees Processes already admitted by the exact-100 public numerical universe (or the versioned owner scope). Decision order, default rule, candidate eligibility and diagnostics are unchanged."
 related:
   - AGENTS.md
   - docs/implicit-regional-supply-mix-modeling.md
@@ -45,6 +45,8 @@ related:
 ## 运行阶段
 
 Signed-flow link 发生在 snapshot build 阶段，不发生在 solve 阶段。
+
+Provider 匹配只处理已经进入数值候选集合的 Process。公共数值候选精确为 `state_code = 100`；预留发布段 `101..199`（含已发布 Result `120`）不再表示计算资格，因此不会成为 root、provider 或矩阵轴。Owner draft `0` 只在 versioned owner scope 且 `user_id` 等于当前 actor 时进入候选。该边界先于 reference port 分桶、lineage gate 和 provider rule 生效；被排除的 Process 不以 rejected candidate 形式出现在证据里，而是根本不进入候选宇宙。
 
 主链路：
 

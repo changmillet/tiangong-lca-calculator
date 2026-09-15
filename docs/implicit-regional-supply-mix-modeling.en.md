@@ -24,9 +24,9 @@ checkPaths:
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/signed_flow.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-09-03
-lastReviewedCommit: 0b853ac7b79a0c438abd4f5dfbb08af0a3bcab32
-lastReviewedNote: "Reviewed for the Issue #279 production query hotfix; Lifecycle Model visibility compatibility does not change allocation theory."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #289: clarified that implicit-mix candidates only reach routing after public numerical admission (exact 100, or the actor's own 0). Modeling basis, routing weights and boundary semantics are unchanged."
 related:
   - AGENTS.md
   - docs/agents/repo-architecture.md
@@ -85,7 +85,7 @@ Opposite signs guarantee non-negative activity requirements. Annual volume, geog
 
 ## Lifecycle boundary before regional routing
 
-The regional mix only receives candidates accepted by the lineage gate. Lifecycle Model `referenceToResultingProcess` and `processInstance.referenceToProcess` define exact-version result/component relationships. `processes.model_version` (falling back to the Process version under the database compatibility contract) identifies the exact Model revision associated with a Process. There is no global `is_current` flag.
+Candidates only ever reach this stage if they were already admitted by the public numerical eligibility rule (exact `state_code = 100`, or `0` for the requesting actor under the versioned owner scope); a published Result (`120`) and the reserved `101..199` segment are never supply sources for the implicit mix. The regional mix only receives candidates accepted by the lineage gate. Lifecycle Model `referenceToResultingProcess` and `processInstance.referenceToProcess` define exact-version result/component relationships. `processes.model_version` (falling back to the Process version under the database compatibility contract) identifies the exact Model revision associated with a Process. There is no global `is_current` flag.
 
 When an exact request root selects the resulting Process among conflicting candidates, that result exclusively supplies the edge; component Processes, results of older revisions of the same Model UUID, and alternative results do not enter the implicit mix. A lineage conflict without that evidence becomes unresolved as `lineage_overlap_requires_binding`; annual-volume and equal fallback cannot guess the boundary. Unrelated peer suppliers retain legacy behavior, and being a component does not globally disqualify a Process.
 

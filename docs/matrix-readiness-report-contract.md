@@ -24,9 +24,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-09-03
-lastReviewedCommit: 0b853ac7b79a0c438abd4f5dfbb08af0a3bcab32
-lastReviewedNote: "Reviewed for the Issue #279 production query hotfix; readiness schema and lineage evidence semantics remain unchanged."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #289: noted that the readiness input `config` now carries the numerical-policy marker and optional scope-closure binding fields. Report schema, blocker/finding codes, policy surface and next_action semantics are unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -55,7 +55,7 @@ Provider-link 的运行时决策顺序由 `docs/provider-linking.md` 维护。�
 
 输入 schema version 为 `matrix_readiness_input.v2`，核心字段为：
 
-- `config`: snapshot build config；其中 `link_semantics_version`、`technosphere_boundary_policy`、`flow_identity_policy` 决定本次 closure 的显式合同。
+- `config`: snapshot build config；其中 `link_semantics_version`、`technosphere_boundary_policy`、`flow_identity_policy` 决定本次 closure 的显式合同。 `SnapshotBuildConfig` 现在还携带 `numerical_policy_version`（公开数值资格策略标记）与可选的 `scope_closure_binding`／`snapshot_build_contract_hash`。它们参与 snapshot 身份与复用判定，但不改变本报告的 schema、blocker、finding 或 policy 语义。
 - `coverage`: `snapshot_coverage.v3` report，同时提供中性 `residual_edges_total` / `a_balance_edges_written` 和 legacy input/provider 兼容计数。
 - `payload`: `ModelSparseData` sparse payload。
 - `compiled_graph`（可选）：fresh build 时包含以 `(Flow UUID, resolved version)` 标识的 flow axis、`reference_ports`、`balance_resolutions`、`unresolved_balances`，以及兼容的 provider decision projection。没有该字段时仍可验证 coverage/compute，但逐边解释证据会为空。

@@ -24,9 +24,9 @@ checkPaths:
   - crates/solver-worker/src/bin/review_quality_diagnostic_runner.rs
   - crates/**
   - supabase/migrations/**
-lastReviewedAt: 2026-08-13
-lastReviewedCommit: 223892ac89d08e5266b41c7d697ecb121d20d508
-lastReviewedNote: "Updated for Issue #249: Edge exposes Review Admin-only manual diagnostic start/read behavior and never turns quality findings into Review blockers."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #289: the package-build manifest now accepts only exact stateCode 100; the reserved segment including the published Result state fails closed before build. Enqueue, polling and service-role boundaries are unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -160,7 +160,7 @@ worker 侧以 `private.worker_jobs` 为任务生命周期事实，并继续推�
 
 `public_plus_owner_draft` 是 fail-closed 协议：Edge 负责生产和预校验证据，worker 仍会独立验证 payload、process/flow 数据库行可见性、reviewed static LCIA bundle、snapshot-index evidence 与 solve binding。scope manifest 只覆盖 processes/flows；LCIA 来源是 actor-independent、hash-bound 的 25-method cache bundle。Edge 只能发送固定相对清单路径、最终 raw SHA 和完全相同的 embedded manifest，不能发送 URL。worker 从可信配置的 HTTPS base（或本地验证目录）取文件，验证大小、全部哈希、alias、方法成员和 factor 数值后参与计算。coverage 按 method/exchange pair 统计；任一方法缺 factor 都保持 `incomplete_coverage_not_zero` 和外置 JSONL 证据，不能被 UI 当成“完整的零影响”。
 
-LCIA result package 构建走同一个 `worker_jobs(worker_queue=solver)` 生命周期，但不是普通 `/lca/solve` 请求。Edge 的 data product manager command 应先通过数据库 command 解析权限、published-only eligibility 和默认 impact category，再 enqueue `job_kind=lcia_result.package_build` / `payload_schema_version=lcia_result.package_build.request.v1`。payload 使用数据库返回的 `buildId`、`requestedBy`、`coverageMode`、`inputManifest`、`inputManifestHash`、`eligibleInputCount`、`includedInputCount`、`lciaMethodSet` 和可选 `defaultImpactCategory`；worker 只消费已发布 `stateCode/state_code=100..199` 的 manifest 输入。worker 完成后用 service-role DB 连接调用 `private.cmd_lcia_result_package_mark_ready(...)` 固化 `lcia_result_packages` preview package；发布仍由 Edge manager command 调用数据库 publish RPC 完成。
+LCIA result package 构建走同一个 `worker_jobs(worker_queue=solver)` 生命周期，但不是普通 `/lca/solve` 请求。Edge 的 data product manager command 应先通过数据库 command 解析权限、published-only eligibility 和默认 impact category，再 enqueue `job_kind=lcia_result.package_build` / `payload_schema_version=lcia_result.package_build.request.v1`。payload 使用数据库返回的 `buildId`、`requestedBy`、`coverageMode`、`inputManifest`、`inputManifestHash`、`eligibleInputCount`、`includedInputCount`、`lciaMethodSet` 和可选 `defaultImpactCategory`；worker 只消费 `stateCode/state_code` 精确为 `100` 的公共数值 manifest 输入；预留段 `101..199`（含已发布 Result `120`）不再表示计算资格，携带这些状态的 manifest 会在构建前 fail closed。worker 完成后用 service-role DB 连接调用 `private.cmd_lcia_result_package_mark_ready(...)` 固化 `lcia_result_packages` preview package；发布仍由 Edge manager command 调用数据库 publish RPC 完成。
 
 ## 5. 与 worker 的职责边界
 

@@ -36,6 +36,20 @@ use crate::{
 
 const OPEN_DATA_STATE_CODE_START: i32 = 100;
 const OPEN_DATA_STATE_CODE_END: i32 = 199;
+/// `processes` rows withheld from product export under
+/// [`solver_worker::PRODUCT_EXPORT_POLICY_VERSION`].
+///
+/// Only the reserved published-Result state is withheld, and only for the `processes` table. Flow,
+/// flow-property, unit-group, source and contact support data keep the existing `100..=199` export
+/// semantics, and import conflict handling is unchanged.
+const EXPORT_WITHHELD_PROCESS_STATE_CODES: [i32; 1] = [crate::PUBLISHED_RESULT_PROCESS_STATE];
+/// True when this table carries the product-exposure policy.
+///
+/// The policy is about Result *Processes*; support data is never withheld, so a Result Process that
+/// happens to be referenced by a Flow or Model cannot remove that support document from a package.
+const fn table_is_product_exposure_scoped(table: PackageRootTable) -> bool {
+    matches!(table, PackageRootTable::Processes)
+}
 const PACKAGE_MANIFEST_FORMAT: &str = "tiangong-tidas-package";
 const PACKAGE_MANIFEST_VERSION: u8 = 2;
 const PACKAGE_ZIP_COMPRESSION_LEVEL: i64 = 6;
@@ -46,6 +60,8 @@ const IMPORT_REPORT_SUFFIX: &str = "import-report";
 const EXPORT_REF_BATCH_SIZE: i64 = 96;
 const EXPORT_SEED_SCAN_BATCH_SIZE: i64 = 256;
 const EXPORT_FINALIZE_FETCH_BATCH_SIZE: usize = 256;
+/// Maximum number of missing hydration keys echoed in the fail-closed diagnostic.
+const EXPORT_FINALIZE_MISSING_SAMPLE_LIMIT: usize = 8;
 const EXPORT_ITEM_INSERT_CHUNK_SIZE: usize = 500;
 const EXPORT_BATCHES_PER_PASS: usize = 6;
 const EXPORT_PASS_TIME_BUDGET: Duration = Duration::from_secs(20);
@@ -440,6 +456,10 @@ pub async fn execute_export_package(
 
     let roots = list_export_seed_roots(&state.pool, job_id).await?;
     let item_refs = list_export_items(&state.pool, job_id).await?;
+    // Defense in depth for the product-exposure policy: every reader above is already fenced, and
+    // this re-check makes the invariant explicit so a future reader that forgets the fence fails the
+    // export instead of silently shipping a published Result.
+    ensure_export_items_exclude_withheld_processes(&state.pool, &item_refs).await?;
     let entries =
         fetch_export_entries_by_items(state, job_id, scope, root_count, &item_refs).await?;
     let manifest = build_manifest(scope, &roots, &entries);
@@ -467,11 +487,14 @@ pub async fn execute_export_package(
             PackageArtifactKind::ExportZip,
             zip_url.clone(),
             zip_artifact,
+            // The exposure policy is bound into the artifact metadata so a downloaded ZIP can be
+            // traced to the rule that produced it. It is not a numerical-eligibility claim.
             json!({
                 "filename": filename,
                 "scope": scope,
                 "root_count": roots.len(),
                 "total_count": entries.len(),
+                "productExportPolicyVersion": crate::PRODUCT_EXPORT_POLICY_VERSION,
             }),
         ),
     )
@@ -842,16 +865,38 @@ async fn fetch_scope_root_refs_single(
     for table in SUPPORTED_PACKAGE_TABLES {
         let rows = match scope {
             PackageExportScope::CurrentUser => {
-                sqlx::query(&scope_root_refs_by_user_sql(table))
-                    .bind(requested_by)
-                    .fetch_all(pool)
-                    .await?
+                let query = scope_root_refs_by_user_sql(table);
+                let withheld = EXPORT_WITHHELD_PROCESS_STATE_CODES[0];
+                if root_ref_product_exposure_clause(table).is_empty() {
+                    sqlx::query(query.as_str())
+                        .bind(requested_by)
+                        .fetch_all(pool)
+                        .await?
+                } else {
+                    sqlx::query(query.as_str())
+                        .bind(requested_by)
+                        .bind(withheld)
+                        .fetch_all(pool)
+                        .await?
+                }
             }
             PackageExportScope::OpenData => {
-                sqlx::query(&scope_root_refs_by_open_data_sql(table))
-                    .bind(open_data_state_codes())
-                    .fetch_all(pool)
-                    .await?
+                let query = scope_root_refs_by_open_data_sql(table);
+                match root_ref_product_exposure_clause(table) {
+                    clause if clause.is_empty() => {
+                        sqlx::query(query.as_str())
+                            .bind(open_data_state_codes())
+                            .fetch_all(pool)
+                            .await?
+                    }
+                    _ => {
+                        sqlx::query(query.as_str())
+                            .bind(open_data_state_codes())
+                            .bind(EXPORT_WITHHELD_PROCESS_STATE_CODES[0])
+                            .fetch_all(pool)
+                            .await?
+                    }
+                }
             }
             PackageExportScope::CurrentUserAndOpenData | PackageExportScope::SelectedRoots => {
                 unreachable!("scope is normalized before fetch_scope_root_refs_single")
@@ -869,22 +914,34 @@ async fn fetch_scope_root_refs_single(
 }
 
 fn scope_root_refs_by_user_sql(table: PackageRootTable) -> String {
+    let exposure_clause = if table_is_product_exposure_scoped(table) {
+        "AND state_code IS DISTINCT FROM $2"
+    } else {
+        ""
+    };
     format!(
         r"
         SELECT id::text AS id, version::text AS version
         FROM {}
         WHERE user_id = $1
+          {exposure_clause}
         ",
         table_name(table)
     )
 }
 
 fn scope_root_refs_by_open_data_sql(table: PackageRootTable) -> String {
+    let exposure_clause = if table_is_product_exposure_scoped(table) {
+        "AND state_code IS DISTINCT FROM $2"
+    } else {
+        ""
+    };
     format!(
         r"
         SELECT id::text AS id, version::text AS version
         FROM {}
         WHERE state_code = ANY($1::int[])
+          {exposure_clause}
         ",
         table_name(table)
     )
@@ -950,6 +1007,12 @@ async fn fetch_scope_seed_scan_batch_after_cursor(
                 "selected_roots should not use scope cursor batching"
             ));
         }
+    }
+
+    if table_is_product_exposure_scoped(table) {
+        builder
+            .push(" AND state_code IS DISTINCT FROM ")
+            .push_bind(EXPORT_WITHHELD_PROCESS_STATE_CODES[0]);
     }
 
     if let Some(after_id) = after_id {
@@ -1684,10 +1747,80 @@ async fn fetch_export_entries_by_items(
             })
             .collect::<Vec<_>>();
         let mut fetched = fetch_rows_by_exact_roots(&state.pool, roots.as_slice()).await?;
+        // Final hydration must reproduce the exact queued item set. A queued item can be missing
+        // because it was filtered by the product-exposure fence or because the row disappeared
+        // after the traversal recorded it; either way a short read would silently publish an
+        // incomplete dependency closure, so it fails closed instead.
+        let fetched_keys = fetched
+            .iter()
+            .map(|entry| table_key(entry.table, entry.id, &entry.version))
+            .collect::<HashSet<_>>();
+        let missing = roots
+            .iter()
+            .map(|root| table_key(root.table, root.id, &root.version))
+            .filter(|key| !fetched_keys.contains(key))
+            .collect::<Vec<_>>();
+        if !missing.is_empty() {
+            let mut sample = missing.clone();
+            sample.sort_unstable();
+            sample.truncate(EXPORT_FINALIZE_MISSING_SAMPLE_LIMIT);
+            return Err(anyhow::anyhow!(
+                "package export hydration is incomplete: {} queued item(s) could not be read, examples={sample:?}; refusing to publish a partial dependency closure",
+                missing.len()
+            ));
+        }
         entries.append(&mut fetched);
     }
 
     Ok(sort_entries(entries))
+}
+
+/// Fails the export when a queued `processes` item is a withheld published Result.
+///
+/// The seed, reference, resume and hydration readers already apply the product-exposure fence, so
+/// this re-check exists to make the invariant explicit at the finalization boundary. It inspects the
+/// exact `(id, version)` items already queued for the package, which is what the ZIP is built from.
+async fn ensure_export_items_exclude_withheld_processes(
+    pool: &PgPool,
+    items: &[PackageExportItem],
+) -> anyhow::Result<()> {
+    let process_items = items
+        .iter()
+        .filter(|item| item.table == PackageRootTable::Processes)
+        .collect::<Vec<_>>();
+    if process_items.is_empty() {
+        return Ok(());
+    }
+    let ids = process_items.iter().map(|item| item.id).collect::<Vec<_>>();
+    let versions = process_items
+        .iter()
+        .map(|item| item.version.clone())
+        .collect::<Vec<_>>();
+    let rows = sqlx::query(
+        r"
+        SELECT p.id::text AS id, btrim(p.version::text) AS version, p.state_code
+        FROM public.processes p
+        INNER JOIN unnest($1::uuid[], $2::text[]) AS queued(id, version)
+          ON queued.id = p.id
+         AND queued.version = btrim(p.version::text)
+        WHERE p.state_code = ANY($3::int[])
+        ",
+    )
+    .bind(ids)
+    .bind(versions)
+    .bind(EXPORT_WITHHELD_PROCESS_STATE_CODES.to_vec())
+    .fetch_all(pool)
+    .await?;
+    if let Some(row) = rows.first() {
+        let id = row.try_get::<String, _>("id")?;
+        let version = row.try_get::<String, _>("version")?;
+        let state_code = row.try_get::<i32, _>("state_code")?;
+        return Err(anyhow::anyhow!(
+            "{}: refusing to build a product package containing process {id}@{version} with state_code={state_code}",
+            crate::PRODUCT_EXPORT_POLICY_VERSION
+        ));
+    }
+    Ok(())
 }
 
 fn export_progress_diagnostics(
@@ -2522,7 +2655,7 @@ async fn fetch_rows_by_exact_roots(
             .iter()
             .map(|root| table_key(root.table, root.id, &root.version))
             .collect::<HashSet<_>>();
-        let rows = sqlx::query(select_by_ids_sql(table))
+        let rows = sqlx::query(select_by_ids_sql(table).as_str())
             .bind(ids)
             .fetch_all(pool)
             .await?;
@@ -2687,7 +2820,7 @@ async fn fetch_referenced_entries(
             .iter()
             .map(|reference| reference.id)
             .collect::<Vec<_>>();
-        let rows = sqlx::query(select_by_ids_sql(table))
+        let rows = sqlx::query(select_by_ids_sql(table).as_str())
             .bind(ids)
             .fetch_all(pool)
             .await?;
@@ -2714,7 +2847,8 @@ async fn fetch_model_processes(
     model_id: Uuid,
     version: &str,
 ) -> anyhow::Result<Vec<PackageEntry>> {
-    let rows = sqlx::query(
+    let exposure_clause = model_process_exposure_clause();
+    let query = format!(
         r"
         SELECT
             id::text AS id,
@@ -2726,12 +2860,14 @@ async fn fetch_model_processes(
         FROM public.processes
         WHERE model_id = $1
           AND version = $2
+          {exposure_clause}
         ",
-    )
-    .bind(model_id)
-    .bind(version)
-    .fetch_all(pool)
-    .await?;
+    );
+    let rows = sqlx::query(query.as_str())
+        .bind(model_id)
+        .bind(version)
+        .fetch_all(pool)
+        .await?;
 
     rows.iter()
         .map(|row| parse_package_entry_row(PackageRootTable::Processes, row))
@@ -2744,7 +2880,8 @@ async fn fetch_model_process_roots(
     model_id: Uuid,
     version: &str,
 ) -> anyhow::Result<Vec<PackageRootRef>> {
-    let rows = sqlx::query(
+    let exposure_clause = model_process_exposure_clause();
+    let query = format!(
         r"
         SELECT
             id::text AS id,
@@ -2752,12 +2889,14 @@ async fn fetch_model_process_roots(
         FROM public.processes
         WHERE model_id = $1
           AND version = $2
+          {exposure_clause}
         ",
-    )
-    .bind(model_id)
-    .bind(version)
-    .fetch_all(pool)
-    .await?;
+    );
+    let rows = sqlx::query(query.as_str())
+        .bind(model_id)
+        .bind(version)
+        .fetch_all(pool)
+        .await?;
 
     rows.iter()
         .map(|row| parse_root_ref_row(PackageRootTable::Processes, row))
@@ -3718,6 +3857,7 @@ fn parse_artifact_kind(value: &str) -> Option<PackageArtifactKind> {
 }
 
 fn select_root_refs_by_ids_sql(table: PackageRootTable) -> String {
+    let exposure_clause = root_ref_product_exposure_clause(table);
     format!(
         r"
         SELECT
@@ -3725,23 +3865,59 @@ fn select_root_refs_by_ids_sql(table: PackageRootTable) -> String {
             version::text AS version
         FROM {}
         WHERE id = ANY($1::uuid[])
+          {exposure_clause}
         ",
         table_name(table)
     )
 }
 
+/// Adds the product-exposure fence to a root-reference lookup.
+///
+/// Only `processes` lookups are narrowed, and only by the decided published-Result state, so
+/// support tables and every other `state_code` keep their current behavior.
+///
+/// The comparison is `IS DISTINCT FROM`, not `<>`: `state_code` is nullable, and `NULL <> 120` is
+/// UNKNOWN, which would silently drop previously exportable NULL-state rows. This matches the
+/// Database-side predicate, which also uses `is distinct from 120`. NULL stays *ineligible for
+/// numerical computation*; it merely remains exportable, as it was before this policy.
+fn root_ref_product_exposure_clause(table: PackageRootTable) -> String {
+    if table_is_product_exposure_scoped(table) {
+        format!(
+            "AND state_code IS DISTINCT FROM {}",
+            EXPORT_WITHHELD_PROCESS_STATE_CODES
+                .iter()
+                .map(i32::to_string)
+                .collect::<Vec<_>>()
+                .join(" AND state_code IS DISTINCT FROM ")
+        )
+    } else {
+        String::new()
+    }
+}
+
+/// Product-exposure fence for `processes` rows reached through a Lifecycle Model.
+///
+/// A Model that references both a Unit and its derived Result must contribute only the Unit to the
+/// package; otherwise the Result re-enters through the model→process expansion even though every
+/// direct reader is already fenced.
+fn model_process_exposure_clause() -> String {
+    root_ref_product_exposure_clause(PackageRootTable::Processes)
+}
+
 fn select_reference_scan_by_ids_sql(table: PackageRootTable) -> String {
+    let exposure_clause = root_ref_product_exposure_clause(table);
     format!(
         r"
         {}
         WHERE id = ANY($1::uuid[])
+          {exposure_clause}
         ",
         scope_seed_scan_select_prefix_sql(table)
     )
 }
 
-fn select_by_ids_sql(table: PackageRootTable) -> &'static str {
-    match table {
+fn select_by_ids_sql(table: PackageRootTable) -> String {
+    let base = match table {
         PackageRootTable::Contacts => {
             r"
             SELECT
@@ -3833,6 +4009,12 @@ fn select_by_ids_sql(table: PackageRootTable) -> &'static str {
             WHERE id = ANY($1::uuid[])
             "
         }
+    };
+    let exposure_clause = root_ref_product_exposure_clause(table);
+    if exposure_clause.is_empty() {
+        base.to_owned()
+    } else {
+        format!("{base}\n{exposure_clause}")
     }
 }
 
@@ -4275,11 +4457,14 @@ mod tests {
         ConflictRow, ExportTraversalCache, PackageEntry, PackageManifest, PackageManifestEntry,
         ReferenceTarget, VALIDATION_ISSUE_SAMPLE_LIMIT, clear_runtime_export_traversal_cache,
         extract_model_submodels_from_value, extract_package_zip_to_tempdir,
-        load_runtime_export_traversal_cache, normalize_json_ordered_for_insert,
-        normalize_version_string, parse_package_entries, parse_tidas_validation_report,
-        partition_conflicts_from_rows, plan_reference_resolution, preflight_import_validation,
-        remember_root_in_traversal_cache, report_from_validation_failure,
-        resolve_exact_or_latest_roots, resolve_referenced_entries_from_rows,
+        is_skippable_import_conflict_state_code, load_runtime_export_traversal_cache,
+        normalize_json_ordered_for_insert, normalize_version_string, open_data_state_codes,
+        parse_package_entries, parse_tidas_validation_report, partition_conflicts_from_rows,
+        plan_reference_resolution, preflight_import_validation, remember_root_in_traversal_cache,
+        report_from_validation_failure, resolve_exact_or_latest_roots,
+        resolve_referenced_entries_from_rows, root_ref_product_exposure_clause,
+        scope_root_refs_by_open_data_sql, scope_root_refs_by_user_sql, select_by_ids_sql,
+        select_reference_scan_by_ids_sql, select_root_refs_by_ids_sql,
         store_runtime_export_traversal_cache,
     };
     use crate::package_types::{PackageExportScope, PackageRootRef, PackageRootTable};
@@ -4745,6 +4930,97 @@ mod tests {
 
         clear_runtime_export_traversal_cache(job_id);
         assert!(load_runtime_export_traversal_cache(job_id).is_none());
+    }
+
+    #[test]
+    fn product_export_fence_applies_only_to_processes_and_only_the_result_state() {
+        // Only `processes` carries the product-exposure fence.
+        for table in [
+            PackageRootTable::Contacts,
+            PackageRootTable::Sources,
+            PackageRootTable::Unitgroups,
+            PackageRootTable::Flowproperties,
+            PackageRootTable::Flows,
+            PackageRootTable::Lifecyclemodels,
+        ] {
+            assert!(
+                root_ref_product_exposure_clause(table).is_empty(),
+                "support table {table:?} must keep its existing export semantics"
+            );
+        }
+        let processes_clause = root_ref_product_exposure_clause(PackageRootTable::Processes);
+        assert!(processes_clause.contains("120"));
+
+        // Every active reader that can select or hydrate a Process root carries the fence. Each
+        // helper is checked, not just one root filter.
+        for (label, sql) in [
+            (
+                "select_root_refs_by_ids",
+                select_root_refs_by_ids_sql(PackageRootTable::Processes),
+            ),
+            (
+                "select_reference_scan_by_ids",
+                select_reference_scan_by_ids_sql(PackageRootTable::Processes),
+            ),
+            (
+                "select_by_ids",
+                select_by_ids_sql(PackageRootTable::Processes),
+            ),
+            (
+                "scope_root_refs_by_user",
+                scope_root_refs_by_user_sql(PackageRootTable::Processes),
+            ),
+            (
+                "scope_root_refs_by_open_data",
+                scope_root_refs_by_open_data_sql(PackageRootTable::Processes),
+            ),
+        ] {
+            assert!(
+                sql.contains("state_code IS DISTINCT FROM"),
+                "{label} must fence the withheld state NULL-safely: {sql}"
+            );
+            // A bare `<>`/`!=` comparison is UNKNOWN for a NULL state and would silently drop
+            // previously exportable rows.
+            assert!(
+                !sql.contains("state_code <>") && !sql.contains("state_code !="),
+                "{label} must not use a NULL-unsafe comparison: {sql}"
+            );
+        }
+
+        // Open-data keeps its existing `100..=199` predicate for processes.
+        assert!(
+            scope_root_refs_by_open_data_sql(PackageRootTable::Processes)
+                .contains("state_code = ANY($1::int[])")
+        );
+
+        // Support tables are never narrowed, and a Flow lookup keeps no state predicate at all.
+        for table in [
+            PackageRootTable::Flows,
+            PackageRootTable::Flowproperties,
+            PackageRootTable::Unitgroups,
+            PackageRootTable::Sources,
+            PackageRootTable::Contacts,
+        ] {
+            let sql = select_root_refs_by_ids_sql(table);
+            assert!(
+                !sql.contains("state_code"),
+                "{table:?} root lookups must not be narrowed: {sql}"
+            );
+        }
+
+        // Import conflict semantics are deliberately untouched by the export policy.
+        assert!(is_skippable_import_conflict_state_code(100));
+        assert!(is_skippable_import_conflict_state_code(199));
+        assert!(is_skippable_import_conflict_state_code(200));
+        // `120` stays inside the existing `100..=199` reuse rule on import: this change excludes the
+        // published Result from *product export*, and does not redefine import conflicts.
+        assert!(is_skippable_import_conflict_state_code(120));
+        assert!(!is_skippable_import_conflict_state_code(99));
+        assert_eq!(
+            open_data_state_codes().first().copied(),
+            Some(100),
+            "open-data export seeds keep their 100..=199 range"
+        );
     }
 
     #[test]

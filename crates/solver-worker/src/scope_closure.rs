@@ -10039,7 +10039,7 @@ mod tests {
             "requestedScope": {
                 "schemaVersion": "lcia.scope-manifest.v1",
                 "coverageMode": "subset",
-                "eligibilityPredicateVersion": "published-state-code-100-199:v1",
+                "eligibilityPredicateVersion": "candidate-public-state-code-100:v2",
                 "processes": [],
                 "lciaMethods": [],
                 "versionResolutionPolicy": "reference-version-resolution-v1",
@@ -10162,7 +10162,8 @@ mod tests {
         RequestedScopeManifest {
             schema_version: "lcia.scope-manifest.v1".to_owned(),
             coverage_mode: "subset".to_owned(),
-            eligibility_predicate_version: "published-state-code-100-199:v1".to_owned(),
+            eligibility_predicate_version: crate::CANDIDATE_PUBLIC_NUMERICAL_PREDICATE_V2
+                .to_owned(),
             processes: processes
                 .into_iter()
                 .map(|item| RequestedIdentity {

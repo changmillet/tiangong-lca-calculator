@@ -28,9 +28,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-09-03
-lastReviewedCommit: 72b8247aa9fade1f57ead7e4801e7bd975fcaf7f
-lastReviewedNote: "Documented Worker Issue #277 explicit invalid-payload and unclassified runtime failure disposition; diagnostic workflow semantics remain unchanged."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #289: the dedicated diagnostic candidate scope is now in-review 20 plus public 100; the reserved segment and the published Result state are outside it. Report schema, informational outcomes and Review-state neutrality are unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -97,10 +97,12 @@ cargo run -p solver-worker --bin review_quality_diagnostic_runner -- --once
 
 runner 在一次运行开始时读取 `private.reviews` 中 `review_kind in (root, reference)` 且 `state_code in payload.scope.reviewStates` 的当前记录，并按 `(target_table, data_id, data_version)` 去重。
 
-所有待审核 `processes` target 作为同一次 snapshot build 的 request roots。候选 Process 范围是：
+所有待审核 `processes` target 作为同一次 snapshot build 的 request roots。候选 Process 范围是这个专用诊断唯一的数值例外，只包含：
 
 - `state_code = 20` 的审核中 Process；
-- `state_code = 100..199` 的公共 Process。
+- `state_code = 100` 的公共 Process。
+
+该范围由 runner 显式传入，不经过通用 job 入口；普通公共数值范围仍是精确 `100`，预留段 `101..199` 与已发布 Result 状态 `120` 同样不会进入本诊断矩阵。
 
 snapshot builder 对全部 roots 一起解析 provider closure，因此报告反映联合矩阵，而不是把旧的单条提交 Gate 批量循环执行。Flow 等依赖按 Process 中的 exact reference 解析；缺失或结构非法的依赖必须成为完整性发现。
 

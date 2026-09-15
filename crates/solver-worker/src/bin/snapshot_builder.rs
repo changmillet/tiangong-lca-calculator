@@ -74,10 +74,10 @@ use solver_worker::signed_flow::{
     signed_coefficient,
 };
 use solver_worker::snapshot_artifacts::{
-    EncodedSnapshotArtifact, SNAPSHOT_ARTIFACT_FORMAT, ScopeClosureSnapshotBinding,
-    SnapshotAllocationCoverage, SnapshotBuildConfig, SnapshotCandidateSummary,
-    SnapshotCoverageReport, SnapshotGapSummary, SnapshotGeographySummary, SnapshotLinkedArtifact,
-    SnapshotMatchingCoverage, SnapshotMatrixScale, SnapshotProcessGapEntry,
+    DecodedSnapshotArtifact, EncodedSnapshotArtifact, SNAPSHOT_ARTIFACT_FORMAT,
+    ScopeClosureSnapshotBinding, SnapshotAllocationCoverage, SnapshotBuildConfig,
+    SnapshotCandidateSummary, SnapshotCoverageReport, SnapshotGapSummary, SnapshotGeographySummary,
+    SnapshotLinkedArtifact, SnapshotMatchingCoverage, SnapshotMatrixScale, SnapshotProcessGapEntry,
     SnapshotProviderDecisionDiagnostics, SnapshotReferenceCoverage, SnapshotResolutionSummary,
     SnapshotReviewBaseline, SnapshotReviewGateEvidence, SnapshotSingularRisk,
     SnapshotUnmatchedFlowEntry, SnapshotVolumeWeightSummary, decode_snapshot_artifact,
@@ -104,7 +104,11 @@ use solver_worker::static_lcia_cache::{
 use solver_worker::storage::ObjectStoreClient;
 use uuid::Uuid;
 
-const REVIEW_SUBMIT_OVERLAY_ARTIFACT_PURPOSE: &str = "review_submit_overlay";
+/// Stored `process_filter` field carrying the numerical-policy marker of a READY snapshot.
+const NUMERICAL_POLICY_VERSION_FIELD: &str = "numerical_policy_version";
+
+const REVIEW_SUBMIT_OVERLAY_ARTIFACT_PURPOSE: &str =
+    solver_worker::REVIEW_SUBMIT_OVERLAY_ARTIFACT_PURPOSE;
 const REVIEW_SUBMIT_BASELINE_ARTIFACT_PURPOSE: &str = "review_submit_baseline";
 const REVIEW_SUBMIT_BASELINE_TTL_SECONDS: i64 = 30 * 24 * 60 * 60;
 const DEFAULT_SNAPSHOT_DB_STATEMENT_TIMEOUT_SECONDS: u64 = 900;
@@ -1101,6 +1105,7 @@ struct SourceSnapshotSummary {
 struct ReuseCandidate {
     snapshot_id: Uuid,
     artifact_url: String,
+    artifact_format: String,
     coverage: SnapshotCoverageReport,
     process_count: i64,
     flow_count: i64,
@@ -1273,6 +1278,60 @@ fn validate_versioned_scope_cli(
         requested_by: cli.include_user_id,
     })
     .map(Some)
+}
+
+/// Resolves the process-state filter for this builder invocation.
+///
+/// Resolution is intentionally narrow and one-directional: the ordinary public numerical scope is
+/// the only accepted non-review universe. `all`/`--all-states` carries its own explicit field, and
+/// the caller (or the versioned scope contract, which requires `all_states=false`) decides what no
+/// filter means; an *explicit* `all_states=true` is never a numerical bypass and fails closed here.
+fn resolve_builder_process_states(
+    cli: &Cli,
+    versioned_scope: Option<&ValidatedPublicOwnerDraftScope>,
+) -> anyhow::Result<(bool, Vec<i32>, String)> {
+    if versioned_scope.is_some() {
+        // The versioned `public_plus_owner_draft` contract owns its own exact scope; queue-time
+        // validation has already required `process_states=100` and the nil team/review guards that
+        // keep `team_id`/`review_id` workflow metadata rather than ownership gates.
+        return parse_process_states(cli.process_states.as_str());
+    }
+    if cli.all_states == Some(true) {
+        return Err(anyhow::anyhow!(
+            "public_process_state_scope_must_be_exactly_100: all_states=true is not a numerical public scope"
+        ));
+    }
+    let process_states = cli.process_states.trim();
+    if process_states.is_empty() || process_states.eq_ignore_ascii_case("all") {
+        // No explicit filter on the default numerical build path: use the fail-closed public
+        // numerical scope instead of every state in the database.
+        return Ok((
+            false,
+            solver_worker::numerical_process_states(),
+            solver_worker::default_snapshot_process_states_arg(),
+        ));
+    }
+    if solver_worker::is_numerical_process_states_arg(process_states) {
+        return Ok((
+            false,
+            solver_worker::numerical_process_states(),
+            solver_worker::default_snapshot_process_states_arg(),
+        ));
+    }
+    // The dedicated Review Admin diagnostic owns the one intentional numeric exception: in-review
+    // `20` plus public `100`. It is matched exactly and only under that artifact purpose, so this
+    // exception cannot be reached by an ordinary numerical build.
+    if cli.artifact_purpose.as_deref()
+        == Some(solver_worker::REVIEW_QUALITY_DIAGNOSTIC_SNAPSHOT_ARTIFACT_PURPOSE)
+        && solver_worker::is_review_quality_diagnostic_process_states_arg(process_states)
+    {
+        return parse_process_states(process_states);
+    }
+    // Owner drafts (`0`) are admitted only by the versioned owner scope, never by the bare state
+    // value; the review diagnostic has its own job family. Everything else fails closed.
+    Err(anyhow::anyhow!(
+        "public_process_state_scope_must_be_exactly_100: offline builder refused process_states={process_states}"
+    ))
 }
 
 fn parse_required_json_arg(value: Option<&str>, name: &str) -> anyhow::Result<Value> {
@@ -1487,7 +1546,7 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
 
     let requested_snapshot_id = cli.snapshot_id;
     let (all_states, state_codes, process_states_label) =
-        parse_process_states(&cli.process_states)?;
+        resolve_builder_process_states(&cli, versioned_scope.as_ref())?;
     let request_roots = normalize_request_roots(&cli.root_processes);
     if !request_roots.is_empty() && cli.process_limit > 0 {
         return Err(anyhow::anyhow!(
@@ -1517,6 +1576,7 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
     let reuse_max_age_seconds = positive_seconds(cli.reuse_max_age_seconds);
     let mut build_config = SnapshotBuildConfig {
         process_states: process_states_label.clone(),
+        numerical_policy_version: Some(solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned()),
         include_user_id: cli.include_user_id,
         data_scope: versioned_scope
             .as_ref()
@@ -1527,6 +1587,7 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
         scope_closure_binding: scope_closure_snapshot
             .as_ref()
             .map(|(binding, _, _)| binding.clone()),
+        snapshot_build_contract_hash: None,
         lcia_method_factor_source: method.source_evidence.clone(),
         selection_mode,
         request_roots: request_roots.clone(),
@@ -1562,11 +1623,39 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
         all_states,
         &state_codes,
         cli.include_user_id,
+        cli.artifact_purpose.as_deref(),
         versioned_scope.as_ref(),
         scope_closure_snapshot
             .as_ref()
             .map(|(_, snapshot, _)| snapshot),
         scope_closure_candidate_axis.as_ref(),
+    )
+    .await?;
+    ensure_request_roots_are_numerically_eligible(
+        &pool,
+        &request_roots,
+        RequestRootAuthorization {
+            // Same actor the candidate query authorizes: the versioned scope actor, or the explicit
+            // operator identity on the offline path.
+            scope_actor: versioned_scope
+                .as_ref()
+                .map_or(cli.include_user_id, |scope| Some(scope.actor_user_id)),
+            include_user_unassigned_only: versioned_scope
+                .as_ref()
+                .map_or(cli.include_user_unassigned_only, |scope| {
+                    scope.include_user_unassigned_only
+                }),
+            include_user_review_free_only: versioned_scope
+                .as_ref()
+                .map_or(cli.include_user_review_free_only, |scope| {
+                    scope.include_user_review_free_only
+                }),
+            // The diagnostic roots at in-review Processes only under its own exact purpose.
+            allow_review_diagnostic: review_exceptions_for_artifact_purpose(
+                cli.artifact_purpose.as_deref(),
+            )
+            .1,
+        },
     )
     .await?;
     let request_scope_flow_requests = collect_process_flow_reference_requests(&candidate_processes);
@@ -1803,6 +1892,24 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
         let snapshot_index_url = derive_snapshot_index_url(&reused.artifact_url);
         match store.download_object_url(&snapshot_index_url).await {
             Ok(index_bytes) => {
+                // Refuse to hand a retired eligibility policy to a new calculation. The artifact
+                // bytes stay untouched and readable; only reuse as new evidence fails closed.
+                let reused_artifact_bytes = store
+                    .download_object_url(&reused.artifact_url)
+                    .await
+                    .map_err(|error| {
+                    anyhow::anyhow!(
+                        "reusable snapshot {} artifact is unreadable: {error}",
+                        reused.snapshot_id
+                    )
+                })?;
+                let reused_artifact = decode_snapshot_artifact(reused_artifact_bytes.as_slice())?;
+                if !reusable_snapshot_policy_matches(&reused, &reused_artifact) {
+                    return Err(anyhow::anyhow!(
+                        "snapshot_policy_version_mismatch: snapshot {} was built under a retired numerical build contract; rebuild it under the current public numerical eligibility policy",
+                        reused.snapshot_id
+                    ));
+                }
                 validate_reusable_snapshot_index(
                     &index_bytes,
                     reused.snapshot_id,
@@ -1872,6 +1979,17 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
     build_timing.load_method_factors_sec = factor_map_started.elapsed().as_secs_f64();
 
     let snapshot_id = requested_snapshot_id.unwrap_or_else(Uuid::new_v4);
+    // Record the numerical build-contract policy this artifact is produced under, so new compute
+    // execution can refuse to reuse evidence from a retired policy. The hash binds the exact
+    // scope-closure evidence and snapshot identity, and matches the Database-side derivation.
+    build_config.snapshot_build_contract_hash =
+        build_config.scope_closure_binding.as_ref().map(|binding| {
+            scope_closure_snapshot_build_contract_hash(
+                binding,
+                snapshot_id,
+                SNAPSHOT_ARTIFACT_FORMAT,
+            )
+        });
     let build_started = Instant::now();
     let mut built = build_sparse_payload(
         &pool,
@@ -2064,9 +2182,7 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
 
     let snapshot_index_bytes = serde_json::to_vec(&built.snapshot_index)?;
     let snapshot_index_sha256 = sha256_bytes(snapshot_index_bytes.as_slice());
-    let snapshot_build_contract_hash = build_config.scope_closure_binding.as_ref().map(|binding| {
-        scope_closure_snapshot_build_contract_hash(binding, snapshot_id, SNAPSHOT_ARTIFACT_FORMAT)
-    });
+    let snapshot_build_contract_hash = build_config.snapshot_build_contract_hash.clone();
     let upload_snapshot_index_started = Instant::now();
     let snapshot_index_url = store
         .upload_snapshot_index(snapshot_id, snapshot_index_bytes)
@@ -2507,7 +2623,31 @@ async fn run_review_submit_overlay_build(
         find_reusable_snapshot(pool, &overlay_source_hash, reuse_max_age_seconds).await?
     {
         let snapshot_index_url = derive_snapshot_index_url(&reused_overlay.artifact_url);
-        if store.download_object_url(&snapshot_index_url).await.is_ok() {
+        let overlay_artifact_is_current = match store
+            .download_object_url(&reused_overlay.artifact_url)
+            .await
+        {
+            Ok(bytes) => match decode_snapshot_artifact(bytes.as_slice()) {
+                Ok(decoded) => reusable_snapshot_policy_matches(&reused_overlay, &decoded),
+                Err(error) => {
+                    println!(
+                        "[review_submit] skip overlay snapshot={} because its artifact is undecodable: {}",
+                        reused_overlay.snapshot_id, error
+                    );
+                    false
+                }
+            },
+            Err(error) => {
+                println!(
+                    "[review_submit] skip overlay snapshot={} because its artifact is unreadable: {}",
+                    reused_overlay.snapshot_id, error
+                );
+                false
+            }
+        };
+        if overlay_artifact_is_current
+            && store.download_object_url(&snapshot_index_url).await.is_ok()
+        {
             build_timing.reused_snapshot = true;
             build_timing.review_submit_overlay_reused = true;
             build_timing.reuse_lookup_sec = overlay_reuse_started.elapsed().as_secs_f64();
@@ -2706,35 +2846,44 @@ async fn load_or_build_review_submit_baseline(
         match store.download_object_url(&reused.artifact_url).await {
             Ok(bytes) => {
                 let decoded = decode_snapshot_artifact(&bytes)?;
-                if let Some(baseline) = decoded.review_baseline {
-                    touch_reused_snapshot_artifact(
-                        pool,
-                        reused.snapshot_id,
-                        SNAPSHOT_ARTIFACT_FORMAT,
-                        Some(REVIEW_SUBMIT_BASELINE_TTL_SECONDS),
-                    )
-                    .await?;
-                    build_timing.review_submit_baseline_reused = true;
+                if reusable_snapshot_policy_matches(&reused, &decoded) {
+                    if let Some(baseline) = decoded.review_baseline {
+                        touch_reused_snapshot_artifact(
+                            pool,
+                            reused.snapshot_id,
+                            SNAPSHOT_ARTIFACT_FORMAT,
+                            Some(REVIEW_SUBMIT_BASELINE_TTL_SECONDS),
+                        )
+                        .await?;
+                        build_timing.review_submit_baseline_reused = true;
+                        println!(
+                            "[review_submit] baseline_snapshot_id={} reused=true",
+                            reused.snapshot_id
+                        );
+                        return Ok(baseline.into_compiled_graph());
+                    }
+                    if let Some(graph) = decoded.compiled_graph {
+                        touch_reused_snapshot_artifact(
+                            pool,
+                            reused.snapshot_id,
+                            SNAPSHOT_ARTIFACT_FORMAT,
+                            Some(REVIEW_SUBMIT_BASELINE_TTL_SECONDS),
+                        )
+                        .await?;
+                        build_timing.review_submit_baseline_reused = true;
+                        println!(
+                            "[review_submit] baseline_snapshot_id={} reused=true",
+                            reused.snapshot_id
+                        );
+                        return Ok(graph);
+                    }
+                } else {
+                    // A retired eligibility policy is not reusable as new evidence. Fall through to
+                    // a fresh baseline build; the historical artifact itself stays untouched.
                     println!(
-                        "[review_submit] baseline_snapshot_id={} reused=true",
+                        "[review_submit] skip baseline snapshot={} because it was built under a retired numerical build contract",
                         reused.snapshot_id
                     );
-                    return Ok(baseline.into_compiled_graph());
-                }
-                if let Some(graph) = decoded.compiled_graph {
-                    touch_reused_snapshot_artifact(
-                        pool,
-                        reused.snapshot_id,
-                        SNAPSHOT_ARTIFACT_FORMAT,
-                        Some(REVIEW_SUBMIT_BASELINE_TTL_SECONDS),
-                    )
-                    .await?;
-                    build_timing.review_submit_baseline_reused = true;
-                    println!(
-                        "[review_submit] baseline_snapshot_id={} reused=true",
-                        reused.snapshot_id
-                    );
-                    return Ok(graph);
                 }
                 println!(
                     "[review_submit] skip baseline snapshot={} because compiled graph metadata is missing",
@@ -3284,6 +3433,42 @@ fn scope_closure_snapshot_build_contract_hash(
         )
         .as_bytes(),
     )
+}
+
+/// True when a downloaded artifact may be reused as evidence for a *new* calculation.
+///
+/// Reuse and new compute execution must never inherit eligibility evidence from a retired policy
+/// version. The build-contract hash binds the snapshot id to its exact scope-closure evidence, so a
+/// candidate only proves reusable when the contract recorded inside its own artifact matches the
+/// one derived from its own binding. Historical artifacts stay readable through administrative
+/// readers; they are simply not reusable as new compute evidence.
+fn reusable_snapshot_policy_matches(
+    candidate: &ReuseCandidate,
+    decoded: &DecodedSnapshotArtifact,
+) -> bool {
+    decoded.config.is_numerical_policy_current() && binding_contract_is_current(candidate, decoded)
+}
+
+/// True when a closure-bound artifact's recorded binding contract matches its own evidence.
+///
+/// The binding-specific hash is additional evidence for closure-bound snapshots only; it can never
+/// replace the global numerical-policy marker, which is what fences ordinary snapshots.
+#[must_use]
+fn binding_contract_is_current(
+    candidate: &ReuseCandidate,
+    decoded: &DecodedSnapshotArtifact,
+) -> bool {
+    let Some(binding) = decoded.config.scope_closure_binding.as_ref() else {
+        // Not a closure-bound artifact: nothing further to bind. The global policy marker, checked
+        // by the caller, is the evidence that it was built under the current numerical rule.
+        return true;
+    };
+    let expected = scope_closure_snapshot_build_contract_hash(
+        binding,
+        candidate.snapshot_id,
+        candidate.artifact_format.as_str(),
+    );
+    decoded.config.snapshot_build_contract_hash.as_deref() == Some(expected.as_str())
 }
 
 fn sorted_json(value: &Value) -> Value {
@@ -7389,7 +7574,8 @@ fn compute_source_fingerprint_from_summary(
     config: &SnapshotBuildConfig,
 ) -> anyhow::Result<String> {
     let body = serde_json::json!({
-        "schema": "source-fingerprint:v2",
+        "schema": solver_worker::NUMERICAL_SOURCE_FINGERPRINT_SCHEMA,
+        "numerical_policy_version": config.numerical_policy_version,
         "source": {
             "processes": {
                 "count": summary.process_count,
@@ -7522,6 +7708,7 @@ async fn find_reusable_snapshot_with_age_basis(
         SELECT
           s.id AS snapshot_id,
           a.artifact_url,
+          a.artifact_format,
           a.coverage,
           a.process_count::bigint AS process_count,
           a.flow_count::bigint AS flow_count,
@@ -7573,6 +7760,7 @@ async fn find_reusable_snapshot_with_age_basis(
     Ok(Some(ReuseCandidate {
         snapshot_id: row.try_get::<Uuid, _>("snapshot_id")?,
         artifact_url: row.try_get::<String, _>("artifact_url")?,
+        artifact_format: row.try_get::<String, _>("artifact_format")?,
         coverage,
         process_count: row.try_get::<i64, _>("process_count")?,
         flow_count: row.try_get::<i64, _>("flow_count")?,
@@ -7645,6 +7833,7 @@ async fn fetch_processes(
     all_states: bool,
     state_codes: &[i32],
     include_user_id: Option<Uuid>,
+    artifact_purpose: Option<&str>,
     versioned_scope: Option<&ValidatedPublicOwnerDraftScope>,
     scope_closure_snapshot: Option<&DataSnapshotManifest>,
     scope_closure_candidate_axis: Option<&BTreeSet<(Uuid, String)>>,
@@ -7679,13 +7868,14 @@ async fn fetch_processes(
             INNER JOIN unnest($1::uuid[], $2::text[]) AS requested(id, version)
               ON requested.id = p.id
              AND requested.version = btrim(p.version::text)
-            WHERE p.state_code BETWEEN 100 AND 199
+            WHERE p.state_code = $3
               AND p.json ? 'processDataSet'
             ORDER BY p.id, btrim(p.version::text)
             "#,
         )
         .bind(&ids)
         .bind(&versions)
+        .bind(solver_worker::NUMERIC_ELIGIBLE_PUBLIC_PROCESS_STATE)
         .fetch_all(pool)
         .await?
     } else if let Some(scope) = versioned_scope {
@@ -7696,10 +7886,10 @@ async fn fetch_processes(
               user_id, state_code, team_id, review_id, modified_at, json
             FROM public.processes
             WHERE (
-                state_code = 100
+                state_code = $4
                 OR (
                     user_id = $1
-                    AND state_code = 0
+                    AND state_code = $5
                     AND (NOT $2 OR team_id IS NULL)
                     AND (NOT $3 OR review_id IS NULL)
                 )
@@ -7711,6 +7901,8 @@ async fn fetch_processes(
         .bind(scope.actor_user_id)
         .bind(scope.include_user_unassigned_only)
         .bind(scope.include_user_review_free_only)
+        .bind(solver_worker::NUMERIC_ELIGIBLE_PUBLIC_PROCESS_STATE)
+        .bind(solver_worker::OWNER_DRAFT_PROCESS_STATE)
         .fetch_all(pool)
         .await?
     } else if all_states {
@@ -7733,13 +7925,17 @@ async fn fetch_processes(
               id, version, model_id, btrim(model_version::text) AS model_version,
               user_id, state_code, team_id, review_id, modified_at, json
             FROM public.processes
-            WHERE (state_code = ANY($1) OR user_id = $2)
+            WHERE (
+                state_code = ANY($1)
+                OR (user_id = $2 AND state_code = $3)
+              )
               AND json ? 'processDataSet'
             ORDER BY id, version DESC
             "#,
         )
         .bind(state_codes)
         .bind(user_id)
+        .bind(solver_worker::OWNER_DRAFT_PROCESS_STATE)
         .fetch_all(pool)
         .await?
     } else {
@@ -7844,6 +8040,19 @@ async fn fetch_processes(
             ));
         }
     }
+    let (review_submit, allow_review_diagnostic) =
+        review_exceptions_for_artifact_purpose(artifact_purpose);
+    ensure_numerical_process_rows_authorized(
+        out.as_slice(),
+        NumericalRowAuthorization {
+            // `--include-user-id` is the only actor a builder invocation can prove; it is bound to
+            // the authenticated `requested_by` for versioned builds and to an explicit operator
+            // identity for the offline CLI.
+            scope_actor: include_user_id,
+            allow_review_diagnostic,
+            review_submit,
+        },
+    )?;
     Ok(out)
 }
 
@@ -7870,6 +8079,240 @@ fn validate_process_row_visibility(
         row.team_id,
         row.review_id
     ))
+}
+
+/// Final fail-closed authorization recheck of the Process rows a numerical build will compile.
+///
+/// The SQL selection above is already bound to the numeric-eligibility policy predicates, but the
+/// published identity also arrives as explicit evidence (scope-closure manifests, package input
+/// manifests, cached candidate rows). Rechecking the *materialized* rows proves that no carrier,
+/// including a mislabeled or policy-drifted artifact, can smuggle an ineligible state into the
+/// matrix.
+///
+/// A state value is never evidence of scope authorization. Each admitted state therefore requires
+/// the scope context that authorizes it: `scope_actor` (the authenticated owner scope) for state
+/// `0`, `allow_review_diagnostic` for the dedicated Review Admin scope and its state `20`, and the
+/// exact public numerical state everywhere else. `review_submit` marks the legacy offline overlay
+/// entrypoint, which predicates state independently and holds no authenticated actor.
+#[derive(Debug, Clone, Copy)]
+struct NumericalRowAuthorization {
+    scope_actor: Option<Uuid>,
+    allow_review_diagnostic: bool,
+    review_submit: bool,
+}
+
+/// Rejects a numeric request root that is not numerically eligible *by its own state*.
+///
+/// This runs independently of the candidate query: eligibility filtering happens in
+/// `fetch_processes`, so an explicit root pointing at a published Result would otherwise surface
+/// only as the generic "request root not found in candidate scope". Resolving the state here keeps
+/// the refusal locatable and cannot be bypassed by a carrier that already mislabeled the row. The
+/// lookup is intentionally state-agnostic; only the resolved state decides.
+/// Resolves `(review_submit, allow_review_diagnostic)` from the exact artifact purpose.
+///
+/// Both exceptions bind to their exact constant: an arbitrary `--artifact-purpose` string must never
+/// be mislabeled as the legacy review-submit overlay or as the dedicated diagnostic scope.
+fn review_exceptions_for_artifact_purpose(artifact_purpose: Option<&str>) -> (bool, bool) {
+    let review_submit = artifact_purpose == Some(REVIEW_SUBMIT_OVERLAY_ARTIFACT_PURPOSE);
+    let diagnostic = artifact_purpose
+        == Some(solver_worker::REVIEW_QUALITY_DIAGNOSTIC_SNAPSHOT_ARTIFACT_PURPOSE);
+    // The legacy review-submit overlay predicates state independently and holds no authenticated
+    // actor, so it retains its in-review admission. Both flags stay keyed on exact constants.
+    (review_submit, diagnostic || review_submit)
+}
+
+/// Authorization context for an explicit numeric request root.
+#[derive(Debug, Clone, Copy)]
+struct RequestRootAuthorization {
+    /// The only actor this invocation can prove: the authenticated versioned-scope actor, or the
+    /// operator-supplied `--include-user-id`.
+    scope_actor: Option<Uuid>,
+    /// Legacy v1 owner-scope guards, which the candidate query also applies to state-0 rows.
+    include_user_unassigned_only: bool,
+    include_user_review_free_only: bool,
+    /// True only for the dedicated Review Admin diagnostic scope.
+    allow_review_diagnostic: bool,
+}
+
+/// One resolved request-root row, exactly as stored.
+#[derive(Debug, Clone, Copy)]
+struct ResolvedRootRow {
+    user_id: Option<Uuid>,
+    state_code: Option<i32>,
+    team_id: Option<Uuid>,
+    review_id: Option<Uuid>,
+}
+
+/// Decides whether one explicit request root may enter the numerical universe.
+///
+/// This mirrors the candidate-row authorization rather than restating it: a state-0 root is admitted
+/// only for the scoped actor that owns it, under the same team/review guards the candidate query
+/// applies. A bare `state_code = 0` is never sufficient, and an unknown/absent state is refused.
+/// The dedicated Review Admin diagnostic adds exactly its own in-review state; the published Result
+/// stays excluded everywhere.
+fn ensure_resolved_root_is_eligible(
+    root: &RequestRootProcess,
+    resolved: Option<&ResolvedRootRow>,
+    authorization: RequestRootAuthorization,
+) -> anyhow::Result<()> {
+    let reject = |state_code: Option<i32>, reason: &str| -> anyhow::Error {
+        anyhow::anyhow!(
+            "request_root_not_numerically_eligible: {reason}: root {root} state_code={state_code:?} is not a numerical input under policy {}",
+            solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION
+        )
+    };
+    let Some(row) = resolved else {
+        return Err(anyhow::anyhow!(
+            "request_root_not_numerically_eligible: request_root_state_unknown: root {root} is not present under the frozen identity"
+        ));
+    };
+    let state_code = row.state_code;
+    if state_code == Some(solver_worker::PUBLISHED_RESULT_PROCESS_STATE) {
+        return Err(reject(
+            state_code,
+            solver_worker::numerical_ineligibility_reason(state_code),
+        ));
+    }
+    if state_code.is_some_and(solver_worker::is_public_numerical_process_state) {
+        return Ok(());
+    }
+    if state_code == Some(solver_worker::OWNER_DRAFT_PROCESS_STATE) {
+        // Same authorization as an actor-owned candidate row: the scoped actor must own it, and the
+        // legacy team/review guards must hold when the invocation requests them.
+        let owned_by_scope_actor = matches!((authorization.scope_actor, row.user_id), (Some(actor), Some(owner)) if actor == owner);
+        let guards_hold = (!authorization.include_user_unassigned_only || row.team_id.is_none())
+            && (!authorization.include_user_review_free_only || row.review_id.is_none());
+        if owned_by_scope_actor && guards_hold {
+            return Ok(());
+        }
+        return Err(reject(
+            state_code,
+            "owner_draft_process_requires_matching_actor_scope",
+        ));
+    }
+    if authorization.allow_review_diagnostic
+        && state_code == Some(solver_worker::REVIEW_IN_PROGRESS_PROCESS_STATE)
+    {
+        return Ok(());
+    }
+    Err(reject(
+        state_code,
+        solver_worker::numerical_ineligibility_reason(state_code),
+    ))
+}
+
+/// Rejects an explicit numeric request root that is not authorized under this invocation's scope.
+///
+/// This runs independently of the candidate query, so an explicit root pointing at a published
+/// Result, a foreign draft, or an unknown state fails with a locatable reason instead of the generic
+/// "request root not found in candidate scope".
+async fn ensure_request_roots_are_numerically_eligible(
+    pool: &PgPool,
+    request_roots: &[RequestRootProcess],
+    authorization: RequestRootAuthorization,
+) -> anyhow::Result<()> {
+    let normalized = normalize_request_roots(request_roots);
+    if normalized.is_empty() {
+        return Ok(());
+    }
+    let ids = normalized
+        .iter()
+        .map(|root| root.process_id)
+        .collect::<Vec<_>>();
+    let versions = normalized
+        .iter()
+        .map(|root| root.process_version.clone())
+        .collect::<Vec<_>>();
+    let rows = sqlx::query(
+        r#"
+        SELECT DISTINCT ON (p.id, btrim(p.version::text))
+               p.id, btrim(p.version::text) AS version,
+               p.user_id, p.state_code, p.team_id, p.review_id
+        FROM public.processes p
+        INNER JOIN unnest($1::uuid[], $2::text[]) AS requested(id, version)
+          ON requested.id = p.id
+         AND requested.version = btrim(p.version::text)
+        ORDER BY p.id, btrim(p.version::text)
+        "#,
+    )
+    .bind(&ids)
+    .bind(&versions)
+    .fetch_all(pool)
+    .await?;
+    let mut resolved = BTreeMap::<(Uuid, String), ResolvedRootRow>::new();
+    for row in rows {
+        resolved.insert(
+            (
+                row.try_get::<Uuid, _>("id")?,
+                row.try_get::<String, _>("version")?,
+            ),
+            ResolvedRootRow {
+                user_id: row.try_get::<Option<Uuid>, _>("user_id")?,
+                // `state_code` is nullable; a NULL state must stay unknown rather than erroring.
+                state_code: row.try_get::<Option<i32>, _>("state_code")?,
+                team_id: row.try_get::<Option<Uuid>, _>("team_id")?,
+                review_id: row.try_get::<Option<Uuid>, _>("review_id")?,
+            },
+        );
+    }
+    for root in &normalized {
+        let key = (root.process_id, root.process_version.clone());
+        ensure_resolved_root_is_eligible(root, resolved.get(&key), authorization)?;
+    }
+    Ok(())
+}
+
+fn ensure_numerical_process_rows_authorized(
+    processes: &[ProcessRow],
+    authorization: NumericalRowAuthorization,
+) -> anyhow::Result<()> {
+    let NumericalRowAuthorization {
+        scope_actor,
+        allow_review_diagnostic,
+        review_submit,
+    } = authorization;
+    for row in processes {
+        if row.state_code == solver_worker::PUBLISHED_RESULT_PROCESS_STATE {
+            return Err(anyhow::anyhow!(
+                "published_result_process_is_not_a_numerical_input: {}@{} resolved with state_code={}",
+                row.id,
+                row.version,
+                row.state_code
+            ));
+        }
+        if solver_worker::is_public_numerical_process_state(row.state_code) {
+            continue;
+        }
+        if row.state_code == solver_worker::OWNER_DRAFT_PROCESS_STATE {
+            // Owner drafts are authorized only by an actor scope, and only for that actor's row.
+            // The versioned build already binds team_id/review_id null guards at SQL level; the
+            // actor comparison here is the part a state value alone can never prove.
+            if let Some(actor_user_id) = scope_actor {
+                if row.user_id == Some(actor_user_id) {
+                    continue;
+                }
+            }
+            return Err(anyhow::anyhow!(
+                "owner_draft_process_requires_matching_actor_scope: {}@{} resolved with state_code=0 owner={:?} actor={:?}",
+                row.id,
+                row.version,
+                row.user_id,
+                scope_actor
+            ));
+        }
+        if row.state_code == solver_worker::REVIEW_IN_PROGRESS_PROCESS_STATE
+            && (allow_review_diagnostic || review_submit)
+        {
+            continue;
+        }
+        return Err(anyhow::anyhow!(
+            "public_numerical_process_state_must_be_exactly_100: {}@{} resolved with state_code={}",
+            row.id,
+            row.version,
+            row.state_code
+        ));
+    }
+    Ok(())
 }
 
 async fn fetch_flow_meta(
@@ -9606,30 +10049,17 @@ const fn flow_space_for_source_type(source_type: CompiledSourceFlowType) -> Comp
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn persist_snapshot_metadata(
-    pool: &PgPool,
-    snapshot_id: Uuid,
-    provider_rule: &str,
+/// Builds the persisted `process_filter` for a numerical snapshot.
+///
+/// Extracted so both scope branches (versioned owner scope and ordinary public scope) can be
+/// asserted directly, including the numerical-policy marker that consumers validate.
+fn snapshot_process_filter(
     all_states: bool,
     state_codes: &[i32],
     include_user_id: Option<Uuid>,
     versioned_scope: Option<&ValidatedPublicOwnerDraftScope>,
     scope_summary: &ResolvedRequestScopeSummary,
-    source_hash: &str,
-    method: &MethodSelection,
-    built: &BuildOutput,
-    artifact_url: &str,
-    artifact_sha256: &str,
-    artifact_byte_size: i64,
-    artifact_format: &str,
-    artifact_purpose: Option<&str>,
-    artifact_expires_in_seconds: Option<i64>,
-    snapshot_index_sha256: &str,
-    snapshot_build_contract_hash: Option<&str>,
-    scope_closure_binding: Option<&ScopeClosureSnapshotBinding>,
-) -> anyhow::Result<()> {
-    let artifact_expires_at_utc = artifact_expires_at_utc(artifact_expires_in_seconds)?;
+) -> Value {
     let mut process_filter = if let Some(versioned_scope) = versioned_scope {
         serde_json::json!({
             "all_states": false,
@@ -9692,6 +10122,56 @@ async fn persist_snapshot_metadata(
             }
         })
     };
+
+    // Persist the numerical-policy marker in the server-authored READY `process_filter`.
+    //
+    // Consumers read this existing object field through `svc_lca_snapshot_candidates`, so no new
+    // Database column or RPC is required. The value is always derived from the Worker constant and
+    // is deliberately *not* seeded from caller input: a proposed build filter can never authorize a
+    // ready artifact. Exactly one value means "current", which is what lets a consumer reject older
+    // stored evidence instead of inferring eligibility from 100-shaped states.
+    if let Some(object) = process_filter.as_object_mut() {
+        object.insert(
+            NUMERICAL_POLICY_VERSION_FIELD.to_owned(),
+            Value::String(solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned()),
+        );
+    }
+
+    process_filter
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn persist_snapshot_metadata(
+    pool: &PgPool,
+    snapshot_id: Uuid,
+    provider_rule: &str,
+    all_states: bool,
+    state_codes: &[i32],
+    include_user_id: Option<Uuid>,
+    versioned_scope: Option<&ValidatedPublicOwnerDraftScope>,
+    scope_summary: &ResolvedRequestScopeSummary,
+    source_hash: &str,
+    method: &MethodSelection,
+    built: &BuildOutput,
+    artifact_url: &str,
+    artifact_sha256: &str,
+    artifact_byte_size: i64,
+    artifact_format: &str,
+    artifact_purpose: Option<&str>,
+    artifact_expires_in_seconds: Option<i64>,
+    snapshot_index_sha256: &str,
+    snapshot_build_contract_hash: Option<&str>,
+    scope_closure_binding: Option<&ScopeClosureSnapshotBinding>,
+) -> anyhow::Result<()> {
+    let artifact_expires_at_utc = artifact_expires_at_utc(artifact_expires_in_seconds)?;
+    let mut process_filter = snapshot_process_filter(
+        all_states,
+        state_codes,
+        include_user_id,
+        versioned_scope,
+        scope_summary,
+    );
+
     attach_artifact_lifecycle(
         &mut process_filter,
         artifact_purpose,
@@ -10628,33 +11108,41 @@ mod tests {
         AllocationFallbackState, AllocationFractionState, AllocationMode, Cli,
         DEFAULT_SNAPSHOT_DB_STATEMENT_TIMEOUT_SECONDS, DEFAULT_SOURCE_CLOSURE_TOTAL_DOCUMENT_BYTES,
         ExchangeDirection, FlowRow, ImpactFactorSet, LciaExchangeObservation, MethodSelection,
-        MultiProviderDecision, NormalizationMode, ParsedExchange, ProcessMeta, ProcessRow,
-        ProviderRule, ResolvedLciaMethodIdentity, ResolvedLciaMethodRow, SnapshotBuildConfig,
-        SnapshotSelectionMode, SourceDatasetReadIdentity, SourceDatasetReference,
-        SourceSnapshotSummary, VERSIONED_LIFECYCLE_MODEL_LINEAGE_SQL, accumulate_finite_factor,
-        add_technosphere_edge, assemble_sparse_payload, attach_artifact_lifecycle,
-        biosphere_gross_value, build_compiled_release_evidence, build_lcia_factor_coverage,
-        build_review_submit_overlay_graph, candidate_count_bucket_label,
-        collect_lcia_factor_flow_references, compute_review_submit_overlay_source_hash,
-        compute_scope_hash, compute_source_fingerprint_from_summary,
-        exact_scope_closure_method_axis, flow_reference_requests_from_source_references, geo_score,
-        insert_compiled_source_dataset, load_impact_factor_sets, location_granularity_label,
-        matrix_readiness_policy, no_balancing_reference_failure_reason, normalize_request_roots,
-        parse_number, parse_process_annual_supply_or_production_volume, parse_process_states,
+        MultiProviderDecision, NUMERICAL_POLICY_VERSION_FIELD, NormalizationMode,
+        NumericalRowAuthorization, ParsedExchange, ProcessMeta, ProcessRow, ProviderRule,
+        REVIEW_SUBMIT_OVERLAY_ARTIFACT_PURPOSE, RequestRootAuthorization,
+        ResolvedLciaMethodIdentity, ResolvedLciaMethodRow, ResolvedRequestScopeSummary,
+        ResolvedRootRow, ReuseCandidate, SnapshotBuildConfig, SnapshotSelectionMode,
+        SourceDatasetReadIdentity, SourceDatasetReference, SourceSnapshotSummary,
+        VERSIONED_LIFECYCLE_MODEL_LINEAGE_SQL, ValidatedPublicOwnerDraftScope,
+        accumulate_finite_factor, add_technosphere_edge, assemble_sparse_payload,
+        attach_artifact_lifecycle, biosphere_gross_value, build_compiled_release_evidence,
+        build_lcia_factor_coverage, build_review_submit_overlay_graph,
+        candidate_count_bucket_label, collect_lcia_factor_flow_references,
+        compute_review_submit_overlay_source_hash, compute_scope_hash,
+        compute_source_fingerprint_from_summary, ensure_numerical_process_rows_authorized,
+        ensure_resolved_root_is_eligible, exact_scope_closure_method_axis,
+        flow_reference_requests_from_source_references, geo_score, insert_compiled_source_dataset,
+        load_impact_factor_sets, location_granularity_label, matrix_readiness_policy,
+        no_balancing_reference_failure_reason, normalize_request_roots, parse_number,
+        parse_process_annual_supply_or_production_volume, parse_process_states,
         parse_provider_rule_list, parse_scope_closure_snapshot_args,
         plan_source_support_read_batches, resolve_allocation_fraction,
-        resolve_database_lcia_method_row, resolve_database_lcia_method_rows,
-        resolve_lcia_method_source_row, resolve_lcia_support_flows, resolve_multi_provider,
-        resolve_process_selection, resolve_reference_normalization,
-        review_submit_root_dependency_fingerprint, reviewed_lcia_artifact_locator,
-        scope_closure_boundary_policy, scope_closure_candidate_process_axis,
-        scope_closure_discovery_value, select_active_lcia_factors,
+        resolve_builder_process_states, resolve_database_lcia_method_row,
+        resolve_database_lcia_method_rows, resolve_lcia_method_source_row,
+        resolve_lcia_support_flows, resolve_multi_provider, resolve_process_selection,
+        resolve_reference_normalization, reusable_snapshot_policy_matches,
+        review_exceptions_for_artifact_purpose, review_submit_root_dependency_fingerprint,
+        reviewed_lcia_artifact_locator, scope_closure_boundary_policy,
+        scope_closure_candidate_process_axis, scope_closure_discovery_value,
+        scope_closure_snapshot_build_contract_hash, select_active_lcia_factors,
         select_source_dataset_read_identities, snapshot_db_statement_timeout,
-        source_closure_total_document_bytes_limit_from, source_dataset_document_id,
-        source_reference_is_satisfied_index, summarize_matching_diagnostics, time_score,
-        unique_supported_direction_by_flow, validate_compiled_sources_against_frozen_manifest,
-        validate_flow_row_visibility, validate_process_row_visibility,
-        validate_quantitative_references, validate_unique_database_lcia_method_identities,
+        snapshot_process_filter, source_closure_total_document_bytes_limit_from,
+        source_dataset_document_id, source_reference_is_satisfied_index,
+        summarize_matching_diagnostics, time_score, unique_supported_direction_by_flow,
+        validate_compiled_sources_against_frozen_manifest, validate_flow_row_visibility,
+        validate_process_row_visibility, validate_quantitative_references,
+        validate_unique_database_lcia_method_identities,
     };
     use chrono::Utc;
     use clap::Parser;
@@ -10865,7 +11353,7 @@ mod tests {
             "requestedScope": {
                 "schemaVersion": "lcia.scope-closure-requested-scope.v1",
                 "coverageMode": "subset",
-                "eligibilityPredicateVersion": "published-state-code-100-199:v1",
+                "eligibilityPredicateVersion": "candidate-public-state-code-100:v2",
                 "processes": [],
                 "lciaMethods": [],
                 "versionResolutionPolicy": "reference-version-resolution-v1",
@@ -10892,13 +11380,92 @@ mod tests {
         (binding, snapshot, mode)
     }
 
+    #[test]
+    fn ready_process_filter_stamps_the_current_numerical_policy_in_both_scope_branches() {
+        let summary = ResolvedRequestScopeSummary {
+            selection_mode: SnapshotSelectionMode::FilteredLibrary,
+            scope_hash: "scope-hash".to_owned(),
+            roots: Vec::new(),
+            public_process_count: 2,
+            private_process_count: 0,
+            processes: Vec::new(),
+        };
+        let actor = Uuid::from_u128(0x1234);
+        let current = solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION;
+
+        // Ordinary public scope.
+        let public = snapshot_process_filter(false, &[100], None, None, &summary);
+        assert_eq!(
+            public
+                .get(NUMERICAL_POLICY_VERSION_FIELD)
+                .and_then(serde_json::Value::as_str),
+            Some(current)
+        );
+        assert_eq!(public["all_states"], json!(false));
+
+        // `all_states` branch.
+        let all = snapshot_process_filter(true, &[], None, None, &summary);
+        assert_eq!(
+            all.get(NUMERICAL_POLICY_VERSION_FIELD)
+                .and_then(serde_json::Value::as_str),
+            Some(current)
+        );
+        assert_eq!(all["all_states"], json!(true));
+
+        // Owner-inclusive public scope.
+        let owner = snapshot_process_filter(false, &[100], Some(actor), None, &summary);
+        assert_eq!(
+            owner
+                .get(NUMERICAL_POLICY_VERSION_FIELD)
+                .and_then(serde_json::Value::as_str),
+            Some(current)
+        );
+
+        // Versioned `public_plus_owner_draft` scope.
+        let manifest = solver_worker::calculation_evidence::expected_scope_manifest(actor);
+        let manifest_hash = solver_worker::calculation_evidence::canonical_json_sha256(&manifest)
+            .expect("manifest hash");
+        let versioned = ValidatedPublicOwnerDraftScope {
+            actor_user_id: actor,
+            include_user_unassigned_only: false,
+            include_user_review_free_only: false,
+            scope_manifest: manifest,
+            scope_manifest_sha256: manifest_hash,
+            lcia_method_factor_source: json!({}),
+            lcia_factor_coverage_contract: json!({}),
+        };
+        let scoped =
+            snapshot_process_filter(false, &[100], Some(actor), Some(&versioned), &summary);
+        assert_eq!(
+            scoped
+                .get(NUMERICAL_POLICY_VERSION_FIELD)
+                .and_then(serde_json::Value::as_str),
+            Some(current),
+            "the versioned owner scope must carry the same current marker"
+        );
+
+        // There is no pre-marker fallback: a filter without the marker is not current, and the
+        // constant is the only accepted value.
+        assert!(!solver_worker::is_current_numerical_snapshot_policy(None));
+        assert!(!solver_worker::is_current_numerical_snapshot_policy(Some(
+            "published-state-code-100-199:v1"
+        )));
+        assert!(solver_worker::is_current_numerical_snapshot_policy(Some(
+            current
+        )));
+    }
+
     fn test_snapshot_build_config(allocation_semantics_version: &str) -> SnapshotBuildConfig {
         SnapshotBuildConfig {
             process_states: "100".to_owned(),
+            numerical_policy_version: Some(
+                solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned(),
+            ),
             include_user_id: None,
             data_scope: None,
             scope_manifest_sha256: None,
             scope_closure_binding: None,
+            snapshot_build_contract_hash: None,
             lcia_method_factor_source: None,
             selection_mode: SnapshotSelectionMode::FilteredLibrary,
             request_roots: Vec::new(),
@@ -10972,7 +11539,7 @@ mod tests {
     }
 
     #[test]
-    fn allocation_semantics_version_changes_snapshot_source_fingerprint() {
+    fn numerical_policy_and_allocation_semantics_change_snapshot_source_fingerprint() {
         let mut summary = SourceSnapshotSummary {
             process_count: 2,
             process_max_modified_at_utc: "2026-07-15T00:00:00.000000Z".to_owned(),
@@ -10993,6 +11560,30 @@ mod tests {
             .expect("fallback source fingerprint");
 
         assert_ne!(strict_hash, fallback_hash);
+
+        // The numerical eligibility policy is part of snapshot/cache identity: an artifact built
+        // under a different (or absent) policy can never match this fingerprint.
+        let with_policy = test_snapshot_build_config("tidas-quantitative-reference-v1");
+        let mut without_policy = with_policy.clone();
+        without_policy.numerical_policy_version = None;
+        assert_ne!(
+            compute_source_fingerprint_from_summary(&summary, &with_policy)
+                .expect("policy source fingerprint"),
+            compute_source_fingerprint_from_summary(&summary, &without_policy)
+                .expect("unmarked source fingerprint"),
+        );
+        assert_ne!(
+            compute_source_fingerprint_from_summary(&summary, &with_policy)
+                .expect("current policy fingerprint"),
+            compute_source_fingerprint_from_summary(
+                &summary,
+                &SnapshotBuildConfig {
+                    numerical_policy_version: Some("published-state-code-100-199:v1".to_owned()),
+                    ..with_policy.clone()
+                }
+            )
+            .expect("retired policy fingerprint"),
+        );
 
         let before_lineage_change = compute_source_fingerprint_from_summary(&summary, &config)
             .expect("lineage source fingerprint");
@@ -12213,6 +12804,138 @@ mod tests {
     }
 
     #[test]
+    fn cached_artifacts_without_the_current_numerical_policy_are_not_reusable() {
+        use solver_worker::snapshot_artifacts::encode_snapshot_artifact;
+
+        let snapshot_id = Uuid::new_v4();
+        let method = MethodSelection {
+            has_lcia: false,
+            method_id: None,
+            method_version: None,
+            method_count: 0,
+            factor_count: 0,
+            source_evidence: None,
+            rows: Vec::new(),
+            static_bundle: None,
+        };
+        let (binding, _, _) = frozen_scope_closure_snapshot("scope_only", "cutoff", "build");
+        let built = assemble_sparse_payload(
+            snapshot_id,
+            &method,
+            &test_snapshot_build_config("tidas-reference-allocation-v3"),
+            &super::empty_compiled_graph(),
+            0.999_999,
+            1e-12,
+            false,
+            &[],
+            &[],
+            false,
+        )
+        .expect("assemble matrix payload");
+        let coverage = built.coverage.clone();
+        let candidate = |artifact_format: &str| ReuseCandidate {
+            snapshot_id,
+            artifact_url: "https://objects.test/snapshot.h5".to_owned(),
+            artifact_format: artifact_format.to_owned(),
+            coverage: coverage.clone(),
+            process_count: 1,
+            flow_count: 1,
+            impact_count: 0,
+            a_nnz: 0,
+            b_nnz: 0,
+            c_nnz: 0,
+        };
+
+        let encode = |config: &SnapshotBuildConfig| {
+            encode_snapshot_artifact(snapshot_id, config.clone(), coverage.clone(), &built.data)
+                .expect("encode snapshot artifact")
+        };
+        let artifact_format = solver_worker::snapshot_artifacts::SNAPSHOT_ARTIFACT_FORMAT;
+
+        // Fresh ordinary global/subset artifact (no closure binding): the global numerical-policy
+        // marker is its evidence, and reuse under the same policy is allowed.
+        let fresh_ordinary = test_snapshot_build_config("tidas-reference-allocation-v3");
+        let encoded = encode(&fresh_ordinary);
+        let decoded =
+            super::decode_snapshot_artifact(&encoded.bytes).expect("decode fresh ordinary");
+        assert!(decoded.config.scope_closure_binding.is_none());
+        assert!(reusable_snapshot_policy_matches(
+            &candidate(artifact_format),
+            &decoded
+        ));
+
+        // Older ordinary global/subset artifact, written before the policy marker existed: it may
+        // have been selected under the retired `100..199` membership, so it must not launch a new
+        // calculation even though it still decodes.
+        let mut legacy_ordinary = fresh_ordinary.clone();
+        legacy_ordinary.numerical_policy_version = None;
+        let legacy_ordinary_artifact = encode(&legacy_ordinary);
+        let legacy_ordinary_decoded =
+            super::decode_snapshot_artifact(&legacy_ordinary_artifact.bytes)
+                .expect("historical ordinary artifact stays decodable");
+        assert!(
+            !reusable_snapshot_policy_matches(
+                &candidate(artifact_format),
+                &legacy_ordinary_decoded
+            ),
+            "an unmarked ordinary snapshot must not be reused as new compute evidence"
+        );
+
+        // Fresh closure-bound artifact: both the global marker and its own binding contract match.
+        let mut current_config = fresh_ordinary.clone();
+        current_config.scope_closure_binding = Some(binding.clone());
+        current_config.snapshot_build_contract_hash = Some(
+            scope_closure_snapshot_build_contract_hash(&binding, snapshot_id, artifact_format),
+        );
+        let closure_artifact = encode(&current_config);
+        let closure_decoded =
+            super::decode_snapshot_artifact(&closure_artifact.bytes).expect("decode closure-bound");
+        assert!(reusable_snapshot_policy_matches(
+            &candidate(artifact_format),
+            &closure_decoded
+        ));
+
+        // Older closure-bound artifact without the policy marker is refused too: a binding hash can
+        // never substitute for the global policy identity.
+        let mut legacy_closure = current_config.clone();
+        legacy_closure.numerical_policy_version = None;
+        let legacy_closure_artifact = encode(&legacy_closure);
+        let legacy_closure_decoded =
+            super::decode_snapshot_artifact(&legacy_closure_artifact.bytes)
+                .expect("historical closure artifact stays decodable");
+        assert!(
+            !reusable_snapshot_policy_matches(&candidate(artifact_format), &legacy_closure_decoded),
+            "an unmarked closure-bound snapshot must not be reused as new compute evidence"
+        );
+
+        // A closure-bound artifact whose binding contract hash is stale is refused even when the
+        // global marker is current.
+        let mut stale_binding = current_config.clone();
+        stale_binding.snapshot_build_contract_hash = Some("f".repeat(64));
+        let stale_decoded = super::decode_snapshot_artifact(&encode(&stale_binding).bytes)
+            .expect("stale-binding artifact stays decodable");
+        assert!(!reusable_snapshot_policy_matches(
+            &candidate(artifact_format),
+            &stale_decoded
+        ));
+
+        // The contract hash is also bound to the exact snapshot identity, so evidence cannot be
+        // re-pointed at a different snapshot id.
+        let mut repointed = candidate(artifact_format);
+        repointed.snapshot_id = Uuid::new_v4();
+        assert!(!reusable_snapshot_policy_matches(
+            &repointed,
+            &closure_decoded
+        ));
+
+        // The artifact format participates in the contract as well.
+        assert!(!reusable_snapshot_policy_matches(
+            &candidate("snapshot-hdf5:v2"),
+            &closure_decoded
+        ));
+    }
+
+    #[test]
     fn regular_snapshot_artifact_links_release_evidence_without_compiled_graph() {
         let snapshot_id = Uuid::new_v4();
         let mut graph = super::empty_compiled_graph();
@@ -12360,27 +13083,408 @@ mod tests {
         assert!(error.to_string().contains("aggregation overflow"));
     }
 
-    #[test]
-    fn default_process_states_cover_100_through_199() {
-        let default_states = solver_worker::default_snapshot_process_states_arg();
-        let (all_states, parsed, label) =
-            parse_process_states(default_states.as_str()).expect("parse default states");
-
-        assert!(!all_states);
-        assert_eq!(parsed.len(), 100);
-        assert_eq!(parsed.first().copied(), Some(100));
-        assert_eq!(parsed.last().copied(), Some(199));
-        assert_eq!(label, default_states);
+    fn numerical_process_row(id: u128, state_code: i32) -> ProcessRow {
+        ProcessRow {
+            id: Uuid::from_u128(id),
+            version: "01.00.000".to_owned(),
+            model_id: None,
+            model_version: None,
+            user_id: None,
+            state_code,
+            team_id: None,
+            review_id: None,
+            modified_at: None,
+            json: serde_json::json!({"processDataSet": {}}),
+        }
     }
 
     #[test]
-    fn explicit_process_states_still_override_default_scope() {
-        let (all_states, parsed, label) =
-            parse_process_states("100,150,199").expect("parse explicit states");
+    fn offline_numerical_default_is_exactly_the_public_state() {
+        let default_states = solver_worker::default_snapshot_process_states_arg();
 
+        assert_eq!(default_states, "100");
+        let (all_states, parsed, label) =
+            parse_process_states(default_states.as_str()).expect("parse default states");
         assert!(!all_states);
-        assert_eq!(parsed, vec![100, 150, 199]);
-        assert_eq!(label, "100,150,199");
+        assert_eq!(parsed, vec![100]);
+        assert_eq!(label, "100");
+    }
+
+    fn root_row(
+        user_id: Option<Uuid>,
+        state_code: Option<i32>,
+        team_id: Option<Uuid>,
+        review_id: Option<Uuid>,
+    ) -> ResolvedRootRow {
+        ResolvedRootRow {
+            user_id,
+            state_code,
+            team_id,
+            review_id,
+        }
+    }
+
+    fn root_authorization(scope_actor: Option<Uuid>) -> RequestRootAuthorization {
+        RequestRootAuthorization {
+            scope_actor,
+            include_user_unassigned_only: false,
+            include_user_review_free_only: false,
+            allow_review_diagnostic: false,
+        }
+    }
+
+    #[test]
+    fn explicit_request_roots_follow_the_same_authorization_as_candidate_rows() {
+        let actor = Uuid::from_u128(0xace);
+        let foreign = Uuid::from_u128(0xbeef);
+        let root = RequestRootProcess::new(Uuid::from_u128(0x1), "01.00.000".to_owned());
+        let check = |row: ResolvedRootRow, authorization: RequestRootAuthorization| {
+            ensure_resolved_root_is_eligible(&root, Some(&row), authorization)
+        };
+
+        // Public numerical root: allowed with no actor scope at all.
+        check(
+            root_row(Some(foreign), Some(100), None, None),
+            root_authorization(None),
+        )
+        .expect("state 100 is a public numerical root");
+
+        // Actor-owned draft: allowed only for the scoped actor, and only with the guards satisfied.
+        check(
+            root_row(Some(actor), Some(0), None, None),
+            root_authorization(Some(actor)),
+        )
+        .expect("the scoped actor's own draft root is allowed");
+        for rejected in [
+            // No actor scope: a bare state 0 is not authorization.
+            (
+                root_row(Some(actor), Some(0), None, None),
+                root_authorization(None),
+            ),
+            // Foreign draft.
+            (
+                root_row(Some(foreign), Some(0), None, None),
+                root_authorization(Some(actor)),
+            ),
+            // Ownerless draft row.
+            (
+                root_row(None, Some(0), None, None),
+                root_authorization(Some(actor)),
+            ),
+        ] {
+            let error = check(rejected.0, rejected.1).expect_err("must not authorize");
+            assert!(
+                error
+                    .to_string()
+                    .contains("owner_draft_process_requires_matching_actor_scope"),
+                "{error}"
+            );
+        }
+
+        // The legacy v1 owner-scope guards also apply to the explicit root.
+        let drafted = root_row(Some(actor), Some(0), Some(Uuid::from_u128(0x7)), None);
+        let mut guarded = root_authorization(Some(actor));
+        guarded.include_user_unassigned_only = true;
+        assert!(check(drafted, guarded).is_err());
+        guarded.include_user_unassigned_only = false;
+        check(drafted, guarded).expect("no team guard is requested, so the draft root passes");
+
+        // Published Result is refused for every scope, including its own actor.
+        for state_code in [Some(solver_worker::PUBLISHED_RESULT_PROCESS_STATE)] {
+            for scope in [None, Some(actor)] {
+                let error = check(
+                    root_row(Some(actor), state_code, None, None),
+                    root_authorization(scope),
+                )
+                .expect_err("published Result must never be a numerical root");
+                assert!(
+                    error
+                        .to_string()
+                        .contains("published_result_process_is_not_a_numerical_input"),
+                    "{error}"
+                );
+            }
+        }
+
+        // Unknown/absent state is refused rather than treated as eligible.
+        for state_code in [None, Some(101), Some(150), Some(199), Some(200), Some(99)] {
+            let error = check(
+                root_row(Some(actor), state_code, None, None),
+                root_authorization(Some(actor)),
+            )
+            .expect_err("unknown or reserved state must fail closed");
+            assert!(
+                error
+                    .to_string()
+                    .contains("request_root_not_numerically_eligible"),
+                "state {state_code:?}: {error}"
+            );
+        }
+
+        // An unresolved root (absent under the frozen identity) is refused.
+        let error = ensure_resolved_root_is_eligible(&root, None, root_authorization(Some(actor)))
+            .expect_err("unresolved root must fail closed");
+        assert!(
+            error.to_string().contains("request_root_state_unknown"),
+            "{error}"
+        );
+
+        // In-review state 20 is admitted only under the exact diagnostic scope.
+        for allowed in [false, true] {
+            let mut authorization = root_authorization(Some(actor));
+            authorization.allow_review_diagnostic = allowed;
+            let result = check(
+                root_row(
+                    Some(actor),
+                    Some(solver_worker::REVIEW_IN_PROGRESS_PROCESS_STATE),
+                    None,
+                    None,
+                ),
+                authorization,
+            );
+            assert_eq!(result.is_ok(), allowed);
+        }
+    }
+
+    #[test]
+    fn only_exact_artifact_purposes_grant_the_review_exceptions() {
+        let root = RequestRootProcess::new(Uuid::from_u128(0x1), "01.00.000".to_owned());
+        let actor = Uuid::from_u128(0xace);
+        let review_row = root_row(
+            Some(actor),
+            Some(solver_worker::REVIEW_IN_PROGRESS_PROCESS_STATE),
+            None,
+            None,
+        );
+
+        // Only the two exact constants grant an exception.
+        assert_eq!(
+            review_exceptions_for_artifact_purpose(Some(REVIEW_SUBMIT_OVERLAY_ARTIFACT_PURPOSE)),
+            (true, true)
+        );
+        assert_eq!(
+            review_exceptions_for_artifact_purpose(Some(
+                solver_worker::REVIEW_QUALITY_DIAGNOSTIC_SNAPSHOT_ARTIFACT_PURPOSE
+            )),
+            (false, true)
+        );
+        assert_eq!(review_exceptions_for_artifact_purpose(None), (false, false));
+
+        // An arbitrary purpose string is not a review exception, and a state-20 root is therefore
+        // rejected: this is the negative case the earlier `is_some()` form would have mislabeled.
+        for unknown in [
+            "some_other_purpose",
+            "review_submit_overlay_renamed",
+            "review_quality_diagnostic_runner",
+            "",
+        ] {
+            let (review_submit, allow_review_diagnostic) =
+                review_exceptions_for_artifact_purpose(Some(unknown));
+            assert!(
+                !review_submit && !allow_review_diagnostic,
+                "purpose {unknown:?} must not grant a review exception"
+            );
+            let error = ensure_resolved_root_is_eligible(
+                &root,
+                Some(&review_row),
+                RequestRootAuthorization {
+                    scope_actor: Some(actor),
+                    include_user_unassigned_only: false,
+                    include_user_review_free_only: false,
+                    allow_review_diagnostic,
+                },
+            )
+            .expect_err("state 20 root must be refused without the exact diagnostic purpose");
+            assert!(
+                error
+                    .to_string()
+                    .contains("request_root_not_numerically_eligible"),
+                "{error}"
+            );
+        }
+    }
+
+    fn offline_builder_cli(extra_args: &[&str]) -> Cli {
+        let mut args = vec!["snapshot-builder"];
+        args.extend_from_slice(extra_args);
+        Cli::parse_from(args)
+    }
+
+    fn row_authorization(scope_actor: Option<Uuid>) -> NumericalRowAuthorization {
+        NumericalRowAuthorization {
+            scope_actor,
+            allow_review_diagnostic: false,
+            review_submit: false,
+        }
+    }
+
+    #[test]
+    fn offline_default_resolution_is_the_public_numerical_scope() {
+        // A normal offline invocation supplies the CLI default value.
+        let cli = offline_builder_cli(&["--process-states", "100"]);
+        let (all_states, states, label) =
+            resolve_builder_process_states(&cli, None).expect("ordinary offline default resolves");
+        assert!(!all_states);
+        assert_eq!(states, vec![100]);
+        assert_eq!(label, "100");
+
+        // The clap-provided default value is that same canonical literal.
+        let defaulted = offline_builder_cli(&[]);
+        assert_eq!(defaulted.process_states, "100");
+        let (all_states, states, label) = resolve_builder_process_states(&defaulted, None)
+            .expect("bare offline invocation resolves");
+        assert!(!all_states);
+        assert_eq!(states, vec![100]);
+        assert_eq!(label, "100");
+
+        // An empty/`all` list is treated as the fail-closed public scope, never as all states.
+        for value in ["", "all", "ALL"] {
+            let cli = offline_builder_cli(&["--process-states", value]);
+            let (all_states, states, label) = resolve_builder_process_states(&cli, None)
+                .expect("no-filter input resolves to the public numerical scope");
+            assert!(!all_states, "{value}");
+            assert_eq!(states, vec![100], "{value}");
+            assert_eq!(label, "100", "{value}");
+        }
+    }
+
+    #[test]
+    fn offline_explicit_all_states_and_widened_lists_fail_closed() {
+        let cli = offline_builder_cli(&["--all-states", "true"]);
+        let error = resolve_builder_process_states(&cli, None)
+            .expect_err("explicit all_states=true must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("public_process_state_scope_must_be_exactly_100")
+        );
+
+        // Explicit owner-draft or review-diagnostic states are not public numerical scopes.
+        for process_states in [
+            "0",
+            "20",
+            "100,0",
+            "100,20",
+            "20,100",
+            "100,101",
+            "100,120",
+            "100,150,199",
+            "101",
+            "120",
+            "199",
+            "200",
+        ] {
+            let cli = offline_builder_cli(&["--process-states", process_states]);
+            let error = resolve_builder_process_states(&cli, None)
+                .expect_err("non-public numerical scope must fail closed");
+            assert!(
+                error
+                    .to_string()
+                    .contains("public_process_state_scope_must_be_exactly_100"),
+                "{process_states}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn admission_requires_the_scope_that_authorizes_each_state() {
+        let actor = Uuid::from_u128(0xaca);
+        let mut owner_draft = numerical_process_row(0x0, solver_worker::OWNER_DRAFT_PROCESS_STATE);
+        owner_draft.user_id = Some(actor);
+        let unit = numerical_process_row(0x100, 100);
+
+        // State 100 needs no owner scope.
+        ensure_numerical_process_rows_authorized(
+            std::slice::from_ref(&unit),
+            row_authorization(None),
+        )
+        .expect("public numerical state needs no actor scope");
+
+        // A state value is not evidence of ownership: state 0 requires the actor scope AND the row.
+        let error = ensure_numerical_process_rows_authorized(
+            std::slice::from_ref(&owner_draft),
+            row_authorization(None),
+        )
+        .expect_err("state 0 without an actor scope must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("owner_draft_process_requires_matching_actor_scope")
+        );
+        let error = ensure_numerical_process_rows_authorized(
+            std::slice::from_ref(&owner_draft),
+            row_authorization(Some(Uuid::from_u128(0xbeef))),
+        )
+        .expect_err("another actor's draft must not be admitted");
+        assert!(
+            error
+                .to_string()
+                .contains("owner_draft_process_requires_matching_actor_scope")
+        );
+        ensure_numerical_process_rows_authorized(
+            std::slice::from_ref(&owner_draft),
+            row_authorization(Some(actor)),
+        )
+        .expect("actor-owned draft state 0 is admitted only for its own actor");
+
+        // Review state 20 is admitted only inside the dedicated review scope.
+        let review_row =
+            numerical_process_row(0x14, solver_worker::REVIEW_IN_PROGRESS_PROCESS_STATE);
+        let error = ensure_numerical_process_rows_authorized(
+            std::slice::from_ref(&review_row),
+            row_authorization(Some(actor)),
+        )
+        .expect_err("state 20 outside the review scope must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("public_numerical_process_state_must_be_exactly_100")
+        );
+        ensure_numerical_process_rows_authorized(
+            std::slice::from_ref(&review_row),
+            NumericalRowAuthorization {
+                scope_actor: None,
+                allow_review_diagnostic: true,
+                review_submit: false,
+            },
+        )
+        .expect("the dedicated review diagnostic scope admits state 20");
+
+        // Foreign drafts and review rows that an unfiltered (all_states) query would return are
+        // refused at admission rather than trusted because of their state value.
+        let mut foreign_draft =
+            numerical_process_row(0x0, solver_worker::OWNER_DRAFT_PROCESS_STATE);
+        foreign_draft.user_id = Some(Uuid::from_u128(0xdead));
+        let error = ensure_numerical_process_rows_authorized(
+            &[unit, foreign_draft, review_row],
+            row_authorization(Some(actor)),
+        )
+        .expect_err("an unfiltered candidate set must not be admitted wholesale");
+        assert!(
+            error
+                .to_string()
+                .contains("owner_draft_process_requires_matching_actor_scope")
+        );
+    }
+
+    #[test]
+    fn admission_rejects_every_reserved_public_state() {
+        for state_code in [101, 120, 150, 199, 200] {
+            let error = ensure_numerical_process_rows_authorized(
+                &[numerical_process_row(0x100, state_code)],
+                row_authorization(None),
+            )
+            .expect_err("non-100 public state must not enter a numerical universe");
+            assert!(
+                error
+                    .to_string()
+                    .contains("published_result_process_is_not_a_numerical_input")
+                    || error
+                        .to_string()
+                        .contains("public_numerical_process_state_must_be_exactly_100"),
+                "state {state_code}: {error}"
+            );
+        }
     }
 
     #[test]
@@ -14272,6 +15376,142 @@ mod tests {
     }
 
     #[test]
+    fn same_product_result_coexistence_does_not_change_consumer_provider_selection() {
+        // Real coexistence fixture through the production selection path: consumer C demands
+        // product P, public Unit U(P) provides P, and published Result R(P) also provides P. The
+        // Result is fed into the same candidate list the builder uses, not filtered by the test.
+        let consumer_id = Uuid::from_u128(0xc001);
+        let unit_id = Uuid::from_u128(0xa001);
+        let result_id = Uuid::from_u128(0xa002);
+        let product_flow = fixed_flow_id("shared-product");
+        let other_flow = fixed_flow_id("unit-other-output");
+
+        let consumer_row = || ProcessRow {
+            id: consumer_id,
+            version: "01.00.000".to_owned(),
+            model_id: None,
+            model_version: None,
+            user_id: None,
+            state_code: 100,
+            team_id: None,
+            review_id: None,
+            modified_at: Some(Utc::now()),
+            json: process_json(&[("Output", other_flow), ("Input", product_flow)]),
+        };
+        let unit_row = || ProcessRow {
+            id: unit_id,
+            version: "01.00.000".to_owned(),
+            model_id: None,
+            model_version: None,
+            user_id: None,
+            state_code: 100,
+            team_id: None,
+            review_id: None,
+            modified_at: Some(Utc::now()),
+            json: process_json(&[("Output", product_flow)]),
+        };
+        let result_row = |state_code: i32| ProcessRow {
+            id: result_id,
+            version: "01.00.000".to_owned(),
+            model_id: None,
+            model_version: None,
+            user_id: None,
+            state_code,
+            team_id: None,
+            review_id: None,
+            modified_at: Some(Utc::now()),
+            json: process_json(&[("Output", product_flow)]),
+        };
+        let roots = vec![RequestRootProcess::new(consumer_id, "01.00.000".to_owned())];
+        let select = |candidates: Vec<ProcessRow>, rule: ProviderRule| {
+            resolve_process_selection(candidates, false, &[100], None, &roots, rule, 0, None)
+                .expect("resolve consumer provider closure")
+        };
+        let axis = |selection: &super::ResolvedProcessSelection| {
+            selection
+                .processes
+                .iter()
+                .map(|process| process.id)
+                .collect::<Vec<_>>()
+        };
+
+        // Baseline before the Result is published: C's demand for P is balanced by U.
+        let baseline = select(
+            vec![consumer_row(), unit_row()],
+            ProviderRule::StrictUniqueProvider,
+        );
+
+        // A published Result providing the same product is present in the candidate list handed to
+        // the production selection path. It must not become a provider, and C, U, the provider
+        // decision and the selected axis must all be unchanged.
+        let published_result = result_row(solver_worker::PUBLISHED_RESULT_PROCESS_STATE);
+        assert!(
+            ensure_numerical_process_rows_authorized(
+                std::slice::from_ref(&published_result),
+                row_authorization(None)
+            )
+            .is_err(),
+            "the published Result must not pass the production admission check"
+        );
+        // Production order: `fetch_processes` applies the admission check to the materialized rows
+        // before `resolve_process_selection` ever sees them. Model exactly that composition here,
+        // with the published Result present in the raw candidate list.
+        let raw_candidates = vec![consumer_row(), unit_row(), published_result];
+        let admitted = raw_candidates
+            .iter()
+            .filter(|candidate| {
+                ensure_numerical_process_rows_authorized(
+                    std::slice::from_ref(*candidate),
+                    row_authorization(None),
+                )
+                .is_ok()
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        assert_eq!(
+            admitted.len(),
+            2,
+            "only the two public Units are admissible"
+        );
+        let after_publication = select(admitted, ProviderRule::StrictUniqueProvider);
+        assert_eq!(axis(&baseline), axis(&after_publication));
+        assert_eq!(axis(&baseline), vec![consumer_id, unit_id]);
+        assert!(!axis(&baseline).contains(&result_id));
+        assert_eq!(
+            after_publication.scope_summary.public_process_count,
+            baseline.scope_summary.public_process_count
+        );
+
+        // Load-bearing proof: the resolver alone does not filter states, so handing it the same raw
+        // list (which is what a bypass of the admission check would do) makes the published Result a
+        // second same-product reference port. The provider decision then collapses to unresolved and
+        // the Unit drops out of the axis. The fixture would therefore detect a regression that let
+        // the Result reach provider matching.
+        let ungated = select(raw_candidates, ProviderRule::StrictUniqueProvider);
+        assert_ne!(
+            axis(&ungated),
+            axis(&baseline),
+            "without the admission gate the Result changes the provider decision and axis"
+        );
+        assert!(!axis(&ungated).contains(&unit_id));
+
+        // Counterfactual that makes the fixture able to detect a regression: the *same* competing
+        // process as an ordinary public Unit is a genuine second provider, so a multi-provider rule
+        // selects both and the axis and provider decision do change.
+        let competing_public = result_row(100);
+        let counterfactual = select(
+            vec![consumer_row(), unit_row(), competing_public],
+            ProviderRule::SplitByProcessVolume,
+        );
+        assert!(
+            axis(&counterfactual).contains(&result_id),
+            "a public same-product provider is expected to enter the axis, proving the fixture \
+             would detect a Result that wrongly became a provider"
+        );
+        assert_ne!(axis(&baseline), axis(&counterfactual));
+    }
+
+    #[test]
     fn request_roots_closure_ignores_non_reference_output_provider() {
         let root_process_id = Uuid::new_v4();
         let local_non_reference_provider_id = Uuid::new_v4();
@@ -16021,7 +17261,7 @@ mod tests {
                 "requestedScope": {
                     "schemaVersion": "lcia.scope-closure-requested-scope.v1",
                     "coverageMode": "subset",
-                    "eligibilityPredicateVersion": "published-state-code-100-199:v1",
+                    "eligibilityPredicateVersion": "candidate-public-state-code-100:v2",
                     "processes": [],
                     "lciaMethods": [],
                     "versionResolutionPolicy": "reference-version-resolution-v1",
