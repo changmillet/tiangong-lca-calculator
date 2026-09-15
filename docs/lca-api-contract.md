@@ -25,9 +25,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: "2026-09-13"
-lastReviewedCommit: "805f8e6c67dcb43f8532e6dce72e60aa110e82bd"
-lastReviewedNote: "Worker #286: active canonicalRepo is tiangong-lca/worker; stable versioned compatibility-schema IDs and commit-pinned legacy cache provenance remain unchanged. Ownership, package names, runtime behavior and quality gates are preserved."
+lastReviewedAt: 2026-09-15
+lastReviewedCommit: d9edc9daa72f429385e653fc7bea07c542698991
+lastReviewedNote: "Reviewed for Worker #291: dependency-only CI cache is bound to native image/package/alternative/compiler evidence plus existing Rust identity. Manual trigger, apt, format, Clippy, complete tests and local qualification remain; invalidation mutations and portable CLI fixtures pass, make check and hard gates pass. No runtime/API/data change; hosted cold/warm proof and integration remain pending."
 related:
   - AGENTS.md
   - .docpact/config.yaml
