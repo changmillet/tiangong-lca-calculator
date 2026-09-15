@@ -26,8 +26,8 @@ checkPaths:
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: "2026-09-15"
-lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
-lastReviewedNote: "Worker #289: documented exact-100 public numerical eligibility, the published-Result (120) exclusion, the mandatory numerical-policy marker for persisted snapshots, and the READY process_filter producer contract consumed by Edge. No job payload schema gained a new field."
+lastReviewedCommit: "8dec9cba9288657a4360a8fb7d02c9570761cd21"
+lastReviewedNote: "Worker #289 + #291: documented exact-100 public numerical eligibility, the published-Result (120) exclusion, the mandatory numerical-policy marker for persisted snapshots, and the READY process_filter producer contract consumed by Edge; the #291 dependency-only CI cache is now bound to native image/package/alternative/compiler evidence plus the existing Rust identity. No job payload schema gained a new field, and no runtime/API/data behavior changed for the CI cache work; hosted cold/warm CI cache proof and integration remain pending."
 related:
   - AGENTS.md
   - .docpact/config.yaml

@@ -37,8 +37,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: "2026-09-15"
-lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
-lastReviewedNote: "Worker #289: added the Numerical Process eligibility section (exact 100, owner draft 0 by actor scope, review diagnostic 20+100) and the numerical-policy marker/reuse rules. Path map and ownership boundaries are unchanged."
+lastReviewedCommit: "8dec9cba9288657a4360a8fb7d02c9570761cd21"
+lastReviewedNote: "Worker #289 + #291: added the Numerical Process eligibility section (exact 100, actor-scoped owner draft 0, review diagnostic 20+100) and the numerical-policy marker/reuse rules, combined with the #291 dependency-only CI cache now bound to native image/package/alternative/compiler evidence plus the existing Rust identity. Path map and ownership boundaries are unchanged; hosted cold/warm CI cache proof and integration remain pending."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml

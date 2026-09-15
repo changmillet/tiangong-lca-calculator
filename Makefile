@@ -7,7 +7,7 @@ fmt-check:
 	cargo fmt --all -- --check
 
 qualification-test:
-	PYTHONPATH=scripts python3 -m unittest scripts/test_scope_closure_qualification.py
+	PYTHONPATH=scripts python3 -m unittest scripts/test_scope_closure_qualification.py scripts/test_ci_native_fingerprint.py
 
 clippy:
 	cargo clippy --workspace --all-targets --all-features -- -D warnings
