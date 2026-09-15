@@ -24,9 +24,9 @@ checkPaths:
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/signed_flow.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-09-03
-lastReviewedCommit: 0b853ac7b79a0c438abd4f5dfbb08af0a3bcab32
-lastReviewedNote: "Reviewed for the Issue #279 production query hotfix; Lifecycle Model visibility compatibility does not change allocation theory."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #289: clarified that implicit-mix candidates only reach routing after public numerical admission (exact 100, or the actor's own 0). Modeling basis, routing weights and boundary semantics are unchanged."
 related:
   - AGENTS.md
   - docs/agents/repo-architecture.md
@@ -101,7 +101,7 @@ Regional mix 只处理 lineage gate 接受后的候选。Lifecycle Model 的 `re
 
 如果 dependent Process 有 `model_id`，并且候选中存在相同 `model_id` 的 reference port，候选 scope 先收窄到该子集。这是 routing hard filter，不是 exchange-level provider pointer，也不是现实交易证明。
 
-若没有同 model 候选，则使用更宽的 eligible candidate universe。这个 fallback 只放宽 routing scope，不放宽 exact-flow、opposite-sign 或 reference-port 规则。同一 Process 的 opposite-sign reference port 属于同一个 eligible universe；若被选中，会形成普通的对角 `A[i,i]` contribution。
+进入这里的候选永远只是已通过公开数值资格准入的 Process（精确 `state_code = 100`，或 versioned owner scope 下属于当前 actor 的 `0`）。已发布 Result（`120`）与预留段 `101..199` 不在其中，因此隐式混合不会把 Result 当作供给来源。若没有同 model 候选，则使用更宽的 eligible candidate universe。这个 fallback 只放宽 routing scope，不放宽 exact-flow、opposite-sign 或 reference-port 规则。同一 Process 的 opposite-sign reference port 属于同一个 eligible universe；若被选中，会形成普通的对角 `A[i,i]` contribution。
 
 ## Supply-region anchor
 

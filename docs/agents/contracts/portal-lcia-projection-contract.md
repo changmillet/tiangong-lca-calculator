@@ -25,9 +25,9 @@ checkPaths:
   - crates/solver-worker/src/worker_jobs.rs
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-08-29
-lastReviewedCommit: c7f362e7a50eb003104851dcc1112fece81038bc
-lastReviewedNote: "Reviewed for Worker Issue #277; ambiguous V3 build/projection failures now remain unclassified instead of inheriting a retry default."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #289: V3 additionally requires the current numerical-policy marker on the reused snapshot, alongside (never instead of) the existing binding hashes. Typed record schemas, hash framing, staging and package binding are unchanged."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml
@@ -55,7 +55,7 @@ The Worker derives the projection only while materializing the same verified Cal
 - Method order and identity come from the frozen snapshot impact axis and exact reviewed LCIA Method source documents.
 - Values are streamed from the locally produced, compressed LCIA shards after compressed and uncompressed byte-size, SHA-256, record-count, range, and Cartesian-order verification.
 - Process and Method document SHA-256 values come from the immutable snapshot source closure, never mutable solve-time database reads.
-- Artifact binding includes input manifest, closure certificate, numerical snapshot, closure bundle, snapshot index/build contract, Calculation Bundle content/manifest, LCIA chunk set, result artifact, and query artifact hashes.
+- Artifact binding includes input manifest, closure certificate, numerical snapshot, closure bundle, snapshot index/build contract, Calculation Bundle content/manifest, LCIA chunk set, result artifact, and query artifact hashes. Before any V3 preparation, the reused numerical snapshot must also declare the current global numerical-policy marker (`numerical_policy_version = public-numerical-state-100-excluding-result-120:v1`) in its artifact config: the binding hashes above prove the exact frozen evidence, while the marker proves the artifact was built under the current public numerical eligibility policy. A snapshot written before the marker existed fails closed for V3 rather than being silently re-executed.
 
 A missing functional unit, reference Flow, geography, reference year, Method name, unit, source document, grid cell, or exact identity fails the V3 package build. Missing numerical values are never converted to zero; an explicit finite zero remains the canonical string `"0"`.
 

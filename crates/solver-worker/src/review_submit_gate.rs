@@ -1010,6 +1010,13 @@ fn default_policy_profile() -> String {
 }
 
 fn default_allowed_scope_states() -> Vec<i32> {
+    // Compatibility projection only. This is a historical report field: the worker numerical gate
+    // does not evaluate process state codes, so this projection is not an eligibility rule and its
+    // value never admits a Process to a numerical universe. Public numerical admission is enforced
+    // by the entrypoints (queue validation, snapshot-builder resolution, package manifest decoding)
+    // against `state_code == 100` exactly. Reverting the earlier filtered variant here keeps this
+    // legacy surface untouched by the new policy instead of implying a narrower scope it does not
+    // enforce.
     std::iter::once(0).chain(100..=199).collect()
 }
 
@@ -1070,6 +1077,22 @@ mod tests {
         assert!(report.metrics.probe.factorization_checked);
         assert!(report.metrics.probe.factorization_ready);
         assert_eq!(report.metrics.probe.target_indices_probed, 1);
+    }
+
+    #[test]
+    fn compat_scope_states_are_a_projection_not_a_numerical_eligibility_rule() {
+        let states = default_allowed_scope_states();
+
+        // The legacy projection is unchanged by the numerical policy. It is reported, not enforced:
+        // a Process in this list can still be refused by every numerical entrypoint.
+        assert_eq!(states.len(), 101);
+        assert!(states.contains(&0));
+        assert!(states.contains(&100));
+        assert!(states.contains(&crate::PUBLISHED_RESULT_PROCESS_STATE));
+        // The real numerical predicate is deliberately stricter than this projection.
+        assert!(!crate::is_public_numerical_process_state(
+            crate::PUBLISHED_RESULT_PROCESS_STATE
+        ));
     }
 
     #[test]

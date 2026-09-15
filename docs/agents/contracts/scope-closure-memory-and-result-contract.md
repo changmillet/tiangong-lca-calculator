@@ -27,9 +27,9 @@ checkPaths:
   - docs/agents/contracts/scope-closure-external-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-owned-result.v1.schema.json
-lastReviewedAt: 2026-09-13
-lastReviewedCommit: 805f8e6c67dcb43f8532e6dce72e60aa110e82bd
-lastReviewedNote: "Worker #286: active canonicalRepo is tiangong-lca/worker; stable versioned compatibility-schema IDs and commit-pinned legacy cache provenance remain unchanged. Ownership, package names, runtime behavior and quality gates are preserved."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #289: recorded that the published numerical snapshot also carries the global numerical-policy marker, required by new compute alongside the closure binding. Bounded artifact shape, memory/cancellation invariants and the staged-publication handshake are unchanged."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml
@@ -115,7 +115,7 @@ The implementation is window-bounded rather than relation-cardinality-bounded:
 - residual sort records contain the compact issue key and coalesced record, not repeated affected-root identities or JSON witness paths;
 - temporary-space admission uses observed input and measured intermediate bytes plus the configured reserve, never `issue count × global root count`.
 
-The later numerical snapshot publication does not copy this administrative artifact graph into HDF5. `CompiledGraph` remains transient compiler IR. Calculation Bundle metadata and source documents are encoded as separate zstd temporary files; both encoders borrow the already-frozen compiler slices and do not clone the source-document vector during serialization. Ordinary solve reads neither file. Calculation Bundle materialization downloads them through explicit byte/SHA bounds and only then hydrates the source vector required by the existing bundle validator/writer. Review Submit persists bounded baseline/gate projections and never embeds source documents.
+The published numerical snapshot additionally records the global numerical-policy marker `numerical_policy_version = public-numerical-state-100-excluding-result-120:v1` in its artifact config and in the server-authored READY `process_filter`; new compute execution and reuse require it in addition to the closure binding hash, so an artifact built under the retired `100..199` membership fails closed while remaining byte-identical and readable as history. The later numerical snapshot publication does not copy this administrative artifact graph into HDF5. `CompiledGraph` remains transient compiler IR. Calculation Bundle metadata and source documents are encoded as separate zstd temporary files; both encoders borrow the already-frozen compiler slices and do not clone the source-document vector during serialization. Ordinary solve reads neither file. Calculation Bundle materialization downloads them through explicit byte/SHA bounds and only then hydrates the source vector required by the existing bundle validator/writer. Review Submit persists bounded baseline/gate projections and never embeds source documents.
 
 Cancellation is checked during raw merge, issue coalescing, graph reachability, partition writing, frozen-graph writing, TIDAS compression, and between bundle/report stages. A lease-heartbeat failure cancels the blocking task and waits for it to exit before returning. Temporary directories own all runs and artifacts, so success, cancellation, admission failure, crash recovery, and retry do not leave committed partial files. Object upload uses cancellable bounded file transfer; multipart cancellation aborts the remote upload.
 

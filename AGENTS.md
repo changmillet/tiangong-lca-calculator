@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: "2026-09-13"
-lastReviewedCommit: "805f8e6c67dcb43f8532e6dce72e60aa110e82bd"
-lastReviewedNote: "Worker #286: active canonicalRepo is tiangong-lca/worker; stable versioned compatibility-schema IDs and commit-pinned legacy cache provenance remain unchanged. Ownership, package names, runtime behavior and quality gates are preserved."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #289: added the exact-100 public numerical eligibility invariant and the published-Result (120) numerical/export exclusion, with the numerical_policy_version snapshot marker. Ownership boundaries, package names and quality gates are unchanged."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md
@@ -176,6 +176,8 @@ Route those tasks to:
 
 ## Operational Invariants
 
+- public numerical eligibility is exactly `state_code = 100`; the reserved publication segment `100..=199` is a reserved metadata range and never a computation capability or generic display grant, so unknown or newly reserved public states fail closed. Owner draft `0` is admitted only by the versioned `public_plus_owner_draft` scope for the row's own actor, and the dedicated Review Admin diagnostic (`20` plus public `100`) is the single intentional numeric exception
+- a published Result Process (`120`) is never a numerical root, provider or matrix axis, is not exposed through generic product reads, references or exports, and never leaves the platform inside a product export package; its only readback is the authorization-bound Database publication receipt. Every newly built numerical snapshot records `numerical_policy_version = public-numerical-state-100-excluding-result-120:v1` in its artifact config and in the server-authored READY `process_filter`; new compute execution and reuse require that exact marker, while historical artifacts stay byte-identical and readable
 - solve result persistence is S3-only; `lca_results` stores artifact metadata and diagnostics, not inline payloads
 - snapshots never persist fresh `CompiledGraph` IR: ordinary numerical artifacts bind separate v2 release metadata and content-addressed v1 source closure, while Review baseline/overlay persist consumer-owned projections; Calculation Bundle sidecars load only during bundle materialization, legacy numerical payloads remain readable even when their compiler metadata schema has drifted, and compatible legacy graph/v1 evidence remains read-compatible
 - queue enqueue and protected writes must stay on service-side paths; do not move them to frontend clients or authenticated direct table writes

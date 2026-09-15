@@ -59,6 +59,11 @@ pub struct ScopeClosureSnapshotBinding {
 pub struct SnapshotBuildConfig {
     /// `state_code` selection used in builder.
     pub process_states: String,
+    /// Versioned numerical-eligibility policy this artifact was produced under, when it was
+    /// produced by a binary that knows the policy. New compute execution and reuse require the
+    /// current marker; decoding and historical reads never consult it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub numerical_policy_version: Option<String>,
     /// Optional `user_id` inclusion in process selection.
     #[serde(default)]
     pub include_user_id: Option<Uuid>,
@@ -71,6 +76,11 @@ pub struct SnapshotBuildConfig {
     /// Immutable scope-closure evidence consumed by package Build V2.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope_closure_binding: Option<ScopeClosureSnapshotBinding>,
+    /// Numerical build-contract hash this artifact was produced under, when the build had a
+    /// scope-closure binding. New compute execution refuses an artifact whose recorded contract is
+    /// not the current one; historical artifacts stay readable through administrative readers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snapshot_build_contract_hash: Option<String>,
     /// Exact database method/factor snapshot proof used by the build.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lcia_method_factor_source: Option<LcaMethodFactorSourceSnapshot>,
@@ -138,6 +148,17 @@ pub struct SnapshotBuildConfig {
     pub method_id: Option<Uuid>,
     /// Optional LCIA method version.
     pub method_version: Option<String>,
+}
+
+impl SnapshotBuildConfig {
+    /// True when this artifact records the current public numerical eligibility policy.
+    ///
+    /// A snapshot written before the policy marker existed reports `false`: historical artifacts
+    /// stay decodable and readable, but they are not evidence for new compute execution or reuse.
+    #[must_use]
+    pub fn is_numerical_policy_current(&self) -> bool {
+        crate::is_current_numerical_snapshot_policy(self.numerical_policy_version.as_deref())
+    }
 }
 
 fn default_provider_lineage_policy() -> String {
@@ -1052,10 +1073,12 @@ mod tests {
         let snapshot_id = uuid::Uuid::new_v4();
         let config = SnapshotBuildConfig {
             process_states: crate::default_snapshot_process_states_arg(),
+            numerical_policy_version: Some(crate::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned()),
             include_user_id: None,
             data_scope: None,
             scope_manifest_sha256: None,
             scope_closure_binding: None,
+            snapshot_build_contract_hash: None,
             lcia_method_factor_source: None,
             selection_mode: SnapshotSelectionMode::FilteredLibrary,
             request_roots: Vec::new(),

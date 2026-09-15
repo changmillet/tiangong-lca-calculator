@@ -20,9 +20,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/edge-function-integration.md
   - docs/review-quality-diagnostic-contract.md
-lastReviewedAt: 2026-08-13
-lastReviewedCommit: 223892ac89d08e5266b41c7d697ecb121d20d508
-lastReviewedNote: "Updated for Issue #249: submit no longer waits for worker numerical validation; Review Admin manually runs and views an informational report."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #289: reviewed with no content change. Frontend interaction, polling, result reading, idempotency and Review Admin consumption are unaffected; Result display stays out of scope and no frontend change is required by the exact-100 numerical policy."
 related:
   - AGENTS.md
   - .docpact/config.yaml

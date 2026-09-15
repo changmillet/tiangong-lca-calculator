@@ -1653,6 +1653,36 @@ fn payload_schema_supported_for_job_kind(job_kind: &str, schema: &str) -> bool {
     )
 }
 
+/// Rejects a legacy `lca.build_snapshot.request.v1` payload whose process universe is not the
+/// public numerical scope.
+///
+/// The offline CLI builds its universe from `--process-states`, which defaults to exactly state
+/// 100. Allowing a v1 payload to request a wider state list would reopen the numerical boundary
+/// that `100..=199` used to imply, so an absent `process_states` (builder default) resolves to the
+/// exact public numerical scope, `all_states=true` is not a numeric bypass, and any explicit
+/// non-canonical list fails closed. The Review Admin diagnostic job family never dispatches this
+/// schema; it owns its dedicated scope through its own runner.
+fn ensure_public_numerical_build_states(
+    all_states: Option<bool>,
+    process_states: Option<&str>,
+) -> anyhow::Result<()> {
+    // An omitted `all_states` keeps the existing non-versioned default of public numerical state
+    // `100`; only an explicit `true` is a widening attempt and fails closed. Adding a newly required
+    // field here would break existing producers for a reason unrelated to narrowing the universe.
+    if all_states == Some(true) {
+        return Err(anyhow::anyhow!(
+            "public_process_state_scope_must_be_exactly_100: v1 build payload must not set all_states=true"
+        ));
+    }
+    let process_states = process_states.unwrap_or("100");
+    if crate::is_numerical_process_states_arg(process_states) {
+        return Ok(());
+    }
+    Err(anyhow::anyhow!(
+        "public_process_state_scope_must_be_exactly_100: v1 build payload requested process_states={process_states}"
+    ))
+}
+
 #[allow(clippy::too_many_lines)]
 fn validate_versioned_payload_contract(
     payload: &JobPayload,
@@ -1731,6 +1761,8 @@ fn validate_versioned_payload_contract(
         (
             "lca.build_snapshot.request.v1",
             JobPayload::BuildSnapshot {
+                all_states,
+                process_states,
                 include_user_state_codes,
                 include_user_unassigned_only,
                 include_user_review_free_only,
@@ -1753,6 +1785,16 @@ fn validate_versioned_payload_contract(
             return Err(anyhow::anyhow!(
                 "versioned scope fields cannot be carried by a v1 build payload"
             ));
+        }
+        (
+            "lca.build_snapshot.request.v1",
+            JobPayload::BuildSnapshot {
+                all_states,
+                process_states,
+                ..
+            },
+        ) => {
+            ensure_public_numerical_build_states(*all_states, process_states.as_deref())?;
         }
         (
             schema,
@@ -2491,7 +2533,8 @@ mod tests {
                         "version": "01.00.000"
                     }
                 ],
-                "processStates": "100,101",
+                "processStates": "100",
+                "allStates": false,
                 "includeUserId": Uuid::new_v4(),
                 "noLcia": true
             }),
@@ -2511,10 +2554,100 @@ mod tests {
                 assert_eq!(job_id, lca_job_id);
                 assert_eq!(parsed_snapshot_id, snapshot_id);
                 assert_eq!(request_roots.expect("roots")[0].process_id, process_id);
-                assert_eq!(process_states.as_deref(), Some("100,101"));
+                assert_eq!(process_states.as_deref(), Some("100"));
                 assert_eq!(no_lcia, Some(true));
             }
             other => panic!("unexpected payload: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn v1_build_payload_cannot_widen_the_public_numerical_process_universe() {
+        for requested in [
+            "100,101",
+            "100,150,199",
+            "100,120",
+            "101",
+            "199",
+            "200",
+            "0",
+        ] {
+            let job = worker_job(
+                "lca.build_snapshot",
+                "lca.build_snapshot.request.v1",
+                json!({
+                    "jobId": Uuid::new_v4(),
+                    "snapshotId": Uuid::new_v4(),
+                    "processStates": requested,
+                    "allStates": false,
+                    "noLcia": true
+                }),
+            );
+
+            let error = solver_worker_job_payload(&job)
+                .expect_err("widened public numerical scope must fail closed");
+            assert!(
+                error
+                    .to_string()
+                    .contains("public_process_state_scope_must_be_exactly_100"),
+                "{requested}: {error}"
+            );
+        }
+
+        // `all_states=true` is not a numerical bypass on the legacy schema either.
+        let job = worker_job(
+            "lca.build_snapshot",
+            "lca.build_snapshot.request.v1",
+            json!({
+                "jobId": Uuid::new_v4(),
+                "snapshotId": Uuid::new_v4(),
+                "allStates": true,
+                "noLcia": true
+            }),
+        );
+        let error = solver_worker_job_payload(&job).expect_err("all_states=true must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("public_process_state_scope_must_be_exactly_100"),
+            "{error}"
+        );
+
+        // The canonical public state, and an omitted list that resolves to it, stay accepted.
+        for payload in [
+            json!({
+                "jobId": Uuid::new_v4(),
+                "snapshotId": Uuid::new_v4(),
+                "processStates": "100",
+                "allStates": false,
+                "noLcia": true
+            }),
+            // Existing non-versioned producers omit `allStates` entirely; that must keep working
+            // because the effective default is the public numerical state 100.
+            json!({
+                "jobId": Uuid::new_v4(),
+                "snapshotId": Uuid::new_v4(),
+                "processStates": "100",
+                "noLcia": true
+            }),
+            json!({
+                "jobId": Uuid::new_v4(),
+                "snapshotId": Uuid::new_v4(),
+                "allStates": false,
+                "noLcia": true
+            }),
+            json!({
+                "jobId": Uuid::new_v4(),
+                "snapshotId": Uuid::new_v4(),
+                "noLcia": true
+            }),
+        ] {
+            let job = worker_job(
+                "lca.build_snapshot",
+                "lca.build_snapshot.request.v1",
+                payload,
+            );
+            solver_worker_job_payload(&job).expect("canonical public numerical scope is accepted");
         }
     }
 
@@ -2769,7 +2902,7 @@ mod tests {
                 "includedInputCount": 1,
                 "inputManifestHash": "hash-1",
                 "inputManifest": {
-                    "predicateVersion": "published-state-code-100-199:v1",
+                    "predicateVersion": "published-state-code-100:latest-per-id:v2",
                     "processes": [
                         {
                             "id": process_id,

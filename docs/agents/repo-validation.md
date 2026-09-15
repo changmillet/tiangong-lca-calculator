@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: "2026-09-13"
-lastReviewedCommit: "805f8e6c67dcb43f8532e6dce72e60aa110e82bd"
-lastReviewedNote: "Worker #286: active canonicalRepo is tiangong-lca/worker; stable versioned compatibility-schema IDs and commit-pinned legacy cache provenance remain unchanged. Ownership, package names, runtime behavior and quality gates are preserved."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #289: added the Result-120 numerical-isolation/product-export acceptance guidance, the one-scenario-per-invocation runner contract with exact prerequisites, the coordinator-owned immutable fixture lifecycle, and the verified live task-instance results for all five scenarios. Baseline gates are unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -89,7 +89,7 @@ The local `pre-push` hook runs the docpact gate first and then runs `make check`
 | Review Admin quality diagnostic / pending-review matrix | `cargo test -p solver-worker worker_jobs`; `cargo test -p solver-worker review_quality_diagnostic_runner`; `cargo check -p solver-worker --bin review_quality_diagnostic_runner`; `cargo test -p solver-worker snapshot_builder_protocol`; hard Clippy/format gates | in isolated non-production DB/S3, enqueue one safe `review.quality_diagnostic` job with multiple pending Process targets and prove they enter one request-root snapshot. Exercise complete, source-incomplete, factorization-failed, no-pending-Process, timeout, signal, terminal-protocol and lease-loss cases. | Require `completed + clear/findings/not_evaluable` for every data-quality conclusion, empty `blocker_codes`, null `resolution_scope`, `workflowBlocking=false`, and unchanged Review states. Launch/timeout/signal/protocol faults use `failed`. Never use production enqueue/write for validation. Keep `docs/review-quality-diagnostic-contract.md` aligned. |
 | generic AI worker or handler | `cargo test -p solver-worker ai::`; `cargo check -p solver-worker --bin ai_worker`; `cargo clippy -p solver-worker --bin ai_worker --tests -- -D warnings`; hard format gate; run both strict-authoring `tidas ruleset` commands against the governed binary | with an isolated non-production DB and mock/provider test endpoint, enqueue one Process and one Flow `ai.tidas_suggestion.request.v1`; prove claim/heartbeat/result, bounded concurrency, complete/partial/failed outcomes, original-data preservation on all-path failure, unknown schema rejection, provider timeout/429/5xx mapping, and no domain-row mutation | Keep `docs/ai-worker-contract.md`, `docs/lca-api-contract.md`, `.env.example`, ruleset/catalog binding, and model config version aligned. Never put provider keys, raw error bodies, or dataset content in validation logs. |
 | maintenance worker_jobs / GC orchestration | `cargo check -p solver-worker --bin maintenance_worker`; `cargo check -p solver-worker --bin maintenance_enqueue`; run touched binaries such as `cargo check -p solver-worker --bin snapshot_gc --bin result_gc --bin artifact_gc --bin package_gc --bin process_flow_graph_cache_builder`; `cargo test -p solver-worker --bin maintenance_worker`; `cargo test -p solver-worker --bin maintenance_enqueue`; run the touched GC/filter/cache tests such as `cargo test -p solver-worker artifact_gc`, `cargo test -p solver-worker snapshot_gc`, `cargo test -p solver-worker result_gc`, `cargo test -p solver-worker --bin package_gc`, or `cargo test -p solver-worker --bin process_flow_graph_cache_builder`; hard Clippy gate for all targets | run a safe dry-run `lca.snapshot_gc`, `lca.result_gc`, `worker.artifact_gc`, `tidas.package_artifact_gc`, or `national_carbon.process_flow_graph_cache_build` worker job in dev when DB and storage env are available; package GC must prove one fixed `as_of`, candidate recheck, object-first marking, bounded cache/export-detail cleanup, same-day terminal maintenance reuse, and zero canonical job deletion; generic artifact GC must prove object-delete-before-complete, missing-object idempotency, bucket/path rejection, bounded claim batches, and retry without tombstoning | Keep `docs/agents/repo-architecture.md`, `README.md`, deployment units, and the package/LCA retention docs aligned with job kind, payload, summary, destructive-execute safety semantics, and fixed stdout/stderr capture limits. |
-| package worker import or export flows | baseline gates; real release-binary handshake against the active governed `0.2.0` default; active-source audit proving no Python validator or validator-command fallback remains | validate the largest available package locally with the release `tidas` binary before any server execution; verify `tidas.operation-report.v1`, exact version, `asset_fingerprint`, issue-spool SHA-256/bytes/event count, bounded memory/queue settings, and stable Worker error codes; run the closest safe package-flow helper when isolated DB/S3 is available | The large package fixture remains outside git. Package-job semantics are runtime-sensitive and may depend on storage or DB state; never make a production mutation for validation. |
+| package worker import or export flows | baseline gates; real release-binary handshake against the active governed `0.2.0` default; active-source audit proving no Python validator or validator-command fallback remains | validate the largest available package locally with the release `tidas` binary before any server execution; verify `tidas.operation-report.v1`, exact version, `asset_fingerprint`, issue-spool SHA-256/bytes/event count, bounded memory/queue settings, and stable Worker error codes; run the closest safe package-flow helper when isolated DB/S3 is available | The large package fixture remains outside git. Package-job semantics are runtime-sensitive and may depend on storage or DB state; never make a production mutation for validation. Product export additionally applies `product-export-excludes-published-result-120:v1` to `processes` only; support tables, import conflict rules and `state_code` semantics are unchanged, and the marker is traceability evidence, not a cache-invalidation mechanism. |
 | package `worker_jobs` queue backend | `cargo test -p solver-worker --bin package_worker`; `cargo test -p solver-worker package_worker`; `cargo check -p solver-worker --bin package_worker`; hard Clippy gate; hard format gate | when DB/S3 env is available, enqueue one safe `worker_queue=package` job and run `package_worker --package-queue-backend worker-jobs` to verify claim/heartbeat/result projection; verify explicit `pgmq` selection fails closed before consumption | Keep `docs/tidas-package-contract.md` aligned with job kind, payload schema, continuation behavior, artifact projection, Worker result projection, and retired lifecycle behavior. |
 | runtime SQL expectation docs or local migration helpers | baseline gates plus `./scripts/validate_additive_migration.sh` when the task touches migration expectations | record separately when durable schema proof is required in `database-engine` | Local migration files here are not the workspace-wide source of truth. |
 | manual debug, parity, or target-validation scripts | run the touched script with safe args or `--help` when available, plus baseline gates if code changed nearby | `./scripts/run_full_compute_debug.sh`, `./scripts/run_bw25_validation.sh`, or `./scripts/validate_lcia_targets.sh` as applicable | `bw25-validator` is manual-only and out-of-band. |
@@ -162,6 +162,113 @@ Use this acceptance flow when a matrix-build or allocation-semantics change need
 
 6. Compare by process and flow UUID rather than matrix index. Record the old/new A and B entries for affected processes, the old/new target LCIA values with absolute and relative deltas, and tolerance results for the unaffected control processes.
 7. Perform every replay write only in staging or a local environment with isolated database and object-storage state. Production reads may be used to select or copy an authorized baseline, but production mutation, enqueue, snapshot creation, cache invalidation, or active-pointer changes are prohibited as validation steps.
+
+## Result-120 Numerical Isolation And Product Export
+
+`scripts/run_result120_numerical_isolation.sh` selects exactly ONE scenario per invocation. It never
+creates, resets, migrates, starts or stops a database, storage service or container.
+
+```bash
+RESULT120_CONFIRM_ISOLATED=I_CONFIRM_ISOLATED_TASK_DATABASE \
+RESULT120_TASK_INSTANCE_ID=<task instance id> \
+RESULT120_TASK_FIXTURE_FRESH=I_CONFIRM_FRESH_TASK_FIXTURE \
+RESULT120_EGRESS_SINK_CONFIRMED=I_CONFIRM_TASK_EGRESS_SINK \
+RESULT120_SCENARIO=<one scenario> \
+RESULT120_DATABASE_URL='postgresql://postgres:<pw>@127.0.0.1:<task-port>/postgres' \
+  ./scripts/run_result120_numerical_isolation.sh
+```
+
+The runner builds and pins `SNAPSHOT_BUILDER_BIN` to an absolute path for every scenario that spawns
+the builder, and the Rust preflight rejects a missing, non-absolute, non-executable, or
+source-stale binary, so a leftover `target/debug/snapshot_builder` from an earlier revision cannot be
+accepted silently. No `TIDAS_BIN` is required: `execute_export_package` never invokes TIDAS (only the
+import path does), and the product-export scenario asserts the real ZIP bytes it produced.
+
+The task bucket is created fresh under a task-named key with **no MIME allow-list**
+(`allowed_mime_types = NULL`), and the suite asserts that effective value. An enumerated list is
+deliberately avoided: the Worker uploads HDF5, JSON, JSONL, gzip, the TIDAS ZIP, Parquet, XLSX parts
+(`application/xml`, `...spreadsheetml.*+xml`) and vendor types such as
+`application/vnd.tiangong.snapshot-source-closure+json+zstd`. A live run failed with
+`415 InvalidMimeType` when the list was enumerated, so the bucket is left unrestricted rather than
+tracking every type; the bucket is never an existing or shared one, because the freshness preflight
+already rejected a non-empty instance. The Auth insert relies on the
+Database `trg_sync_auth_users_to_private_users` mirror instead of duplicating the `private.users` row,
+and verifies the mirror exists rather than updating the profile broadly.
+
+`RESULT120_TASK_FIXTURE_FRESH` confirms the coordinator reset the instance; the suite additionally
+asserts empty `public.processes`/`public.flows` before the first fixture insert. `RESULT120_EGRESS_SINK_CONFIRMED`
+confirms a safe task-local webhook sink exists: `public.processes` carries
+`process_extract_md_trigger_insert`, an `AFTER INSERT` trigger with no `WHEN` clause that calls
+`util.project_url()`/`util.project_secret_key()` and POSTs to an Edge function. The suite probes both
+helpers before any insert and fails closed, because a missing Vault secret would otherwise surface
+only *after* fixture rows had already fired webhooks.
+
+Network scenarios (`numerical-isolation`, `owner-scope`, `review-diagnostic`, `product-export`) also
+require explicit `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID` and
+`S3_SECRET_ACCESS_KEY`. There are no embedded defaults; the bucket name must contain
+`RESULT120_TASK_INSTANCE_ID`, and both endpoints must be loopback. `--test-threads=1` serializes the
+suite, the Rust guard holds a process-wide mutex, and the run refuses to start when the instance
+already has queued or running worker jobs. The same guards execute inside the Rust entrypoints,
+because `cargo test -- --ignored` bypasses the shell runner.
+
+`database-only` needs no object storage and is explicitly PARTIAL proof: it covers the Database
+eligibility predicates and the export fence predicate only. It never substitutes for the scenarios
+that build a snapshot, run provider matching, solve, and inspect the Calculation Bundle.
+
+Fixture lifecycle is coordinator-owned. Identity is allocated before the first write and the
+scenario guard is created first, so a failure during seeding still leaves a manifest naming every row
+that may exist. The pre-publication baseline inserts only consumer `C` and Unit `U(P)`; the Result row
+is inserted by an explicit `WithResult` step at its published state, never created at `100` and then
+transitioned. Scenarios seed immutable authored rows whose states are assigned at insert time, so no
+canonical trigger is disabled, no constraint is dropped, and the review-controlled-write setting is
+never used. Those
+rows are protected against UPDATE and DELETE for every role, so the suite does not delete them and
+does not claim ownership as a deletion right. Each scenario therefore runs only against a fresh
+dedicated task database plus a unique task bucket, and the coordinator resets that instance between
+scenarios. A fixture manifest is written on success and on failure. Its inventory is exactly the
+resources the suite itself creates, recorded before each insert: the three named fixture Processes
+(`consumer`, `unit`, `result`), the five fixture Flows, the Flow Property, Unit Group and LCIA Method,
+plus the worker job ids, resolved snapshot ids, package artifact ids, draft Process ids and export
+probe Process ids that the scenario created. It is **not** an exhaustive record of every row the run
+touches: rows written by Database-side control facts (for example the release control fixture and
+`private.reviews` entries) are created by the scenario but are not enumerated in the manifest, and
+the manifest does not list bucket objects. The exclusive boundary is that the coordinator assigns one
+dedicated task instance and one unique task bucket per scenario and resets that instance between
+scenarios; that boundary, not the manifest, is what keeps retained rows from affecting another run.
+
+All five scenarios were executed against an isolated task instance (Supabase `worker-289-result120`,
+database `127.0.0.1:62322`, storage `127.0.0.1:62321`) and passed, each after a full task-instance
+reset plus Vault provisioning. Verified live behavior:
+
+- `numerical-isolation`: both builds and both `solve_all_unit` jobs completed; the solved axis was
+  exactly `[C, U(P)]` before and after the Result Process existed, with identical per-process LCIA
+  values (consumer `4.8`, Unit `0.6`) and the published Result absent from the axis; an explicit
+  request root naming the Result was refused with
+  `request_root_not_numerically_eligible: published_result_process_is_not_a_numerical_input`.
+- `product-export`: the packaged Process set was exactly the two public state-100 Units plus the
+  `NULL`/`0`/`20`/`200` probe rows, with state `120` absent; `selected_roots` naming the Result
+  failed closed with `some selected datasets were not found or are not exportable` rather than
+  emitting a package that silently omitted it.
+- `owner-scope`, `review-diagnostic` and `database-only` also passed; the dedicated diagnostic kept
+  its in-review `20` root while excluding the Result.
+
+Fixture lessons now encoded in the suite: canonical documents must publish
+`administrativeInformation.publicationAndOwnership.common:dataSetVersion`, because the Database
+`<table>_sync_jsonb_version` triggers derive the `version` column from it and the Portal catalog
+projections reject an empty derived version; the candidate scope validates `lciaMethods` against the
+reviewed catalog on every call, so assertions must pass a reviewed method axis; the task bucket is
+created without a MIME allow-list, because the Worker uploads vendor zstd, Parquet and XLSX part
+types that an enumerated list would have to track.
+
+Honest limits: the in-tree tests that run without a database prove fixture *structure* (allocation,
+baseline row set, manifest emission on both outcomes, binary-path validation, bucket choice). Runtime
+validity is established only by the task-instance runs above, which are not part of the default
+`make check` gate.
+
+Cross-repository boundary: the numerical-policy marker producer contract (`numerical_policy_version`
+in the server-authored READY `process_filter`) is Worker-owned and tested here. The Edge consumer
+validation, the Database Result publication lifecycle, and any end-to-end publication flow are owned
+by their own tasks and are not proven by this suite.
 
 ## Minimum PR Note Quality
 

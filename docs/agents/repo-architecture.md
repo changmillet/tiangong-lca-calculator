@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: "2026-09-13"
-lastReviewedCommit: "805f8e6c67dcb43f8532e6dce72e60aa110e82bd"
-lastReviewedNote: "Worker #286: active canonicalRepo is tiangong-lca/worker; stable versioned compatibility-schema IDs and commit-pinned legacy cache provenance remain unchanged. Ownership, package names, runtime behavior and quality gates are preserved."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #289: added the Numerical Process eligibility section (exact 100, owner draft 0 by actor scope, review diagnostic 20+100) and the numerical-policy marker/reuse rules. Path map and ownership boundaries are unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -161,6 +161,16 @@ The snapshot builder path owns sparse payload generation, provider matching, and
 The current provider-link runtime contract lives in `docs/provider-linking.md`. The modeling basis for implicit regional supply mix, exchange-location supply-region anchors, and annual-volume provider shares lives in `docs/implicit-regional-supply-mix-modeling.md` and `docs/implicit-regional-supply-mix-modeling.en.md`.
 
 The process-column contract is one complete TIDAS Process revision per snapshot matrix column. `quantitativeReference.referenceToReferenceFlow` selects that column's signed normalization pivot; it does not require Product, Output, or a positive amount. Non-reference exchanges do not create derived matrix columns. When another exchange needs an independent activity pivot, upstream must publish another complete Process revision.
+
+### Numerical Process eligibility
+
+Public numerical eligibility is exactly `state_code = 100`; the reserved publication segment `100..=199` is a read/display range, not a computation capability. No public entrypoint—offline `snapshot-builder` default, queued `lca.build_snapshot`, package input manifest, certificate-owned axis, or cached snapshot reuse—may widen that set, and an unknown or newly reserved public state fails closed. A published Result Process (reserved state `120`) is never a numerical root, provider or matrix axis, and is not exposed through generic product reads, references or exports (including `open_data` packages); its only readback is the authorization-bound Database publication receipt. Its exclusion is enforced independently at every entrypoint rather than by one shared range filter, and the reserved `100..=199` segment grants no generic display right either. `crates/solver-worker/src/lib.rs` owns the state literals and the eligibility predicate, and `docs/lca-api-contract.md` owns the consumer-facing scope contract.
+
+Owner drafts are a separate authorization, not a state value: state `0` is admitted only by the versioned `public_plus_owner_draft` scope and only for the actor whose `user_id` owns the row, and the materialized rows are rechecked against that actor after selection. The dedicated Review Admin quality diagnostic is the single intentional numeric exception (in-review `20` plus public `100`) and never dispatches through a generic job path. Administrative, export/import and lineage reads are outside this predicate and keep their own visibility rules.
+
+Every newly built numerical snapshot records a global versioned numerical-policy marker, `public-numerical-state-100-excluding-result-120:v1`, and the marker participates in the source fingerprint that drives snapshot/cache identity. New compute execution and snapshot reuse require that exact marker and fail closed when it is missing or stale, which is what fences ordinary global/subset snapshots that may have been selected under the retired `100..199` membership; historical artifacts stay byte-identical and readable through readers that never consult the marker. Closure-bound snapshots additionally record `lcia.numerical-snapshot-build-contract.v1`, a binding hash over the exact scope-closure evidence, snapshot identity and artifact format matching the Database-side derivation; that hash is supplementary and can never replace the global marker. Certified package reuse additionally requires a current Database eligibility predicate: an artifact selected under a retired reserved-range predicate (or declaring none) must be rebuilt, not silently re-executed.
+
+The process-state literals consumed from Database are `candidate-public-state-code-100:v2` for the no-current-release closure candidate universe and `published-state-code-100:latest-per-id:v2` for the eligible-input manifest; `current-public-release-manifest:v2` remains the separate formal-release membership contract.
 
 `crates/solver-worker/src/signed_flow.rs` owns the direction-neutral math: `coefficient = direction_sign * amount`, signed unit reference pivots, opposite-sign weighted balance, non-negative activity requirements, closure checks, and explicit `closed/open/cutoff` boundary identifiers. `snapshot_builder` maps Product/Waste to technosphere, Elementary to biosphere, and Other to reporting; full snapshots, request-root closure, and review-submit overlays share the same technosphere balance compiler. Candidate eligibility is exact same-flow, different-process, quantitative-reference, and opposite-sign—not Product/Waste or Input/Output semantics.
 
