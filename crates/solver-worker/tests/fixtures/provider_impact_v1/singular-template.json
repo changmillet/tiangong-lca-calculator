@@ -1,0 +1,419 @@
+{
+  "baseline": {
+    "actor_user_id": "00000000-0000-0000-0000-0000000003e7",
+    "documents": [
+      {
+        "document": {
+          "processDataSet": {
+            "administrativeInformation": {
+              "publicationAndOwnership": {
+                "common:dataSetVersion": "01.00.000"
+              }
+            },
+            "exchanges": {
+              "exchange": [
+                {
+                  "@dataSetInternalID": "1",
+                  "exchangeDirection": "Output",
+                  "meanAmount": 1,
+                  "referenceToFlowDataSet": {
+                    "@refObjectId": "00000000-0000-0000-0000-000000000065",
+                    "@type": "flow data set",
+                    "@version": "01.00.000"
+                  }
+                },
+                {
+                  "@dataSetInternalID": "2",
+                  "exchangeDirection": "Input",
+                  "meanAmount": 1,
+                  "referenceToFlowDataSet": {
+                    "@refObjectId": "00000000-0000-0000-0000-000000000066",
+                    "@type": "flow data set",
+                    "@version": "01.00.000"
+                  }
+                }
+              ]
+            },
+            "processInformation": {
+              "dataSetInformation": {
+                "common:UUID": "00000000-0000-0000-0000-000000000001"
+              },
+              "quantitativeReference": {
+                "referenceToReferenceFlow": "1"
+              }
+            }
+          }
+        },
+        "document_sha256": "92199703f5ec2cc2b6fc45e4452d802e9a6c8180f0bc9cb10924725850a2ea12",
+        "identity": {
+          "dataset_type": "process",
+          "id": "00000000-0000-0000-0000-000000000001",
+          "version": "01.00.000"
+        },
+        "model_id": null,
+        "model_version": null,
+        "review_id": null,
+        "state_code": 0,
+        "team_id": null,
+        "user_id": "00000000-0000-0000-0000-0000000003e7"
+      },
+      {
+        "document": {
+          "processDataSet": {
+            "administrativeInformation": {
+              "publicationAndOwnership": {
+                "common:dataSetVersion": "01.00.000"
+              }
+            },
+            "exchanges": {
+              "exchange": [
+                {
+                  "@dataSetInternalID": "1",
+                  "exchangeDirection": "Output",
+                  "meanAmount": 1,
+                  "referenceToFlowDataSet": {
+                    "@refObjectId": "00000000-0000-0000-0000-000000000066",
+                    "@type": "flow data set",
+                    "@version": "01.00.000"
+                  }
+                },
+                {
+                  "@dataSetInternalID": "2",
+                  "exchangeDirection": "Input",
+                  "meanAmount": 1,
+                  "referenceToFlowDataSet": {
+                    "@refObjectId": "00000000-0000-0000-0000-000000000065",
+                    "@type": "flow data set",
+                    "@version": "01.00.000"
+                  }
+                }
+              ]
+            },
+            "processInformation": {
+              "dataSetInformation": {
+                "common:UUID": "00000000-0000-0000-0000-000000000002"
+              },
+              "quantitativeReference": {
+                "referenceToReferenceFlow": "1"
+              }
+            }
+          }
+        },
+        "document_sha256": "481dda97401548caef0c9bd32317c868b000e744352a0d7dccecf60409984d50",
+        "identity": {
+          "dataset_type": "process",
+          "id": "00000000-0000-0000-0000-000000000002",
+          "version": "01.00.000"
+        },
+        "model_id": null,
+        "model_version": null,
+        "review_id": null,
+        "state_code": 0,
+        "team_id": null,
+        "user_id": "00000000-0000-0000-0000-0000000003e7"
+      },
+      {
+        "document": {
+          "flowDataSet": {
+            "administrativeInformation": {
+              "publicationAndOwnership": {
+                "common:dataSetVersion": "01.00.000"
+              }
+            },
+            "flowInformation": {
+              "dataSetInformation": {
+                "common:UUID": "00000000-0000-0000-0000-000000000065"
+              },
+              "quantitativeReference": {
+                "referenceToReferenceFlowProperty": "7"
+              }
+            },
+            "flowProperties": {
+              "flowProperty": [
+                {
+                  "@dataSetInternalID": "7",
+                  "meanValue": 1,
+                  "referenceToFlowPropertyDataSet": {
+                    "@refObjectId": "00000000-0000-0000-0000-0000000000c9",
+                    "@type": "flow property data set",
+                    "@version": "01.00.000"
+                  }
+                }
+              ]
+            },
+            "modellingAndValidation": {
+              "LCIMethod": {
+                "typeOfDataSet": "Product flow"
+              }
+            }
+          }
+        },
+        "document_sha256": "76b5bc0e08a350c88e2c87c3ef28417c8f5199efb96c5a67fcf880196846cb94",
+        "identity": {
+          "dataset_type": "flow",
+          "id": "00000000-0000-0000-0000-000000000065",
+          "version": "01.00.000"
+        },
+        "model_id": null,
+        "model_version": null,
+        "review_id": null,
+        "state_code": 0,
+        "team_id": null,
+        "user_id": "00000000-0000-0000-0000-0000000003e7"
+      },
+      {
+        "document": {
+          "flowDataSet": {
+            "administrativeInformation": {
+              "publicationAndOwnership": {
+                "common:dataSetVersion": "01.00.000"
+              }
+            },
+            "flowInformation": {
+              "dataSetInformation": {
+                "common:UUID": "00000000-0000-0000-0000-000000000066"
+              },
+              "quantitativeReference": {
+                "referenceToReferenceFlowProperty": "7"
+              }
+            },
+            "flowProperties": {
+              "flowProperty": [
+                {
+                  "@dataSetInternalID": "7",
+                  "meanValue": 1,
+                  "referenceToFlowPropertyDataSet": {
+                    "@refObjectId": "00000000-0000-0000-0000-0000000000c9",
+                    "@type": "flow property data set",
+                    "@version": "01.00.000"
+                  }
+                }
+              ]
+            },
+            "modellingAndValidation": {
+              "LCIMethod": {
+                "typeOfDataSet": "Product flow"
+              }
+            }
+          }
+        },
+        "document_sha256": "a37c1b8bd9536f162502992ed20986d42354da487dfa634df03a007ae1da4ffe",
+        "identity": {
+          "dataset_type": "flow",
+          "id": "00000000-0000-0000-0000-000000000066",
+          "version": "01.00.000"
+        },
+        "model_id": null,
+        "model_version": null,
+        "review_id": null,
+        "state_code": 0,
+        "team_id": null,
+        "user_id": "00000000-0000-0000-0000-0000000003e7"
+      },
+      {
+        "document": {
+          "flowPropertyDataSet": {
+            "administrativeInformation": {
+              "publicationAndOwnership": {
+                "common:dataSetVersion": "01.00.000"
+              }
+            },
+            "flowPropertiesInformation": {
+              "dataSetInformation": {
+                "common:UUID": "00000000-0000-0000-0000-0000000000c9"
+              },
+              "quantitativeReference": {
+                "referenceToReferenceUnitGroup": {
+                  "@refObjectId": "00000000-0000-0000-0000-00000000012d",
+                  "@type": "unit group data set",
+                  "@version": "01.00.000"
+                }
+              }
+            }
+          }
+        },
+        "document_sha256": "cc941284be30585393135276f36ff9151347122158a0a19b9df3d97b29823cdc",
+        "identity": {
+          "dataset_type": "flowproperty",
+          "id": "00000000-0000-0000-0000-0000000000c9",
+          "version": "01.00.000"
+        },
+        "model_id": null,
+        "model_version": null,
+        "review_id": null,
+        "state_code": 0,
+        "team_id": null,
+        "user_id": "00000000-0000-0000-0000-0000000003e7"
+      },
+      {
+        "document": {
+          "unitGroupDataSet": {
+            "administrativeInformation": {
+              "publicationAndOwnership": {
+                "common:dataSetVersion": "01.00.000"
+              }
+            },
+            "unitGroupInformation": {
+              "dataSetInformation": {
+                "common:UUID": "00000000-0000-0000-0000-00000000012d"
+              },
+              "quantitativeReference": {
+                "referenceToReferenceUnit": "0"
+              }
+            },
+            "units": {
+              "unit": [
+                {
+                  "@dataSetInternalID": "0",
+                  "meanValue": 1,
+                  "name": "kg"
+                }
+              ]
+            }
+          }
+        },
+        "document_sha256": "362ce677a016ba0ab63a94d5ca4e757a39e292e982bc1d3c8234c0ddaf9a71b6",
+        "identity": {
+          "dataset_type": "unitgroup",
+          "id": "00000000-0000-0000-0000-00000000012d",
+          "version": "01.00.000"
+        },
+        "model_id": null,
+        "model_version": null,
+        "review_id": null,
+        "state_code": 0,
+        "team_id": null,
+        "user_id": "00000000-0000-0000-0000-0000000003e7"
+      }
+    ],
+    "effective_processes": [
+      {
+        "process_id": "00000000-0000-0000-0000-000000000001",
+        "process_version": "01.00.000"
+      },
+      {
+        "process_id": "00000000-0000-0000-0000-000000000002",
+        "process_version": "01.00.000"
+      }
+    ],
+    "models": [],
+    "native_policy": {
+      "allocation_fraction_mode": "strict",
+      "allocation_semantics_version": "tidas-reference-allocation-v3",
+      "flow_identity_policy": "exact-flow-version-reference-unit-v2",
+      "has_lcia": false,
+      "link_semantics_version": "signed-flow-balance-v1",
+      "method_ids": [],
+      "provider_candidate_eligibility_mode": "opposite_sign_reference_port",
+      "provider_lineage_policy": "version-exact-lineage-gate-v1",
+      "provider_rule": "split_by_process_volume",
+      "reference_normalization_mode": "strict",
+      "self_loop_cutoff": 0.999999,
+      "singular_eps": 1e-12,
+      "source_closure_policy": "path-aware-bounded-frontier-v2",
+      "source_reference_policy": "source-reference-policy.v4",
+      "technosphere_boundary_policy": "closed"
+    },
+    "omitted_flow_resolutions": [],
+    "request_roots": [
+      {
+        "process_id": "00000000-0000-0000-0000-000000000001",
+        "process_version": "01.00.000"
+      }
+    ],
+    "scope_manifest": {
+      "actor": {
+        "kind": "authenticated_user",
+        "user_id": "00000000-0000-0000-0000-0000000003e7"
+      },
+      "applies_to": [
+        "processes",
+        "flows"
+      ],
+      "predicate": {
+        "clauses": [
+          {
+            "state_code": {
+              "eq": 100
+            }
+          },
+          {
+            "clauses": [
+              {
+                "user_id": {
+                  "eq": "00000000-0000-0000-0000-0000000003e7"
+                }
+              },
+              {
+                "state_code": {
+                  "eq": 0
+                }
+              }
+            ],
+            "operator": "and"
+          }
+        ],
+        "operator": "or"
+      },
+      "predicate_version": "public_state_100_or_authenticated_owner_state_0.v2",
+      "schema_version": "lca.data_scope.manifest.v2",
+      "scope": "public_plus_owner_draft"
+    }
+  },
+  "baseline_sha256": "352be3143cdc4ef28d9da5242b29a0a6e280d87f8a273bbda5992458381d7696",
+  "expected_worker_sha256": "REPLACE_WITH_EXACT_EXECUTABLE_SHA256",
+  "mode": "matrix_only",
+  "overlays": [
+    {
+      "before_sha256": "92199703f5ec2cc2b6fc45e4452d802e9a6c8180f0bc9cb10924725850a2ea12",
+      "candidate_sha256": "92199703f5ec2cc2b6fc45e4452d802e9a6c8180f0bc9cb10924725850a2ea12",
+      "document": {
+        "processDataSet": {
+          "administrativeInformation": {
+            "publicationAndOwnership": {
+              "common:dataSetVersion": "01.00.000"
+            }
+          },
+          "exchanges": {
+            "exchange": [
+              {
+                "@dataSetInternalID": "1",
+                "exchangeDirection": "Output",
+                "meanAmount": 1,
+                "referenceToFlowDataSet": {
+                  "@refObjectId": "00000000-0000-0000-0000-000000000065",
+                  "@type": "flow data set",
+                  "@version": "01.00.000"
+                }
+              },
+              {
+                "@dataSetInternalID": "2",
+                "exchangeDirection": "Input",
+                "meanAmount": 1,
+                "referenceToFlowDataSet": {
+                  "@refObjectId": "00000000-0000-0000-0000-000000000066",
+                  "@type": "flow data set",
+                  "@version": "01.00.000"
+                }
+              }
+            ]
+          },
+          "processInformation": {
+            "dataSetInformation": {
+              "common:UUID": "00000000-0000-0000-0000-000000000001"
+            },
+            "quantitativeReference": {
+              "referenceToReferenceFlow": "1"
+            }
+          }
+        }
+      },
+      "identity": {
+        "dataset_type": "process",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "version": "01.00.000"
+      }
+    }
+  ],
+  "schema_version": "worker.provider-impact.input.v1"
+}

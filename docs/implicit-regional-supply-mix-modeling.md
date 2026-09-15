@@ -24,9 +24,9 @@ checkPaths:
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/signed_flow.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-09-03
-lastReviewedCommit: 0b853ac7b79a0c438abd4f5dfbb08af0a3bcab32
-lastReviewedNote: "Reviewed for the Issue #279 production query hotfix; Lifecycle Model visibility compatibility does not change allocation theory."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #288: finite frozen-input provider-impact diagnostic reuses native selection, source closure and matrix assembly. Online census, runtime integration, numerical and scientific qualification remain outside this local contract; selection and weighting semantics are unchanged."
 related:
   - AGENTS.md
   - docs/agents/repo-architecture.md

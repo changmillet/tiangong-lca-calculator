@@ -20,7 +20,12 @@ use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
 use chrono::{DateTime, TimeDelta, Utc};
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches, Parser};
+
+#[path = "snapshot_builder/provider_impact.rs"]
+mod provider_impact;
+#[path = "snapshot_builder/source_reader.rs"]
+mod source_reader;
 use rayon::prelude::*;
 use serde::Serialize;
 use serde_json::{Map, Value};
@@ -102,6 +107,7 @@ use solver_worker::static_lcia_cache::{
     load_verified_static_lcia_bundle,
 };
 use solver_worker::storage::ObjectStoreClient;
+use source_reader::SnapshotSourceReader;
 use uuid::Uuid;
 
 const REVIEW_SUBMIT_OVERLAY_ARTIFACT_PURPOSE: &str = "review_submit_overlay";
@@ -185,6 +191,13 @@ fn matrix_readiness_policy(
 #[derive(Debug, Clone, Parser)]
 #[command(name = "snapshot-builder")]
 struct Cli {
+    /// Read a bounded, immutable provider-impact request without DB or object storage.
+    #[arg(long, requires_all = ["provider_impact_input_sha256", "provider_impact_out"])]
+    provider_impact_input: Option<PathBuf>,
+    #[arg(long, requires = "provider_impact_input")]
+    provider_impact_input_sha256: Option<String>,
+    #[arg(long, requires = "provider_impact_input")]
+    provider_impact_out: Option<PathBuf>,
     #[arg(long, env = "DATABASE_URL")]
     database_url: Option<String>,
     #[arg(long, env = "CONN")]
@@ -1404,7 +1417,19 @@ fn scope_closure_boundary_policy(
 
 #[tokio::main]
 async fn main() -> anyhow::Result<ExitCode> {
-    let cli = Cli::parse();
+    let command = Cli::command();
+    let matches = command.clone().get_matches();
+    if matches.contains_id("provider_impact_input") {
+        for argument in command.get_arguments() {
+            let id = argument.get_id();
+            anyhow::ensure!(
+                matches.value_source(id.as_str()) != Some(clap::parser::ValueSource::CommandLine)
+                    || id.as_str().starts_with("provider_impact_"),
+                "provider-impact input owns all settings; unrelated CLI option: {id}"
+            );
+        }
+    }
+    let cli = Cli::from_arg_matches(&matches)?;
     let blocking_reasons_path = cli.scope_closure_blocking_reasons_file.clone();
     match Box::pin(run_snapshot_builder(cli)).await {
         Ok(()) => Ok(ExitCode::SUCCESS),
@@ -1436,6 +1461,18 @@ async fn main() -> anyhow::Result<ExitCode> {
 }
 
 async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
+    if let Some(input) = &cli.provider_impact_input {
+        return provider_impact::run(
+            input,
+            cli.provider_impact_input_sha256
+                .as_deref()
+                .expect("clap requires input hash"),
+            cli.provider_impact_out
+                .as_deref()
+                .expect("clap requires output"),
+        )
+        .await;
+    }
     let total_started = Instant::now();
     let versioned_scope = validate_versioned_scope_cli(&cli)?;
     let scope_closure_snapshot = parse_scope_closure_snapshot_args(&cli)?;
@@ -4272,6 +4309,7 @@ async fn build_sparse_payload(
         &compiled_graph.lcia_exchange_observations,
         versioned_scope.is_some(),
         &compiled_graph.active_lcia_factors,
+        matrix_readiness_policy(build_config, has_lcia),
     )
 }
 
@@ -4822,6 +4860,36 @@ async fn compile_scope_graph(
     artifact_purpose: ArtifactPurpose,
     directional_lcia: bool,
 ) -> anyhow::Result<CompiledScopeGraph> {
+    compile_scope_graph_from_source(
+        SnapshotSourceReader::Database(pool),
+        processes,
+        include_user_id,
+        versioned_scope,
+        provider_rule,
+        reference_normalization_mode,
+        allocation_mode,
+        impact_factor_sets,
+        provider_lineage,
+        artifact_purpose,
+        directional_lcia,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn compile_scope_graph_from_source(
+    source: SnapshotSourceReader<'_>,
+    processes: Vec<ProcessRow>,
+    include_user_id: Option<Uuid>,
+    versioned_scope: Option<&ValidatedPublicOwnerDraftScope>,
+    provider_rule: ProviderRule,
+    reference_normalization_mode: NormalizationMode,
+    allocation_mode: AllocationMode,
+    impact_factor_sets: &[ImpactFactorSet],
+    provider_lineage: &ProviderLineageIndex,
+    artifact_purpose: ArtifactPurpose,
+    directional_lcia: bool,
+) -> anyhow::Result<CompiledScopeGraph> {
     let process_count_i32 =
         i32::try_from(processes.len()).map_err(|_| anyhow::anyhow!("process overflow"))?;
     let chunks = processes
@@ -4889,9 +4957,9 @@ async fn compile_scope_graph(
     }
 
     let flow_requests = collect_exchange_flow_reference_requests(&exchanges);
-    let flow_meta = fetch_flow_meta(pool, &flow_requests, versioned_scope).await?;
+    let flow_meta = source.flow_meta(&flow_requests, versioned_scope).await?;
     resolve_requested_flow_versions(&mut exchanges, &flow_meta)?;
-    let flow_release_metadata = fetch_flow_release_metadata(pool, &flow_meta.by_identity).await?;
+    let flow_release_metadata = source.flow_release_metadata(&flow_meta.by_identity).await?;
     for exchange in &exchanges {
         let identity = flow_link_identity(exchange);
         if !flow_meta.by_identity.contains_key(&identity) {
@@ -5039,7 +5107,7 @@ async fn compile_scope_graph(
         directional_lcia,
     );
     let (source_datasets, source_reference_provenance) = build_frozen_source_datasets(
-        pool,
+        source,
         &processes,
         &flow_meta.by_identity,
         impact_factor_sets,
@@ -5349,6 +5417,7 @@ fn assemble_sparse_payload(
         lcia_exchange_observations,
         directional_lcia,
         &active_lcia_factors,
+        matrix_readiness_policy(build_config, has_lcia),
     )
 }
 
@@ -5365,6 +5434,7 @@ fn assemble_sparse_payload_with_selection(
     lcia_exchange_observations: &[LciaExchangeObservation],
     directional_lcia: bool,
     active_lcia_factors: &ActiveLciaFactorSelection,
+    readiness_policy: MatrixReadinessPolicy,
 ) -> anyhow::Result<BuildOutput> {
     let process_count_i32 = i32::try_from(compiled_graph.processes.len())
         .map_err(|_| anyhow::anyhow!("process overflow"))?;
@@ -5652,7 +5722,7 @@ fn assemble_sparse_payload_with_selection(
         coverage: coverage.clone(),
         payload: data.clone(),
         compiled_graph: Some(compiled_graph.clone()),
-        policy: matrix_readiness_policy(build_config, has_lcia),
+        policy: readiness_policy,
     });
 
     let lcia_factor_coverage = directional_lcia
@@ -8602,7 +8672,7 @@ fn resolve_lcia_method_source_row<'a>(
 }
 
 async fn build_frozen_source_datasets(
-    pool: &PgPool,
+    source: SnapshotSourceReader<'_>,
     processes: &[ProcessRow],
     flows: &HashMap<FlowLinkIdentity, FlowRow>,
     impact_factor_sets: &[ImpactFactorSet],
@@ -8661,12 +8731,9 @@ async fn build_frozen_source_datasets(
             .collect::<BTreeSet<_>>()
             .into_iter()
             .collect::<Vec<_>>();
-        let rows = fetch_source_dataset_rows(
-            pool,
-            CompiledReleaseSourceDatasetType::LciaMethod,
-            &method_ids,
-        )
-        .await?;
+        let rows = source
+            .dataset_rows(CompiledReleaseSourceDatasetType::LciaMethod, &method_ids)
+            .await?;
         for ((method_id, method_version), artifact_locator_id) in method_sources {
             let row = resolve_lcia_method_source_row(
                 method_id,
@@ -8698,8 +8765,9 @@ async fn build_frozen_source_datasets(
     });
     let lcia_flow_requests =
         flow_reference_requests_from_source_references(&lcia_factor_flow_references);
-    let lcia_flow_meta =
-        fetch_flow_meta_batched(pool, &lcia_flow_requests, versioned_scope).await?;
+    let lcia_flow_meta = source
+        .flow_meta_batched(&lcia_flow_requests, versioned_scope)
+        .await?;
     for flow in resolve_lcia_support_flows(&lcia_factor_flow_references, &lcia_flow_meta)? {
         insert_compiled_source_dataset(
             &mut datasets,
@@ -8900,7 +8968,7 @@ async fn build_frozen_source_datasets(
             let mut metadata = Vec::new();
             for chunk in ids.chunks(SOURCE_CLOSURE_SUPPORT_QUERY_BATCH_SIZE) {
                 support_query_count += 1;
-                metadata.extend(fetch_source_dataset_metadata(pool, dataset_type, chunk).await?);
+                metadata.extend(source.dataset_metadata(dataset_type, chunk).await?);
             }
             let selected_identities =
                 select_source_dataset_read_identities(&type_references, &metadata);
@@ -8912,8 +8980,7 @@ async fn build_frozen_source_datasets(
             let mut rows = Vec::new();
             for batch in read_batches {
                 support_query_count += 1;
-                let batch_rows =
-                    fetch_exact_source_dataset_rows(pool, dataset_type, &batch).await?;
+                let batch_rows = source.exact_dataset_rows(dataset_type, &batch).await?;
                 let batch_bytes = batch_rows.iter().try_fold(0_usize, |total, row| {
                     total
                         .checked_add(serde_json::to_vec(&row.json)?.len())
@@ -9166,15 +9233,27 @@ async fn fetch_flow_release_metadata(
         }
     }
 
+    Ok(resolve_flow_release_metadata(
+        flows,
+        &flow_properties,
+        &unit_groups,
+    ))
+}
+
+fn resolve_flow_release_metadata(
+    flows: &HashMap<FlowLinkIdentity, FlowRow>,
+    flow_properties: &HashMap<(Uuid, String), Value>,
+    unit_groups: &HashMap<(Uuid, String), Value>,
+) -> HashMap<FlowLinkIdentity, FlowReleaseMetadata> {
     let mut out = HashMap::with_capacity(flows.len());
     for (identity, flow) in flows {
         let reference_unit = parse_flow_reference_property(&flow.json)
             .and_then(|(property_id, property_version)| {
-                resolve_versioned_json(&flow_properties, property_id, property_version.as_deref())
+                resolve_versioned_json(flow_properties, property_id, property_version.as_deref())
             })
             .and_then(parse_flow_property_reference_unit_group)
             .and_then(|(unit_group_id, unit_group_version)| {
-                resolve_versioned_json(&unit_groups, unit_group_id, unit_group_version.as_deref())
+                resolve_versioned_json(unit_groups, unit_group_id, unit_group_version.as_deref())
             })
             .and_then(parse_unit_group_reference_unit_name);
         out.insert(
@@ -9185,7 +9264,7 @@ async fn fetch_flow_release_metadata(
             },
         );
     }
-    Ok(out)
+    out
 }
 
 fn parse_flow_reference_property(flow_json: &Value) -> Option<(Uuid, Option<String>)> {

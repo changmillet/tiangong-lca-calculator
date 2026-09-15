@@ -24,9 +24,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-09-03
-lastReviewedCommit: 0b853ac7b79a0c438abd4f5dfbb08af0a3bcab32
-lastReviewedNote: "Reviewed for the Issue #279 production query hotfix; readiness schema and lineage evidence semantics remain unchanged."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #288: finite frozen-input provider-impact diagnostic reuses native selection, source closure and matrix assembly. Online census, runtime integration, numerical and scientific qualification remain outside this local contract; selection and weighting semantics are unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -46,6 +46,8 @@ related:
 - fresh `snapshot_builder` run 在 `report_dir` 下尝试写出的 `matrix-readiness-<snapshot_id>.json`
 
 `snapshot_builder` 的本地 report 写入是 guarded optional artifact：默认会按 `SNAPSHOT_REPORT_RETENTION_DAYS` / `SNAPSHOT_REPORT_MAX_FILES` 清理 `reports/snapshot-coverage`，并在 `SNAPSHOT_REPORT_MODE=guarded` 且可用磁盘空间低于 `SNAPSHOT_REPORT_MIN_FREE_BYTES` 时跳过本地 report 写入。跳过本地文件不改变 matrix-readiness report schema，也不代表 snapshot artifact 或对象存储写入失败。
+
+完整候选正文的本地 before/after 诊断见 [provider-impact-diagnostic-contract.md](provider-impact-diagnostic-contract.md)。该独立 report 复用 matrix-only 的事实和发现，明确数值稳定性未评估，不继承通用 readiness 的发布或保存结论。
 
 Edge、Foundry、CLI 或其他调用方可以消费 report 字段，但不应在外部复制 calculator 的 provider resolution、singular-risk、LCIA 或 UMFPACK readiness 判断逻辑。
 

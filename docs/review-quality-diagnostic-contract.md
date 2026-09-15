@@ -28,9 +28,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-09-03
-lastReviewedCommit: 72b8247aa9fade1f57ead7e4801e7bd975fcaf7f
-lastReviewedNote: "Documented Worker Issue #277 explicit invalid-payload and unclassified runtime failure disposition; diagnostic workflow semantics remain unchanged."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #288: reviewed unchanged job contracts; worker_jobs changes only two equivalent Duration assertions for stable Clippy. The candidate diagnostic is a separate local finite-input command."
 related:
   - AGENTS.md
   - .docpact/config.yaml

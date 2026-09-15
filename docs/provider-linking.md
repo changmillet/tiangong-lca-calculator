@@ -22,9 +22,9 @@ checkPaths:
   - crates/solver-worker/src/bin/snapshot_builder.rs
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-09-03
-lastReviewedCommit: 0b853ac7b79a0c438abd4f5dfbb08af0a3bcab32
-lastReviewedNote: "Reviewed for the Issue #279 production query hotfix; provider decision order and lineage-gate semantics remain unchanged."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #288: finite frozen-input provider-impact diagnostic reuses native selection, source closure and matrix assembly. Online census, runtime integration, numerical and scientific qualification remain outside this local contract; selection and weighting semantics are unchanged."
 related:
   - AGENTS.md
   - docs/implicit-regional-supply-mix-modeling.md
@@ -41,6 +41,8 @@ related:
 - 本文档说明 runtime 如何把 exchange 编译为有符号系数、选择相反符号的 reference port、应用 routing weight 并写入 `A`。
 - `docs/implicit-regional-supply-mix-modeling.md` 和英文版说明这个方法的建模依据：regional supply mix、exchange-location supply-region anchor、annual-volume share。
 - 两者必须一起维护：运行时顺序改变时，本文件和 implicit regional supply mix 文档都要同步。
+
+有限冻结输入下的完整 Process/Product/Waste Flow 候选覆盖使用 [provider-impact-diagnostic-contract.md](provider-impact-diagnostic-contract.md)。它复用本文的原生选择、lineage 与权重规则，对全部已提供的有效 Process 重编译；不把本地有限域声明为线上 census。
 
 ## 运行阶段
 

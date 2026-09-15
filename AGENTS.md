@@ -23,6 +23,7 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/scope-closure-contract.md
   - docs/matrix-readiness-report-contract.md
+  - docs/provider-impact-diagnostic-contract.md
   - docs/review-quality-diagnostic-contract.md
   - docs/ai-worker-contract.md
   - docs/edge-function-integration.md
@@ -42,9 +43,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: "2026-09-13"
-lastReviewedCommit: "805f8e6c67dcb43f8532e6dce72e60aa110e82bd"
-lastReviewedNote: "Worker #286: active canonicalRepo is tiangong-lca/worker; stable versioned compatibility-schema IDs and commit-pinned legacy cache provenance remain unchanged. Ownership, package names, runtime behavior and quality gates are preserved."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #288: finite frozen-input provider-impact diagnostic reuses native selection, source closure and matrix assembly. Online census, runtime integration, numerical and scientific qualification remain outside this local contract; selection and weighting semantics are unchanged."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md
@@ -54,6 +55,7 @@ related:
   - docs/lca-api-contract.md
   - docs/scope-closure-contract.md
   - docs/matrix-readiness-report-contract.md
+  - docs/provider-impact-diagnostic-contract.md
   - docs/review-quality-diagnostic-contract.md
   - docs/ai-worker-contract.md
   - docs/edge-function-integration.md
@@ -81,6 +83,7 @@ Start here when the task may change what the compute stack does.
 | `docs/lca-api-contract.md` | shared jobs/results/payload/status contract for consumers | branch policy, proof matrix, or edge/frontend implementation details |
 | `docs/scope-closure-contract.md` | certificate-grade closure traversal, frozen-release validation, artifacts, scan reuse, and build evidence binding | durable database schema or Edge/Next presentation behavior |
 | `docs/matrix-readiness-report-contract.md` | worker-owned matrix-readiness CLI and report artifact schema, blocker/finding codes, next_action semantics, and policy surface | HTTP endpoint contract or edge request/auth behavior |
+| `docs/provider-impact-diagnostic-contract.md` | local immutable finite-input candidate overlays, provider impact and matrix-only evidence | online census, save/publication admission, HTTP or queue jobs |
 | `docs/review-quality-diagnostic-contract.md` | worker-owned Review Admin manual diagnostic job, joint pending-review matrix, informational outcome/finding schema, and compatibility boundary | Edge HTTP API, persistence schema, or Next Review Admin UX |
 | `docs/ai-worker-contract.md` | generic AI queue runtime, versioned handler contracts, TIDAS ruleset/model bindings, and partial-failure semantics | Edge auth/API, durable Database schema, or Next acceptance UX |
 | `docs/edge-function-integration.md` | edge-facing enqueue, polling, and service-role integration contract | solver internals or frontend UX rules |
@@ -102,6 +105,7 @@ Read in this order:
    - `docs/agents/contracts/scope-closure-memory-and-result-contract.md`
    - `docs/agents/contracts/portal-lcia-projection-contract.md`
    - `docs/matrix-readiness-report-contract.md`
+   - `docs/provider-impact-diagnostic-contract.md`
    - `docs/review-quality-diagnostic-contract.md`
    - `docs/ai-worker-contract.md`
    - `docs/edge-function-integration.md`

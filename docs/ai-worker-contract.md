@@ -23,9 +23,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-architecture.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-08-29
-lastReviewedCommit: c7f362e7a50eb003104851dcc1112fece81038bc
-lastReviewedNote: "Documented Worker Issue #277 explicit AI terminal failure disposition and unchanged one-third lease behavior."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #288: reviewed unchanged job contracts; worker_jobs changes only two equivalent Duration assertions for stable Clippy. The candidate diagnostic is a separate local finite-input command."
 related:
   - AGENTS.md
   - .docpact/config.yaml

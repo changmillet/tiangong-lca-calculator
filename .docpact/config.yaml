@@ -1,8 +1,8 @@
 version: 1
 layout: repo
-lastReviewedAt: "2026-09-13"
-lastReviewedCommit: "805f8e6c67dcb43f8532e6dce72e60aa110e82bd"
-lastReviewedNote: "Worker #286: active canonicalRepo is tiangong-lca/worker; stable versioned compatibility-schema IDs and commit-pinned legacy cache provenance remain unchanged. Ownership, package names, runtime behavior and quality gates are preserved."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #288: finite frozen-input provider-impact diagnostic reuses native selection, source closure and matrix assembly. Online census, runtime integration, numerical and scientific qualification remain outside this local contract; selection and weighting semantics are unchanged."
 
 # Keep deterministic governance facts here.
 # AGENTS.md remains the repo contract entrypoint.
@@ -33,6 +33,7 @@ ownership:
           - docs/lca-api-contract.md
           - docs/scope-closure-contract.md
           - docs/matrix-readiness-report-contract.md
+          - docs/provider-impact-diagnostic-contract.md
           - docs/review-quality-diagnostic-contract.md
           - docs/ai-worker-contract.md
           - docs/edge-function-integration.md
@@ -90,6 +91,7 @@ coverage:
     - docs/lca-api-contract.md
     - docs/scope-closure-contract.md
     - docs/matrix-readiness-report-contract.md
+    - docs/provider-impact-diagnostic-contract.md
     - docs/review-quality-diagnostic-contract.md
     - docs/ai-worker-contract.md
     - docs/edge-function-integration.md
@@ -135,6 +137,7 @@ routing:
         - crates/solver-worker/src/**
         - docs/lca-api-contract.md
         - docs/matrix-readiness-report-contract.md
+        - docs/provider-impact-diagnostic-contract.md
     scope-closure:
       paths:
         - crates/solver-worker/src/scope_closure.rs
@@ -159,6 +162,7 @@ routing:
         - crates/solver-worker/src/bin/snapshot_builder.rs
         - crates/solver-worker/src/compiled_graph.rs
         - docs/matrix-readiness-report-contract.md
+        - docs/provider-impact-diagnostic-contract.md
         - docs/agents/repo-validation.md
     review-quality-diagnostic:
       paths:
@@ -193,6 +197,10 @@ routing:
         - docs/agents/repo-validation.md
     snapshot-and-provider:
       paths:
+        - crates/solver-worker/src/bin/snapshot_builder/**
+        - crates/solver-worker/tests/provider_impact_cli.rs
+        - crates/solver-worker/tests/fixtures/provider_impact_v1/**
+        - docs/provider-impact-diagnostic-contract.md
         - crates/solver-worker/src/bin/snapshot_builder.rs
         - crates/solver-worker/src/types.rs
         - scripts/build_snapshot_from_ilcd.sh
@@ -245,6 +253,7 @@ routing:
         - docs/lca-api-contract.md
         - docs/scope-closure-contract.md
         - docs/matrix-readiness-report-contract.md
+        - docs/provider-impact-diagnostic-contract.md
         - docs/review-quality-diagnostic-contract.md
         - docs/ai-worker-contract.md
         - docs/edge-function-integration.md
@@ -269,6 +278,7 @@ docInventory:
     - docs/lca-api-contract.md
     - docs/scope-closure-contract.md
     - docs/matrix-readiness-report-contract.md
+    - docs/provider-impact-diagnostic-contract.md
     - docs/review-quality-diagnostic-contract.md
     - docs/ai-worker-contract.md
     - docs/edge-function-integration.md
@@ -527,6 +537,28 @@ rules:
       - path: docs/matrix-readiness-report-contract.md
         mode: review_or_update
     reason: Worker-owned matrix-readiness report semantics must stay aligned with the CLI, snapshot artifact output, provider evidence, and proof guidance.
+  - id: worker-provider-impact-contract
+    scope: repo
+    repo: worker
+    triggers:
+      - path: crates/solver-worker/src/bin/snapshot_builder/**
+        kind: runtime-code
+      - path: crates/solver-worker/tests/provider_impact_cli.rs
+        kind: validation-test
+      - path: crates/solver-worker/tests/fixtures/provider_impact_v1/**
+        kind: fixture
+      - path: docs/provider-impact-diagnostic-contract.md
+        kind: runtime-contract
+    requiredDocs:
+      - path: docs/provider-impact-diagnostic-contract.md
+        mode: review_or_update
+      - path: docs/provider-linking.md
+        mode: review_or_update
+      - path: docs/matrix-readiness-report-contract.md
+        mode: review_or_update
+      - path: docs/agents/repo-validation.md
+        mode: review_or_update
+    reason: Offline candidate overlays must retain native selection and evidence rules, fixed finite scope, explicit unperformed checks, and proof of the public command boundary.
   - id: worker-review-quality-diagnostic-contract
     scope: repo
     repo: worker

@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: "2026-09-13"
-lastReviewedCommit: "805f8e6c67dcb43f8532e6dce72e60aa110e82bd"
-lastReviewedNote: "Worker #286: active canonicalRepo is tiangong-lca/worker; stable versioned compatibility-schema IDs and commit-pinned legacy cache provenance remain unchanged. Ownership, package names, runtime behavior and quality gates are preserved."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #288: finite frozen-input provider-impact diagnostic reuses native selection, source closure and matrix assembly. Online census, runtime integration, numerical and scientific qualification remain outside this local contract; selection and weighting semantics are unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -246,3 +246,7 @@ Use this rule:
 ## Local Docpact Push Gate
 
 This repository has a versioned local `pre-push` hook under `.githooks/pre-push` that delegates to `scripts/docpact-gate.sh` and then runs `make check`. The gate resolves the CLI through `scripts/docpact`, so local agent shells do not need bare `docpact` on `PATH`. The hook is the local guard for docpact config validation, enforced doc-governance linting, and worker runtime tests; the GitHub `ci` workflow is manual-dispatch only.
+
+## Finite Provider-Impact Diagnostic
+
+`snapshot_builder --provider-impact-input` exits through a local path before database or object-store initialization. `bin/snapshot_builder/source_reader.rs` dispatches the existing compiler reads to either the unchanged database functions or an immutable typed document map. `provider_impact.rs` freezes exact axes/root context, replaces full candidate bodies in that map, and invokes the same native selection, source closure and sparse assembly over every supplied effective Process. It requests matrix-only readiness and never exposes save or publication admission. The input/report contract and limits live in [provider-impact-diagnostic-contract.md](../provider-impact-diagnostic-contract.md).

@@ -25,9 +25,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: "2026-09-13"
-lastReviewedCommit: "805f8e6c67dcb43f8532e6dce72e60aa110e82bd"
-lastReviewedNote: "Worker #286: active canonicalRepo is tiangong-lca/worker; stable versioned compatibility-schema IDs and commit-pinned legacy cache provenance remain unchanged. Ownership, package names, runtime behavior and quality gates are preserved."
+lastReviewedAt: "2026-09-15"
+lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedNote: "Worker #288: finite frozen-input provider-impact diagnostic reuses native selection, source closure and matrix assembly. Online census, runtime integration, numerical and scientific qualification remain outside this local contract; selection and weighting semantics are unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -55,6 +55,8 @@ related:
 - worker 连接池可通过 `DB_MAX_CONNECTIONS`、`DB_MIN_CONNECTIONS` 和 `DB_ACQUIRE_TIMEOUT_SECONDS` 调整；默认采用 `max_connections = 8`、`min_connections = 1`、`acquire_timeout = 30s`、`idle_timeout = 5min` 与 `max_lifetime = 30min`，以保证长时求解与 artifact 落盘阶段有稳定连接窗口。
 - 主路径读取 `private.lca_snapshot_artifacts`（artifact-only）；artifact 缺失或不可读时 fail closed。
 - 所有写操作由服务端（Edge Function / worker，`service_role`）执行。
+
+本地 `snapshot_builder --provider-impact-input` 的有限冻结域诊断另见 [provider-impact-diagnostic-contract.md](provider-impact-diagnostic-contract.md)。它没有 HTTP、队列或远程写入口，不扩展本文的作业或准入合同。
 
 ## 2. 关键表与职责
 
