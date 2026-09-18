@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: "2026-09-15"
-lastReviewedCommit: "8dec9cba9288657a4360a8fb7d02c9570761cd21"
-lastReviewedNote: "Worker #289 + #291: added the Numerical Process eligibility section (exact 100, actor-scoped owner draft 0, review diagnostic 20+100) and the numerical-policy marker/reuse rules, combined with the #291 dependency-only CI cache now bound to native image/package/alternative/compiler evidence plus the existing Rust identity. Path map and ownership boundaries are unchanged; hosted cold/warm CI cache proof and integration remain pending."
+lastReviewedAt: "2026-09-18"
+lastReviewedCommit: "08989b994b47d3c212405b36655f71cc120d5185"
+lastReviewedNote: "Reviewed Worker #295 gate repair: the heartbeat cancellation test first awaits the real child PID, then exercises unchanged heartbeat failure and child-reaping assertions. Production heartbeat, Portal, diagnostics, scope closure and package contracts remain unchanged; full gates are required."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -209,7 +209,7 @@ The package worker handles:
 - `export_package`
 - `import_package`
 
-It also owns package-job artifacts and diagnostics. Import validation uses the same `tidas_cli.rs` adapter and a streaming hash/count-verified issue spool before conflict checks or inserts; the report retains a deterministic bounded issue sample plus complete counts, never the entire large spool in memory. There is no Python validator or command fallback. `PACKAGE_QUEUE_BACKEND=worker-jobs` claims `private.worker_jobs` rows from `worker_queue=package`, maps `job_kind=tidas.export_package|tidas.import_package` into the same `PackageJobPayload` variants, heartbeats package progress, records terminal `worker_jobs` results, and links package artifacts / export items / request-cache rows back to the canonical `worker_jobs` id. The retired `lca_package_jobs` lifecycle is not optional compatibility: selecting `PACKAGE_QUEUE_BACKEND=pgmq` fails closed before consuming a message.
+It also owns package-job artifacts and diagnostics. V2 imports filter exact review-field diagnostics after unchanged validation, then choose whole-package atomic insertion when every record passes or the existing root-group fallback otherwise. Database #654 owns bounded staging/finalization; Toolkit #205 supplies structured required-property diagnostics. Full reports retain ignored issues and skipped existing identities. Import validation uses the same `tidas_cli.rs` adapter and a streaming hash/count-verified issue spool before conflict checks or inserts; the report retains a deterministic bounded issue sample plus complete counts, never the entire large spool in memory. There is no Python validator or command fallback. `PACKAGE_QUEUE_BACKEND=worker-jobs` claims `private.worker_jobs` rows from `worker_queue=package`, maps `job_kind=tidas.export_package|tidas.import_package` into the same `PackageJobPayload` variants, heartbeats package progress, records terminal `worker_jobs` results, and links package artifacts / export items / request-cache rows back to the canonical `worker_jobs` id. The retired `lca_package_jobs` lifecycle is not optional compatibility: selecting `PACKAGE_QUEUE_BACKEND=pgmq` fails closed before consuming a message.
 
 ### Result persistence
 

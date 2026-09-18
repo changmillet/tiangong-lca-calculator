@@ -25,9 +25,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: "2026-09-15"
-lastReviewedCommit: "8dec9cba9288657a4360a8fb7d02c9570761cd21"
-lastReviewedNote: "Worker #289 + #291: documented exact-100 public numerical eligibility, the published-Result (120) exclusion, the mandatory numerical-policy marker for persisted snapshots, and the READY process_filter producer contract consumed by Edge; the #291 dependency-only CI cache is now bound to native image/package/alternative/compiler evidence plus the existing Rust identity. No job payload schema gained a new field, and no runtime/API/data behavior changed for the CI cache work; hosted cold/warm CI cache proof and integration remain pending."
+lastReviewedAt: "2026-09-18"
+lastReviewedCommit: "08989b994b47d3c212405b36655f71cc120d5185"
+lastReviewedNote: "Reviewed Worker #295 gate repair: the heartbeat cancellation test first awaits the real child PID, then exercises unchanged heartbeat failure and child-reaping assertions. Production heartbeat, Portal, diagnostics, scope closure and package contracts remain unchanged; full gates are required."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -532,3 +532,9 @@ Worker 重任务可使用共享 `worker.resource-profile.v1` primitive 声明并
 4. worker 使用 `private.worker_claim_jobs('solver', ...)` claim、heartbeat，并通过 `private.worker_record_job_result(...)` 写 canonical 终态；同时维护 `private.lca_results`、`private.lca_result_cache` domain/cache metadata，并回填 `worker_job_id`。旧 PGMQ backend 已 fail closed。
 
 前端不得直接调用 `pgmq.send` 或直接写 `private.worker_jobs`。
+
+### TIDAS package terminal list projection
+
+Package jobs retain the `tidas.import_package.result.v1` transport envelope and add a bounded `result.importResult` projection for list consumers. It carries the business outcome, execution completeness, allowlisted counts, and publication-time report availability; `completed` is an executor state, not proof of full import. Complete package coverage, including orphan records, determines the business outcome. Download requests revalidate current artifact access and expiry. The authoritative fields and outcome rules are in [the TIDAS package contract](tidas-package-contract.md#64-v2-过程模型引用链部分导入).
+
+TIDAS import completeness is mode-aware: a nonempty whole-package commit can succeed with zero process/model roots or zero new inserts when every identity already exists. The bounded importResult transport remains unchanged; reports own import_mode, the result-filter revision, ignored issue evidence and skip reasons. See docs/tidas-package-contract.md.

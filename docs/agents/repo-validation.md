@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: "2026-09-15"
-lastReviewedCommit: "8dec9cba9288657a4360a8fb7d02c9570761cd21"
-lastReviewedNote: "Worker #289 + #291: added the Result-120 numerical-isolation/product-export acceptance guidance, the one-scenario-per-invocation runner contract with exact prerequisites, the coordinator-owned immutable fixture lifecycle, and the verified live task-instance results for all five scenarios; combined with the #291 dependency-only CI cache now bound to native image/package/alternative/compiler evidence plus the existing Rust identity, whose qualifications run through the same baseline gates. Baseline gates are unchanged; hosted cold/warm CI cache proof and integration remain pending."
+lastReviewedAt: "2026-09-18"
+lastReviewedCommit: "08989b994b47d3c212405b36655f71cc120d5185"
+lastReviewedNote: "Reviewed Worker #295 gate repair: the heartbeat cancellation test first awaits the real child PID, then exercises unchanged heartbeat failure and child-reaping assertions. Production heartbeat, Portal, diagnostics, scope closure and package contracts remain unchanged; full gates are required."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -324,3 +324,7 @@ Install the versioned local hook once per checkout:
 The `pre-push` hook runs `scripts/docpact-gate.sh`, which delegates CLI lookup to `scripts/docpact` and performs strict config validation plus enforced lint before the push leaves the machine. It then runs `make check` as the local test gate. The wrapper checks `DOCPACT_BIN`, Cargo install locations, Homebrew install locations, and then `PATH`, so local agent shells should not fail only because bare `docpact` is unavailable. The default comparison base is `origin/main`. Override it for unusual stacks with `DOCPACT_BASE_REF=<ref>` or `scripts/docpact-gate.sh --base <ref>`. The gate writes its detailed report to a temporary file so normal pushes do not create `.docpact/runs/` artifacts.
 
 Partial package import additionally runs the package_execution unit tests, full Clippy, real TIDAS 0.2.0 parity fixtures and PostgreSQL group/lease/recovery qualification. Mock or graph tests do not prove real-validator parity. See `docs/tidas-package-contract.md` for v2 policy and capacity boundaries.
+
+For Worker #295 whole-package refinement, prove exact result-path filtering (including parent required issues), untouched raw inputs, valid orphan/rootless/all-existing success, invalid-record root fallback, complete skip/ignored evidence and paired Database #654 rollback/replay/lease tests. Toolkit #205 metadata tests must run with its governed Rust toolchain; a version or asset mismatch remains a deployment blocker.
+
+Heartbeat cancellation fixtures must first observe the real child PID before starting the deliberately failing heartbeat. This establishes the running-child precondition without relaxing heartbeat failure or process-reaping assertions, changing production timers, or excluding tests from the full gate.

@@ -19,9 +19,9 @@ checkPaths:
   - docs/agents/repo-validation.md
   - docs/scope-closure-contract.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: "2026-09-15"
-lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
-lastReviewedNote: "Worker #289: added the published-Result (120) product-export exclusion for `processes` only, with the active/dead reader inventory and the fail-closed hydration rule. Import conflict reuse, support 100..=199 export semantics and the package state machine are unchanged."
+lastReviewedAt: "2026-09-18"
+lastReviewedCommit: "08989b994b47d3c212405b36655f71cc120d5185"
+lastReviewedNote: "Reviewed Worker #295 gate repair: the heartbeat cancellation test first awaits the real child PID, then exercises unchanged heartbeat failure and child-reaping assertions. Production heartbeat, Portal, diagnostics, scope closure and package contracts remain unchanged; full gates are required."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -184,19 +184,25 @@ payload 必须仍携带有效 `job_id` compatibility UUID，因为 `lca_package_
 
 运行时不得探测 Python module、`tidas-validate` 或其他候选命令。统一 binary 无法启动、版本/协议不匹配、超时、report/spool 不完整或 hash/count 不一致时，任务必须 fail closed，并映射为稳定的 `tidas_*` error code；这些 system failures 不能伪装为数据 validation issue。Worker 继续独立持有 job lease、heartbeat、取消检查、request-cache 状态和 terminal result projection，`tidas` 不接管这些行为。等待长时 validation 时，worker-jobs executor 每个 lease 的三分之一周期续租；heartbeat 被拒绝即丢弃当前 operation future，禁止继续接受或投影 validator evidence。
 
-## 6.4 v2 过程／模型引用链部分导入
+## 6.4 v2 逐条判定与整包／根分组导入
 
-`package_import_v2.rs` 只处理显式 v2 policy。包内扫描、身份／重复检测、全部 issue spool 消费、引用图及候选引用链复验全部完成后，才进入业务表写入；不以数据库补齐缺失引用，也不以 `state_code` 跳过包内校验。每条过程和模型均为独立根对象，按完整直接／间接引用闭包传播阻断；孤立支持数据不写入，环通过已访问集合终止。
+`package_import_v2.rs` 只处理显式 v2 policy。包内扫描、身份／重复检测、完整 issue spool 消费和引用图检查在业务写入之前完成；不以数据库补齐缺失引用，也不以数据库已有记录跳过包内校验。v1 与 v2 继续使用同一个 `run_tidas_package_command`，不修改原始 JSON、Schema、validator 参数或规则。v2 在消费已验证的结果时，按 `import-review-fields:v1` 过滤 Process/LifecycleModel 的 `modellingAndValidation.validation`、`modellingAndValidation.complianceDeclarations` 及其子路径。父对象上的 required 错误必须使用 Toolkit #205 提供的 `context.required_property` 精确识别，不能匹配人类错误文案；其他类型、其他字段、父对象自身缺失和无法精确归属的问题保持阻断。引用图生成的问题应用相同过滤，已解析的引用仍参与依赖收集。
 
-v1 与 v2 共用 `run_tidas_package_command`，保持同一精确 binary 握手、assets、参数和 `summary.validation.error_count` 门槛。独立的 eILCD/XSD/roundtrip 输出保留为证据，本改造不把它们提升为新门槛。全包 native error 可能提前结束后续阶段，因此候选闭包继续使用同一完整命令复验。显示样本的 1,000 条限制不参与判定；原始 JSON 字节与来源路径保留。
+所有原始问题保留在 `issues.ndjson`；被过滤的问题增加 `ignored_for_import=true` 和 `ignore_reason`，不计入有效 `error_count`，单独计入 `ignored_issue_count`。校验器自身的原始摘要、hash/count 和 validator/assets 绑定不变。原始流验证、命令执行或完整性检查失败属于系统失败，不得当成数据通过。独立 eILCD/XSD/roundtrip 输出仍按原有门槛作为证据，过滤策略不新增或删除 validator 阶段。
 
-完整计划绑定 source SHA、policy、validator/assets 和计划摘要。每个成功候选调用 Database `private.tidas_import_group_apply_v2`：同事务写入根对象／依赖和成功回执，`ON CONFLICT(id,version) DO NOTHING` 处理所有已有状态。分组只插入，不覆盖、不比较数据库内容。模型与过程在同一分组时复用原有 `backfill_process_model_ids`；失败模型不自动阻断独立过程。共享记录全局去重计数。只有 serialization/deadlock 最多重试两次；约束错误回滚当前组，连接／lease 错误停止后续组。最终 lease fence 防止失租提交。
+逐条判定后，非空包中每个唯一记录都通过时选择 `import_mode=whole_package`，包括孤立支持数据和没有过程／模型根的包；任一记录未通过时选择 `root_groups`，保留原有过程／模型独立根、闭包复验和逐组原子写入，孤立支持数据在此模式下不单独导入。模式在写入之前固定，不因写入失败切换策略。空包不能成功。计划摘要绑定 source SHA、validator/assets、结果过滤版本、模式和所有记录内容 hash，历史计划不可被新计划覆盖。
 
-v2 `import_report` 使用 `tidas-package-import-report:v2`，业务 `outcome` 为 `success/partial/none/interrupted`；Worker completed 仅表示执行返回。`roots` 最多 100 条，完整 `import_details` ZIP 包含全部 issues、validation、references、roots、records 和 plan NDJSON，manifest 绑定各文件大小与 SHA。records 的 ordinal 对应 plan 节点编号。系统失败放入 execution error，不伪装为数据校验 issue。准备失败不会入库；报告上传中断后，数据库回执仍是已提交事实，`api.svc_tidas_package_read_v2` 提供 owner-scoped 计数。两个报告制品复用现有 14 天导入保留期。
+整包模式使用 Database #654 的 `private.tidas_import_package_stage_v2` 暂存有界块，随后 `private.tidas_import_package_apply_v2` 在同一个事务内执行全部业务插入、提交回执和最终 lease fence。暂存不写业务表，事务结束即清理；失败或取消回滚全部数据。分组模式继续使用 `private.tidas_import_group_apply_v2`；已成功组不受后续组失败影响。两个模式都以数据类型/id/version 判重，已有记录只跳过、不更新，使用数据库唯一约束处理并发。模型和过程关联按包／组内现有 backfill 规则处理。整包与分组成功回执都通过 owner-scoped `api.svc_tidas_package_read_v2` 恢复可确认的提交计数。
 
-显式容量为 ZIP 512 MiB／解压 2 GiB／文档 16 MiB／数据 100,000 条／引用 1,000,000 条／根 2,000 条；每组 50,000 条且 64 MiB，引用链复验累计文档访问上限 2,000,000。问题证据流及校验摘要流分别最多 512 MiB；单条问题最多 16 MiB，界面问题样本最多 1,000 条且 8 MiB。超限必须明确失败，不可截断成成功。
+`import_report` 继续使用 `tidas-package-import-report:v2`，增加 `import_mode` 和 `result_filter`，业务 outcome 仍为 `success/partial/none/interrupted`。完整 `import_details` ZIP 包含 issues、validation、references、roots、records、plan NDJSON 和每个文件的 hash/大小清单；界面样本限制不参与判定。主报告 `skipped_records` 最多展示 100 个跳过身份、来源和原因，超限显式标记 `skipped_records_truncated`；完整列表始终位于明细报告。每个 existing 记录带 `skip_reason=existing_type_id_version`；未导入原因区分 `unreferenced`、`group_not_imported` 和 `package_transaction_failed`。系统失败不会伪装成数据问题。
 
-部署顺序：先发布兼容 v1/v2 的 Worker 与 Database 增量迁移，再发布 Edge，最后启用 Next v2 提交。必须保留历史 v1 jobs/reports 的读取路径。
+整包正常提交、全部记录插入或复用即 `success`，不要求根数量大于零，全部 existing 也成功。分组模式至少一个根成功且所有根／所有记录均覆盖才是 success；有成功根但存在未成功组或未导入记录为 partial；没有成功根为 none。任何执行中断为 interrupted，即使分组模式已有提交。Worker completed 只表示执行返回，前端映射 success 为绿色已完成、partial 为橙色部分导入、none/interrupted/runtime failure 为红色失败。
+
+`worker_jobs.result_json.importResult` 仍只投影有界 outcome、executionComplete、十二个固定计数字段和报告可用标记。完整过滤明细及导入模式保留在报告，不增加列表详情请求。历史报告和无增量摘要的任务保持兼容。任务中心继续展示文件名、范围、根数量和阶段；报告链接仅在明确下载操作时刷新。
+
+容量保持 ZIP 512 MiB／解压 2 GiB／文档 16 MiB／唯一数据 100,000 条／引用 1,000,000 条／根 2,000 条。分组最多 50,000 条且 64 MiB，闭包复验累计文档访问不超过 2,000,000。整包 Worker 块最多 1,000 条且目标 32 MiB，数据库每块硬上限 64 MiB、总暂存 2 GiB。问题证据与校验摘要流各最多 512 MiB，样本最多 1,000 条且 8 MiB；超限必须明确失败。
+
+部署前先资格验证包含 Toolkit #205 的精确二进制，配置匹配的 `TIDAS_BIN` / `TIDAS_EXPECTED_VERSION`，并应用 Database #654 迁移，再启用新版 Worker。仅更改默认版本号或使用未包含 required_property 元数据的旧 binary 不构成此功能的交付；现有默认 binary pin 没有在本改动中偷偷升级。Edge/Platform v2 提交与终态传输保持兼容，生产／持久 Dev 部署是单独操作。
 
 ## 7. Artifact 契约
 
