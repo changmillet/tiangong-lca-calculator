@@ -28,9 +28,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: "2026-09-15"
-lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
-lastReviewedNote: "Worker #289: the dedicated diagnostic candidate scope is now in-review 20 plus public 100; the reserved segment and the published Result state are outside it. Report schema, informational outcomes and Review-state neutrality are unchanged."
+lastReviewedAt: "2026-09-18"
+lastReviewedCommit: "08989b994b47d3c212405b36655f71cc120d5185"
+lastReviewedNote: "Reviewed Worker #295 gate repair: the heartbeat cancellation test first awaits the real child PID, then exercises unchanged heartbeat failure and child-reaping assertions. Production heartbeat, Portal, diagnostics, scope closure and package contracts remain unchanged; full gates are required."
 related:
   - AGENTS.md
   - .docpact/config.yaml

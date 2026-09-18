@@ -37,8 +37,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: "2026-09-18"
-lastReviewedCommit: "994d9e53389441ccb65e7378b61d86d7238aed9a"
-lastReviewedNote: "Reviewed Worker #295: unchanged validator with exact post-result filtering, all-record-valid whole-package transactions, root-group fallback, complete ignored/skip reports; paired Database #654 and Toolkit #205. Local validation and deployment qualification remain explicit task evidence."
+lastReviewedCommit: "08989b994b47d3c212405b36655f71cc120d5185"
+lastReviewedNote: "Reviewed Worker #295 gate repair: the heartbeat cancellation test first awaits the real child PID, then exercises unchanged heartbeat failure and child-reaping assertions. Production heartbeat, Portal, diagnostics, scope closure and package contracts remain unchanged; full gates are required."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml

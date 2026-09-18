@@ -5898,22 +5898,26 @@ mod tests {
             lease_token: Uuid::new_v4(),
             lease_seconds: 1,
         };
-        let mut runner = Box::pin(run_snapshot_builder_job_with_worker_heartbeat(
-            &pool,
-            &lease,
-            json!({"slot": 0}),
-            run_test_snapshot_builder(),
-        ));
+        // This test proves cancellation of an already running child. Establish
+        // that precondition before starting the deliberately failing heartbeat,
+        // so host launch latency cannot win the race against its one-second tick.
+        let mut builder = Box::pin(run_test_snapshot_builder());
         let pid = tokio::select! {
             pid = wait_for_pid(&pid_path) => pid,
-            result = &mut runner => match result {
+            result = &mut builder => match result {
                 Ok(_) => panic!("test subprocess succeeded before publishing its pid"),
                 Err(error) => panic!(
                     "test subprocess failed before publishing its pid: {error:#}"
                 ),
             },
         };
-        let result = runner.await;
+        let result = run_snapshot_builder_job_with_worker_heartbeat(
+            &pool,
+            &lease,
+            json!({"slot": 0}),
+            builder,
+        )
+        .await;
         assert!(
             result
                 .unwrap_err()
