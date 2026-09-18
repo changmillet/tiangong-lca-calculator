@@ -36,6 +36,7 @@ const MAX_GROUP_BYTES: u64 = 64 * 1024 * 1024;
 const ROOT_SAMPLE_LIMIT: usize = 100;
 const MAX_ROOTS: usize = 2_000;
 const MAX_VALIDATION_DOCUMENT_VISITS: usize = 2_000_000;
+const RESULT_FILTER_VERSION: &str = "import-review-fields:v1";
 const REPORT_FORMAT: &str = "tidas-package-import-report:v2";
 
 #[derive(Debug, Clone, Serialize)]
@@ -62,6 +63,7 @@ struct Evidence {
     writer: BufWriter<File>,
     errors: usize,
     warnings: usize,
+    ignored: usize,
     count: usize,
     samples: Vec<Value>,
     bytes: u64,
@@ -75,6 +77,7 @@ impl Evidence {
             writer: BufWriter::new(File::create(path)?),
             errors: 0,
             warnings: 0,
+            ignored: 0,
             count: 0,
             samples: Vec::new(),
             bytes: 0,
@@ -92,7 +95,10 @@ impl Evidence {
         );
         self.bytes += encoded.len() as u64 + 1;
         self.count += 1;
-        self.errors += usize::from(issue.get("severity").and_then(Value::as_str) == Some("error"));
+        let ignored = issue.get("ignored_for_import").and_then(Value::as_bool) == Some(true);
+        self.ignored += usize::from(ignored);
+        self.errors +=
+            usize::from(!ignored && issue.get("severity").and_then(Value::as_str) == Some("error"));
         self.warnings +=
             usize::from(issue.get("severity").and_then(Value::as_str) == Some("warning"));
         if !self.samples_closed
@@ -116,14 +122,77 @@ impl Evidence {
         location: &str,
         message: &str,
     ) -> anyhow::Result<()> {
-        node.blocked = true;
-        self.issue(&json!({ "issue_code": code, "severity": "error", "category": node.identity.table,
+        let mut issue = json!({ "issue_code": code, "severity": "error", "category": node.identity.table,
             "identity": node.identity, "file_path": node.source_paths[0], "location": location, "message": message,
-            "stage": "package_closure" }))
+            "stage": "package_closure" });
+        let ignored = filter_import_issue(node.identity.table, &mut issue);
+        node.blocked |= !ignored;
+        self.issue(&issue)
+    }
+}
+
+// Filter evidence, never mutate validator inputs or change its rules. Matching
+// uses exact path components, including structured required-property metadata.
+fn filter_import_issue(table: PackageRootTable, issue: &mut Value) -> bool {
+    let dataset = match table {
+        PackageRootTable::Processes => "processDataSet",
+        PackageRootTable::Lifecyclemodels => "lifeCycleModelDataSet",
+        _ => return false,
+    };
+    if issue
+        .pointer("/context/location_truncated")
+        .and_then(Value::as_bool)
+        == Some(true)
+    {
+        return false;
+    }
+    let location = issue.get("location").and_then(Value::as_str).unwrap_or("");
+    let (path, delimiter) = if let Some(path) = location.strip_prefix("$.") {
+        (path, '.')
+    } else {
+        (location.trim_start_matches('/'), '/')
+    };
+    let mut parts = path.split(delimiter);
+    if parts.next() != Some(dataset) || parts.next() != Some("modellingAndValidation") {
+        return false;
+    }
+    let field = parts.next().or_else(|| {
+        (issue
+            .pointer("/context/schema_keyword")
+            .and_then(Value::as_str)
+            == Some("required"))
+        .then(|| {
+            issue
+                .pointer("/context/required_property")
+                .and_then(Value::as_str)
+        })
+        .flatten()
+    });
+    if !matches!(field, Some("validation" | "complianceDeclarations")) {
+        return false;
+    }
+    issue["ignored_for_import"] = json!(true);
+    issue["ignore_reason"] = json!(RESULT_FILTER_VERSION);
+    true
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum ImportMode {
+    WholePackage,
+    RootGroups,
+}
+
+fn import_mode(nodes: &[Node]) -> ImportMode {
+    if !nodes.is_empty() && nodes.iter().all(|node| !node.blocked) {
+        ImportMode::WholePackage
+    } else {
+        ImportMode::RootGroups
     }
 }
 
 struct Prepared {
+    mode: ImportMode,
     temp: TempDir,
     nodes: Vec<Node>,
     plan_path: PathBuf,
@@ -506,7 +575,8 @@ fn validate(
             .get(&relative)
             .map(|&ordinal| &mut nodes[ordinal]);
         if let Some(node) = matched {
-            node.blocked |= is_error;
+            let ignored = filter_import_issue(node.identity.table, &mut issue);
+            node.blocked |= is_error && !ignored;
             issue["identity"] = json!(node.identity);
             issue["file_path"] = json!(node.source_paths[0]);
         } else {
@@ -754,10 +824,11 @@ fn prepare(
         .map(|(i, _)| i)
         .collect::<Vec<_>>();
     anyhow::ensure!(roots.len() <= MAX_ROOTS, "import_root_capacity_exceeded");
+    let mode = import_mode(&nodes);
     let mut validation_document_visits = 0;
     // Finish all candidate checks before fixing the plan. Errors discovered in
     // a closure propagate to every root that uses that same original document.
-    for &root in &roots {
+    for &root in roots.iter().filter(|_| mode == ImportMode::RootGroups) {
         cancel.check("import_closure_validation")?;
         let group = closure(&nodes, root);
         if group.blocked {
@@ -808,9 +879,11 @@ fn prepare(
     let meta = prepare_package_zip_artifact_from_path(&plan_path)?;
     let plan_sha256 = hash(&serde_json::to_vec(
         &json!({"policy":"root_closure_v2", "source":source_sha,
+        "mode":mode,"result_filter":RESULT_FILTER_VERSION, "records":nodes.iter().map(|n| (&n.identity,&n.content_sha256)).collect::<Vec<_>>(),
         "plan":meta.sha256,"validator": original.get("binary_version"), "assets":original.get("asset_fingerprint")}),
     )?);
     Ok(Prepared {
+        mode,
         temp,
         nodes,
         plan_path,
@@ -925,7 +998,133 @@ pub async fn execute(
     execute_plan(state, job, package_job_id, source_id, prepared).await
 }
 
-#[allow(clippy::too_many_lines)] // Sequential commit/report orchestration keeps lease ownership visible.
+// Stage bounded chunks in a single transaction. The database finalizer owns all
+// domain writes, receipt publication and the final lease fence; no chunk commits.
+async fn execute_whole_package(
+    state: &AppState,
+    job: &WorkerJob,
+    source_id: Uuid,
+    prepared: &Prepared,
+) -> anyhow::Result<Value> {
+    let mut model_ids = BTreeMap::new();
+    for node in &prepared.nodes {
+        if node.identity.table == PackageRootTable::Lifecyclemodels {
+            let entry: PackageEntry = serde_json::from_reader(File::open(&node.entry_path)?)?;
+            for reference in extract_model_submodels(&entry) {
+                if reference.table == PackageRootTable::Processes
+                    && let Some(version) = reference.version
+                {
+                    model_ids.insert(table_key(reference.table, reference.id, &version), entry.id);
+                }
+            }
+        }
+    }
+    let mut transaction = state.pool.begin().await?;
+    let mut chunk = Vec::new();
+    let mut bytes = 0;
+    let mut offset = 0_i32;
+    for node in &prepared.nodes {
+        let mut entry: PackageEntry = serde_json::from_reader(File::open(&node.entry_path)?)?;
+        entry.json_ordered =
+            normalize_json_ordered_for_insert(entry.table, &entry.version, entry.json_ordered);
+        if entry.table == PackageRootTable::Processes && entry.model_id.is_none() {
+            entry.model_id = model_ids.get(&identity_key(&node.identity)).copied();
+        }
+        let value = serde_json::to_value(entry)?;
+        let size = u64::try_from(serde_json::to_vec(&value)?.len())?;
+        if !chunk.is_empty() && (bytes + size > MAX_GROUP_BYTES / 2 || chunk.len() >= 1000) {
+            stage_package_chunk(
+                &mut transaction,
+                job,
+                source_id,
+                &prepared.plan_sha256,
+                offset,
+                &chunk,
+            )
+            .await?;
+            offset += i32::try_from(chunk.len())?;
+            chunk.clear();
+            bytes = 0;
+        }
+        anyhow::ensure!(
+            size <= MAX_GROUP_BYTES / 2,
+            "import_document_capacity_exceeded"
+        );
+        bytes += size;
+        chunk.push(value);
+    }
+    if !chunk.is_empty() {
+        stage_package_chunk(
+            &mut transaction,
+            job,
+            source_id,
+            &prepared.plan_sha256,
+            offset,
+            &chunk,
+        )
+        .await?;
+    }
+    let receipt: Value =
+        sqlx::query_scalar("select private.tidas_import_package_apply_v2($1,$2,$3,$4,$5)")
+            .bind(job.id)
+            .bind(job.lease_token)
+            .bind(source_id)
+            .bind(&prepared.plan_sha256)
+            .bind(i32::try_from(prepared.nodes.len())?)
+            .fetch_one(&mut *transaction)
+            .await?;
+    transaction.commit().await?;
+    Ok(receipt)
+}
+
+async fn stage_package_chunk(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    job: &WorkerJob,
+    source_id: Uuid,
+    plan: &str,
+    offset: i32,
+    entries: &[Value],
+) -> anyhow::Result<()> {
+    sqlx::query("select private.tidas_import_package_stage_v2($1,$2,$3,$4,$5,$6::jsonb)")
+        .bind(job.id)
+        .bind(job.lease_token)
+        .bind(source_id)
+        .bind(plan)
+        .bind(offset)
+        .bind(json!(entries))
+        .execute(&mut **transaction)
+        .await?;
+    Ok(())
+}
+
+fn collect_receipt(
+    receipt: &Value,
+    inserted: &mut BTreeSet<String>,
+    existing: &mut BTreeSet<String>,
+) -> anyhow::Result<()> {
+    for item in receipt["items"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("import_receipt_invalid"))?
+    {
+        let key = serde_json::to_string(&(
+            item["table"].clone(),
+            item["id"].clone(),
+            item["version"].clone(),
+        ))?;
+        match item["disposition"].as_str() {
+            Some("inserted") => {
+                inserted.insert(key);
+            }
+            Some("existing") => {
+                existing.insert(key);
+            }
+            _ => anyhow::bail!("import_receipt_invalid"),
+        }
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_lines)] // Keep transaction outcomes and their complete report publication together.
 async fn execute_plan(
     state: &AppState,
     job: &WorkerJob,
@@ -943,7 +1142,20 @@ async fn execute_plan(
     let mut blocked = 0;
     let mut write_failed = 0;
     let mut root_samples = Vec::new();
+    let mut skipped_samples = Vec::new();
     let mut interruption: Option<String> = None;
+    if prepared.mode == ImportMode::WholePackage {
+        match execute_whole_package(state, job, source_id, &prepared).await {
+            Ok(receipt) => collect_receipt(&receipt, &mut inserted, &mut existing)?,
+            Err(error) => {
+                interruption = Some(
+                    error
+                        .downcast_ref::<sqlx::Error>()
+                        .map_or("IMPORT_PACKAGE_WRITE_FAILED".to_owned(), sqlstate),
+                );
+            }
+        }
+    }
     for line in BufReader::new(File::open(&prepared.plan_path)?).lines() {
         let group: GroupPlan = serde_json::from_str(&line?)?;
         referenced_nodes.extend(group.members.iter().copied());
@@ -952,6 +1164,30 @@ async fn execute_plan(
             "blocking_path":group.blocking_path.iter().map(|&i| &prepared.nodes[i].identity).collect::<Vec<_>>()});
         if interruption.is_some() {
             result["status"] = json!("not_attempted");
+        } else if prepared.mode == ImportMode::WholePackage {
+            succeeded += 1;
+            let inserted_count = group
+                .members
+                .iter()
+                .filter(|&&i| {
+                    let identity = &prepared.nodes[i].identity;
+                    inserted.contains(
+                        &serde_json::to_string(&(
+                            json!(identity.table),
+                            json!(identity.id),
+                            json!(identity.version),
+                        ))
+                        .expect("identity serialization"),
+                    )
+                })
+                .count();
+            result["status"] = json!(if inserted_count > 0 {
+                "imported"
+            } else {
+                "reused"
+            });
+            result["inserted_count"] = json!(inserted_count);
+            result["existing_count"] = json!(group.members.len() - inserted_count);
         } else if group.blocked {
             blocked += 1;
             result["status"] = json!("blocked");
@@ -992,21 +1228,7 @@ async fn execute_plan(
                     result["status"] = receipt["status"].clone();
                     result["inserted_count"] = receipt["inserted_count"].clone();
                     result["existing_count"] = receipt["existing_count"].clone();
-                    for item in receipt["items"]
-                        .as_array()
-                        .ok_or_else(|| anyhow::anyhow!("import_receipt_invalid"))?
-                    {
-                        let key = serde_json::to_string(&(
-                            item["table"].clone(),
-                            item["id"].clone(),
-                            item["version"].clone(),
-                        ))?;
-                        if item["disposition"] == "inserted" {
-                            inserted.insert(key);
-                        } else {
-                            existing.insert(key);
-                        }
-                    }
+                    collect_receipt(&receipt, &mut inserted, &mut existing)?;
                 }
                 Err(error) => {
                     let code = sqlstate(&error);
@@ -1040,8 +1262,16 @@ async fn execute_plan(
             "not_imported"
         };
         let mut record = json!({"ordinal":ordinal,"identity":node.identity,"source_paths":node.source_paths,"disposition":disposition,"validation_blocked":node.blocked});
+        if disposition == "existing" {
+            record["skip_reason"] = json!("existing_type_id_version");
+            if skipped_samples.len() < ROOT_SAMPLE_LIMIT {
+                skipped_samples.push(json!({"identity":node.identity,"source_path":node.source_paths[0],"reason":"existing_type_id_version"}));
+            }
+        }
         if disposition == "not_imported" {
-            record["not_imported_reason"] = json!(if referenced_nodes.contains(&ordinal) {
+            record["not_imported_reason"] = json!(if prepared.mode == ImportMode::WholePackage {
+                "package_transaction_failed"
+            } else if referenced_nodes.contains(&ordinal) {
                 "group_not_imported"
             } else {
                 "unreferenced"
@@ -1057,20 +1287,27 @@ async fn execute_plan(
         .nodes
         .len()
         .saturating_sub(inserted.len() + existing.len());
-    let outcome = import_outcome(
-        prepared.root_count,
-        succeeded,
-        not_imported,
-        interruption.is_some(),
-    );
+    let outcome =
+        if prepared.mode == ImportMode::WholePackage && interruption.is_none() && not_imported == 0
+        {
+            "success"
+        } else {
+            import_outcome(
+                prepared.root_count,
+                succeeded,
+                not_imported,
+                interruption.is_some(),
+            )
+        };
     let summary = json!({"total_entries":prepared.nodes.len(),"imported_count":inserted.len(),"existing_count":existing.len(),
         "not_imported_count":not_imported,
         "root_count":prepared.root_count,"successful_root_count":succeeded,"blocked_root_count":blocked,
         "write_failed_root_count":write_failed,"not_attempted_root_count":prepared.root_count-succeeded-blocked-write_failed,
-        "error_count":prepared.evidence.errors,"warning_count":prepared.evidence.warnings,"validation_issue_count":prepared.evidence.count});
-    let report = json!({"report_version":2,"import_policy":"root_closure_v2","ok":outcome=="success", "outcome":outcome,
-        "execution_complete":interruption.is_none(),"code":if prepared.root_count==0 {"NO_IMPORT_ROOTS"} else {match outcome {"success"=>"IMPORTED","partial"=>"PARTIALLY_IMPORTED","interrupted"=>"IMPORT_INTERRUPTED",_=>"NO_ROOTS_IMPORTED"}},
+        "ignored_issue_count":prepared.evidence.ignored,"error_count":prepared.evidence.errors,"warning_count":prepared.evidence.warnings,"validation_issue_count":prepared.evidence.count});
+    let report = json!({"report_version":2,"import_policy":"root_closure_v2","import_mode":prepared.mode,"result_filter":RESULT_FILTER_VERSION,"ok":outcome=="success", "outcome":outcome,
+        "execution_complete":interruption.is_none(),"code":if prepared.root_count==0 && prepared.mode == ImportMode::RootGroups {"NO_IMPORT_ROOTS"} else {match outcome {"success"=>"IMPORTED","partial"=>"PARTIALLY_IMPORTED","interrupted"=>"IMPORT_INTERRUPTED",_=>"NO_ROOTS_IMPORTED"}},
         "summary":summary,"roots":root_samples,"roots_truncated":prepared.root_count>ROOT_SAMPLE_LIMIT,
+        "skipped_records":skipped_samples,"skipped_records_truncated":existing.len()>ROOT_SAMPLE_LIMIT,
         "validation_issues":prepared.evidence.samples,"validation_issues_truncated":prepared.evidence.count>prepared.evidence.samples.len(),
         "plan_sha256":prepared.plan_sha256,"execution_error_code":interruption,"details_artifact_kind":"import_details"});
     let summary_path = prepared.temp.path().join("report.json");
@@ -1204,6 +1441,97 @@ async fn publish(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn import_filter_matches_only_exact_review_fields_and_keeps_evidence() {
+        for (table, dataset) in [
+            (PackageRootTable::Processes, "processDataSet"),
+            (PackageRootTable::Lifecyclemodels, "lifeCycleModelDataSet"),
+        ] {
+            for field in ["validation", "complianceDeclarations"] {
+                for location in [
+                    format!("{dataset}/modellingAndValidation/{field}/review/0"),
+                    format!("$.{dataset}.modellingAndValidation.{field}.review"),
+                ] {
+                    let mut issue =
+                        json!({"location":location,"severity":"error","message":"unchanged"});
+                    assert!(filter_import_issue(table, &mut issue));
+                    assert_eq!(issue["message"], "unchanged");
+                    assert_eq!(issue["severity"], "error");
+                    assert_eq!(issue["ignored_for_import"], true);
+                }
+                let mut issue = json!({"location":format!("{dataset}/modellingAndValidation"),"context":{"schema_keyword":"required","required_property":field}});
+                assert!(filter_import_issue(table, &mut issue));
+            }
+        }
+        for issue in [
+            json!({"location":"processDataSet/modellingAndValidation/validationOther"}),
+            json!({"location":"processDataSet/modellingAndValidation.validation"}),
+            json!({"location":"processDataSet/processInformation/validation"}),
+            json!({"location":"processDataSet/modellingAndValidation","context":{"schema_keyword":"required","required_property":"LCIMethodAndAllocation"}}),
+            json!({"location":"processDataSet/modellingAndValidation","message":"validation is a required property"}),
+            json!({"location":"processDataSet/modellingAndValidation/validation","context":{"location_truncated":true}}),
+        ] {
+            assert!(!filter_import_issue(
+                PackageRootTable::Processes,
+                &mut issue.clone()
+            ));
+        }
+        let mut issue = json!({"location":"processDataSet/modellingAndValidation/validation"});
+        assert!(!filter_import_issue(PackageRootTable::Contacts, &mut issue));
+    }
+
+    #[test]
+    fn every_record_must_pass_before_whole_package_including_orphans() {
+        let good = node(PackageRootTable::Contacts, 1, false, vec![]);
+        assert_eq!(
+            import_mode(std::slice::from_ref(&good)),
+            ImportMode::WholePackage
+        );
+        assert_eq!(import_mode(&[]), ImportMode::RootGroups);
+        let bad = node(PackageRootTable::Sources, 2, true, vec![]);
+        assert_eq!(import_mode(&[good, bad]), ImportMode::RootGroups);
+    }
+
+    #[test]
+    fn filtered_reference_errors_do_not_block_but_remain_in_complete_report() {
+        let dir = TempDir::new().unwrap();
+        let mut evidence = Evidence::new(&dir.path().join("issues.ndjson")).unwrap();
+        let mut process = node(PackageRootTable::Processes, 1, false, vec![]);
+        evidence.blocker(&mut process, "package_reference_unresolved", "$.processDataSet.modellingAndValidation.validation.review.referenceToNameOfReviewer", "missing").unwrap();
+        assert!(!process.blocked);
+        assert_eq!(evidence.errors, 0);
+        assert_eq!(evidence.ignored, 1);
+        assert_eq!(evidence.count, 1);
+        assert_eq!(evidence.samples[0]["ignored_for_import"], true);
+        evidence
+            .blocker(
+                &mut process,
+                "package_reference_unresolved",
+                "$.processDataSet.exchanges.exchange",
+                "missing",
+            )
+            .unwrap();
+        assert!(process.blocked);
+        assert_eq!(evidence.errors, 1);
+    }
+
+    #[test]
+    fn receipts_keep_existing_records_for_skip_reports() {
+        let mut inserted = BTreeSet::new();
+        let mut existing = BTreeSet::new();
+        collect_receipt(&json!({"items":[{"table":"contacts","id":"a","version":"01.00.000","disposition":"existing"}]}), &mut inserted, &mut existing).unwrap();
+        assert!(inserted.is_empty());
+        assert_eq!(existing.len(), 1);
+        assert!(
+            collect_receipt(
+                &json!({"items":[{"disposition":"unknown"}]}),
+                &mut inserted,
+                &mut existing
+            )
+            .is_err()
+        );
+    }
 
     #[test]
     fn terminal_outcome_requires_all_groups_and_records() {
@@ -1443,7 +1771,7 @@ mod tests {
             PackageRootTable::Processes,
             1,
             "01.00.000",
-            json!({"processDataSet":{},"state_code":100}),
+            json!({"processDataSet":{"modellingAndValidation":{}},"state_code":100}),
         );
         let mut evidence = evidence(&temp);
         let nodes = indexed(&temp, &mut evidence);
@@ -1463,12 +1791,12 @@ mod tests {
             (
                 PackageRootTable::Processes,
                 1,
-                json!({"processDataSet":{},"state_code":100}),
+                json!({"processDataSet":{"modellingAndValidation":{}},"state_code":100}),
             ),
             (
                 PackageRootTable::Lifecyclemodels,
                 2,
-                json!({"lifeCycleModelDataSet":{}}),
+                json!({"lifeCycleModelDataSet":{"modellingAndValidation":{}}}),
             ),
             (PackageRootTable::Sources, 3, json!({"sourceDataSet":{}})),
         ] {
@@ -1486,7 +1814,11 @@ mod tests {
             &CancellationToken::default(),
         )
         .unwrap();
-        assert_eq!(evidence.errors, legacy.summary.error_count);
+        assert_eq!(evidence.ignored, 4);
+        assert_eq!(
+            evidence.errors + evidence.ignored,
+            legacy.summary.error_count
+        );
         assert_eq!(evidence.warnings, legacy.summary.warning_count);
         assert!(evidence.errors > 0);
         assert!(nodes.iter().all(|node| node.blocked));
@@ -1507,6 +1839,6 @@ mod tests {
         old_issues.sort();
         new_issues.sort();
         assert_eq!(old_issues, new_issues);
-        assert_eq!(result["binary_version"], tidas_cli::DEFAULT_TIDAS_VERSION);
+        assert_eq!(result["binary_version"], tidas_cli::expected_version());
     }
 }

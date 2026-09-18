@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-09-18
-lastReviewedCommit: 8520509f27ac372848a92f80ae45d7d7e5e9b828
-lastReviewedNote: "Reviewed Worker #295: complete package coverage determines import outcome; bounded terminal importResult projection exposes outcome/counts/report availability, with full details in reports. Validator, transaction, orphan non-import, ownership and gate contracts remain unchanged. Runtime validation evidence is recorded in the task."
+lastReviewedAt: "2026-09-18"
+lastReviewedCommit: "994d9e53389441ccb65e7378b61d86d7238aed9a"
+lastReviewedNote: "Reviewed Worker #295: unchanged validator with exact post-result filtering, all-record-valid whole-package transactions, root-group fallback, complete ignored/skip reports; paired Database #654 and Toolkit #205. Local validation and deployment qualification remain explicit task evidence."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -324,3 +324,5 @@ Install the versioned local hook once per checkout:
 The `pre-push` hook runs `scripts/docpact-gate.sh`, which delegates CLI lookup to `scripts/docpact` and performs strict config validation plus enforced lint before the push leaves the machine. It then runs `make check` as the local test gate. The wrapper checks `DOCPACT_BIN`, Cargo install locations, Homebrew install locations, and then `PATH`, so local agent shells should not fail only because bare `docpact` is unavailable. The default comparison base is `origin/main`. Override it for unusual stacks with `DOCPACT_BASE_REF=<ref>` or `scripts/docpact-gate.sh --base <ref>`. The gate writes its detailed report to a temporary file so normal pushes do not create `.docpact/runs/` artifacts.
 
 Partial package import additionally runs the package_execution unit tests, full Clippy, real TIDAS 0.2.0 parity fixtures and PostgreSQL group/lease/recovery qualification. Mock or graph tests do not prove real-validator parity. See `docs/tidas-package-contract.md` for v2 policy and capacity boundaries.
+
+For Worker #295 whole-package refinement, prove exact result-path filtering (including parent required issues), untouched raw inputs, valid orphan/rootless/all-existing success, invalid-record root fallback, complete skip/ignored evidence and paired Database #654 rollback/replay/lease tests. Toolkit #205 metadata tests must run with its governed Rust toolchain; a version or asset mismatch remains a deployment blocker.

@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-09-18
-lastReviewedCommit: 8520509f27ac372848a92f80ae45d7d7e5e9b828
-lastReviewedNote: "Reviewed Worker #295: complete package coverage determines import outcome; bounded terminal importResult projection exposes outcome/counts/report availability, with full details in reports. Validator, transaction, orphan non-import, ownership and gate contracts remain unchanged. Runtime validation evidence is recorded in the task."
+lastReviewedAt: "2026-09-18"
+lastReviewedCommit: "994d9e53389441ccb65e7378b61d86d7238aed9a"
+lastReviewedNote: "Reviewed Worker #295: unchanged validator with exact post-result filtering, all-record-valid whole-package transactions, root-group fallback, complete ignored/skip reports; paired Database #654 and Toolkit #205. Local validation and deployment qualification remain explicit task evidence."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md

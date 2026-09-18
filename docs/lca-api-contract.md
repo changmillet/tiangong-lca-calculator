@@ -25,9 +25,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: 2026-09-18
-lastReviewedCommit: 8520509f27ac372848a92f80ae45d7d7e5e9b828
-lastReviewedNote: "Reviewed Worker #295: complete package coverage determines import outcome; bounded terminal importResult projection exposes outcome/counts/report availability, with full details in reports. Validator, transaction, orphan non-import, ownership and gate contracts remain unchanged. Runtime validation evidence is recorded in the task."
+lastReviewedAt: "2026-09-18"
+lastReviewedCommit: "994d9e53389441ccb65e7378b61d86d7238aed9a"
+lastReviewedNote: "Reviewed Worker #295: unchanged validator with exact post-result filtering, all-record-valid whole-package transactions, root-group fallback, complete ignored/skip reports; paired Database #654 and Toolkit #205. Local validation and deployment qualification remain explicit task evidence."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -536,3 +536,5 @@ Worker 重任务可使用共享 `worker.resource-profile.v1` primitive 声明并
 ### TIDAS package terminal list projection
 
 Package jobs retain the `tidas.import_package.result.v1` transport envelope and add a bounded `result.importResult` projection for list consumers. It carries the business outcome, execution completeness, allowlisted counts, and publication-time report availability; `completed` is an executor state, not proof of full import. Complete package coverage, including orphan records, determines the business outcome. Download requests revalidate current artifact access and expiry. The authoritative fields and outcome rules are in [the TIDAS package contract](tidas-package-contract.md#64-v2-过程模型引用链部分导入).
+
+TIDAS import completeness is mode-aware: a nonempty whole-package commit can succeed with zero process/model roots or zero new inserts when every identity already exists. The bounded importResult transport remains unchanged; reports own import_mode, the result-filter revision, ignored issue evidence and skip reasons. See docs/tidas-package-contract.md.
