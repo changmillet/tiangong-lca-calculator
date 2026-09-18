@@ -938,6 +938,7 @@ async fn execute_plan(
         BufWriter::new(File::create(prepared.temp.path().join("records.ndjson"))?);
     let mut inserted = BTreeSet::new();
     let mut existing = BTreeSet::new();
+    let mut referenced_nodes = BTreeSet::new();
     let mut succeeded = 0;
     let mut blocked = 0;
     let mut write_failed = 0;
@@ -945,6 +946,7 @@ async fn execute_plan(
     let mut interruption: Option<String> = None;
     for line in BufReader::new(File::open(&prepared.plan_path)?).lines() {
         let group: GroupPlan = serde_json::from_str(&line?)?;
+        referenced_nodes.extend(group.members.iter().copied());
         let identity = &prepared.nodes[group.root].identity;
         let mut result = json!({"root":identity,"dependency_count":group.members.len().saturating_sub(1),
             "blocking_path":group.blocking_path.iter().map(|&i| &prepared.nodes[i].identity).collect::<Vec<_>>()});
@@ -1037,26 +1039,32 @@ async fn execute_plan(
         } else {
             "not_imported"
         };
-        write_line(
-            &mut records_file,
-            &json!({"ordinal":ordinal,"identity":node.identity,"source_paths":node.source_paths,"disposition":disposition,"validation_blocked":node.blocked}),
-        )?;
+        let mut record = json!({"ordinal":ordinal,"identity":node.identity,"source_paths":node.source_paths,"disposition":disposition,"validation_blocked":node.blocked});
+        if disposition == "not_imported" {
+            record["not_imported_reason"] = json!(if referenced_nodes.contains(&ordinal) {
+                "group_not_imported"
+            } else {
+                "unreferenced"
+            });
+        }
+        write_line(&mut records_file, &record)?;
     }
     roots_file.flush()?;
     records_file.flush()?;
     prepared.evidence.writer.flush()?;
     existing.retain(|key| !inserted.contains(key));
-    let outcome = if interruption.is_some() {
-        "interrupted"
-    } else if succeeded == prepared.root_count && succeeded > 0 {
-        "success"
-    } else if succeeded > 0 {
-        "partial"
-    } else {
-        "none"
-    };
+    let not_imported = prepared
+        .nodes
+        .len()
+        .saturating_sub(inserted.len() + existing.len());
+    let outcome = import_outcome(
+        prepared.root_count,
+        succeeded,
+        not_imported,
+        interruption.is_some(),
+    );
     let summary = json!({"total_entries":prepared.nodes.len(),"imported_count":inserted.len(),"existing_count":existing.len(),
-        "not_imported_count":prepared.nodes.len().saturating_sub(inserted.len()+existing.len()),
+        "not_imported_count":not_imported,
         "root_count":prepared.root_count,"successful_root_count":succeeded,"blocked_root_count":blocked,
         "write_failed_root_count":write_failed,"not_attempted_root_count":prepared.root_count-succeeded-blocked-write_failed,
         "error_count":prepared.evidence.errors,"warning_count":prepared.evidence.warnings,"validation_issue_count":prepared.evidence.count});
@@ -1087,6 +1095,23 @@ async fn execute_plan(
     publish(state,package_job_id,&summary_path,PackageArtifactKind::ImportReport,REPORT_FORMAT,"application/json",
         json!({"filename":"tidas-import-report.json","import_policy":"root_closure_v2","outcome":outcome,"summary":summary,"execution_complete":interruption.is_none()})).await?;
     Ok(())
+}
+
+fn import_outcome(
+    root_count: usize,
+    succeeded: usize,
+    not_imported: usize,
+    interrupted: bool,
+) -> &'static str {
+    if interrupted {
+        "interrupted"
+    } else if succeeded == 0 {
+        "none"
+    } else if succeeded == root_count && not_imported == 0 {
+        "success"
+    } else {
+        "partial"
+    }
 }
 
 fn sqlstate(error: &sqlx::Error) -> String {
@@ -1179,6 +1204,18 @@ async fn publish(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn terminal_outcome_requires_all_groups_and_records() {
+        // Inserted and reused records both count as covered; an orphan does not.
+        assert_eq!(import_outcome(2, 2, 0, false), "success");
+        assert_eq!(import_outcome(2, 2, 1, false), "partial");
+        assert_eq!(import_outcome(2, 1, 0, false), "partial");
+        assert_eq!(import_outcome(2, 0, 3, false), "none");
+        assert_eq!(import_outcome(0, 0, 1, false), "none");
+        assert_eq!(import_outcome(0, 0, 0, false), "none");
+        assert_eq!(import_outcome(2, 1, 1, true), "interrupted");
+    }
     fn node(table: PackageRootTable, ordinal: u128, blocked: bool, edges: Vec<usize>) -> Node {
         Node {
             identity: PackageRootRef {

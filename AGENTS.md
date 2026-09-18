@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: "2026-09-15"
-lastReviewedCommit: "8dec9cba9288657a4360a8fb7d02c9570761cd21"
-lastReviewedNote: "Worker #289 + #291: added the exact-100 public numerical eligibility invariant and the published-Result (120) numerical/export exclusion with the numerical_policy_version snapshot marker, combined with the #291 dependency-only CI cache now bound to native image/package/alternative/compiler evidence plus the existing Rust identity. Manual trigger, apt, format, Clippy, complete tests and local qualification remain; #291's native-fingerprint qualification passes. Ownership boundaries, package names and quality gates are unchanged; the merged-tree baseline gates are run independently by the coordinator, and hosted cold/warm CI cache proof and integration remain pending."
+lastReviewedAt: 2026-09-18
+lastReviewedCommit: 8520509f27ac372848a92f80ae45d7d7e5e9b828
+lastReviewedNote: "Reviewed Worker #295: complete package coverage determines import outcome; bounded terminal importResult projection exposes outcome/counts/report availability, with full details in reports. Validator, transaction, orphan non-import, ownership and gate contracts remain unchanged. Runtime validation evidence is recorded in the task."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md

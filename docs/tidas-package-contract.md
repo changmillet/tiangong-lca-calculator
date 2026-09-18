@@ -19,9 +19,9 @@ checkPaths:
   - docs/agents/repo-validation.md
   - docs/scope-closure-contract.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: "2026-09-15"
-lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
-lastReviewedNote: "Worker #289: added the published-Result (120) product-export exclusion for `processes` only, with the active/dead reader inventory and the fail-closed hydration rule. Import conflict reuse, support 100..=199 export semantics and the package state machine are unchanged."
+lastReviewedAt: 2026-09-18
+lastReviewedCommit: 8520509f27ac372848a92f80ae45d7d7e5e9b828
+lastReviewedNote: "Reviewed Worker #295: complete package coverage determines import outcome; bounded terminal importResult projection exposes outcome/counts/report availability, with full details in reports. Validator, transaction, orphan non-import, ownership and gate contracts remain unchanged. Runtime validation evidence is recorded in the task."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -193,6 +193,10 @@ v1 与 v2 共用 `run_tidas_package_command`，保持同一精确 binary 握手�
 完整计划绑定 source SHA、policy、validator/assets 和计划摘要。每个成功候选调用 Database `private.tidas_import_group_apply_v2`：同事务写入根对象／依赖和成功回执，`ON CONFLICT(id,version) DO NOTHING` 处理所有已有状态。分组只插入，不覆盖、不比较数据库内容。模型与过程在同一分组时复用原有 `backfill_process_model_ids`；失败模型不自动阻断独立过程。共享记录全局去重计数。只有 serialization/deadlock 最多重试两次；约束错误回滚当前组，连接／lease 错误停止后续组。最终 lease fence 防止失租提交。
 
 v2 `import_report` 使用 `tidas-package-import-report:v2`，业务 `outcome` 为 `success/partial/none/interrupted`；Worker completed 仅表示执行返回。`roots` 最多 100 条，完整 `import_details` ZIP 包含全部 issues、validation、references、roots、records 和 plan NDJSON，manifest 绑定各文件大小与 SHA。records 的 ordinal 对应 plan 节点编号。系统失败放入 execution error，不伪装为数据校验 issue。准备失败不会入库；报告上传中断后，数据库回执仍是已提交事实，`api.svc_tidas_package_read_v2` 提供 owner-scoped 计数。两个报告制品复用现有 14 天导入保留期。
+
+终态结果按完整包覆盖判定：执行未中断、至少一个根分组成功、全部根成功且 `not_imported_count=0` 才是 `success`。已有记录复用计入覆盖；存在成功根但有任意未成功分组或未导入记录（包括未被任何根引用的孤立 Contact 等）为 `partial`。没有根或没有成功根为 `none`；执行中断为 `interrupted`，即使已有组提交也不会变成成功。`records.ndjson` 为未导入条目增加 `not_imported_reason=unreferenced|group_not_imported`，分别表示不在任何根的闭包内、或所在组未成功；原有不写入孤立数据的行为不变。
+
+终态 `worker_jobs.result_json.importResult` 是列表可直接使用的有限摘要：`outcome`、`executionComplete`、`summary` 中固定十二个非负计数字段，以及 `reportAvailable` / `detailsAvailable`。报告可用标记是终态发布时的快照，只有 ready artifact 为 true；下载时仍必须通过 owner-scoped API 重新校验当前制品状态并生成签名链接。准备失败后若已发布报告，失败结果也尽力投影该摘要；投影读取失败不能掩盖原始任务失败。旧 v1 和未包含摘要的历史任务仍可按原 job ID 请求报告。此字段为 result.v1 transport 的增量字段，不添加新的 endpoint 或数据库迁移；完整记录、路径、issues 仍仅存于报告。
 
 显式容量为 ZIP 512 MiB／解压 2 GiB／文档 16 MiB／数据 100,000 条／引用 1,000,000 条／根 2,000 条；每组 50,000 条且 64 MiB，引用链复验累计文档访问上限 2,000,000。问题证据流及校验摘要流分别最多 512 MiB；单条问题最多 16 MiB，界面问题样本最多 1,000 条且 8 MiB。超限必须明确失败，不可截断成成功。
 

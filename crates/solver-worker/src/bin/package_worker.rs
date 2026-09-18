@@ -387,10 +387,26 @@ async fn record_package_worker_job_failure(
     }
 
     let retryable = is_retryable_package_job_error(err);
+    // Preparation failures can still publish reports; keep their actions visible
+    // without making the frontend query every terminal job for details.
+    let result_json = match fetch_package_artifact_projection(&state.pool, package_job_id).await {
+        Ok((artifacts, import_result)) => Some(json!({
+            "workerJobId": job.id, "packageJobId": package_job_id,
+            "payloadType": package_payload_type_name(payload),
+            "artifacts": artifacts, "importResult": import_result,
+        })),
+        Err(projection_error) => {
+            warn!(error = %projection_error, "failed to read package failure artifacts");
+            None
+        }
+    };
+    let result_schema_version = result_json
+        .as_ref()
+        .map(|_| package_result_schema_version(payload).to_owned());
     let result = WorkerJobResult {
         status: "failed".to_owned(),
-        result_json: None,
-        result_schema_version: None,
+        result_json,
+        result_schema_version,
         result_ref: Some(package_worker_result_ref(job.id, package_job_id)),
         diagnostics: Some(diagnostics),
         error_code: Some(cache_error_code),
@@ -469,13 +485,15 @@ async fn build_package_worker_job_result(
     let package_job_id = extract_package_job_id(payload);
     link_package_worker_job_domain_refs(&state.pool, worker_job_id, package_job_id).await?;
     let package_job = fetch_package_job_projection(&state.pool, worker_job_id).await?;
-    let artifacts = fetch_package_artifact_projection(&state.pool, package_job_id).await?;
+    let (artifacts, import_result) =
+        fetch_package_artifact_projection(&state.pool, package_job_id).await?;
     let result_json = json!({
         "workerJobId": worker_job_id,
         "packageJobId": package_job_id,
         "payloadType": package_payload_type_name(payload),
         "packageJobStatus": package_job.get("status").cloned().unwrap_or(Value::Null),
         "artifacts": artifacts,
+        "importResult": import_result,
     });
 
     Ok(WorkerJobResult {
@@ -600,13 +618,58 @@ fn is_undefined_table(err: &sqlx::Error) -> bool {
     }
 }
 
+// Only bounded outcome/count fields enter the public worker_jobs list projection.
+// Full report metadata, source paths and signed download links stay out of it.
+fn import_result_projection(artifacts: &[Value], metadata: Option<&Value>) -> Value {
+    let ready = |kind: &str| {
+        artifacts
+            .iter()
+            .any(|a| a["artifactKind"] == kind && a["status"] == "ready")
+    };
+    let mut result = json!({
+        "reportAvailable": ready("import_report"),
+        "detailsAvailable": ready("import_details"),
+    });
+    if let Some(metadata) = metadata {
+        if let Some(outcome @ ("success" | "partial" | "none" | "interrupted")) =
+            metadata["outcome"].as_str()
+        {
+            result["outcome"] = json!(outcome);
+        }
+        if let Some(complete) = metadata["execution_complete"].as_bool() {
+            result["executionComplete"] = json!(complete);
+        }
+        let mut summary = serde_json::Map::new();
+        for key in [
+            "total_entries",
+            "imported_count",
+            "existing_count",
+            "not_imported_count",
+            "root_count",
+            "successful_root_count",
+            "blocked_root_count",
+            "write_failed_root_count",
+            "not_attempted_root_count",
+            "error_count",
+            "warning_count",
+            "validation_issue_count",
+        ] {
+            if let Some(count) = metadata["summary"][key].as_u64() {
+                summary.insert(key.to_owned(), json!(count));
+            }
+        }
+        result["summary"] = Value::Object(summary);
+    }
+    result
+}
+
 async fn fetch_package_artifact_projection(
     pool: &sqlx::PgPool,
     job_id: Uuid,
-) -> anyhow::Result<Value> {
+) -> anyhow::Result<(Value, Value)> {
     let rows = sqlx::query(
         r"
-        SELECT id, artifact_kind, status, artifact_format, content_type, artifact_byte_size, artifact_url
+        SELECT id, artifact_kind, status, artifact_format, content_type, artifact_byte_size, artifact_url, metadata
         FROM private.lca_package_artifacts
         WHERE job_id = $1
           AND status <> 'deleted'
@@ -617,21 +680,31 @@ async fn fetch_package_artifact_projection(
     .fetch_all(pool)
     .await?;
 
-    Ok(Value::Array(
-        rows.into_iter()
-            .map(|row| {
-                json!({
-                    "id": row.try_get::<Uuid, _>("id").ok(),
-                    "artifactKind": row.try_get::<String, _>("artifact_kind").ok(),
-                    "status": row.try_get::<String, _>("status").ok(),
-                    "artifactFormat": row.try_get::<String, _>("artifact_format").ok(),
-                    "contentType": row.try_get::<String, _>("content_type").ok(),
-                    "artifactByteSize": row.try_get::<i64, _>("artifact_byte_size").ok(),
-                    "artifactUrl": row.try_get::<String, _>("artifact_url").ok(),
-                })
+    let mut report_metadata = None;
+    let artifacts: Vec<Value> = rows
+        .into_iter()
+        .map(|row| {
+            let kind = row.try_get::<String, _>("artifact_kind").ok();
+            let status = row.try_get::<String, _>("status").ok();
+            if report_metadata.is_none()
+                && kind.as_deref() == Some("import_report")
+                && status.as_deref() == Some("ready")
+            {
+                report_metadata = row.try_get::<Value, _>("metadata").ok();
+            }
+            json!({
+                "id": row.try_get::<Uuid, _>("id").ok(),
+                "artifactKind": kind,
+                "status": status,
+                "artifactFormat": row.try_get::<String, _>("artifact_format").ok(),
+                "contentType": row.try_get::<String, _>("content_type").ok(),
+                "artifactByteSize": row.try_get::<i64, _>("artifact_byte_size").ok(),
+                "artifactUrl": row.try_get::<String, _>("artifact_url").ok(),
             })
-            .collect(),
-    ))
+        })
+        .collect();
+    let import_result = import_result_projection(&artifacts, report_metadata.as_ref());
+    Ok((Value::Array(artifacts), import_result))
 }
 
 fn package_worker_job_payload(job: &WorkerJob) -> anyhow::Result<PackageJobPayload> {
@@ -899,6 +972,36 @@ mod tests {
         package_request_cache_error_code, package_request_cache_error_message,
         package_worker_job_payload, package_worker_result_ref,
     };
+
+    #[test]
+    fn import_list_projection_is_bounded_and_preserves_report_availability() {
+        let artifacts = vec![
+            json!({"artifactKind":"import_report", "status":"ready"}),
+            json!({"artifactKind":"import_details", "status":"deleted"}),
+        ];
+        let result = super::import_result_projection(
+            &artifacts,
+            Some(&json!({
+                "outcome":"partial", "execution_complete":true,
+                "source_paths":["private-file.json"],
+                "summary":{"imported_count":3,"not_imported_count":1,"root_count":-1,"arbitrary":"secret"}
+            })),
+        );
+        assert_eq!(
+            result,
+            json!({"outcome":"partial", "executionComplete":true,
+            "reportAvailable":true, "detailsAvailable":false,
+            "summary":{"imported_count":3,"not_imported_count":1}})
+        );
+        assert_eq!(
+            super::import_result_projection(&[], None),
+            json!({"reportAvailable":false,"detailsAvailable":false})
+        );
+        assert_eq!(
+            super::import_result_projection(&artifacts, Some(&json!({"outcome":"invalid"}))),
+            json!({"reportAvailable":true,"detailsAvailable":false,"summary":{}})
+        );
+    }
 
     fn worker_job(
         job_kind: &str,
