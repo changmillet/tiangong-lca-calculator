@@ -539,7 +539,7 @@ mod tests {
             id: "process-authoring/strict".to_owned(),
             ruleset_version: "1".to_owned(),
             catalog_sha256: "abc".to_owned(),
-            tidas_version: "0.2.0".to_owned(),
+            tidas_version: "0.3.2".to_owned(),
             rules: vec![AiRule {
                 id: "process.rule".to_owned(),
                 dataset_type: TidasDatasetType::Process,

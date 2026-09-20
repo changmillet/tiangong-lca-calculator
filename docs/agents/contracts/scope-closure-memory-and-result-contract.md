@@ -27,9 +27,9 @@ checkPaths:
   - docs/agents/contracts/scope-closure-external-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-owned-result.v1.schema.json
-lastReviewedAt: "2026-09-18"
-lastReviewedCommit: "08989b994b47d3c212405b36655f71cc120d5185"
-lastReviewedNote: "Reviewed Worker #295 gate repair: the heartbeat cancellation test first awaits the real child PID, then exercises unchanged heartbeat failure and child-reaping assertions. Production heartbeat, Portal, diagnostics, scope closure and package contracts remain unchanged; full gates are required."
+lastReviewedAt: "2026-09-20"
+lastReviewedCommit: "d65bcb2d05ac6fedb08637389e4f9db4148824b4"
+lastReviewedNote: "Reviewed Worker #297: the external qualification binary identity advances to 0.3.2; memory, result, and certificate semantics remain unchanged."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml

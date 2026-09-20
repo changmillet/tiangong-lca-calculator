@@ -19,9 +19,9 @@ checkPaths:
   - docs/agents/repo-validation.md
   - docs/scope-closure-contract.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: "2026-09-18"
-lastReviewedCommit: "08989b994b47d3c212405b36655f71cc120d5185"
-lastReviewedNote: "Reviewed Worker #295 gate repair: the heartbeat cancellation test first awaits the real child PID, then exercises unchanged heartbeat failure and child-reaping assertions. Production heartbeat, Portal, diagnostics, scope closure and package contracts remain unchanged; full gates are required."
+lastReviewedAt: "2026-09-20"
+lastReviewedCommit: "d65bcb2d05ac6fedb08637389e4f9db4148824b4"
+lastReviewedNote: "Reviewed Worker #297: the package worker uses exact Toolkit 0.3.2 while request, validation, and result contracts remain unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -133,7 +133,7 @@ payload 必须仍携带有效 `job_id` compatibility UUID，因为 `lca_package_
 
 1. 下载上传 ZIP artifact；
 2. 解压到临时目录；
-3. 使用唯一 `TIDAS_BIN`（默认 `tidas`）执行 `version` 与 `validate --describe` 握手，要求精确匹配 `TIDAS_EXPECTED_VERSION`（active governed 默认 `0.2.0`）、公开 validation protocol/profile 和 asset fingerprint；
+3. 使用唯一 `TIDAS_BIN`（默认 `tidas`）执行 `version` 与 `validate --describe` 握手，要求精确匹配 `TIDAS_EXPECTED_VERSION`（active governed 默认 `0.3.2`）、公开 validation protocol/profile 和 asset fingerprint；
 4. 通过 `tidas validate <dir> --input-format tidas-json --issues <spool> --format json --progress never` 执行结构化校验；issue 必须写入临时文件型有界 spool，operation report 作为有界 JSON 捕获，Worker 对 report schema、完整性、asset fingerprint 以及 spool SHA-256/bytes/event count 全量复核；
 5. 若 `summary.error_count > 0`，直接产出 import report：
    - `code = VALIDATION_FAILED`
@@ -202,7 +202,7 @@ payload 必须仍携带有效 `job_id` compatibility UUID，因为 `lca_package_
 
 容量保持 ZIP 512 MiB／解压 2 GiB／文档 16 MiB／唯一数据 100,000 条／引用 1,000,000 条／根 2,000 条。分组最多 50,000 条且 64 MiB，闭包复验累计文档访问不超过 2,000,000。整包 Worker 块最多 1,000 条且目标 32 MiB，数据库每块硬上限 64 MiB、总暂存 2 GiB。问题证据与校验摘要流各最多 512 MiB，样本最多 1,000 条且 8 MiB；超限必须明确失败。
 
-部署前先资格验证包含 Toolkit #205 的精确二进制，配置匹配的 `TIDAS_BIN` / `TIDAS_EXPECTED_VERSION`，并应用 Database #654 迁移，再启用新版 Worker。仅更改默认版本号或使用未包含 required_property 元数据的旧 binary 不构成此功能的交付；现有默认 binary pin 没有在本改动中偷偷升级。Edge/Platform v2 提交与终态传输保持兼容，生产／持久 Dev 部署是单独操作。
+部署前先资格验证包含 Toolkit #205 的精确二进制，配置匹配的 `TIDAS_BIN` / `TIDAS_EXPECTED_VERSION`，并应用 Database #654 迁移，再启用新版 Worker。仅更改默认版本号或使用未包含 required_property 元数据的旧 binary 不构成此功能的交付。原始 v2 交付没有升级默认 binary pin；Worker #297 将其推进到已正式发行且独立验收的 Toolkit 0.3.2。Edge/Platform v2 提交与终态传输保持兼容，生产／持久 Dev 部署仍须按独立运维流程执行。
 
 ## 7. Artifact 契约
 
