@@ -25,9 +25,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: "2026-09-18"
-lastReviewedCommit: "08989b994b47d3c212405b36655f71cc120d5185"
-lastReviewedNote: "Reviewed Worker #295 gate repair: the heartbeat cancellation test first awaits the real child PID, then exercises unchanged heartbeat failure and child-reaping assertions. Production heartbeat, Portal, diagnostics, scope closure and package contracts remain unchanged; full gates are required."
+lastReviewedAt: "2026-09-20"
+lastReviewedCommit: "d65bcb2d05ac6fedb08637389e4f9db4148824b4"
+lastReviewedNote: "Reviewed Worker #297: TIDAS binary version changes do not alter shared job/result payloads, statuses, or Edge/Platform API contracts."
 related:
   - AGENTS.md
   - .docpact/config.yaml

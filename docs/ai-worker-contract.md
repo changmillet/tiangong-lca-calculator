@@ -23,9 +23,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-architecture.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-08-29
-lastReviewedCommit: c7f362e7a50eb003104851dcc1112fece81038bc
-lastReviewedNote: "Documented Worker Issue #277 explicit AI terminal failure disposition and unchanged one-third lease behavior."
+lastReviewedAt: 2026-09-20
+lastReviewedCommit: d65bcb2d05ac6fedb08637389e4f9db4148824b4
+lastReviewedNote: "Reviewed Worker #297: AI ruleset source remains the exact TIDAS CLI descriptor; only the qualified binary version advances to 0.3.2."
 related:
   - AGENTS.md
   - .docpact/config.yaml

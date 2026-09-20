@@ -31,9 +31,9 @@ checkPaths:
   - scripts/scope_closure_qualification.py
   - scripts/run_scope_closure_external_qualification.sh
   - scripts/run_scope_closure_provider_qualification.sh
-lastReviewedAt: "2026-09-18"
-lastReviewedCommit: "08989b994b47d3c212405b36655f71cc120d5185"
-lastReviewedNote: "Reviewed Worker #295 gate repair: the heartbeat cancellation test first awaits the real child PID, then exercises unchanged heartbeat failure and child-reaping assertions. Production heartbeat, Portal, diagnostics, scope closure and package contracts remain unchanged; full gates are required."
+lastReviewedAt: "2026-09-20"
+lastReviewedCommit: "d65bcb2d05ac6fedb08637389e4f9db4148824b4"
+lastReviewedNote: "Reviewed Worker #297: the exact TIDAS CLI and external qualification identities advance to 0.3.2 without changing closure semantics."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -117,7 +117,7 @@ does not change generic TIDAS reference extraction or document validation.
 
 Document validation uses only the published unified Rust `tidas` CLI selected by `TIDAS_BIN` (default `tidas`). No Python entrypoint, legacy binary name, or ordered command-candidate fallback is permitted:
 
-1. `version --format json --progress never` must equal `TIDAS_EXPECTED_VERSION` (active governed default `0.2.0`).
+1. `version --format json --progress never` must equal `TIDAS_EXPECTED_VERSION` (active governed default `0.3.2`).
 2. `validate --describe --format json --progress never` must advertise `document-validation-batch.v1`, `tidas-document-conformance.v1`, the validation report schema, and an immutable asset fingerprint.
 3. Uncached documents are spooled as canonical JSON plus an exact JSONL input manifest.
 4. The Worker invokes profile `tidas-document-conformance.v1` with bounded memory/queue configuration inherited by the binary.
@@ -135,7 +135,7 @@ Local capacity qualification has two non-interchangeable modes. `real-payload` b
 
 The git-tracked external qualification entrypoint is
 `scripts/run_scope_closure_external_qualification.sh --fixture <zip> --output <dir>`.
-It runs only on Linux, requires an exact executable `TIDAS_BIN=0.2.0`, streams a
+It runs only on Linux, requires an exact executable `TIDAS_BIN=0.3.2`, streams a
 bounded safe extraction without logging payloads, validates the native TIDAS
 protocol and spool identity, and runs the same real package/spool through exact
 `cold`, `warm`, `mixed`, and `stale` capacity modes. The four logical and artifact

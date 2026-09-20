@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: "2026-09-18"
-lastReviewedCommit: "08989b994b47d3c212405b36655f71cc120d5185"
-lastReviewedNote: "Reviewed Worker #295 gate repair: the heartbeat cancellation test first awaits the real child PID, then exercises unchanged heartbeat failure and child-reaping assertions. Production heartbeat, Portal, diagnostics, scope closure and package contracts remain unchanged; full gates are required."
+lastReviewedAt: "2026-09-20"
+lastReviewedCommit: "d65bcb2d05ac6fedb08637389e4f9db4148824b4"
+lastReviewedNote: "Reviewed Worker #297: binary version adoption does not change Worker modules, queue ownership, or runtime integration topology."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
