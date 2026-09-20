@@ -25,8 +25,8 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: "2026-09-20"
-lastReviewedCommit: "d65bcb2d05ac6fedb08637389e4f9db4148824b4"
+lastReviewedAt: 2026-09-20
+lastReviewedCommit: e4b26d40bc772c7c592e5c65e0c407534fee562f
 lastReviewedNote: "Reviewed Worker #297: TIDAS binary version changes do not alter shared job/result payloads, statuses, or Edge/Platform API contracts."
 related:
   - AGENTS.md

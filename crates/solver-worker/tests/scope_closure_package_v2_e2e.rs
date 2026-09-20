@@ -1,7 +1,8 @@
 //! Real local-stack lifecycle proof for scope closure -> certified snapshot -> Build V2.
 //!
-//! Run only through `scripts/run_scope_closure_package_v2_e2e.sh`. The harness resets a local
-//! Supabase database, uses its S3-compatible Storage endpoint, builds the real snapshot-builder
+//! Run only through `scripts/run_scope_closure_package_v2_e2e.sh` with an explicit isolated
+//! Supabase project. The harness resets that project's database, uses its S3-compatible Storage
+//! endpoint, builds the real snapshot-builder
 //! binary, and invokes the selected published Rust `tidas` binary. Every database, Worker,
 //! snapshot, HDF5, solve, package, object-storage, tamper, and revocation boundary exercised
 //! below is real.
@@ -38,6 +39,8 @@ struct Fixture {
     elementary_flow: Uuid,
     flow_property: Uuid,
     unit_group: Uuid,
+    source: Uuid,
+    contact: Uuid,
 }
 
 #[derive(Debug)]
@@ -101,6 +104,65 @@ fn sha256(bytes: &[u8]) -> String {
 
 fn repeated(character: char) -> String {
     std::iter::repeat_n(character, 64).collect()
+}
+
+fn fixture_template(contents: &str) -> Value {
+    serde_json::from_str(contents).expect("checked-in TIDAS fixture template must parse")
+}
+
+fn localized(text: impl Into<String>) -> Value {
+    json!({"@xml:lang": "en", "#text": text.into()})
+}
+
+fn dataset_reference(kind: &str, category: &str, id: Uuid, version: &str) -> Value {
+    json!({
+        "@type": kind,
+        "@refObjectId": id,
+        "@version": version,
+        "@uri": format!("../{category}/{id}.xml"),
+        "common:shortDescription": localized(format!("E2E {kind} {id}"))
+    })
+}
+
+fn synthetic_compliance_declarations() -> Value {
+    json!({"compliance": {
+        "common:referenceToComplianceSystem": dataset_reference(
+            "source data set", "sources", Uuid::nil(), VERSION
+        ),
+        "common:approvalOfOverallCompliance": "Not defined",
+        "common:nomenclatureCompliance": "Not defined",
+        "common:methodologicalCompliance": "Not defined",
+        "common:reviewCompliance": "Not defined",
+        "common:documentationCompliance": "Not defined",
+        "common:qualityCompliance": "Not defined"
+    }})
+}
+
+fn bind_fixture_references(value: &mut Value, source: Uuid, contact: Uuid) {
+    match value {
+        Value::Object(object) => {
+            if let Some(kind) = object.get("@type").and_then(Value::as_str) {
+                let identity = match kind {
+                    "source data set" => Some(("sources", source)),
+                    "contact data set" => Some(("contacts", contact)),
+                    _ => None,
+                };
+                if let Some((category, id)) = identity {
+                    *value = dataset_reference(kind, category, id, VERSION);
+                    return;
+                }
+            }
+            for child in object.values_mut() {
+                bind_fixture_references(child, source, contact);
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                bind_fixture_references(item, source, contact);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn expected_h_matrix_for_axis(
@@ -201,123 +263,180 @@ fn process_document(
         json!({
             "@dataSetInternalID": "1",
             "exchangeDirection": "Output",
+            "meanAmount": "1",
             "resultingAmount": "1",
-            "referenceToFlowDataSet": {
-                "@type": "flow data set",
-                "@refObjectId": product,
-                "@version": VERSION
-            }
+            "dataDerivationTypeStatus": "Measured",
+            "referenceToFlowDataSet": dataset_reference("flow data set", "flows", product, VERSION)
         }),
         json!({
             "@dataSetInternalID": "2",
             "exchangeDirection": "Output",
+            "meanAmount": amount.to_string(),
             "resultingAmount": amount.to_string(),
-            "referenceToFlowDataSet": {
-                "@type": "flow data set",
-                "@refObjectId": elementary,
-                "@version": VERSION
-            }
+            "dataDerivationTypeStatus": "Measured",
+            "referenceToFlowDataSet": dataset_reference("flow data set", "flows", elementary, VERSION)
         }),
     ];
     if let Some(input_product) = input_product {
         exchanges.push(json!({
             "@dataSetInternalID": "3",
             "exchangeDirection": "Input",
+            "meanAmount": "0.2",
             "resultingAmount": "0.2",
-            "referenceToFlowDataSet": {
-                "@type": "flow data set",
-                "@refObjectId": input_product,
-                "@version": VERSION
-            }
+            "dataDerivationTypeStatus": "Measured",
+            "referenceToFlowDataSet": dataset_reference("flow data set", "flows", input_product, VERSION)
         }));
     }
-    json!({
-        "processDataSet": {
-            "processInformation": {
-                "dataSetInformation": {
-                    "common:UUID": process,
-                    "name": {"baseName": format!("E2E process {process}")}
-                },
-                "quantitativeReference": {"referenceToReferenceFlow": "1"}
-            },
-            "exchanges": {"exchange": exchanges}
-        }
-    })
+    let mut document = fixture_template(include_str!(
+        "fixtures/scope_closure_package_v2_e2e/process-template.json"
+    ));
+    let data_set = &mut document["processDataSet"];
+    data_set["processInformation"]["dataSetInformation"]["common:UUID"] = json!(process);
+    data_set["processInformation"]["dataSetInformation"]["name"]["baseName"] =
+        localized(format!("E2E process {process}"));
+    data_set["processInformation"]["quantitativeReference"]["@type"] = json!("Reference flow(s)");
+    data_set["processInformation"]["quantitativeReference"]["referenceToReferenceFlow"] =
+        json!("1");
+    data_set["administrativeInformation"]["publicationAndOwnership"]["common:dataSetVersion"] =
+        json!(VERSION);
+    data_set["modellingAndValidation"]["dataSourcesTreatmentAndRepresentativeness"]["annualSupplyOrProductionVolume"] =
+        localized("100 kg/year");
+    data_set["modellingAndValidation"]["validation"] = json!({"review": {"@type": "Not reviewed"}});
+    data_set["modellingAndValidation"]["complianceDeclarations"] =
+        synthetic_compliance_declarations();
+    data_set["exchanges"]["exchange"] = json!(exchanges);
+    document
 }
 
 fn flow_document(flow: Uuid, flow_type: &str, flow_property: Uuid) -> Value {
-    json!({
-        "flowDataSet": {
-            "flowInformation": {
-                "dataSetInformation": {
-                    "common:UUID": flow,
-                    "name": {"baseName": format!("E2E flow {flow}")}
-                },
-                "quantitativeReference": {"referenceToReferenceFlowProperty": "1"}
-            },
-            "flowProperties": {"flowProperty": {
-                "@dataSetInternalID": "1",
-                "referenceToFlowPropertyDataSet": {
-                    "@type": "flow property data set",
-                    "@refObjectId": flow_property,
-                    "@version": VERSION
-                }
-            }},
-            "modellingAndValidation": {"LCIMethod": {"typeOfDataSet": flow_type}}
-        }
-    })
+    let mut document = fixture_template(include_str!(
+        "fixtures/scope_closure_package_v2_e2e/flow-template.json"
+    ));
+    let data_set = &mut document["flowDataSet"];
+    data_set["flowInformation"]["dataSetInformation"]["common:UUID"] = json!(flow);
+    data_set["flowInformation"]["dataSetInformation"]["name"]["baseName"] =
+        localized(format!("E2E flow {flow}"));
+    data_set["modellingAndValidation"]["LCIMethod"]["typeOfDataSet"] = json!(flow_type);
+    data_set["flowProperties"]["flowProperty"] = json!({
+        "@dataSetInternalID": "0",
+        "meanValue": "1",
+        "referenceToFlowPropertyDataSet": dataset_reference(
+            "flow property data set", "flowproperties", flow_property, VERSION
+        )
+    });
+    data_set["administrativeInformation"]["publicationAndOwnership"]["common:dataSetVersion"] =
+        json!(VERSION);
+    document
 }
 
 fn flow_property_document(flow_property: Uuid, unit_group: Uuid) -> Value {
-    json!({
-        "flowPropertyDataSet": {
-            "flowPropertiesInformation": {
-                "dataSetInformation": {"common:UUID": flow_property},
-                "quantitativeReference": {"referenceToReferenceUnitGroup": {
-                    "@type": "unit group data set",
-                    "@refObjectId": unit_group,
-                    "@version": VERSION
-                }}
-            }
-        }
-    })
+    let mut document = fixture_template(include_str!(
+        "fixtures/scope_closure_package_v2_e2e/flowproperty-template.json"
+    ));
+    let data_set = &mut document["flowPropertyDataSet"];
+    data_set["flowPropertiesInformation"]["dataSetInformation"]["common:UUID"] =
+        json!(flow_property);
+    data_set["flowPropertiesInformation"]["quantitativeReference"]["referenceToReferenceUnitGroup"] =
+        dataset_reference("unit group data set", "unitgroups", unit_group, VERSION);
+    data_set["administrativeInformation"]["publicationAndOwnership"]["common:dataSetVersion"] =
+        json!(VERSION);
+    document
 }
 
 fn unit_group_document(unit_group: Uuid) -> Value {
-    json!({
-        "unitGroupDataSet": {
-            "unitGroupInformation": {
-                "dataSetInformation": {"common:UUID": unit_group},
-                "quantitativeReference": {"referenceToReferenceUnit": "1"}
-            },
-            "units": {"unit": {
-                "@dataSetInternalID": "1",
-                "name": "kg",
-                "meanValue": "1"
-            }}
-        }
-    })
+    let mut document = fixture_template(include_str!(
+        "fixtures/scope_closure_package_v2_e2e/unitgroup-template.json"
+    ));
+    let data_set = &mut document["unitGroupDataSet"];
+    data_set["unitGroupInformation"]["dataSetInformation"]["common:UUID"] = json!(unit_group);
+    data_set["administrativeInformation"]["publicationAndOwnership"]["common:dataSetVersion"] =
+        json!(VERSION);
+    document
 }
 
-fn method_document(method: Uuid, elementary: Uuid) -> Value {
-    json!({
-        "LCIAMethodDataSet": {
-            "LCIAMethodInformation": {
-                "dataSetInformation": {"common:UUID": method}
-            },
-            "methodInformation": {
-                "dataSetInformation": {"name": {"baseName": "E2E impact"}}
-            },
-            "characterisationFactors": {"factor": {
-                "referenceToFlowDataSet": {
-                    "@type": "flow data set",
-                    "@refObjectId": elementary,
-                    "@version": VERSION
-                },
-                "meanValue": "2"
-            }}
-        }
-    })
+fn source_document(source: Uuid) -> Value {
+    let mut document = fixture_template(include_str!(
+        "fixtures/scope_closure_package_v2_e2e/source-template.json"
+    ));
+    let data_set = &mut document["sourceDataSet"];
+    data_set["sourceInformation"]["dataSetInformation"]["common:UUID"] = json!(source);
+    data_set["administrativeInformation"]["publicationAndOwnership"]["common:dataSetVersion"] =
+        json!(VERSION);
+    data_set["administrativeInformation"]["publicationAndOwnership"]["common:permanentDataSetURI"] =
+        json!(format!("urn:uuid:{source}"));
+    document
+}
+
+fn contact_document(contact: Uuid) -> Value {
+    let mut document = fixture_template(include_str!(
+        "fixtures/scope_closure_package_v2_e2e/contact-template.json"
+    ));
+    let data_set = &mut document["contactDataSet"];
+    data_set["contactInformation"]["dataSetInformation"]["common:UUID"] = json!(contact);
+    data_set["administrativeInformation"]["publicationAndOwnership"]["common:dataSetVersion"] =
+        json!(VERSION);
+    data_set["administrativeInformation"]["publicationAndOwnership"]["common:permanentDataSetURI"] =
+        json!(format!("urn:uuid:{contact}"));
+    document
+}
+
+fn method_document(method: Uuid, elementary: Uuid, flow_property: Uuid, version: &str) -> Value {
+    let mut document = fixture_template(include_str!(
+        "fixtures/scope_closure_package_v2_e2e/method-template.json"
+    ));
+    let data_set = &mut document["LCIAMethodDataSet"];
+    data_set["LCIAMethodInformation"]["dataSetInformation"]["common:UUID"] = json!(method);
+    data_set["LCIAMethodInformation"]["dataSetInformation"]["common:name"] =
+        localized(format!("E2E impact {method}"));
+    data_set["LCIAMethodInformation"]["dataSetInformation"]["classificationInformation"] = json!({"common:classification": {"common:class": [{
+        "@level": "0", "@classId": "1", "#text": "Damage level LCIA methods"
+    }]}});
+    data_set["LCIAMethodInformation"]["dataSetInformation"]
+        .as_object_mut()
+        .expect("method information must be an object")
+        .remove("referenceToExternalDocumentation");
+    data_set["LCIAMethodInformation"]["quantitativeReference"]["referenceQuantity"] =
+        dataset_reference(
+            "flow property data set",
+            "flowproperties",
+            flow_property,
+            VERSION,
+        );
+    data_set["LCIAMethodInformation"]["time"]["timeRepresentativenessDescription"] =
+        localized("Synthetic E2E method");
+    data_set["administrativeInformation"]["publicationAndOwnership"]["common:dataSetVersion"] =
+        json!(version);
+    data_set["administrativeInformation"]["publicationAndOwnership"]["common:dateOfLastRevision"] =
+        json!("2026-09-20T00:00:00Z");
+    data_set["administrativeInformation"]["publicationAndOwnership"]["common:permanentDataSetURI"] =
+        json!(format!("urn:uuid:{method}"));
+    data_set["administrativeInformation"]["dataEntryBy"]["recommendationBy"] = json!({
+        "referenceToEntity": dataset_reference("contact data set", "contacts", Uuid::nil(), VERSION),
+        "level": "Not recommended",
+        "meaning": localized("Synthetic E2E method; not an official recommendation")
+    });
+    data_set["modellingAndValidation"]["LCIAMethodNormalisationAndWeighting"]["normalisation"] =
+        json!(false);
+    data_set["modellingAndValidation"]["LCIAMethodNormalisationAndWeighting"]["weighting"] =
+        json!(false);
+    data_set["modellingAndValidation"]["dataSources"] = json!({
+        "referenceToDataSource": dataset_reference(
+            "source data set", "sources", Uuid::nil(), VERSION
+        )
+    });
+    data_set["modellingAndValidation"]["validation"] = json!({"review": {"@type": "Not reviewed"}});
+    data_set["modellingAndValidation"]["complianceDeclarations"] =
+        synthetic_compliance_declarations();
+    data_set["characterisationFactors"]["factor"] = json!({
+        "referenceToFlowDataSet": dataset_reference(
+            "flow data set", "flows", elementary, VERSION
+        ),
+        "exchangeDirection": "Output",
+        "meanValue": "2",
+        "dataDerivationTypeStatus": "Calculated",
+        "deviatingRecommendation": "Not recommended"
+    });
+    document
 }
 
 async fn setup_fixture(pool: &PgPool) -> anyhow::Result<Fixture> {
@@ -328,6 +447,8 @@ async fn setup_fixture(pool: &PgPool) -> anyhow::Result<Fixture> {
         elementary_flow: Uuid::new_v4(),
         flow_property: Uuid::new_v4(),
         unit_group: Uuid::new_v4(),
+        source: Uuid::new_v4(),
+        contact: Uuid::new_v4(),
     };
     setup_fixture_with(pool, fixture).await
 }
@@ -336,11 +457,11 @@ async fn setup_fixture_with(pool: &PgPool, fixture: Fixture) -> anyhow::Result<F
     let release_run = Uuid::new_v4();
     let approval = Uuid::new_v4();
 
+    // The isolated bucket must admit the Worker's versioned vendor media types;
+    // this E2E tests artifact integrity rather than bucket MIME policy.
     sqlx::query(
         r#"INSERT INTO storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
-           VALUES($1,$1,false,52428800,ARRAY['application/x-hdf5','application/json',
-             'application/x-ndjson','application/gzip',
-             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
+           VALUES($1,$1,false,52428800,null)
            ON CONFLICT(id) DO NOTHING"#,
     )
     .bind(required_env("S3_BUCKET"))
@@ -356,7 +477,9 @@ async fn setup_fixture_with(pool: &PgPool, fixture: Fixture) -> anyhow::Result<F
     .bind(format!("scope-closure-e2e-{}@example.com", fixture.actor))
     .execute(pool)
     .await?;
-    sqlx::query("INSERT INTO private.users(id,raw_user_meta_data,contact) VALUES($1,'{}',null)")
+    // Current Database mirrors auth.users into private.users; keep this insert for
+    // older fixture schemas without overriding a trigger-created row.
+    sqlx::query("INSERT INTO private.users(id,raw_user_meta_data,contact) VALUES($1,'{}',null) ON CONFLICT(id) DO NOTHING")
         .bind(fixture.actor)
         .execute(pool)
         .await?;
@@ -387,7 +510,13 @@ async fn setup_fixture_with(pool: &PgPool, fixture: Fixture) -> anyhow::Result<F
     sqlx::query("ALTER TABLE public.lciamethods DISABLE TRIGGER USER")
         .execute(pool)
         .await?;
-    let processes = [
+    sqlx::query("ALTER TABLE public.sources DISABLE TRIGGER USER")
+        .execute(pool)
+        .await?;
+    sqlx::query("ALTER TABLE public.contacts DISABLE TRIGGER USER")
+        .execute(pool)
+        .await?;
+    let mut processes = [
         process_document(
             fixture.processes[0],
             fixture.product_flows[0],
@@ -403,6 +532,9 @@ async fn setup_fixture_with(pool: &PgPool, fixture: Fixture) -> anyhow::Result<F
             Some(fixture.product_flows[0]),
         ),
     ];
+    for document in &mut processes {
+        bind_fixture_references(document, fixture.source, fixture.contact);
+    }
     for (id, document) in fixture.processes.iter().zip(&processes) {
         sqlx::query(
             "INSERT INTO public.processes(id,version,json,json_ordered,user_id,state_code) VALUES($1,$2,$3,$3::text::json,$4,100)",
@@ -415,7 +547,7 @@ async fn setup_fixture_with(pool: &PgPool, fixture: Fixture) -> anyhow::Result<F
         .await?;
     }
 
-    let flows = [
+    let mut flows = [
         (
             fixture.product_flows[0],
             flow_document(
@@ -441,6 +573,9 @@ async fn setup_fixture_with(pool: &PgPool, fixture: Fixture) -> anyhow::Result<F
             ),
         ),
     ];
+    for (_, document) in &mut flows {
+        bind_fixture_references(document, fixture.source, fixture.contact);
+    }
     for (id, document) in &flows {
         sqlx::query(
             "INSERT INTO public.flows(id,version,json,json_ordered,user_id,state_code) VALUES($1,$2,$3,$3::text::json,$4,100)",
@@ -452,7 +587,8 @@ async fn setup_fixture_with(pool: &PgPool, fixture: Fixture) -> anyhow::Result<F
         .execute(pool)
         .await?;
     }
-    let flow_property = flow_property_document(fixture.flow_property, fixture.unit_group);
+    let mut flow_property = flow_property_document(fixture.flow_property, fixture.unit_group);
+    bind_fixture_references(&mut flow_property, fixture.source, fixture.contact);
     sqlx::query(
         "INSERT INTO public.flowproperties(id,version,json,json_ordered,user_id,state_code) VALUES($1,$2,$3,$3::text::json,$4,100)",
     )
@@ -462,7 +598,8 @@ async fn setup_fixture_with(pool: &PgPool, fixture: Fixture) -> anyhow::Result<F
     .bind(fixture.actor)
     .execute(pool)
     .await?;
-    let unit_group = unit_group_document(fixture.unit_group);
+    let mut unit_group = unit_group_document(fixture.unit_group);
+    bind_fixture_references(&mut unit_group, fixture.source, fixture.contact);
     sqlx::query(
         "INSERT INTO public.unitgroups(id,version,json,json_ordered,user_id,state_code) VALUES($1,$2,$3,$3::text::json,$4,100)",
     )
@@ -476,7 +613,13 @@ async fn setup_fixture_with(pool: &PgPool, fixture: Fixture) -> anyhow::Result<F
     for (method_id, version, locator_id) in RELEASE_METHOD_IDENTITIES {
         let method_id = Uuid::parse_str(method_id)?;
         let locator_id = Uuid::parse_str(locator_id)?;
-        let method = method_document(method_id, fixture.elementary_flow);
+        let mut method = method_document(
+            method_id,
+            fixture.elementary_flow,
+            fixture.flow_property,
+            version,
+        );
+        bind_fixture_references(&mut method, fixture.source, fixture.contact);
         sqlx::query(
             "INSERT INTO public.lciamethods(id,version,json,json_ordered,user_id,state_code) VALUES($1,$2,$3,$3::text::json,$4,100)",
         )
@@ -488,6 +631,28 @@ async fn setup_fixture_with(pool: &PgPool, fixture: Fixture) -> anyhow::Result<F
         .await?;
         methods.push((method_id, version, method));
     }
+    let mut source = source_document(fixture.source);
+    bind_fixture_references(&mut source, fixture.source, fixture.contact);
+    sqlx::query(
+        "INSERT INTO public.sources(id,version,json,json_ordered,user_id,state_code) VALUES($1,$2,$3,$3::text::json,$4,100)",
+    )
+    .bind(fixture.source)
+    .bind(VERSION)
+    .bind(&source)
+    .bind(fixture.actor)
+    .execute(pool)
+    .await?;
+    let mut contact = contact_document(fixture.contact);
+    bind_fixture_references(&mut contact, fixture.source, fixture.contact);
+    sqlx::query(
+        "INSERT INTO public.contacts(id,version,json,json_ordered,user_id,state_code) VALUES($1,$2,$3,$3::text::json,$4,100)",
+    )
+    .bind(fixture.contact)
+    .bind(VERSION)
+    .bind(&contact)
+    .bind(fixture.actor)
+    .execute(pool)
+    .await?;
     sqlx::query("ALTER TABLE public.processes ENABLE TRIGGER USER")
         .execute(pool)
         .await?;
@@ -501,6 +666,12 @@ async fn setup_fixture_with(pool: &PgPool, fixture: Fixture) -> anyhow::Result<F
         .execute(pool)
         .await?;
     sqlx::query("ALTER TABLE public.lciamethods ENABLE TRIGGER USER")
+        .execute(pool)
+        .await?;
+    sqlx::query("ALTER TABLE public.sources ENABLE TRIGGER USER")
+        .execute(pool)
+        .await?;
+    sqlx::query("ALTER TABLE public.contacts ENABLE TRIGGER USER")
         .execute(pool)
         .await?;
 
@@ -613,6 +784,15 @@ async fn setup_fixture_with(pool: &PgPool, fixture: Fixture) -> anyhow::Result<F
             None,
             VERSION,
         ),
+        ("source", "support", fixture.source, source, None, VERSION),
+        (
+            "contact",
+            "support",
+            fixture.contact,
+            contact,
+            None,
+            VERSION,
+        ),
     ];
     released.extend(
         methods
@@ -658,6 +838,8 @@ fn review_submit_benchmark_fixture() -> anyhow::Result<Fixture> {
         elementary_flow: Uuid::parse_str("16000000-0000-4000-8000-000000000022")?,
         flow_property: Uuid::parse_str("16000000-0000-4000-8000-000000000030")?,
         unit_group: Uuid::parse_str("16000000-0000-4000-8000-000000000040")?,
+        source: Uuid::parse_str("16000000-0000-4000-8000-000000000050")?,
+        contact: Uuid::parse_str("16000000-0000-4000-8000-000000000060")?,
     })
 }
 
@@ -783,7 +965,7 @@ async fn assert_record_result_v3_wire(pool: &PgPool, check_id: Uuid) -> anyhow::
         r#"SELECT p.pronargs::int AS argument_count, pg_get_functiondef(p.oid) AS definition,
              c.evidence_hash
            FROM pg_proc p
-           JOIN pg_namespace n ON n.oid=p.pronamespace AND n.nspname='public'
+           JOIN pg_namespace n ON n.oid=p.pronamespace AND n.nspname='private'
            JOIN private.lcia_scope_closure_checks c ON c.id=$1
            WHERE p.proname='svc_lcia_scope_closure_check_record_result_v3'"#,
     )
@@ -1007,9 +1189,9 @@ async fn certified_snapshot_lifecycle_is_frozen_reusable_and_fail_closed() -> an
         r#"SELECT target.reused_from_check_id,
                   target.closure_bundle_artifact_id = source.closure_bundle_artifact_id AS same_artifact,
                   bundle.metadata->>'closureCheckId' AS artifact_closure_check_id
-           FROM public.lcia_scope_closure_checks target
-           JOIN public.lcia_scope_closure_checks source ON source.id=target.reused_from_check_id
-           JOIN public.worker_job_artifacts bundle ON bundle.id=target.closure_bundle_artifact_id
+           FROM private.lcia_scope_closure_checks target
+           JOIN private.lcia_scope_closure_checks source ON source.id=target.reused_from_check_id
+           JOIN private.worker_job_artifacts bundle ON bundle.id=target.closure_bundle_artifact_id
            WHERE target.id=$1"#,
     )
     .bind(reused_check_id)
@@ -1249,6 +1431,8 @@ async fn certified_snapshot_lifecycle_is_frozen_reusable_and_fail_closed() -> an
     .fetch_one(&state.pool)
     .await?;
     anyhow::ensure!(event["ok"] == json!(true));
+    // Database #661 keeps status-only claims available after revocation;
+    // the Worker then rejects the stale binding and records a terminal failure.
     anyhow::ensure!(
         run_one_job(state.clone(), revoked_build.worker_job_id, "revoked").await? == "failed"
     );
@@ -1263,7 +1447,7 @@ async fn certified_snapshot_lifecycle_is_frozen_reusable_and_fail_closed() -> an
     anyhow::ensure!(ready_packages == 2);
     anyhow::ensure!(
         sqlx::query_scalar::<_, i64>(
-            "SELECT count(*) FROM public.lcia_result_packages WHERE closure_check_id=$1 AND status='preview_ready'",
+            "SELECT count(*) FROM private.lcia_result_packages WHERE closure_check_id=$1 AND status='preview_ready'",
         )
         .bind(reused_check_id)
         .fetch_one(&state.pool)

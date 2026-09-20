@@ -1,7 +1,7 @@
 version: 1
 layout: repo
 lastReviewedAt: "2026-09-20"
-lastReviewedCommit: "d65bcb2d05ac6fedb08637389e4f9db4148824b4"
+lastReviewedCommit: "e4b26d40bc772c7c592e5c65e0c407534fee562f"
 lastReviewedNote: "Reviewed Worker #297: exact Toolkit 0.3.2 adoption changes runtime version and qualification fixtures within existing Worker ownership; routing and coverage remain unchanged."
 
 # Keep deterministic governance facts here.
