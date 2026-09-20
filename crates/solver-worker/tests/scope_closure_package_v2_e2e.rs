@@ -1431,32 +1431,10 @@ async fn certified_snapshot_lifecycle_is_frozen_reusable_and_fail_closed() -> an
     .fetch_one(&state.pool)
     .await?;
     anyhow::ensure!(event["ok"] == json!(true));
-    // Current Database fences the revoked certificate during job claim. The
-    // Worker never receives this job, so waiting for a terminal Worker result
-    // would spin on the rejected claim instead of proving fail-closed behavior.
-    let claim_error = claim_worker_jobs(
-        &state.pool,
-        "solver",
-        "scope-closure-package-v2-e2e-revoked",
-        1,
-        300,
-    )
-    .await
-    .expect_err("revoked certificate must be rejected before Worker claim");
+    // Database #661 keeps status-only claims available after revocation;
+    // the Worker then rejects the stale binding and records a terminal failure.
     anyhow::ensure!(
-        claim_error
-            .to_string()
-            .contains("closure_certificate_expired_or_unavailable"),
-        "unexpected revoked certificate claim error: {claim_error}"
-    );
-    let revoked_status =
-        sqlx::query_scalar::<_, String>("SELECT status FROM private.worker_jobs WHERE id=$1")
-            .bind(revoked_build.worker_job_id)
-            .fetch_one(&state.pool)
-            .await?;
-    anyhow::ensure!(
-        revoked_status == "queued",
-        "rejected job was unexpectedly claimed"
+        run_one_job(state.clone(), revoked_build.worker_job_id, "revoked").await? == "failed"
     );
     assert_zero_package(&state.pool, &revoked_build).await?;
 
