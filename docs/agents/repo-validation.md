@@ -41,8 +41,8 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: "2026-09-20"
-lastReviewedCommit: "d65bcb2d05ac6fedb08637389e4f9db4148824b4"
+lastReviewedAt: 2026-09-20
+lastReviewedCommit: e4b26d40bc772c7c592e5c65e0c407534fee562f
 lastReviewedNote: "Reviewed Worker #297: all package and scope-closure real-binary qualification now requires the published Toolkit 0.3.2 artifact; full gates remain required."
 related:
   - ../../AGENTS.md

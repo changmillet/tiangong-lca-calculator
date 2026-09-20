@@ -1,0 +1,5 @@
+# Scope Closure package E2E templates
+
+These synthetic test templates preserve the current TIDAS document structure used by the Worker package/scope-closure E2E. Process, Flow, Flow Property, Unit Group, Source and Contact templates were derived from the corresponding `platform/tests/data-workflows/fixtures/data/*/002_check_data_success.json` `jsonOrdered` documents. The LCIA Method template was derived from `platform/src/pages/Lciamethods/example.json`, retaining one factor before the Rust test replaces it. All templates were captured on 2026-09-20.
+
+`scope_closure_package_v2_e2e.rs` substitutes synthetic UUIDs, exact versions, references, quantitative values and a declared `Not defined` compliance status. The test creates its own released Source and Contact support documents, so schema and reference validation do not depend on external data. These templates are test data, not normative specification content or production LCA values. When changing them, run the isolated E2E against the published Toolkit binary and retain both positive and fail-closed assertions.

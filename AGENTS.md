@@ -138,7 +138,7 @@ Keep these entry-level facts in `AGENTS.md`. Use `README.md` and `docs/agents/re
   - `./scripts/build_snapshot_from_ilcd.sh`
   - `./scripts/run_full_compute_debug.sh`
   - `./scripts/run_bw25_validation.sh`
-  - `./scripts/run_scope_closure_package_v2_e2e.sh` (requires the real Rust `tidas` binary)
+  - `WORKER_E2E_DATABASE_ROOT=/absolute/isolated-project WORKER_E2E_ALLOW_RESET=isolated TIDAS_BIN=/absolute/tidas ./scripts/run_scope_closure_package_v2_e2e.sh` (resets only the explicitly selected non-shared local project; requires the real Rust `tidas` binary)
   - `./scripts/validate_additive_migration.sh`
 
 ## Ownership Boundaries
