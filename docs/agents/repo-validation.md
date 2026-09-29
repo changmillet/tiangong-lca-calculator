@@ -41,8 +41,8 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-09-20
-lastReviewedCommit: e4b26d40bc772c7c592e5c65e0c407534fee562f
+lastReviewedAt: 2026-09-29
+lastReviewedCommit: bcd26e1c5d28799b976a27936d7d18c34826968c
 lastReviewedNote: "Reviewed Worker #297: all package and scope-closure real-binary qualification now requires the published Toolkit 0.3.2 artifact; full gates remain required."
 related:
   - ../../AGENTS.md
@@ -328,3 +328,22 @@ Partial package import additionally runs the package_execution unit tests, full 
 For Worker #295 whole-package refinement, prove exact result-path filtering (including parent required issues), untouched raw inputs, valid orphan/rootless/all-existing success, invalid-record root fallback, complete skip/ignored evidence and paired Database #654 rollback/replay/lease tests. Toolkit #205 metadata tests must run with its governed Rust toolchain; a version or asset mismatch remains a deployment blocker.
 
 Heartbeat cancellation fixtures must first observe the real child PID before starting the deliberately failing heartbeat. This establishes the running-child precondition without relaxing heartbeat failure or process-reaping assertions, changing production timers, or excluding tests from the full gate.
+
+## Platform allocation materialization parity
+
+`crates/solver-worker/tests/fixtures/platform_allocation/materialized.json` is the
+canonical JSON emitted by Platform's `Worker allocation materialization contract`
+regression in `tests/unit/services/lifeCycleModels/util_calculate.test.ts`. It covers
+primary and coproduct outputs for exchange-specific and legacy output-share allocation.
+Regenerate it in the paired Platform checkout with
+`ALLOCATION_PARITY_OUTPUT=/tmp/platform-worker-allocation-fixture.json pnpm jest tests/unit/services/lifeCycleModels/util_calculate.test.ts --runInBand`,
+then run Worker with
+`WORKER_PLATFORM_ALLOCATION_FIXTURE=/tmp/platform-worker-allocation-fixture.json cargo test -p solver-worker --bin snapshot_builder platform_materialized_allocations_preserve_signed_balances`.
+The checked fixture keeps the same assertion available in the ordinary offline gate.
+Assertions compare signed per-reference inventory, unique references, cleared allocations
+and unit allocation on readback. This proves serialized Process parity; it does not
+qualify a production database, published certificate, or deployed cross-service rollout.
+
+Allocation v4 rollout requires the paired Edge request admission and Database
+normalizer changes. Recompute affected snapshots and certificates under v4; never
+relabel immutable v3 evidence or re-admit Result Process state 120 to numerical input.

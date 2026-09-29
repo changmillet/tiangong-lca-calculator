@@ -6300,7 +6300,7 @@ mod tests {
                 provider_lineage_source_sha256: None,
                 reference_normalization_mode: "strict".to_owned(),
                 allocation_fraction_mode: "strict".to_owned(),
-                allocation_semantics_version: "tidas-reference-allocation-v3".to_owned(),
+                allocation_semantics_version: "tidas-reference-allocation-v4".to_owned(),
                 link_semantics_version: "signed-flow-balance-v1".to_owned(),
                 technosphere_boundary_policy: "cutoff".to_owned(),
                 flow_identity_policy: "exact-flow-version-reference-unit-v2".to_owned(),

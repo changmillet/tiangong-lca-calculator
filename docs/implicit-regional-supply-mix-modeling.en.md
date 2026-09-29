@@ -167,7 +167,7 @@ That default describes a generic production snapshot. Certificate-grade Scope Cl
 
 Snapshot, release, and readiness evidence retain flow UUID/version/reference unit, flow space/source type, raw direction/amount/coefficient, normalized reference/residual coefficient, candidate eligibility, routing strategy/weight, activity requirement, closure residual, boundary policy, and unresolved reason.
 
-Build identity uses `tidas-reference-allocation-v3`, `signed-flow-balance-v1`, `exact-flow-version-reference-unit-v2`, and `selected-lcia-factor-flow-support-v1`. Exact Flow identity is `(UUID, resolved version)`, and matrix/provider compilation retains only revisions referenced by final Process-closure exchanges. An LCIA factor becomes a numerical source-closure dependency only when it intersects the biosphere/C axis; active and inactive factors alike never participate in implicit-mix or technosphere routing. Coverage is `snapshot_coverage.v3`; readiness input/report are v2; calculation bundles are v2.
+Build identity uses `tidas-reference-allocation-v4`, `signed-flow-balance-v1`, `exact-flow-version-reference-unit-v2`, and `selected-lcia-factor-flow-support-v1`. Exact Flow identity is `(UUID, resolved version)`, and matrix/provider compilation retains only revisions referenced by final Process-closure exchanges. An LCIA factor becomes a numerical source-closure dependency only when it intersects the biosphere/C axis; active and inactive factors alike never participate in implicit-mix or technosphere routing. Coverage is `snapshot_coverage.v3`; readiness input/report are v2; calculation bundles are v2.
 
 ## Limitation
 

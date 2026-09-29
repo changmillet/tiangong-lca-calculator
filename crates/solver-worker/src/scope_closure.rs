@@ -10048,7 +10048,7 @@ mod tests {
                 "linkPolicy": {
                     "linkSemanticsVersion": "signed-flow-balance-v1",
                     "flowIdentityPolicy": "exact-flow-version-reference-unit-v2",
-                    "allocationSemanticsVersion": "tidas-reference-allocation-v3",
+                    "allocationSemanticsVersion": "tidas-reference-allocation-v4",
                     "technosphereBoundaryPolicy": "cutoff",
                     "providerUniversePolicy": "scope_only"
                 }
@@ -10178,7 +10178,7 @@ mod tests {
             link_policy: ScopeLinkPolicy {
                 link_semantics_version: "signed-flow-balance-v1".to_owned(),
                 flow_identity_policy: "exact-flow-version-reference-unit-v2".to_owned(),
-                allocation_semantics_version: "tidas-reference-allocation-v3".to_owned(),
+                allocation_semantics_version: "tidas-reference-allocation-v4".to_owned(),
                 technosphere_boundary_policy: "cutoff".to_owned(),
                 provider_universe_policy: "scope_only".to_owned(),
             },

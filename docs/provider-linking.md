@@ -100,8 +100,10 @@ normalized reference coefficient = sign(raw reference coefficient)
 - allocation vector 的非零项闭合为 `100%`、但没有当前 reference target 时，按稀疏零处理，selected fraction 为 `0`；
 - exchange 完全未声明 `allocations` 时，selected fraction 为 `1`；
 - 仅 legacy scalar `allocations.allocation = {}` 视为“未声明 allocation”，selected fraction 为 `1`；这个例外不适用于空数组、`[{}]`、缺少 `allocation` 字段或带其他字段但缺少 target/fraction 的 object；
-- 单个 targetless allocation entry 只有在 Process 恰好有一个 reference exchange、该 exchange 具有唯一有效 internal ID 且等于 quantitative reference 时才可推断；不再要求它是物理 `Output`。fraction 必须是 canonical full `100`，或 legacy string 精确为 `"100%"`；
-- 除上述两个有界 legacy 例外外，空数组、坏结构、缺失 target/fraction、多 entry targetless、重复或未知 target、非有限/越界 fraction、非 full targetless fraction、总和不闭合都 fail closed。
+- Process 层先识别分配模式。历史无目标输出份额（如 A=70%、B=30%）组成一个总和为 100% 的向量；当前参考产品的份额应用到所有非参考交换。该模式允许历史百分号后缀，参考交换未声明份额时保持 reference-default=1；输入上不得混入份额。源 JSON 不改写；
+- targeted 与 targetless 声明不能在同一 Process 混用。显式 target 必须唯一命中 Output exchange，且其 authored UUID/version 必须精确解析为 `Product flow`。缺少版本、其他版本替代、未知/Elementary/Waste 类型均拒绝；普通构建和 Review overlay 使用相同校验，overlay 不以 baseline 的宽松 Flow 分类替代 exact metadata；
+- 当没有历史输出份额和 targeted 声明时，保留既有 Input/treatment 上单条 targetless full allocation 的有界兼容：reference exchange/internal ID 唯一，fraction 为 canonical 100 或精确 `"100%"`；非 full 输入份额拒绝；
+- scalar `{}` 之外的空/坏结构、多 entry targetless、重复/未知 target、非有限/越界 fraction、总和不闭合均 fail closed。
 
 Reference pivot 本身不乘 allocation fraction；allocation 只作用于 non-reference residual coefficient。selected fraction 为显式零或稀疏零的 residual 不进入 request-root closure，不计入 matching diagnostics，也不写入 `A` 或 `B`。
 
@@ -305,6 +307,6 @@ Compiled graph 和 readiness 至少应支持解释：
 
 Matrix-readiness、diagnostics export 和人工 debug 应消费这些 provider decisions，而不是在外部重写 provider resolution。
 
-Snapshot build config 记录 `allocation_semantics_version = tidas-reference-allocation-v3`、`link_semantics_version = signed-flow-balance-v1`、`provider_lineage_policy = version-exact-lineage-gate-v1`、`technosphere_boundary_policy`、`flow_identity_policy = exact-flow-version-reference-unit-v2` 和 `source_closure_policy = selected-lcia-factor-flow-support-v1`。Flow identity v2 表示 exact inventory revision 可共存、按最终 exchange 引用集合剪枝并进入 flow axis/diagnostics；source-closure v1 表示 selected LCIA factor Flow 只作为 support evidence 闭合。被消费的 exact Lifecycle Model payload 会 canonical hash 后进入 `source-fingerprint:v2`，因此 resulting/component reference 改动不会复用旧 snapshot。Coverage schema 为 `snapshot_coverage.v3`；readiness input/report 为 v2。Calculation bundle 为 `tiangong.calculation-bundle.v2`，technosphere release edge 使用 residual/balancing/reference/activity 的中性字段。
+Snapshot build config 记录 `allocation_semantics_version = tidas-reference-allocation-v4`、`link_semantics_version = signed-flow-balance-v1`、`provider_lineage_policy = version-exact-lineage-gate-v1`、`technosphere_boundary_policy`、`flow_identity_policy = exact-flow-version-reference-unit-v2` 和 `source_closure_policy = selected-lcia-factor-flow-support-v1`。Flow identity v2 表示 exact inventory revision 可共存、按最终 exchange 引用集合剪枝并进入 flow axis/diagnostics；source-closure v1 表示 selected LCIA factor Flow 只作为 support evidence 闭合。被消费的 exact Lifecycle Model payload 会 canonical hash 后进入 `source-fingerprint:v2`，因此 resulting/component reference 改动不会复用旧 snapshot。Coverage schema 为 `snapshot_coverage.v3`；readiness input/report 为 v2。Calculation bundle 为 `tiangong.calculation-bundle.v2`，technosphere release edge 使用 residual/balancing/reference/activity 的中性字段。
 
 谱系推断只发生在 snapshot build：相关 exact Model rows 以单次 batched read 加载，JSON 每个 Model 解析一次，传递 component relationship 以 memoized DFS 建立，并生成 Process→Model 倒排索引。每条 provider decision 只查询候选 Process 关联的少量集合；solve 继续只消费冻结后的稀疏 `A`，没有数据库读取或 lineage traversal。新增构建时间由 `fetch_provider_lineage_sec` 单独记录。

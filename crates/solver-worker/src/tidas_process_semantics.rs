@@ -7,7 +7,7 @@ use anyhow::{Context, bail};
 use serde_json::Value;
 
 /// Versioned allocation semantics applied before signed-flow linking.
-pub const TIDAS_ALLOCATION_SEMANTICS_VERSION: &str = "tidas-reference-allocation-v3";
+pub const TIDAS_ALLOCATION_SEMANTICS_VERSION: &str = "tidas-reference-allocation-v4";
 
 /// Versioned signed-flow linking semantics applied after allocation.
 pub const SIGNED_FLOW_LINK_SEMANTICS_VERSION: &str = "signed-flow-balance-v1";
@@ -33,6 +33,181 @@ pub enum TidasAllocationResolution {
     LegacyInferredReference { fraction: f64 },
     /// The closed sparse vector omits the quantitative reference, implying zero.
     SparseZero,
+}
+
+/// Process-wide interpretation, before reference normalization and flow linking.
+#[derive(Debug)]
+pub struct TidasProcessAllocation {
+    /// One resolution per source exchange, in the original order.
+    pub exchanges: Vec<TidasAllocationResolution>,
+    /// Explicit product targets whose exact Flow revisions must be verified by the caller.
+    pub product_target_indices: Vec<usize>,
+}
+
+/// Resolve legacy output shares as one process-wide vector, never as independent
+/// exchange multipliers. Canonical vectors remain exchange-specific. This does
+/// not modify source documents or synthesize new Process identities.
+pub fn resolve_tidas_process_allocations(
+    exchanges: &[&Value],
+    reference_internal_id: &str,
+) -> anyhow::Result<TidasProcessAllocation> {
+    let reference_internal_id = reference_internal_id.trim();
+    let ids = exchanges
+        .iter()
+        .map(|exchange| match exchange.get("@dataSetInternalID") {
+            Some(Value::String(id)) => Some(id.trim().to_owned()),
+            Some(Value::Number(id)) => Some(id.to_string()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let mut all_ids = HashSet::new();
+    for id in ids.iter().flatten() {
+        if id.is_empty() || !all_ids.insert(id.clone()) {
+            bail!("invalid or duplicate exchange internal ID={id}");
+        }
+    }
+    let reference_count = ids
+        .iter()
+        .filter(|id| id.as_deref() == Some(reference_internal_id))
+        .count();
+    if reference_internal_id.is_empty() || reference_count != 1 {
+        bail!("quantitative reference must identify exactly one Process exchange");
+    }
+    let ProcessAllocationDeclarations { targets, legacy } =
+        collect_process_allocation_declarations(exchanges)?;
+    if !targets.is_empty() && !legacy.is_empty() {
+        bail!("targeted allocations and legacy output shares must not be mixed in one Process");
+    }
+    let is_output = |index: usize| {
+        exchanges[index]
+            .get("exchangeDirection")
+            .and_then(Value::as_str)
+            .is_some_and(|direction| direction.trim() == "Output")
+    };
+    let output_ids = ids
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| is_output(*index))
+        .filter_map(|(_, id)| id.clone())
+        .collect::<HashSet<_>>();
+    if let Some(target) = targets.iter().find(|target| !output_ids.contains(*target)) {
+        bail!("allocation target {target} must identify an existing Output exchange");
+    }
+    let product_target_indices = ids
+        .iter()
+        .enumerate()
+        .filter(|(_, id)| id.as_ref().is_some_and(|id| targets.contains(id)))
+        .map(|(index, _)| index)
+        .collect();
+    // Preserve the bounded historical full-allocation fallback on Input/treatment
+    // exchanges only when no legacy output vector or targeted declaration exists.
+    if legacy.iter().any(|(index, _)| is_output(*index)) {
+        if legacy.iter().any(|(index, _)| !is_output(*index)) {
+            bail!("legacy product shares must be declared on Output exchanges only");
+        }
+        if legacy.iter().any(|(index, _)| ids[*index].is_none()) {
+            bail!("legacy output share is missing its exchange internal ID");
+        }
+        let sum: f64 = legacy.iter().map(|(_, fraction)| fraction).sum();
+        if (sum - 1.0).abs() > ALLOCATION_SUM_TOLERANCE {
+            bail!(
+                "legacy output shares must sum to 100%; actual sum is {}%",
+                sum * 100.0
+            );
+        }
+        // Matches the Model reference-default rule when the reference output has
+        // no share. Other product views are materialized upstream, not inferred here.
+        let fraction = legacy
+            .iter()
+            .find(|(index, _)| ids[*index].as_deref() == Some(reference_internal_id))
+            .map_or(1.0, |(_, fraction)| *fraction);
+        return Ok(TidasProcessAllocation {
+            exchanges: vec![TidasAllocationResolution::Explicit { fraction }; exchanges.len()],
+            product_target_indices,
+        });
+    }
+    let resolutions = exchanges
+        .iter()
+        .map(|exchange| {
+            resolve_tidas_exchange_allocation(
+                exchange,
+                reference_internal_id,
+                &all_ids,
+                reference_count,
+            )
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    Ok(TidasProcessAllocation {
+        exchanges: resolutions,
+        product_target_indices,
+    })
+}
+
+struct ProcessAllocationDeclarations {
+    targets: HashSet<String>,
+    legacy: Vec<(usize, f64)>,
+}
+
+fn collect_process_allocation_declarations(
+    exchanges: &[&Value],
+) -> anyhow::Result<ProcessAllocationDeclarations> {
+    let mut targets = HashSet::new();
+    let mut legacy = Vec::new();
+    for (index, exchange) in exchanges.iter().enumerate() {
+        let Some(container) = exchange.get("allocations") else {
+            continue;
+        };
+        let allocation = container
+            .as_object()
+            .context("allocations must be an object")?
+            .get("allocation")
+            .context("allocations.allocation is missing")?;
+        if allocation
+            .as_object()
+            .is_some_and(serde_json::Map::is_empty)
+        {
+            continue;
+        }
+        let entries = match allocation {
+            Value::Object(_) => vec![allocation],
+            Value::Array(entries) if !entries.is_empty() => entries.iter().collect(),
+            _ => bail!("allocations.allocation must be a non-empty object or array"),
+        };
+        for entry in &entries {
+            let entry = entry
+                .as_object()
+                .context("allocation entry must be an object")?;
+            if let Some(target) = entry.get("@internalReferenceToCoProduct") {
+                let target = target
+                    .as_str()
+                    .map(str::trim)
+                    .filter(|id| !id.is_empty())
+                    .context("allocation target must be a non-empty internal ID")?;
+                targets.insert(target.to_owned());
+            } else {
+                if entries.len() != 1 {
+                    bail!("multiple-entry targetless allocation is ambiguous");
+                }
+                let value = entry
+                    .get("@allocatedFraction")
+                    .context("targetless allocation fraction is missing")?;
+                let canonical = value.as_str().map(|text| {
+                    Value::String(
+                        text.trim()
+                            .strip_suffix('%')
+                            .unwrap_or(text.trim())
+                            .trim()
+                            .to_owned(),
+                    )
+                });
+                legacy.push((
+                    index,
+                    parse_tidas_perc(canonical.as_ref().unwrap_or(value))?,
+                ));
+            }
+        }
+    }
+    Ok(ProcessAllocationDeclarations { targets, legacy })
 }
 
 /// Resolves one exchange allocation for the process quantitative reference.
@@ -247,15 +422,130 @@ mod tests {
         assert!((fraction - expected).abs() <= f64::EPSILON);
     }
 
+    fn process_allocations(
+        rows: &Value,
+        reference: &str,
+    ) -> anyhow::Result<super::TidasProcessAllocation> {
+        super::resolve_tidas_process_allocations(
+            &rows.as_array().unwrap().iter().collect::<Vec<_>>(),
+            reference,
+        )
+    }
+
+    fn legacy_process() -> Value {
+        json!([
+            {"@dataSetInternalID":"a", "exchangeDirection":"Output", "allocations":{"allocation":{"@allocatedFraction":"70%"}}},
+            {"@dataSetInternalID":"b", "exchangeDirection":"Output", "allocations":{"allocation":[{"@allocatedFraction":30}]}},
+            {"@dataSetInternalID":"input", "exchangeDirection":"Input"},
+            {"@dataSetInternalID":"emission", "exchangeDirection":"Output"}
+        ])
+    }
+
+    #[test]
+    fn process_legacy_shares_apply_to_every_exchange_without_mutating_source() {
+        let rows = legacy_process();
+        let original = rows.clone();
+        for (reference, expected) in [("a", 0.7), ("b", 0.3)] {
+            let result = process_allocations(&rows, reference).unwrap();
+            for resolved in result.exchanges {
+                assert_fraction(resolved, expected);
+            }
+            assert!(result.product_target_indices.is_empty());
+        }
+        assert_eq!(rows, original);
+    }
+
+    #[test]
+    fn process_legacy_reference_default_zero_and_rounding_are_preserved() {
+        let mut rows = legacy_process();
+        rows[0]["allocations"]["allocation"]["@allocatedFraction"] = json!(0);
+        rows[1]["allocations"]["allocation"][0]["@allocatedFraction"] = json!(100);
+        assert_fraction(process_allocations(&rows, "a").unwrap().exchanges[2], 0.0);
+        assert_fraction(
+            process_allocations(&rows, "emission").unwrap().exchanges[2],
+            1.0,
+        );
+        rows[0]["allocations"]["allocation"]["@allocatedFraction"] = json!(33.333);
+        rows[1]["allocations"]["allocation"][0]["@allocatedFraction"] = json!(66.666);
+        assert!(process_allocations(&rows, "a").is_ok());
+    }
+
+    #[test]
+    fn process_legacy_invalid_or_mixed_declarations_fail_closed() {
+        for fraction in [
+            json!(""),
+            json!("NaN"),
+            json!("70%%"),
+            json!(-1),
+            json!(101),
+            json!(69),
+        ] {
+            let mut rows = legacy_process();
+            rows[0]["allocations"]["allocation"]["@allocatedFraction"] = fraction;
+            assert!(process_allocations(&rows, "a").is_err(), "{rows}");
+        }
+        let mut rows = legacy_process();
+        rows[2]["allocations"] =
+            json!({"allocation":{"@internalReferenceToCoProduct":"a", "@allocatedFraction":100}});
+        assert!(
+            process_allocations(&rows, "a")
+                .unwrap_err()
+                .to_string()
+                .contains("mixed")
+        );
+        rows[2]["allocations"] = json!({"allocation":{"@allocatedFraction":100}});
+        assert!(process_allocations(&rows, "a").is_err());
+        let mut rows = legacy_process();
+        rows[1]["exchangeDirection"] = json!("Input");
+        assert!(process_allocations(&rows, "a").is_err());
+    }
+
+    #[test]
+    fn process_targeted_vectors_validate_output_targets_and_keep_sparse_defaults() {
+        let mut rows = legacy_process();
+        rows[0].as_object_mut().unwrap().remove("allocations");
+        rows[1].as_object_mut().unwrap().remove("allocations");
+        rows[2]["allocations"] =
+            json!({"allocation":{"@internalReferenceToCoProduct":"b", "@allocatedFraction":100}});
+        let result = process_allocations(&rows, "a").unwrap();
+        assert_eq!(result.exchanges[2], TidasAllocationResolution::SparseZero);
+        assert_eq!(result.exchanges[3], TidasAllocationResolution::Undeclared);
+        assert_eq!(result.product_target_indices, vec![1]);
+        for target in ["input", "missing"] {
+            rows[2]["allocations"]["allocation"]["@internalReferenceToCoProduct"] = json!(target);
+            assert!(process_allocations(&rows, "a").is_err());
+        }
+    }
+
+    #[test]
+    fn process_input_reference_and_bounded_legacy_full_fallback_remain_valid() {
+        let rows = json!([
+            {"@dataSetInternalID":"input", "exchangeDirection":"Input"},
+            {"@dataSetInternalID":"emission", "exchangeDirection":"Output"}
+        ]);
+        assert_eq!(
+            process_allocations(&rows, "input").unwrap().exchanges[0],
+            TidasAllocationResolution::Undeclared
+        );
+        let mut rows = rows;
+        rows[0]["allocations"] = json!({"allocation":{"@allocatedFraction":"100%"}});
+        assert!(matches!(
+            process_allocations(&rows, "input").unwrap().exchanges[0],
+            TidasAllocationResolution::LegacyInferredReference { .. }
+        ));
+        rows[0]["allocations"]["allocation"]["@allocatedFraction"] = json!(70);
+        assert!(process_allocations(&rows, "input").is_err());
+    }
+
     #[test]
     fn semantics_version_is_stable() {
         assert_eq!(
             TIDAS_PROCESS_SEMANTICS_VERSION,
-            "tidas-reference-allocation-v3"
+            "tidas-reference-allocation-v4"
         );
         assert_eq!(
             TIDAS_ALLOCATION_SEMANTICS_VERSION,
-            "tidas-reference-allocation-v3"
+            "tidas-reference-allocation-v4"
         );
         assert_eq!(SIGNED_FLOW_LINK_SEMANTICS_VERSION, "signed-flow-balance-v1");
     }
