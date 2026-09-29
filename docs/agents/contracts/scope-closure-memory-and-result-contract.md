@@ -27,8 +27,8 @@ checkPaths:
   - docs/agents/contracts/scope-closure-external-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-owned-result.v1.schema.json
-lastReviewedAt: "2026-09-20"
-lastReviewedCommit: "d65bcb2d05ac6fedb08637389e4f9db4148824b4"
+lastReviewedAt: 2026-09-29
+lastReviewedCommit: bcd26e1c5d28799b976a27936d7d18c34826968c
 lastReviewedNote: "Reviewed Worker #297: the external qualification binary identity advances to 0.3.2; memory, result, and certificate semantics remain unchanged."
 related:
   - ../../../AGENTS.md

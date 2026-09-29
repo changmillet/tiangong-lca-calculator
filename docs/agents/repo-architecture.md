@@ -36,8 +36,8 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-09-20
-lastReviewedCommit: e4b26d40bc772c7c592e5c65e0c407534fee562f
+lastReviewedAt: 2026-09-29
+lastReviewedCommit: bcd26e1c5d28799b976a27936d7d18c34826968c
 lastReviewedNote: "Reviewed Worker #297: binary version adoption does not change Worker modules, queue ownership, or runtime integration topology."
 related:
   - ../../AGENTS.md

@@ -19,8 +19,8 @@ checkPaths:
   - docs/agents/repo-validation.md
   - docs/scope-closure-contract.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: "2026-09-20"
-lastReviewedCommit: "d65bcb2d05ac6fedb08637389e4f9db4148824b4"
+lastReviewedAt: 2026-09-29
+lastReviewedCommit: bcd26e1c5d28799b976a27936d7d18c34826968c
 lastReviewedNote: "Reviewed Worker #297: the package worker uses exact Toolkit 0.3.2 while request, validation, and result contracts remain unchanged."
 related:
   - AGENTS.md

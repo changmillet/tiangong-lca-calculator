@@ -1402,7 +1402,7 @@ fn parse_scope_closure_snapshot_args(
             let link_policy = &snapshot.requested_scope.link_policy;
             if link_policy.link_semantics_version != "signed-flow-balance-v1"
                 || link_policy.flow_identity_policy != "exact-flow-version-reference-unit-v2"
-                || link_policy.allocation_semantics_version != "tidas-reference-allocation-v3"
+                || link_policy.allocation_semantics_version != "tidas-reference-allocation-v4"
                 || !matches!(
                     link_policy.provider_universe_policy.as_str(),
                     "scope_only" | "eligible_transitive_expansion-v1"
@@ -3157,14 +3157,16 @@ async fn build_review_submit_overlay_graph(
             })
             .or_insert_with(|| identity.flow_version.clone());
     }
+    let allocation_targets = allocation_product_flow_identities(target_row)?;
     let mut flow_requests = collect_exchange_flow_reference_requests(&target_exchanges);
-    flow_requests
-        .exact
-        .retain(|identity| !baseline_flow_identities.contains(identity));
+    flow_requests.exact.retain(|identity| {
+        allocation_targets.contains(identity) || !baseline_flow_identities.contains(identity)
+    });
     flow_requests
         .omitted
         .retain(|flow_id| !baseline_omitted_versions.contains_key(flow_id));
     let mut flow_meta = fetch_flow_meta(pool, &flow_requests, None).await?;
+    validate_allocation_product_flows(&allocation_targets, &flow_meta)?;
     flow_meta
         .omitted_version_by_id
         .extend(baseline_omitted_versions);
@@ -4460,11 +4462,74 @@ async fn build_sparse_payload(
     )
 }
 
+// Explicit targets require authored exact Flow identities. Do not use the
+// legacy omitted-version or heuristic Product classification fallback here.
+fn allocation_product_flow_identities(
+    process: &ProcessRow,
+) -> anyhow::Result<BTreeSet<FlowLinkIdentity>> {
+    let exchanges = process_exchange_items(&process.json);
+    let reference = parse_reference_internal_id(&process.json)
+        .ok_or_else(|| anyhow::anyhow!("missing reference for process={}", process.id))?;
+    let allocation = solver_worker::tidas_process_semantics::resolve_tidas_process_allocations(
+        &exchanges, &reference,
+    )?;
+    allocation
+        .product_target_indices
+        .iter()
+        .map(|&index| {
+            let exchange = exchanges[index];
+            let flow_id = parse_uuid_at(exchange, &["referenceToFlowDataSet", "@refObjectId"])
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "allocation target has invalid Flow UUID for process={}",
+                        process.id
+                    )
+                })?;
+            let version = exchange
+                .pointer("/referenceToFlowDataSet/@version")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|version| !version.is_empty() && *version != "unknown")
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "allocation target requires an exact Flow version for process={}",
+                        process.id
+                    )
+                })?;
+            Ok(flow_link_identity_from_parts(flow_id, version))
+        })
+        .collect()
+}
+
+fn validate_allocation_product_flows(
+    targets: &BTreeSet<FlowLinkIdentity>,
+    flows: &ResolvedFlowMetadata,
+) -> anyhow::Result<()> {
+    for target in targets {
+        let flow_type = flows
+            .by_identity
+            .get(target)
+            .and_then(|flow| {
+                flow.json
+                    .pointer("/flowDataSet/modellingAndValidation/LCIMethod/typeOfDataSet")
+            })
+            .and_then(Value::as_str);
+        if flow_type != Some("Product flow") {
+            return Err(anyhow::anyhow!(
+                "allocation target must resolve to an exact Product flow: {}@{}",
+                target.flow_id,
+                target.flow_version
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn parse_process_chunk(
     proc_row: &ProcessRow,
     process_idx: i32,
     reference_normalization_mode: NormalizationMode,
-    allocation_mode: AllocationMode,
+    _allocation_mode: AllocationMode,
 ) -> anyhow::Result<ParsedProcessChunk> {
     let process_meta = ProcessMeta {
         process_idx,
@@ -4496,22 +4561,14 @@ fn parse_process_chunk(
             proc_row.id
         )
     })?;
-    let mut exchange_internal_ids = HashSet::new();
-    let mut reference_exchange_count = 0_usize;
-    for exchange in &exchange_items {
-        if let Some(internal_id) = parse_exchange_internal_id(exchange)
-            && !exchange_internal_ids.insert(internal_id.clone())
-        {
-            return Err(anyhow::anyhow!(
-                "duplicate exchange internal ID={} for process={}",
-                internal_id,
-                proc_row.id
-            ));
-        }
-        if parse_exchange_internal_id(exchange).as_deref() == Some(reference_internal_id.as_str()) {
-            reference_exchange_count += 1;
-        }
-    }
+    let process_allocation =
+        solver_worker::tidas_process_semantics::resolve_tidas_process_allocations(
+            &exchange_items,
+            &reference_internal_id,
+        )
+        .map_err(|error| {
+            anyhow::anyhow!("invalid allocation for process={}: {error:#}", proc_row.id)
+        })?;
 
     for (exchange_index, ex) in exchange_items.iter().enumerate() {
         let direction_label = ex
@@ -4544,20 +4601,7 @@ fn parse_process_chunk(
             .to_owned();
         local_allocation.exchange_total += 1;
         let (allocation_fraction, allocation_state, allocation_fallback) =
-            resolve_allocation_fraction(
-                ex,
-                &reference_internal_id,
-                &exchange_internal_ids,
-                reference_exchange_count,
-                allocation_mode,
-            )
-            .map_err(|error| {
-                anyhow::anyhow!(
-                    "invalid allocation for process={} exchange={}: {error}",
-                    proc_row.id,
-                    internal_id.as_deref().unwrap_or("unknown")
-                )
-            })?;
+            allocation_fraction_parts(process_allocation.exchanges[exchange_index]);
         match allocation_state {
             AllocationFractionState::Present | AllocationFractionState::SparseZero => {
                 local_allocation.fraction_present_count += 1;
@@ -5073,8 +5117,16 @@ async fn compile_scope_graph(
         });
     }
 
+    let allocation_targets = processes
+        .iter()
+        .map(allocation_product_flow_identities)
+        .collect::<anyhow::Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect::<BTreeSet<_>>();
     let flow_requests = collect_exchange_flow_reference_requests(&exchanges);
     let flow_meta = fetch_flow_meta(pool, &flow_requests, versioned_scope).await?;
+    validate_allocation_product_flows(&allocation_targets, &flow_meta)?;
     resolve_requested_flow_versions(&mut exchanges, &flow_meta)?;
     let flow_release_metadata = fetch_flow_release_metadata(pool, &flow_meta.by_identity).await?;
     for exchange in &exchanges {
@@ -6177,6 +6229,7 @@ fn resolve_reference_normalization(
     Ok((pivot, stats))
 }
 
+#[cfg(test)]
 fn resolve_allocation_fraction(
     exchange_json: &Value,
     reference_internal_id: &str,
@@ -6184,46 +6237,54 @@ fn resolve_allocation_fraction(
     reference_exchange_count: usize,
     _mode: AllocationMode,
 ) -> anyhow::Result<(f64, AllocationFractionState, AllocationFallbackState)> {
-    match solver_worker::tidas_process_semantics::resolve_tidas_exchange_allocation(
-        exchange_json,
-        reference_internal_id,
-        valid_exchange_internal_ids,
-        reference_exchange_count,
-    )? {
+    Ok(allocation_fraction_parts(
+        solver_worker::tidas_process_semantics::resolve_tidas_exchange_allocation(
+            exchange_json,
+            reference_internal_id,
+            valid_exchange_internal_ids,
+            reference_exchange_count,
+        )?,
+    ))
+}
+
+fn allocation_fraction_parts(
+    resolution: solver_worker::tidas_process_semantics::TidasAllocationResolution,
+) -> (f64, AllocationFractionState, AllocationFallbackState) {
+    match resolution {
         solver_worker::tidas_process_semantics::TidasAllocationResolution::Undeclared => {
-            Ok((
+            (
                 1.0,
                 AllocationFractionState::Missing,
                 AllocationFallbackState::None,
-            ))
+            )
         }
         solver_worker::tidas_process_semantics::TidasAllocationResolution::LegacyEmptyUndeclared => {
-            Ok((
+            (
                 1.0,
                 AllocationFractionState::Missing,
                 AllocationFallbackState::LegacyEmptyUndeclared,
-            ))
+            )
         }
         solver_worker::tidas_process_semantics::TidasAllocationResolution::Explicit {
             fraction,
-        } => Ok((
+        } => (
             fraction,
             AllocationFractionState::Present,
             AllocationFallbackState::None,
-        )),
+        ),
         solver_worker::tidas_process_semantics::TidasAllocationResolution::LegacyInferredReference {
             fraction,
-        } => Ok((
+        } => (
             fraction,
             AllocationFractionState::Present,
             AllocationFallbackState::LegacySingleReferenceTargetInferred,
-        )),
+        ),
         solver_worker::tidas_process_semantics::TidasAllocationResolution::SparseZero => {
-            Ok((
+            (
                 0.0,
                 AllocationFractionState::SparseZero,
                 AllocationFallbackState::None,
-            ))
+            )
         }
     }
 }
@@ -11362,7 +11423,7 @@ mod tests {
                 "linkPolicy": {
                     "linkSemanticsVersion": "signed-flow-balance-v1",
                     "flowIdentityPolicy": "exact-flow-version-reference-unit-v2",
-                    "allocationSemanticsVersion": "tidas-reference-allocation-v3",
+                    "allocationSemanticsVersion": "tidas-reference-allocation-v4",
                     "technosphereBoundaryPolicy": boundary_policy,
                     "providerUniversePolicy": provider_universe_policy
                 }
@@ -11498,7 +11559,7 @@ mod tests {
 
     #[test]
     fn certificate_grade_scope_closure_allows_only_medium_singular_risk() {
-        let mut config = test_snapshot_build_config("tidas-reference-allocation-v3");
+        let mut config = test_snapshot_build_config("tidas-reference-allocation-v4");
         let generic_policy = matrix_readiness_policy(&config, true);
         assert!(!generic_policy.allow_medium_singular_risk);
         assert!(!generic_policy.allow_high_singular_risk);
@@ -11608,7 +11669,7 @@ mod tests {
             lciamethod_count: 0,
             lciamethod_max_modified_at_utc: "disabled".to_owned(),
         };
-        let mut config = test_snapshot_build_config("tidas-reference-allocation-v3");
+        let mut config = test_snapshot_build_config("tidas-reference-allocation-v4");
         let snapshot_hash = compute_source_fingerprint_from_summary(&summary, &config)
             .expect("signed-flow source fingerprint");
         let overlay_hash = compute_review_submit_overlay_source_hash("baseline", &config)
@@ -12023,7 +12084,7 @@ mod tests {
             let built = assemble_sparse_payload(
                 Uuid::new_v4(),
                 &method,
-                &test_snapshot_build_config("tidas-reference-allocation-v3"),
+                &test_snapshot_build_config("tidas-reference-allocation-v4"),
                 &graph,
                 0.999_999,
                 1e-12,
@@ -12543,7 +12604,7 @@ mod tests {
         let built = assemble_sparse_payload(
             Uuid::new_v4(),
             &method,
-            &test_snapshot_build_config("tidas-reference-allocation-v3"),
+            &test_snapshot_build_config("tidas-reference-allocation-v4"),
             &overlay_graph,
             0.999_999,
             1e-12,
@@ -12664,7 +12725,7 @@ mod tests {
         let built = assemble_sparse_payload(
             Uuid::new_v4(),
             &method,
-            &test_snapshot_build_config("tidas-reference-allocation-v3"),
+            &test_snapshot_build_config("tidas-reference-allocation-v4"),
             &graph,
             0.999_999,
             1e-12,
@@ -12785,7 +12846,7 @@ mod tests {
         let built = assemble_sparse_payload(
             Uuid::new_v4(),
             &method,
-            &test_snapshot_build_config("tidas-reference-allocation-v3"),
+            &test_snapshot_build_config("tidas-reference-allocation-v4"),
             &graph,
             0.999_999,
             1e-12,
@@ -12822,7 +12883,7 @@ mod tests {
         let built = assemble_sparse_payload(
             snapshot_id,
             &method,
-            &test_snapshot_build_config("tidas-reference-allocation-v3"),
+            &test_snapshot_build_config("tidas-reference-allocation-v4"),
             &super::empty_compiled_graph(),
             0.999_999,
             1e-12,
@@ -12854,7 +12915,7 @@ mod tests {
 
         // Fresh ordinary global/subset artifact (no closure binding): the global numerical-policy
         // marker is its evidence, and reuse under the same policy is allowed.
-        let fresh_ordinary = test_snapshot_build_config("tidas-reference-allocation-v3");
+        let fresh_ordinary = test_snapshot_build_config("tidas-reference-allocation-v4");
         let encoded = encode(&fresh_ordinary);
         let decoded =
             super::decode_snapshot_artifact(&encoded.bytes).expect("decode fresh ordinary");
@@ -12960,7 +13021,7 @@ mod tests {
         let built = assemble_sparse_payload(
             snapshot_id,
             &method,
-            &test_snapshot_build_config("tidas-reference-allocation-v3"),
+            &test_snapshot_build_config("tidas-reference-allocation-v4"),
             &graph,
             0.999_999,
             1e-12,
@@ -13016,7 +13077,7 @@ mod tests {
             rows: Vec::new(),
             static_bundle: None,
         };
-        let mut build_config = test_snapshot_build_config("tidas-reference-allocation-v3");
+        let mut build_config = test_snapshot_build_config("tidas-reference-allocation-v4");
         build_config.technosphere_boundary_policy = "cutoff".to_owned();
 
         let cutoff = assemble_sparse_payload(
@@ -16659,6 +16720,205 @@ mod tests {
         assert_eq!(exchanges.len(), 2);
         assert!(exchanges[0].amount.is_some_and(f64::is_finite));
         assert_eq!(exchanges[1].amount, None);
+    }
+
+    #[test]
+    fn platform_materialized_allocations_preserve_signed_balances() {
+        let bytes =
+            std::env::var("WORKER_PLATFORM_ALLOCATION_FIXTURE")
+                .map_or_else(
+                    |_| {
+                        Ok(include_bytes!(
+                            "../../tests/fixtures/platform_allocation/materialized.json"
+                        )
+                        .to_vec())
+                    },
+                    std::fs::read,
+                )
+                .expect("read Platform qualification fixture");
+        let fixture: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(fixture["schema"], "platform-worker-allocation-fixture.v1");
+        let cases = fixture["cases"].as_array().unwrap();
+        assert_eq!(cases.len(), 4);
+        for case in cases {
+            let row = ProcessRow {
+                id: Uuid::parse_str(case["id"].as_str().unwrap()).unwrap(),
+                version: case["version"].as_str().unwrap().to_owned(),
+                model_id: None,
+                model_version: None,
+                user_id: None,
+                state_code: 100,
+                team_id: None,
+                review_id: None,
+                modified_at: None,
+                json: case["process"].clone(),
+            };
+            assert!(
+                super::allocation_product_flow_identities(&row)
+                    .unwrap()
+                    .is_empty()
+            );
+            let (_, exchanges, _, _, _) = super::parse_process_chunk(
+                &row,
+                0,
+                NormalizationMode::Strict,
+                AllocationMode::Strict,
+            )
+            .unwrap();
+            assert_eq!(
+                exchanges
+                    .iter()
+                    .filter(|exchange| exchange.is_reference_exchange)
+                    .count(),
+                1
+            );
+            for expected in case["balances"].as_array().unwrap() {
+                let flow_id = Uuid::parse_str(expected["flowId"].as_str().unwrap()).unwrap();
+                let exchange = exchanges
+                    .iter()
+                    .find(|exchange| exchange.flow_id == flow_id)
+                    .unwrap();
+                assert_close(exchange.allocation_fraction, 1.0);
+                let signed = super::signed_coefficient(
+                    exchange.direction.unwrap().signed_flow_direction(),
+                    exchange.amount.unwrap(),
+                )
+                .unwrap();
+                assert_close(
+                    signed,
+                    expected["signedAmountPerReference"].as_f64().unwrap(),
+                );
+            }
+        }
+    }
+
+    fn allocation_parity_process(reference: &str, legacy: bool) -> ProcessRow {
+        let vector = |a: f64| {
+            json!({"allocation": [
+                {"@internalReferenceToCoProduct":"a", "@allocatedFraction":a},
+                {"@internalReferenceToCoProduct":"b", "@allocatedFraction":100.0-a}
+            ]})
+        };
+        let mut rows = json!([
+            {"@dataSetInternalID":"a", "exchangeDirection":"Output", "resultingAmount":2},
+            {"@dataSetInternalID":"b", "exchangeDirection":"Output", "resultingAmount":4},
+            {"@dataSetInternalID":"electricity", "exchangeDirection":"Input", "resultingAmount":100},
+            {"@dataSetInternalID":"material", "exchangeDirection":"Input", "resultingAmount":50},
+            {"@dataSetInternalID":"emission", "exchangeDirection":"Output", "resultingAmount":10}
+        ]);
+        for (index, row) in rows.as_array_mut().unwrap().iter_mut().enumerate() {
+            row["referenceToFlowDataSet"] =
+                json!({"@refObjectId":Uuid::from_u128(index as u128 + 1), "@version":"01.00.000"});
+        }
+        if legacy {
+            rows[0]["allocations"] = json!({"allocation":{"@allocatedFraction":"70%"}});
+            rows[1]["allocations"] = json!({"allocation":{"@allocatedFraction":30}});
+        } else {
+            rows[2]["allocations"] = vector(70.0);
+            rows[3]["allocations"] = vector(40.0);
+            rows[4]["allocations"] = vector(80.0);
+        }
+        ProcessRow {
+            id: Uuid::new_v4(),
+            version: "01.00.000".to_owned(),
+            model_id: None,
+            model_version: None,
+            user_id: None,
+            state_code: 100,
+            team_id: None,
+            review_id: None,
+            modified_at: None,
+            json: json!({"processDataSet": {
+                "processInformation":{"quantitativeReference":{"referenceToReferenceFlow":reference}},
+                "exchanges":{"exchange":rows}
+            }}),
+        }
+    }
+
+    #[test]
+    fn allocation_parity_covers_independent_burdens_legacy_and_reference_scaling() {
+        for (reference, legacy, expected) in [
+            ("a", false, [35.0, 10.0, 4.0]),
+            ("b", false, [7.5, 7.5, 0.5]),
+            ("a", true, [35.0, 17.5, 3.5]),
+            ("b", true, [7.5, 3.75, 0.75]),
+        ] {
+            let row = allocation_parity_process(reference, legacy);
+            let (_, exchanges, _, _, _) = super::parse_process_chunk(
+                &row,
+                0,
+                NormalizationMode::Strict,
+                AllocationMode::Strict,
+            )
+            .unwrap();
+            for (exchange, amount) in exchanges[2..].iter().zip(expected) {
+                assert_close(exchange.amount.unwrap(), amount);
+            }
+            let pivot = exchanges
+                .iter()
+                .find(|exchange| exchange.is_reference_exchange)
+                .unwrap();
+            assert_close(pivot.amount.unwrap(), 1.0);
+            let mut materialized = row.clone();
+            let rows = materialized
+                .json
+                .pointer_mut("/processDataSet/exchanges/exchange")
+                .unwrap()
+                .as_array_mut()
+                .unwrap();
+            for (row, exchange) in rows.iter_mut().zip(&exchanges) {
+                row["resultingAmount"] = json!(exchange.amount.unwrap());
+                row["meanAmount"] = row["resultingAmount"].clone();
+                row.as_object_mut().unwrap().remove("allocations");
+            }
+            let (_, recomputed, _, _, _) = super::parse_process_chunk(
+                &materialized,
+                0,
+                NormalizationMode::Strict,
+                AllocationMode::Strict,
+            )
+            .unwrap();
+            for (exchange, original) in recomputed.iter().zip(&exchanges) {
+                assert_close(exchange.amount.unwrap(), original.amount.unwrap());
+                assert_close(exchange.allocation_fraction, 1.0);
+            }
+        }
+    }
+
+    #[test]
+    fn allocation_product_targets_require_exact_declared_product_flows() {
+        let row = allocation_parity_process("a", false);
+        let targets = super::allocation_product_flow_identities(&row).unwrap();
+        assert_eq!(targets.len(), 2);
+        let mut flows = super::ResolvedFlowMetadata::default();
+        for target in &targets {
+            flows.by_identity.insert(target.clone(), super::FlowRow {
+                id:target.flow_id, version:target.flow_version.clone(), user_id:None,
+                state_code:100, team_id:None, review_id:None,
+                json:json!({"flowDataSet":{"modellingAndValidation":{"LCIMethod":{"typeOfDataSet":"Product flow"}}}})
+            });
+        }
+        super::validate_allocation_product_flows(&targets, &flows).unwrap();
+        let target = targets.first().unwrap().clone();
+        for invalid in [json!("Elementary flow"), json!("Waste flow"), json!(null)] {
+            flows.by_identity.get_mut(&target).unwrap().json["flowDataSet"]["modellingAndValidation"]
+                ["LCIMethod"]["typeOfDataSet"] = invalid;
+            assert!(super::validate_allocation_product_flows(&targets, &flows).is_err());
+        }
+        let mut flow = flows.by_identity.remove(&target).unwrap();
+        flow.json["flowDataSet"]["modellingAndValidation"]["LCIMethod"]["typeOfDataSet"] =
+            json!("Product flow");
+        let wrong_version = super::flow_link_identity_from_parts(target.flow_id, "02.00.000");
+        flows.by_identity.insert(wrong_version, flow);
+        assert!(super::validate_allocation_product_flows(&targets, &flows).is_err());
+        let mut missing_version = row;
+        missing_version.json["processDataSet"]["exchanges"]["exchange"][0]["referenceToFlowDataSet"].as_object_mut().unwrap().remove("@version");
+        assert!(super::allocation_product_flow_identities(&missing_version).is_err());
+        assert!(
+            super::allocation_product_flow_identities(&allocation_parity_process("a", true))
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
