@@ -4630,7 +4630,10 @@ mod tests {
             false,
         );
 
-        assert!(plan.exact_roots_to_fetch.is_empty());
+        assert_eq!(
+            plan.exact_roots_to_fetch,
+            [] as [crate::package_types::PackageRootRef; 0]
+        );
         assert_eq!(
             plan.cached_roots,
             vec![crate::package_types::PackageRootRef {
@@ -4685,8 +4688,14 @@ mod tests {
             true,
         );
 
-        assert!(plan.cached_roots.is_empty());
-        assert!(plan.exact_roots_to_fetch.is_empty());
+        assert_eq!(
+            plan.cached_roots,
+            [] as [crate::package_types::PackageRootRef; 0]
+        );
+        assert_eq!(
+            plan.exact_roots_to_fetch,
+            [] as [crate::package_types::PackageRootRef; 0]
+        );
         assert!(plan.latest_refs_to_fetch.is_empty());
     }
 
@@ -4707,8 +4716,14 @@ mod tests {
             false,
         );
 
-        assert!(plan.cached_roots.is_empty());
-        assert!(plan.exact_roots_to_fetch.is_empty());
+        assert_eq!(
+            plan.cached_roots,
+            [] as [crate::package_types::PackageRootRef; 0]
+        );
+        assert_eq!(
+            plan.exact_roots_to_fetch,
+            [] as [crate::package_types::PackageRootRef; 0]
+        );
         assert_eq!(plan.latest_refs_to_fetch.len(), 1);
         assert_eq!(plan.latest_refs_to_fetch[0].id, id);
     }

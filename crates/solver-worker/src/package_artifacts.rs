@@ -209,7 +209,7 @@ mod tests {
         assert_eq!(encoded.format, PACKAGE_ZIP_ARTIFACT_FORMAT);
         assert_eq!(encoded.content_type, PACKAGE_ZIP_CONTENT_TYPE);
         assert_eq!(encoded.extension, PACKAGE_ZIP_EXTENSION);
-        assert!(!encoded.sha256.is_empty());
+        assert_ne!(encoded.sha256, "");
     }
 
     #[test]
@@ -233,6 +233,6 @@ mod tests {
         assert_eq!(meta.byte_size, 9);
         assert_eq!(meta.format, PACKAGE_ZIP_ARTIFACT_FORMAT);
         assert_eq!(meta.extension, PACKAGE_ZIP_EXTENSION);
-        assert!(!meta.sha256.is_empty());
+        assert_ne!(meta.sha256, "");
     }
 }

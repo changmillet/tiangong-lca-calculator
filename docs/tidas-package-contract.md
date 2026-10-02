@@ -19,9 +19,9 @@ checkPaths:
   - docs/agents/repo-validation.md
   - docs/scope-closure-contract.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: 2026-09-29
-lastReviewedCommit: bcd26e1c5d28799b976a27936d7d18c34826968c
-lastReviewedNote: "Reviewed Worker #297: the package worker uses exact Toolkit 0.3.2 while request, validation, and result contracts remain unchanged."
+lastReviewedAt: 2026-10-02
+lastReviewedCommit: de10156262c369bc4d5c44d1ab72f0c94904fb6a
+lastReviewedNote: "Reviewed Worker #307 CI repair: 36 reported test assertions preserve emptiness predicates while showing values on failure for Rust 1.99 Clippy. Runtime, modeling, validation and result contracts remain unchanged; the configured signed-first S3 download boundary remains reviewed."
 related:
   - AGENTS.md
   - .docpact/config.yaml

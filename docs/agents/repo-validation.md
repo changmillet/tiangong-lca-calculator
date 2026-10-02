@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-09-29
-lastReviewedCommit: bcd26e1c5d28799b976a27936d7d18c34826968c
-lastReviewedNote: "Reviewed Worker #297: all package and scope-closure real-binary qualification now requires the published Toolkit 0.3.2 artifact; full gates remain required."
+lastReviewedAt: 2026-10-02
+lastReviewedCommit: de10156262c369bc4d5c44d1ab72f0c94904fb6a
+lastReviewedNote: "Reviewed Worker #307 CI repair: 36 reported test assertions preserve emptiness predicates while showing values on failure for Rust 1.99 Clippy. Runtime, modeling, validation and result contracts remain unchanged; the configured signed-first S3 download boundary remains reviewed."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -294,6 +294,13 @@ validation, the Database Result publication lifecycle, and any end-to-end public
 by their own tasks and are not proven by this suite.
 
 ## Minimum PR Note Quality
+
+For object-download transport changes, run `cargo test -p solver-worker --lib storage::tests`
+with loopback fixtures. Prove one signed first request for the configured endpoint path/bucket,
+presigned/public reads without local S3 credentials, no credential fallback after external denial,
+no signed redirect following, and single-attempt 403/404/5xx failures. Retain the byte-cap,
+hash-mismatch, cancellation and partial-file cleanup assertions. These fixtures prove transport
+behavior; they do not establish which production binary generated a historical request.
 
 A good PR note for this repo should say:
 

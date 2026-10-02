@@ -1063,7 +1063,10 @@ mod tests {
 
         assert_eq!(report.status, ReadinessStatus::Passed);
         assert_eq!(report.next_action, "publish_ready");
-        assert!(report.blockers.is_empty());
+        assert_eq!(
+            report.blockers,
+            [] as [crate::readiness::ReadinessFinding; 0]
+        );
         assert_eq!(report.provider_evidence.len(), 1);
         assert_eq!(
             report.provider_evidence[0].candidates[0].provider_id,
@@ -1345,7 +1348,10 @@ mod tests {
 
         assert_eq!(report.status, ReadinessStatus::Passed);
         assert_eq!(report.next_action, "manual_review_warnings");
-        assert!(report.blockers.is_empty());
+        assert_eq!(
+            report.blockers,
+            [] as [crate::readiness::ReadinessFinding; 0]
+        );
         let warning = report
             .findings
             .iter()

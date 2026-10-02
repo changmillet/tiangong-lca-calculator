@@ -14657,7 +14657,7 @@ mod tests {
         .expect("lineage gate");
 
         assert!(gate.unresolved);
-        assert!(gate.providers.is_empty());
+        assert_eq!(gate.providers, [] as [i32; 0]);
     }
 
     #[test]

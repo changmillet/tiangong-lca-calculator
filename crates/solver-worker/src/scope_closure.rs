@@ -10145,7 +10145,10 @@ mod tests {
             }),
         );
 
-        assert!(result.issues.is_empty());
+        assert_eq!(
+            result.issues,
+            [] as [crate::scope_closure::ReferenceExtractionIssue; 0]
+        );
         assert_eq!(result.edges.len(), 1);
         assert_eq!(result.edges[0].target_uuid, contact_id.to_string());
     }
@@ -10358,14 +10361,20 @@ mod tests {
 
         let generic = extract_references("process-fixture", DatasetCategory::Processes, &payload);
         assert_eq!(generic.edges.len(), 2);
-        assert!(!generic.issues.is_empty());
+        assert_ne!(
+            generic.issues,
+            [] as [crate::scope_closure::ReferenceExtractionIssue; 0]
+        );
 
         let closure = extract_scope_closure_references(
             "process-fixture",
             DatasetCategory::Processes,
             &payload,
         );
-        assert!(closure.issues.is_empty());
+        assert_eq!(
+            closure.issues,
+            [] as [crate::scope_closure::ReferenceExtractionIssue; 0]
+        );
         assert_eq!(closure.edges.len(), 1);
         assert_eq!(closure.edges[0].target_uuid, exchange_flow.to_string());
         assert_eq!(closure.edges[0].reference_role, "process_exchange_flow");
@@ -10483,7 +10492,7 @@ mod tests {
             .unwrap();
 
         assert!(scan.complete);
-        assert!(scan.issues.is_empty());
+        assert_eq!(scan.issues, [] as [crate::scope_closure::ClosureIssue; 0]);
         assert_eq!(scan.documents.len(), 4);
         assert_eq!(scan.edges.len(), 2);
         let fetched = provider
@@ -10615,7 +10624,7 @@ mod tests {
             .unwrap();
 
         assert!(scan.complete);
-        assert!(scan.issues.is_empty());
+        assert_eq!(scan.issues, [] as [crate::scope_closure::ClosureIssue; 0]);
         assert_eq!(scan.roots, vec![current]);
         assert!(scan.provider_universe.contains(&preceding));
         let mut roles = Vec::new();
@@ -10736,7 +10745,10 @@ mod tests {
             }],
         )
         .unwrap();
-        assert!(result.documents.is_empty());
+        assert_eq!(
+            result.documents,
+            [] as [crate::scope_closure::ClosureDocument; 0]
+        );
         assert!(result.incomplete_identities.contains(&exact));
         assert_eq!(result.issues[0].issue_code, "snapshot_source_drift");
     }
@@ -10756,7 +10768,10 @@ mod tests {
             }],
         )
         .unwrap();
-        assert!(result.documents.is_empty());
+        assert_eq!(
+            result.documents,
+            [] as [crate::scope_closure::ClosureDocument; 0]
+        );
         assert!(result.incomplete_identities.contains(&exact));
         assert_eq!(result.issues[0].issue_code, "snapshot_dataset_not_allowed");
     }
@@ -12907,9 +12922,15 @@ mod tests {
             );
             if target <= boundary {
                 assert_eq!(manifest.administrative_partitions.len(), 1);
-                assert!(manifest.administrative_oversized_records.is_empty());
+                assert_eq!(
+                    manifest.administrative_oversized_records,
+                    [] as [crate::scope_closure::AdministrativeOversizedRecordManifestEntry; 0]
+                );
             } else {
-                assert!(manifest.administrative_partitions.is_empty());
+                assert_eq!(
+                    manifest.administrative_partitions,
+                    [] as [crate::scope_closure::IssuePartitionManifestEntry; 0]
+                );
                 assert_eq!(manifest.administrative_oversized_records.len(), 1);
                 let oversized = &manifest.administrative_oversized_records[0];
                 assert_eq!(oversized.record_key, document.identity.document_key());
@@ -14820,7 +14841,10 @@ mod tests {
             assert_eq!(summary.logical_sha256, sha256_hex(&record));
             if total_bytes <= 32 * 1024 * 1024 {
                 assert_eq!(manifest.administrative_partitions.len(), 1);
-                assert!(manifest.administrative_oversized_records.is_empty());
+                assert_eq!(
+                    manifest.administrative_oversized_records,
+                    [] as [crate::scope_closure::AdministrativeOversizedRecordManifestEntry; 0]
+                );
                 let partition = &manifest.administrative_partitions[0];
                 let artifact = artifacts
                     .iter()
@@ -14831,7 +14855,10 @@ mod tests {
                     record
                 );
             } else {
-                assert!(manifest.administrative_partitions.is_empty());
+                assert_eq!(
+                    manifest.administrative_partitions,
+                    [] as [crate::scope_closure::IssuePartitionManifestEntry; 0]
+                );
                 assert_eq!(manifest.administrative_oversized_records.len(), 1);
                 let oversized = &manifest.administrative_oversized_records[0];
                 assert_eq!(oversized.logical_byte_size, total_bytes as u64 - 1);
@@ -16393,7 +16420,10 @@ mod tests {
             "affected_roots took {elapsed:?}, expected under 10s"
         );
         for issue in &issues {
-            assert!(!issue.affected_roots.is_empty());
+            assert_ne!(
+                issue.affected_roots,
+                [] as [crate::scope_closure::ExactDatasetIdentity; 0]
+            );
         }
     }
 

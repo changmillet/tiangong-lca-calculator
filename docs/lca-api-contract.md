@@ -25,9 +25,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: 2026-09-20
-lastReviewedCommit: e4b26d40bc772c7c592e5c65e0c407534fee562f
-lastReviewedNote: "Reviewed Worker #297: TIDAS binary version changes do not alter shared job/result payloads, statuses, or Edge/Platform API contracts."
+lastReviewedAt: 2026-10-02
+lastReviewedCommit: de10156262c369bc4d5c44d1ab72f0c94904fb6a
+lastReviewedNote: "Reviewed Worker #307 CI repair: 36 reported test assertions preserve emptiness predicates while showing values on failure for Rust 1.99 Clippy. Runtime, modeling, validation and result contracts remain unchanged; the configured signed-first S3 download boundary remains reviewed."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -496,6 +496,8 @@ Worker 重任务可使用共享 `worker.resource-profile.v1` primitive 声明并
 
 - `download_object_url_to_file`：必须传显式 byte cap；即使响应没有 `Content-Length` 也在每个 chunk 后执行累计上限检查；可校验 SHA-256 和 cooperative cancellation；只有完整成功后才原子发布目标文件。
 - `upload_object_key_file_bounded`：在网络传输前按文件 metadata 拒绝超限、流式计算/校验 SHA-256，并在每个 multipart boundary 检查 cancellation；失败或取消会 abort 已创建的 multipart upload。
+
+`download_object_url` 和 file API 对配置 S3 endpoint 同 origin、同 endpoint path 与精确 bucket 的普通对象 URL，首次 GET 即携带 SigV4；不先发匿名探测请求。此签名请求不跟随 redirect，403/404/5xx 直接作为下载失败返回，不换成匿名请求重试。带 query 的 presigned URL、其他 origin/path/bucket 的公共 URL 只走原有 HTTP 下载路径，失败后不得附加本地 S3 凭据。GET 发送错误去除 URL；非成功 HTTP 响应错误只保留状态，不披露 URL、query 或 upstream body；后续流式读取错误沿用现有处理，不构成完整错误脱敏承诺。现有 byte cap、hash、cancellation 与原子目标发布语义继续生效。
 
 旧 `download_object_url -> Vec<u8>`、`download_object_key -> Vec<u8>` 与现有 file-upload 方法保留作兼容面；新迁移的 snapshot、package、graph-cache 或 solve 路径不得继续采用完整对象内存物化。具体算法迁移由 #162 的后续独立交付完成，不改变本节现有 jobs/results consumer schema。
 
