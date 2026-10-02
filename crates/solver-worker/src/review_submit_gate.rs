@@ -1073,7 +1073,10 @@ mod tests {
         let report = verify_review_submit_gate(&input);
 
         assert_eq!(report.status, ReviewSubmitGateStatus::Passed);
-        assert!(report.blockers.is_empty());
+        assert_eq!(
+            report.blockers,
+            [] as [crate::readiness::ReadinessFinding; 0]
+        );
         assert!(report.metrics.probe.factorization_checked);
         assert!(report.metrics.probe.factorization_ready);
         assert_eq!(report.metrics.probe.target_indices_probed, 1);

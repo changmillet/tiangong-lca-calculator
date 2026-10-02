@@ -231,7 +231,10 @@ mod tests {
     fn one_edge(category: DatasetCategory, payload: &str) -> ReferenceEdge {
         let payload: Value = serde_json::from_str(payload).unwrap();
         let extraction = extract_references("fixture", category, &payload);
-        assert!(extraction.issues.is_empty());
+        assert_eq!(
+            extraction.issues,
+            [] as [crate::scope_closure::ReferenceExtractionIssue; 0]
+        );
         assert_eq!(extraction.edges.len(), 1);
         extraction.edges.into_iter().next().unwrap()
     }

@@ -37,8 +37,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-02
-lastReviewedCommit: 8518b0ee660c4decabdeeed3cb6a653808a5dc0c
-lastReviewedNote: "Reviewed Worker #307: configured S3 downloads sign first within the exact endpoint/bucket boundary; public and presigned reads never receive local credentials, and signed redirects fail closed."
+lastReviewedCommit: de10156262c369bc4d5c44d1ab72f0c94904fb6a
+lastReviewedNote: "Reviewed Worker #307 CI repair: 36 reported test assertions preserve emptiness predicates while showing values on failure for Rust 1.99 Clippy. Runtime, modeling, validation and result contracts remain unchanged; the configured signed-first S3 download boundary remains reviewed."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml

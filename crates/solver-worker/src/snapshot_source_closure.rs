@@ -481,7 +481,7 @@ mod tests {
         )
         .unwrap();
 
-        assert!(classified.extraction_issues.is_empty());
+        assert_eq!(classified.extraction_issues, [] as [serde_json::Value; 0]);
         assert_eq!(classified.references.len(), 1);
         assert_eq!(
             classified.references[0].target_uuid,
@@ -522,7 +522,7 @@ mod tests {
         )
         .unwrap();
 
-        assert!(classified.extraction_issues.is_empty());
+        assert_eq!(classified.extraction_issues, [] as [serde_json::Value; 0]);
         assert_eq!(classified.references.len(), 1);
         assert_eq!(
             classified.references[0].target_uuid,
@@ -622,7 +622,7 @@ mod tests {
                 purpose,
             )
             .unwrap();
-            assert!(classified.extraction_issues.is_empty());
+            assert_eq!(classified.extraction_issues, [] as [serde_json::Value; 0]);
             assert_eq!(classified.references.len(), 1);
             assert_eq!(
                 classified.references[0].role,
@@ -639,7 +639,7 @@ mod tests {
             ArtifactPurpose::CertificateClosure,
         )
         .unwrap();
-        assert!(!certificate.extraction_issues.is_empty());
+        assert_ne!(certificate.extraction_issues, [] as [serde_json::Value; 0]);
     }
 
     #[test]
@@ -667,8 +667,11 @@ mod tests {
                 purpose,
             )
             .unwrap();
-            assert!(classified.references.is_empty());
-            assert!(classified.extraction_issues.is_empty());
+            assert_eq!(
+                classified.references,
+                [] as [crate::snapshot_source_closure::ClassifiedSourceReference; 0]
+            );
+            assert_eq!(classified.extraction_issues, [] as [serde_json::Value; 0]);
         }
     }
 }

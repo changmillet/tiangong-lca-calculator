@@ -450,7 +450,7 @@ mod tests {
             for resolved in result.exchanges {
                 assert_fraction(resolved, expected);
             }
-            assert!(result.product_target_indices.is_empty());
+            assert_eq!(result.product_target_indices, [] as [usize; 0]);
         }
         assert_eq!(rows, original);
     }

@@ -1882,7 +1882,7 @@ mod tests {
                     .contains("authorization: aws4-hmac-sha256")
             );
         }
-        assert!(target.requests().is_empty());
+        assert_eq!(target.requests(), [] as [std::string::String; 0]);
     }
 
     #[test]

@@ -24,7 +24,10 @@ fn raw_extractor_preserves_lineage_identity_and_stable_path() {
         DatasetCategory::Flows,
         &fixture("lineage"),
     );
-    assert!(result.issues.is_empty());
+    assert_eq!(
+        result.issues,
+        [] as [solver_worker::scope_closure::ReferenceExtractionIssue; 0]
+    );
     assert_eq!(result.edges.len(), 1);
     let edge = &result.edges[0];
     assert_eq!(edge.target_category, "flows");
@@ -43,7 +46,10 @@ fn raw_extractor_preserves_model_composition_identity_and_stable_path() {
         DatasetCategory::Processes,
         &fixture("composition"),
     );
-    assert!(result.issues.is_empty());
+    assert_eq!(
+        result.issues,
+        [] as [solver_worker::scope_closure::ReferenceExtractionIssue; 0]
+    );
     assert_eq!(result.edges.len(), 1);
     let edge = &result.edges[0];
     assert_eq!(edge.target_category, "processes");
@@ -58,7 +64,10 @@ fn raw_extractor_characterizes_exchange_flow_role_without_axis_logic() {
         DatasetCategory::Processes,
         &fixture("exchange"),
     );
-    assert!(result.issues.is_empty());
+    assert_eq!(
+        result.issues,
+        [] as [solver_worker::scope_closure::ReferenceExtractionIssue; 0]
+    );
     assert_eq!(result.edges.len(), 1);
     let edge = &result.edges[0];
     assert_eq!(edge.reference_role, "process_exchange_flow");

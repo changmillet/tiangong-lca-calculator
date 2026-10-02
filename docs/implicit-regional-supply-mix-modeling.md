@@ -24,9 +24,9 @@ checkPaths:
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/signed_flow.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: "2026-09-15"
-lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
-lastReviewedNote: "Worker #289: clarified that implicit-mix candidates only reach routing after public numerical admission (exact 100, or the actor's own 0). Modeling basis, routing weights and boundary semantics are unchanged."
+lastReviewedAt: 2026-10-02
+lastReviewedCommit: de10156262c369bc4d5c44d1ab72f0c94904fb6a
+lastReviewedNote: "Reviewed Worker #307 CI repair: 36 reported test assertions preserve emptiness predicates while showing values on failure for Rust 1.99 Clippy. Runtime, modeling, validation and result contracts remain unchanged; the configured signed-first S3 download boundary remains reviewed."
 related:
   - AGENTS.md
   - docs/agents/repo-architecture.md

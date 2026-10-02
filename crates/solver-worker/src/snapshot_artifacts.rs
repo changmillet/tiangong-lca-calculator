@@ -1445,7 +1445,10 @@ mod tests {
             parsed.selection_mode,
             SnapshotSelectionMode::FilteredLibrary
         );
-        assert!(parsed.request_roots.is_empty());
+        assert_eq!(
+            parsed.request_roots,
+            [] as [crate::graph_types::RequestRootProcess; 0]
+        );
     }
 
     #[test]
