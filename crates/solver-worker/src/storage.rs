@@ -43,6 +43,7 @@ pub struct ObjectStoreClient {
     session_token: Option<String>,
     max_upload_bytes: Option<u64>,
     client: reqwest::Client,
+    signed_download_client: reqwest::Client,
 }
 
 #[derive(Debug, Clone)]
@@ -227,6 +228,9 @@ impl ObjectStoreClient {
             session_token,
             max_upload_bytes,
             client: reqwest::Client::new(),
+            signed_download_client: reqwest::Client::builder()
+                .redirect(reqwest::redirect::Policy::none())
+                .build()?,
         })
     }
 
@@ -635,15 +639,22 @@ impl ObjectStoreClient {
     }
 
     async fn download_response(&self, object_url: &str) -> anyhow::Result<reqwest::Response> {
-        let url = Url::parse(object_url)
-            .map_err(|err| anyhow::anyhow!("invalid object URL {object_url}: {err}"))?;
-        let host = canonical_host(&url)?;
-        let unsigned_response = self.client.get(url.clone()).send().await?;
-        if unsigned_response.status().is_success() {
-            return Ok(unsigned_response);
+        let url =
+            Url::parse(object_url).map_err(|_| anyhow::anyhow!("invalid object download URL"))?;
+        if !self.is_configured_object_url(&url)? {
+            // Public and presigned URLs carry their own access contract. Never
+            // attach configured S3 credentials to them, even after a denial.
+            let response = self
+                .client
+                .get(url)
+                .send()
+                .await
+                .map_err(reqwest::Error::without_url)?;
+            return require_download_success(response);
         }
-
-        // Retry with SigV4 for private buckets.
+        let host = canonical_host(&url)?;
+        // Configured private objects use SigV4 on the first request. An unsigned
+        // probe only creates an expected AccessDenied and doubles every read.
         let payload_hash = EMPTY_PAYLOAD_SHA256;
         let (amz_date, date_stamp) = sigv4_timestamps();
         let signed = self.sign_request(
@@ -660,7 +671,7 @@ impl ObjectStoreClient {
         )?;
 
         let mut request = self
-            .client
+            .signed_download_client
             .get(url)
             .header("host", host)
             .header("x-amz-content-sha256", payload_hash)
@@ -670,17 +681,24 @@ impl ObjectStoreClient {
             request = request.header("x-amz-security-token", token);
         }
 
-        let response = request.send().await?;
-        if response.status().is_success() {
-            return Ok(response);
-        }
+        let response = request.send().await.map_err(reqwest::Error::without_url)?;
+        require_download_success(response)
+    }
 
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        let body_preview = body.chars().take(400).collect::<String>();
-        Err(anyhow::anyhow!(
-            "object download failed status={status} body={body_preview}"
-        ))
+    fn is_configured_object_url(&self, url: &Url) -> anyhow::Result<bool> {
+        let endpoint = Url::parse(&self.endpoint)
+            .map_err(|_| anyhow::anyhow!("invalid configured S3 endpoint"))?;
+        let bucket_path = format!("{}/{}/", endpoint.path().trim_end_matches('/'), self.bucket);
+        Ok(matches!(url.scheme(), "http" | "https")
+            && url.origin() == endpoint.origin()
+            && url.username().is_empty()
+            && url.password().is_none()
+            && url.query().is_none()
+            && url.fragment().is_none()
+            && url
+                .path()
+                .strip_prefix(&bucket_path)
+                .is_some_and(|key| !key.is_empty()))
     }
 
     /// Downloads bytes from an explicit bucket-relative object key.
@@ -1244,6 +1262,19 @@ impl ObjectStoreClient {
     }
 }
 
+fn require_download_success(response: reqwest::Response) -> anyhow::Result<reqwest::Response> {
+    if response.status().is_success() {
+        Ok(response)
+    } else {
+        // Do not include response bodies or URLs: presigned query values and
+        // credentials can be reflected by an upstream error or redirect.
+        Err(anyhow::anyhow!(
+            "object download failed status={}",
+            response.status()
+        ))
+    }
+}
+
 #[derive(Debug)]
 struct SignedRequest {
     authorization: String,
@@ -1479,7 +1510,10 @@ mod tests {
     use std::{
         io::{Read, Write},
         net::TcpListener,
-        sync::{Arc, Mutex},
+        sync::{
+            Arc, Mutex,
+            atomic::{AtomicBool, Ordering},
+        },
         thread,
         time::Duration,
     };
@@ -1597,6 +1631,284 @@ mod tests {
     fn test_client(endpoint: &str) -> ObjectStoreClient {
         ObjectStoreClient::new(endpoint, "test", "bucket", "", "key", "secret", None)
             .expect("test client")
+    }
+
+    struct DownloadServer {
+        endpoint: String,
+        requests: Arc<Mutex<Vec<String>>>,
+        stop: Arc<AtomicBool>,
+        thread: Option<thread::JoinHandle<()>>,
+    }
+
+    impl DownloadServer {
+        fn new(handler: impl Fn(&str) -> String + Send + 'static) -> Self {
+            let listener = TcpListener::bind("127.0.0.1:0").expect("bind download server");
+            listener
+                .set_nonblocking(true)
+                .expect("nonblocking listener");
+            let endpoint = format!("http://{}", listener.local_addr().expect("local address"));
+            let requests = Arc::new(Mutex::new(Vec::new()));
+            let observed = Arc::clone(&requests);
+            let stop = Arc::new(AtomicBool::new(false));
+            let stopped = Arc::clone(&stop);
+            let thread = thread::spawn(move || {
+                while !stopped.load(Ordering::Acquire) {
+                    let (mut stream, _) = match listener.accept() {
+                        Ok(connection) => connection,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            thread::sleep(Duration::from_millis(5));
+                            continue;
+                        }
+                        Err(error) => panic!("accept download request: {error}"),
+                    };
+                    stream
+                        .set_read_timeout(Some(Duration::from_secs(2)))
+                        .expect("read timeout");
+                    let mut request = Vec::new();
+                    loop {
+                        let mut chunk = [0_u8; 2048];
+                        let read = stream.read(&mut chunk).expect("read download request");
+                        if read == 0 {
+                            break;
+                        }
+                        request.extend_from_slice(&chunk[..read]);
+                        if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                            break;
+                        }
+                    }
+                    let request = String::from_utf8(request).expect("request text");
+                    observed.lock().expect("request log").push(request.clone());
+                    stream
+                        .write_all(handler(&request).as_bytes())
+                        .expect("download response");
+                }
+            });
+            Self {
+                endpoint,
+                requests,
+                stop,
+                thread: Some(thread),
+            }
+        }
+
+        fn requests(&self) -> Vec<String> {
+            self.requests.lock().expect("request log").clone()
+        }
+    }
+
+    impl Drop for DownloadServer {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::Release);
+            self.thread
+                .take()
+                .expect("server thread")
+                .join()
+                .expect("server shutdown");
+        }
+    }
+
+    fn download_response(status: u16, body: &str) -> String {
+        format!(
+            "HTTP/1.1 {status} Test\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        )
+    }
+
+    #[tokio::test]
+    async fn private_download_signs_first_without_unsigned_probe() {
+        let server = DownloadServer::new(|request| {
+            if request
+                .to_ascii_lowercase()
+                .contains("authorization: aws4-hmac-sha256")
+            {
+                download_response(200, "artifact")
+            } else {
+                download_response(403, "Missing signature")
+            }
+        });
+        let url = format!("{}/bucket/object", server.endpoint);
+        let bytes = test_client(&server.endpoint)
+            .download_object_url(&url)
+            .await
+            .expect("signed download");
+        assert_eq!(bytes, b"artifact");
+        assert_eq!(
+            server.requests().len(),
+            1,
+            "private GET must not send an unsigned probe"
+        );
+        assert!(
+            server.requests()[0]
+                .to_ascii_lowercase()
+                .contains("authorization: aws4-hmac-sha256")
+        );
+    }
+
+    #[tokio::test]
+    async fn private_download_keeps_endpoint_path_and_session_signature() {
+        let server = DownloadServer::new(|_| download_response(200, "artifact"));
+        let endpoint = format!("{}/storage/v1/s3", server.endpoint);
+        let client = ObjectStoreClient::new(
+            &endpoint,
+            "test",
+            "bucket",
+            "",
+            "key",
+            "secret",
+            Some("test-session".to_owned()),
+        )
+        .expect("client");
+        client
+            .download_object_url(&format!("{endpoint}/bucket/nested/object"))
+            .await
+            .expect("download");
+        let requests = server.requests();
+        assert_eq!(requests.len(), 1);
+        let request = requests[0].to_ascii_lowercase();
+        assert!(request.starts_with("get /storage/v1/s3/bucket/nested/object http/1.1"));
+        assert!(request.contains("x-amz-security-token: test-session"));
+        assert!(request.contains("authorization: aws4-hmac-sha256"));
+        assert!(request.contains("x-amz-date:"));
+        assert!(request.contains("x-amz-content-sha256:"));
+    }
+
+    #[tokio::test]
+    async fn private_download_errors_do_not_retry_or_publish_partial_files() {
+        for status in [403, 404, 503] {
+            let server = DownloadServer::new(move |_| {
+                download_response(status, "upstream-secret-reflection")
+            });
+            let destination = tempdir().expect("temp directory");
+            let file = destination.path().join("artifact");
+            let error = test_client(&server.endpoint)
+                .download_object_url_to_file(
+                    &format!("{}/bucket/object", server.endpoint),
+                    &file,
+                    ObjectTransferOptions::new(100),
+                )
+                .await
+                .expect_err("failed download");
+            assert!(error.to_string().contains(&status.to_string()));
+            assert!(!error.to_string().contains("upstream-secret-reflection"));
+            assert!(!file.exists());
+            assert_eq!(server.requests().len(), 1);
+            assert!(
+                server.requests()[0]
+                    .to_ascii_lowercase()
+                    .contains("authorization: aws4-hmac-sha256")
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn public_and_presigned_downloads_never_add_s3_credentials() {
+        let server = DownloadServer::new(|_| download_response(200, "artifact"));
+        let client = test_client(&server.endpoint);
+        for suffix in [
+            "/public/object",
+            "/bucket/object?X-Amz-Signature=test-signature",
+            "/bucket/object?token=test-token",
+        ] {
+            assert_eq!(
+                client
+                    .download_object_url(&format!("{}{suffix}", server.endpoint))
+                    .await
+                    .expect("public download"),
+                b"artifact"
+            );
+        }
+        assert_eq!(server.requests().len(), 3);
+        for request in server.requests() {
+            let request = request.to_ascii_lowercase();
+            assert!(!request.contains("authorization:"));
+            assert!(!request.contains("x-amz-security-token:"));
+        }
+    }
+
+    #[tokio::test]
+    async fn untrusted_and_expired_presigned_downloads_never_retry_with_credentials() {
+        let server = DownloadServer::new(|_| download_response(403, "denied"));
+        let client = test_client(&server.endpoint);
+        for suffix in [
+            "/different-bucket/object",
+            "/bucket-lookalike/object",
+            "/elsewhere/bucket/object",
+            "/bucket/object?X-Amz-Signature=expired-signature",
+        ] {
+            client
+                .download_object_url(&format!("{}{suffix}", server.endpoint))
+                .await
+                .expect_err("denied download");
+        }
+        assert_eq!(server.requests().len(), 4);
+        for request in server.requests() {
+            assert!(!request.to_ascii_lowercase().contains("authorization:"));
+        }
+
+        let other = DownloadServer::new(|_| download_response(403, "denied"));
+        client
+            .download_object_url(&format!("{}/bucket/object", other.endpoint))
+            .await
+            .expect_err("external download");
+        assert_eq!(other.requests().len(), 1);
+        assert!(
+            !other.requests()[0]
+                .to_ascii_lowercase()
+                .contains("authorization:")
+        );
+    }
+
+    #[tokio::test]
+    async fn private_download_redirects_never_forward_the_signed_request() {
+        let target = DownloadServer::new(|_| download_response(200, "untrusted"));
+        for location in [
+            format!("{}/bucket/redirected", target.endpoint),
+            "/bucket/redirected".to_owned(),
+        ] {
+            let server = DownloadServer::new(move |_| {
+                format!(
+                    "HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                )
+            });
+            let error = test_client(&server.endpoint)
+                .download_object_url(&format!("{}/bucket/object", server.endpoint))
+                .await
+                .expect_err("redirect is not an object download");
+            assert!(error.to_string().contains("302"));
+            assert_eq!(server.requests().len(), 1);
+            assert!(
+                server.requests()[0]
+                    .to_ascii_lowercase()
+                    .contains("authorization: aws4-hmac-sha256")
+            );
+        }
+        assert!(target.requests().is_empty());
+    }
+
+    #[test]
+    fn configured_object_download_requires_exact_origin_bucket_and_unambiguous_url() {
+        let client = test_client("https://storage.example.test/storage/v1/s3");
+        let accepts = |url: &str| {
+            client
+                .is_configured_object_url(&reqwest::Url::parse(url).expect("URL"))
+                .expect("classification")
+        };
+        assert!(accepts(
+            "https://storage.example.test/storage/v1/s3/bucket/object"
+        ));
+        for url in [
+            "http://storage.example.test/storage/v1/s3/bucket/object",
+            "https://storage.example.test:444/storage/v1/s3/bucket/object",
+            "https://other.example.test/storage/v1/s3/bucket/object",
+            "https://storage.example.test/storage/v1/s3/bucket-other/object",
+            "https://storage.example.test/storage/v1/s3-other/bucket/object",
+            "https://storage.example.test/storage/v1/s3/bucket/",
+            "https://user:password@storage.example.test/storage/v1/s3/bucket/object",
+            "https://storage.example.test/storage/v1/s3/bucket/object#fragment",
+            "https://storage.example.test/storage/v1/s3/bucket/object?X-Amz-Signature=signature",
+        ] {
+            assert!(!accepts(url), "must not sign {url}");
+        }
     }
 
     fn serve_without_content_length(chunks: Vec<Vec<u8>>, delay: Duration) -> String {

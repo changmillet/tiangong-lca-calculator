@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-09-29
-lastReviewedCommit: bcd26e1c5d28799b976a27936d7d18c34826968c
-lastReviewedNote: "Reviewed Worker #297: binary version adoption does not change Worker modules, queue ownership, or runtime integration topology."
+lastReviewedAt: 2026-10-02
+lastReviewedCommit: 8518b0ee660c4decabdeeed3cb6a653808a5dc0c
+lastReviewedNote: "Reviewed Worker #307: configured S3 downloads sign first within the exact endpoint/bucket boundary; public and presigned reads never receive local credentials, and signed redirects fail closed."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
