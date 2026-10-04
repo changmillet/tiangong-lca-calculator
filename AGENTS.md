@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-02
-lastReviewedCommit: de10156262c369bc4d5c44d1ab72f0c94904fb6a
-lastReviewedNote: "Reviewed Worker #307 CI repair: 36 reported test assertions preserve emptiness predicates while showing values on failure for Rust 1.99 Clippy. Runtime, modeling, validation and result contracts remain unchanged; the configured signed-first S3 download boundary remains reviewed."
+lastReviewedAt: 2026-10-04
+lastReviewedCommit: c13cd43ee2fe775472b5ac12177b5f2e0bcd3924
+lastReviewedNote: "Reviewed Worker #309 package-retention summary optimization against c13cd43e: separate protection lookups preserve exact classification precedence, counts, bytes and hits; guarded PostgreSQL 17 fixtures cover boundaries and scale. Object-first cleanup, batch caps, maintenance retry and consumer schemas remain unchanged."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md

@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-02
-lastReviewedCommit: de10156262c369bc4d5c44d1ab72f0c94904fb6a
-lastReviewedNote: "Reviewed Worker #307 CI repair: 36 reported test assertions preserve emptiness predicates while showing values on failure for Rust 1.99 Clippy. Runtime, modeling, validation and result contracts remain unchanged; the configured signed-first S3 download boundary remains reviewed."
+lastReviewedAt: 2026-10-04
+lastReviewedCommit: c13cd43ee2fe775472b5ac12177b5f2e0bcd3924
+lastReviewedNote: "Reviewed Worker #309 package-retention summary optimization against c13cd43e: separate protection lookups preserve exact classification precedence, counts, bytes and hits; guarded PostgreSQL 17 fixtures cover boundaries and scale. Object-first cleanup, batch caps, maintenance retry and consumer schemas remain unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -292,6 +292,28 @@ Cross-repository boundary: the numerical-policy marker producer contract (`numer
 in the server-authored READY `process_filter`) is Worker-owned and tested here. The Edge consumer
 validation, the Database Result publication lifecycle, and any end-to-end publication flow are owned
 by their own tasks and are not proven by this suite.
+
+## Package retention summary SQL qualification
+
+For changes to `fetch_package_retention_summary`, run the exact source SQL against a
+new synthetic database inside an explicitly task-owned `disposable-test` PostgreSQL 17
+Docker container. The qualifier verifies ownership labels and refuses remote URLs or
+an existing database. Create the container and release it with the workspace development
+resource runbook; retain its cleanup receipt.
+
+```bash
+python3 scripts/qualify_package_retention_summary.py --container <owned-container> --task <owner> --database worker_retention_<unique_suffix> --output <new-absolute-evidence-directory> --baseline <full-exact-base-sha> --scale 822057 --timeout-ms 10000
+```
+
+The independently authored boundary cases check precedence, canonical and legacy
+parent protection, active/recent cache protection on either artifact locator, live
+artifact protection on either parent identity, absent parents, null identities,
+malformed legacy payloads, exact cutoff inclusion, canonical timestamp fallback,
+and complete counts/bytes/hits/actions. A small scale that fits the baseline timeout
+also verifies identical full summaries. Large synthetic scale records bounded local
+`EXPLAIN ANALYZE` plans and reports baseline timeout honestly; it is not a remote
+execution or a claim that the exact historical timed-out statement is known.
+The summary remains exact across all rows; cleanup batch limits do not cap it.
 
 ## Minimum PR Note Quality
 

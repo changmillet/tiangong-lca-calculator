@@ -60,6 +60,8 @@ pub async fn fetch_package_retention_summary(
     job_retention_days: i32,
     request_cache_retention_days: i32,
 ) -> anyhow::Result<Vec<PackageRetentionSummaryRow>> {
+    // Separate identity lookups let PostgreSQL hash/index each protection set instead
+    // of rescanning it for every export item. Keep CASE precedence and exact counts.
     let rows = sqlx::query(
         r"
         WITH artifact_classified AS (
@@ -84,21 +86,25 @@ pub async fn fetch_package_retention_summary(
                   SELECT 1
                   FROM private.worker_jobs AS active_job
                   WHERE active_job.status IN ('queued', 'running', 'waiting')
-                    AND (
-                      (
-                        artifacts.worker_job_id IS NOT NULL
-                        AND active_job.id = artifacts.worker_job_id
-                      )
-                      OR active_job.payload_json ->> 'job_id' = artifacts.job_id::text
-                    )
+                    AND active_job.id = artifacts.worker_job_id
+                ) OR EXISTS (
+                  SELECT 1
+                  FROM private.worker_jobs AS active_job
+                  WHERE active_job.status IN ('queued', 'running', 'waiting')
+                    AND active_job.payload_json ->> 'job_id' = artifacts.job_id::text
                 ) THEN 'protected_active_parent_worker_job'
                 WHEN EXISTS (
                   SELECT 1
                   FROM private.lca_package_request_cache AS recent_cache
-                  WHERE (
-                      recent_cache.export_artifact_id = artifacts.id
-                      OR recent_cache.report_artifact_id = artifacts.id
+                  WHERE recent_cache.export_artifact_id = artifacts.id
+                    AND (
+                      recent_cache.status IN ('pending', 'running')
+                      OR recent_cache.last_accessed_at >= $1 - make_interval(days => $3::integer)
                     )
+                ) OR EXISTS (
+                  SELECT 1
+                  FROM private.lca_package_request_cache AS recent_cache
+                  WHERE recent_cache.report_artifact_id = artifacts.id
                     AND (
                       recent_cache.status IN ('pending', 'running')
                       OR recent_cache.last_accessed_at >= $1 - make_interval(days => $3::integer)
@@ -128,13 +134,12 @@ pub async fn fetch_package_retention_summary(
                   SELECT 1
                   FROM private.worker_jobs AS active_job
                   WHERE active_job.status IN ('queued', 'running', 'waiting')
-                    AND (
-                      (
-                        request_cache.worker_job_id IS NOT NULL
-                        AND active_job.id = request_cache.worker_job_id
-                      )
-                      OR active_job.payload_json ->> 'job_id' = request_cache.job_id::text
-                    )
+                    AND active_job.id = request_cache.worker_job_id
+                ) OR EXISTS (
+                  SELECT 1
+                  FROM private.worker_jobs AS active_job
+                  WHERE active_job.status IN ('queued', 'running', 'waiting')
+                    AND active_job.payload_json ->> 'job_id' = request_cache.job_id::text
                 ) THEN 'protected_active_parent_worker_job'
                 WHEN EXISTS (
                   SELECT 1
@@ -170,25 +175,23 @@ pub async fn fetch_package_retention_summary(
                   SELECT 1
                   FROM private.worker_jobs AS active_job
                   WHERE active_job.status IN ('queued', 'running', 'waiting')
-                    AND (
-                      (
-                        export_item.worker_job_id IS NOT NULL
-                        AND active_job.id = export_item.worker_job_id
-                      )
-                      OR active_job.payload_json ->> 'job_id' = export_item.job_id::text
-                    )
+                    AND active_job.id = export_item.worker_job_id
+                ) OR EXISTS (
+                  SELECT 1
+                  FROM private.worker_jobs AS active_job
+                  WHERE active_job.status IN ('queued', 'running', 'waiting')
+                    AND active_job.payload_json ->> 'job_id' = export_item.job_id::text
                 ) THEN 'protected_active_parent_worker_job'
                 WHEN EXISTS (
                   SELECT 1
                   FROM private.lca_package_artifacts AS artifact
                   WHERE artifact.status <> 'deleted'
-                    AND (
-                      (
-                        export_item.worker_job_id IS NOT NULL
-                        AND artifact.worker_job_id = export_item.worker_job_id
-                      )
-                      OR artifact.job_id = export_item.job_id
-                    )
+                    AND artifact.worker_job_id = export_item.worker_job_id
+                ) OR EXISTS (
+                  SELECT 1
+                  FROM private.lca_package_artifacts AS artifact
+                  WHERE artifact.status <> 'deleted'
+                    AND artifact.job_id = export_item.job_id
                 ) THEN 'protected_live_artifact_reference'
                 WHEN EXISTS (
                   SELECT 1
@@ -197,13 +200,15 @@ pub async fn fetch_package_retention_summary(
                       request_cache.status IN ('pending', 'running')
                       OR request_cache.last_accessed_at >= $1 - make_interval(days => $3::integer)
                     )
-                    AND (
-                      (
-                        export_item.worker_job_id IS NOT NULL
-                        AND request_cache.worker_job_id = export_item.worker_job_id
-                      )
-                      OR request_cache.job_id = export_item.job_id
+                    AND request_cache.worker_job_id = export_item.worker_job_id
+                ) OR EXISTS (
+                  SELECT 1
+                  FROM private.lca_package_request_cache AS request_cache
+                  WHERE (
+                      request_cache.status IN ('pending', 'running')
+                      OR request_cache.last_accessed_at >= $1 - make_interval(days => $3::integer)
                     )
+                    AND request_cache.job_id = export_item.job_id
                 ) THEN 'protected_request_cache_reference'
                 WHEN COALESCE(
                   canonical_job.finished_at,
