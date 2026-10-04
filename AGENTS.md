@@ -43,8 +43,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-04
-lastReviewedCommit: c13cd43ee2fe775472b5ac12177b5f2e0bcd3924
-lastReviewedNote: "Reviewed Worker #309 package-retention summary optimization against c13cd43e: separate protection lookups preserve exact classification precedence, counts, bytes and hits; guarded PostgreSQL 17 fixtures cover boundaries and scale. Object-first cleanup, batch caps, maintenance retry and consumer schemas remain unchanged."
+lastReviewedCommit: 9ef53cd9c53df892b91abb857d3be09961c0e900
+lastReviewedNote: "Reviewed Worker #309 direct-membership follow-up against 9ef53cd9: CASE truth and exact summary outputs are preserved while uncorrelated protection sets permit hash aggregation. PostgreSQL fixtures now match observed query-relevant indexes, aggregate cardinalities and allowed session settings; destructive cleanup and consumer contracts remain unchanged."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md

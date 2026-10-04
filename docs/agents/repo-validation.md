@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-04
-lastReviewedCommit: c13cd43ee2fe775472b5ac12177b5f2e0bcd3924
-lastReviewedNote: "Reviewed Worker #309 package-retention summary optimization against c13cd43e: separate protection lookups preserve exact classification precedence, counts, bytes and hits; guarded PostgreSQL 17 fixtures cover boundaries and scale. Object-first cleanup, batch caps, maintenance retry and consumer schemas remain unchanged."
+lastReviewedCommit: 9ef53cd9c53df892b91abb857d3be09961c0e900
+lastReviewedNote: "Reviewed Worker #309 direct-membership follow-up against 9ef53cd9: CASE truth and exact summary outputs are preserved while uncorrelated protection sets permit hash aggregation. PostgreSQL fixtures now match observed query-relevant indexes, aggregate cardinalities and allowed session settings; destructive cleanup and consumer contracts remain unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -309,7 +309,15 @@ The independently authored boundary cases check precedence, canonical and legacy
 parent protection, active/recent cache protection on either artifact locator, live
 artifact protection on either parent identity, absent parents, null identities,
 malformed legacy payloads, exact cutoff inclusion, canonical timestamp fallback,
-and complete counts/bytes/hits/actions. A small scale that fits the baseline timeout
+and complete counts/bytes/hits/actions. The fixture uses the deployed query-relevant
+partial/covering index shapes and deliberately has no generic `worker_jobs(status)`
+index. Set `--worker-rows`, `--artifact-rows`, `--cache-rows` and
+`--active-worker-modulo` from bounded aggregate evidence; `0` models no active parents.
+Pass `--settings-json <read-only-pg_settings-evidence>` to reproduce only the allowed
+planner/executor settings in local fixture sessions. Plans record temporary blocks
+and total estimated cost as well as execution time. At each chosen scale, compare
+the complete candidate result against the exact baseline when it fits the timeout.
+A small scale that fits the baseline timeout
 also verifies identical full summaries. Large synthetic scale records bounded local
 `EXPLAIN ANALYZE` plans and reports baseline timeout honestly; it is not a remote
 execution or a claim that the exact historical timed-out statement is known.

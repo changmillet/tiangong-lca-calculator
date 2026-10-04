@@ -55,7 +55,24 @@ def main():
     parser.add_argument("--baseline", help="Exact local Git commit for equivalence and performance comparison")
     parser.add_argument("--scale", type=int, default=20000)
     parser.add_argument("--timeout-ms", type=int, default=10000)
+    parser.add_argument("--worker-rows", type=int, default=3000)
+    parser.add_argument("--artifact-rows", type=int, default=2000)
+    parser.add_argument("--cache-rows", type=int, default=2000)
+    parser.add_argument("--active-worker-modulo", type=int, default=5, help="0 produces no active workers")
+    parser.add_argument("--settings-json", type=pathlib.Path, help="Bounded read-only pg_settings evidence to reproduce locally")
     args = parser.parse_args()
+    allowed_settings = {"jit", "work_mem", "hash_mem_multiplier", "max_parallel_workers_per_gather", "effective_cache_size", "random_page_cost", "seq_page_cost", "cpu_tuple_cost"}
+    settings = {}
+    if args.settings_json:
+        evidence = json.loads(args.settings_json.read_text())
+        for row in evidence["plan"]["data"]:
+            if row["name"] in allowed_settings:
+                settings[row["name"]] = str(row["setting"]) + (row["unit"] or "")
+                if row["unit"] == "8kB":
+                    settings[row["name"]] = str(int(row["setting"]) * 8) + "kB"
+    settings_sql = "".join(f"SET {name}={literal(value)};" for name, value in settings.items())
+    assert all(1 <= value <= 100000 for value in [args.worker_rows, args.artifact_rows, args.cache_rows])
+    assert 0 <= args.active_worker_modulo <= 100000
     assert re.fullmatch(r"worker_retention_[a-z0-9_]+", args.database), "dedicated fixture database required"
     assert 1 <= args.scale <= 1_000_000 and 1 <= args.timeout_ms <= 60_000
     inspected = json.loads(run(["docker", "inspect", args.container]).stdout)[0]
@@ -68,19 +85,24 @@ def main():
     command = ["docker", "exec", "-i", args.container, "psql", "-XqAt", "-v", "ON_ERROR_STOP=1", "-U", "supabase_admin", "-d", args.database]
 
     def execute(sql, *, check=True):
-        return run(command, sql="SET statement_timeout='60000ms'; SET lock_timeout='1000ms';"+sql, check=check)
+        return run(command, sql=settings_sql+"SET statement_timeout='60000ms'; SET lock_timeout='1000ms';"+sql, check=check)
 
     ddl = """
 CREATE SCHEMA private;
 CREATE TABLE private.worker_jobs(id uuid PRIMARY KEY,status text,payload_json jsonb,finished_at timestamptz,updated_at timestamptz,created_at timestamptz);
-CREATE TABLE private.lca_package_artifacts(id uuid PRIMARY KEY,worker_job_id uuid,job_id uuid,is_pinned boolean,status text,expires_at timestamptz,artifact_byte_size bigint);
+CREATE TABLE private.lca_package_artifacts(id uuid PRIMARY KEY,worker_job_id uuid,job_id uuid,is_pinned boolean,status text,expires_at timestamptz,artifact_byte_size bigint,created_at timestamptz DEFAULT '2026-08-01');
 CREATE TABLE private.lca_package_request_cache(id uuid PRIMARY KEY,worker_job_id uuid,job_id uuid,status text,last_accessed_at timestamptz,export_artifact_id uuid,report_artifact_id uuid,hit_count bigint);
 CREATE TABLE private.lca_package_export_items(id uuid PRIMARY KEY,worker_job_id uuid,job_id uuid,created_at timestamptz);
-CREATE INDEX worker_status ON private.worker_jobs(status);
-CREATE INDEX artifact_worker ON private.lca_package_artifacts(worker_job_id);
-CREATE INDEX artifact_job ON private.lca_package_artifacts(job_id);
-CREATE INDEX cache_worker ON private.lca_package_request_cache(worker_job_id);
-CREATE INDEX cache_job ON private.lca_package_request_cache(job_id);
+-- Match the deployed query-relevant indexes; no generic worker(status) index.
+CREATE INDEX lca_package_artifacts_worker_job_idx ON private.lca_package_artifacts(worker_job_id) WHERE worker_job_id IS NOT NULL;
+CREATE INDEX lca_package_artifacts_job_created_idx ON private.lca_package_artifacts(job_id,created_at DESC);
+CREATE INDEX lca_package_artifacts_status_created_idx ON private.lca_package_artifacts(status,created_at DESC);
+CREATE INDEX lca_package_request_cache_worker_job_idx ON private.lca_package_request_cache(worker_job_id) WHERE worker_job_id IS NOT NULL;
+CREATE UNIQUE INDEX lca_package_request_cache_job_uidx ON private.lca_package_request_cache(job_id) WHERE job_id IS NOT NULL;
+CREATE INDEX lca_package_request_cache_export_artifact_idx ON private.lca_package_request_cache(export_artifact_id) WHERE export_artifact_id IS NOT NULL;
+CREATE INDEX lca_package_request_cache_report_artifact_idx ON private.lca_package_request_cache(report_artifact_id) WHERE report_artifact_id IS NOT NULL;
+CREATE INDEX lca_package_request_cache_last_accessed_idx ON private.lca_package_request_cache(last_accessed_at DESC);
+CREATE INDEX lca_package_export_items_gc_candidate_idx ON private.lca_package_export_items(created_at,id) INCLUDE(worker_job_id,job_id);
 """
     # Expected reasons are authored per case; the oracle does not reimplement SQL.
     expected = collections.defaultdict(lambda: [0, 0, 0])
@@ -149,6 +171,13 @@ CREATE INDEX cache_job ON private.lca_package_request_cache(job_id);
     insert("worker_jobs", [ident(99), "waiting", '{}', OLD, OLD, OLD])
     for i, worker in [(59, 6), (60, 7), (61, 8)]:
         insert("lca_package_export_items", [ident(i), ident(worker), None, OLD], "protected_recent_export_item")
+    # Distinct legacy identities sharing a missing canonical parent must stay distinct.
+    insert("lca_package_artifacts", [ident(22), None, ident(201), False, "ready", OLD, 22], "eligible_expired_unpinned_artifact", byte_size=22)
+    for i, job, reason in [(64, 201, "protected_live_artifact_reference"), (65, 202, "eligible_export_item_after_object_gc")]:
+        insert("lca_package_export_items", [ident(i), ident(999), ident(job), OLD], reason)
+    # Multiple rows in one group and null recency retain exact counts.
+    insert("lca_package_export_items", [ident(62), None, None, OLD], "eligible_export_item_after_object_gc")
+    insert("lca_package_export_items", [ident(63), None, None, None], "eligible_export_item_after_object_gc")
     execute("\n".join(statements))
     variants = {"candidate": query((ROOT / SOURCE).read_text())}
     if args.baseline:
@@ -169,10 +198,12 @@ CREATE INDEX cache_job ON private.lca_package_request_cache(job_id);
         (args.output / f"{name}-boundary.json").write_text(result)
         (args.output / f"{name}.sql").write_text(sql)
     seed = (ROOT / "scripts/fixtures/package_retention_scale.sql").read_text().replace("__EXPORT_ROWS__", str(args.scale))
+    for marker, value in [("__WORKER_ROWS__", args.worker_rows), ("__ARTIFACT_ROWS__", args.artifact_rows), ("__CACHE_ROWS__", args.cache_rows), ("__ACTIVE_MODULO__", args.active_worker_modulo)]:
+        seed = seed.replace(marker, str(value))
     execute(seed)
-    report = {"container_id": inspected["Id"], "task": args.task, "database": args.database, "scale": args.scale, "boundary_cases_passed": True, "baseline": args.baseline, "plans": {}}
+    report = {"container_id": inspected["Id"], "task": args.task, "database": args.database, "scale": args.scale, "boundary_cases_passed": True, "baseline": args.baseline, "settings": settings, "worker_rows": args.worker_rows, "artifact_rows": args.artifact_rows, "cache_rows": args.cache_rows, "active_worker_modulo": args.active_worker_modulo, "plans": {}}
     for name, sql in variants.items():
-        result = execute(f"SET statement_timeout='{args.timeout_ms}ms'; EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) {sql};", check=False)
+        result = execute(f"SET statement_timeout='{args.timeout_ms}ms'; EXPLAIN (ANALYZE,BUFFERS,SETTINGS,FORMAT JSON) {sql};", check=False)
         (args.output / f"{name}-plan.json").write_text(result.stdout)
         (args.output / f"{name}-stderr.txt").write_text(result.stderr)
         if result.returncode:
@@ -180,7 +211,7 @@ CREATE INDEX cache_job ON private.lca_package_request_cache(job_id);
             report["plans"][name] = {"statement_timeout_ms": args.timeout_ms}
         else:
             plan = json.loads(result.stdout)[0]
-            report["plans"][name] = {"execution_ms": plan["Execution Time"], "shared_hits": plan["Plan"]["Shared Hit Blocks"]}
+            report["plans"][name] = {"execution_ms": plan["Execution Time"], "shared_hits": plan["Plan"]["Shared Hit Blocks"], "temp_written_blocks": plan["Plan"]["Temp Written Blocks"], "total_cost": plan["Plan"]["Total Cost"]}
     # Same full summary at representative scale (when baseline fits its bounded timeout).
     candidate = execute(f"SELECT json_agg(t) FROM ({variants['candidate']}) t;").stdout
     (args.output / "candidate-scale.json").write_text(candidate)
