@@ -173,7 +173,7 @@ Allocation fraction 与 routing weight 不可混用：前者改变 residual magn
 
 Snapshot/release/readiness 至少保留：flow UUID/version/reference unit、flow space/source type、raw direction/amount/coefficient、normalized reference/residual coefficient、候选 eligibility、routing strategy/weight、activity requirement、closure residual、boundary policy 和 unresolved reason。
 
-Build identity 使用 `tidas-reference-allocation-v4`、`signed-flow-balance-v1`、`exact-flow-version-reference-unit-v2` 和 `selected-lcia-factor-flow-support-v1`。Exact Flow identity 是 `(UUID, resolved version)`；只把最终 Process closure exchange 实际引用的 revisions 编译进矩阵和 provider routing。LCIA factor 只有与 biosphere/C axis 相交时才成为数值 source-closure 依赖；无论是否 active，都不参与 implicit mix 或 technosphere routing。Coverage 为 `snapshot_coverage.v3`；readiness input/report 为 v2；calculation bundle 为 v2。
+Build identity 使用 `tidas-reference-allocation-v5`、`signed-flow-balance-v1`、`exact-flow-version-reference-unit-v2` 和 `selected-lcia-factor-flow-support-v1`。Exact Flow identity 是 `(UUID, resolved version)`；只把最终 Process closure exchange 实际引用的 revisions 编译进矩阵和 provider routing。LCIA factor 只有与 biosphere/C axis 相交时才成为数值 source-closure 依赖；无论是否 active，都不参与 implicit mix 或 technosphere routing。Coverage 为 `snapshot_coverage.v3`；readiness input/report 为 v2；calculation bundle 为 v2。
 
 ## 限制
 

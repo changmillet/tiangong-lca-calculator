@@ -381,6 +381,6 @@ Assertions compare signed per-reference inventory, unique references, cleared al
 and unit allocation on readback. This proves serialized Process parity; it does not
 qualify a production database, published certificate, or deployed cross-service rollout.
 
-Allocation v4 rollout requires the paired Edge request admission and Database
-normalizer changes. Recompute affected snapshots and certificates under v4; never
-relabel immutable v3 evidence or re-admit Result Process state 120 to numerical input.
+Allocation v5 rollout requires the paired Edge request admission and Database
+normalizer changes. Recompute affected snapshots and certificates under v5; never
+relabel immutable v3/v4 evidence or re-admit Result Process state 120 to numerical input.

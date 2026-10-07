@@ -151,6 +151,13 @@ pub struct SnapshotBuildConfig {
 }
 
 impl SnapshotBuildConfig {
+    /// True when this snapshot binds the currently validated allocation-target contract.
+    #[must_use]
+    pub fn is_allocation_semantics_current(&self) -> bool {
+        self.allocation_semantics_version
+            == crate::tidas_process_semantics::TIDAS_ALLOCATION_SEMANTICS_VERSION
+    }
+
     /// True when this artifact records the current public numerical eligibility policy.
     ///
     /// A snapshot written before the policy marker existed reports `false`: historical artifacts

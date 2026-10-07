@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-04
-lastReviewedCommit: 9ef53cd9c53df892b91abb857d3be09961c0e900
-lastReviewedNote: "Reviewed Worker #309 direct-membership follow-up against 9ef53cd9: CASE truth and exact summary outputs are preserved while uncorrelated protection sets permit hash aggregation. PostgreSQL fixtures now match observed query-relevant indexes, aggregate cardinalities and allowed session settings; destructive cleanup and consumer contracts remain unchanged."
+lastReviewedAt: 2026-10-07
+lastReviewedCommit: e125472630f6b775d211ec58f1e35783974f3744
+lastReviewedNote: "Reviewed Worker #311 exact Product/Waste Input/Output target contract and v5 evidence admission against e125472; legacy allocation, signed linking, artifact history, lease and publication boundaries are preserved."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md

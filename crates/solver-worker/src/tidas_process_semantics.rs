@@ -7,7 +7,7 @@ use anyhow::{Context, bail};
 use serde_json::Value;
 
 /// Versioned allocation semantics applied before signed-flow linking.
-pub const TIDAS_ALLOCATION_SEMANTICS_VERSION: &str = "tidas-reference-allocation-v4";
+pub const TIDAS_ALLOCATION_SEMANTICS_VERSION: &str = "tidas-reference-allocation-v5";
 
 /// Versioned signed-flow linking semantics applied after allocation.
 pub const SIGNED_FLOW_LINK_SEMANTICS_VERSION: &str = "signed-flow-balance-v1";
@@ -40,8 +40,8 @@ pub enum TidasAllocationResolution {
 pub struct TidasProcessAllocation {
     /// One resolution per source exchange, in the original order.
     pub exchanges: Vec<TidasAllocationResolution>,
-    /// Explicit product targets whose exact Flow revisions must be verified by the caller.
-    pub product_target_indices: Vec<usize>,
+    /// Explicit Product/Waste targets whose exact Flow revisions must be verified by the caller.
+    pub allocation_target_indices: Vec<usize>,
 }
 
 /// Resolve legacy output shares as one process-wide vector, never as independent
@@ -84,16 +84,27 @@ pub fn resolve_tidas_process_allocations(
             .and_then(Value::as_str)
             .is_some_and(|direction| direction.trim() == "Output")
     };
-    let output_ids = ids
+    if let Some(target) = targets
         .iter()
-        .enumerate()
-        .filter(|(index, _)| is_output(*index))
-        .filter_map(|(_, id)| id.clone())
-        .collect::<HashSet<_>>();
-    if let Some(target) = targets.iter().find(|target| !output_ids.contains(*target)) {
-        bail!("allocation target {target} must identify an existing Output exchange");
+        .filter(|target| !all_ids.contains(*target))
+        .min()
+    {
+        bail!("allocation target {target} must identify an existing unique exchange");
     }
-    let product_target_indices = ids
+    for (index, id) in ids.iter().enumerate() {
+        if id.as_ref().is_some_and(|id| targets.contains(id))
+            && !exchanges[index]
+                .get("exchangeDirection")
+                .and_then(Value::as_str)
+                .is_some_and(|direction| matches!(direction.trim(), "Input" | "Output"))
+        {
+            bail!(
+                "allocation target {} requires Input or Output exchangeDirection",
+                id.as_ref().unwrap()
+            );
+        }
+    }
+    let allocation_target_indices = ids
         .iter()
         .enumerate()
         .filter(|(_, id)| id.as_ref().is_some_and(|id| targets.contains(id)))
@@ -123,7 +134,7 @@ pub fn resolve_tidas_process_allocations(
             .map_or(1.0, |(_, fraction)| *fraction);
         return Ok(TidasProcessAllocation {
             exchanges: vec![TidasAllocationResolution::Explicit { fraction }; exchanges.len()],
-            product_target_indices,
+            allocation_target_indices,
         });
     }
     let resolutions = exchanges
@@ -139,7 +150,7 @@ pub fn resolve_tidas_process_allocations(
         .collect::<anyhow::Result<Vec<_>>>()?;
     Ok(TidasProcessAllocation {
         exchanges: resolutions,
-        product_target_indices,
+        allocation_target_indices,
     })
 }
 
@@ -450,7 +461,7 @@ mod tests {
             for resolved in result.exchanges {
                 assert_fraction(resolved, expected);
             }
-            assert_eq!(result.product_target_indices, [] as [usize; 0]);
+            assert_eq!(result.allocation_target_indices, [] as [usize; 0]);
         }
         assert_eq!(rows, original);
     }
@@ -501,7 +512,7 @@ mod tests {
     }
 
     #[test]
-    fn process_targeted_vectors_validate_output_targets_and_keep_sparse_defaults() {
+    fn process_targeted_vectors_validate_either_direction_targets_and_keep_sparse_defaults() {
         let mut rows = legacy_process();
         rows[0].as_object_mut().unwrap().remove("allocations");
         rows[1].as_object_mut().unwrap().remove("allocations");
@@ -510,11 +521,55 @@ mod tests {
         let result = process_allocations(&rows, "a").unwrap();
         assert_eq!(result.exchanges[2], TidasAllocationResolution::SparseZero);
         assert_eq!(result.exchanges[3], TidasAllocationResolution::Undeclared);
-        assert_eq!(result.product_target_indices, vec![1]);
-        for target in ["input", "missing"] {
-            rows[2]["allocations"]["allocation"]["@internalReferenceToCoProduct"] = json!(target);
-            assert!(process_allocations(&rows, "a").is_err());
+        assert_eq!(result.allocation_target_indices, vec![1]);
+        rows[2]["allocations"]["allocation"]["@internalReferenceToCoProduct"] = json!("input");
+        assert_eq!(
+            process_allocations(&rows, "input")
+                .unwrap()
+                .allocation_target_indices,
+            vec![2]
+        );
+        rows[2]["allocations"]["allocation"]["@internalReferenceToCoProduct"] = json!("missing");
+        assert!(process_allocations(&rows, "a").is_err());
+    }
+
+    #[test]
+    fn explicit_targets_reject_missing_duplicate_and_invalid_direction_identities() {
+        let rows = json!([
+            {"@dataSetInternalID":"ref", "exchangeDirection":"Input"},
+            {"@dataSetInternalID":"residual", "exchangeDirection":"Output",
+             "allocations":{"allocation":{"@internalReferenceToCoProduct":"ref", "@allocatedFraction":100}}}
+        ]);
+        assert!(process_allocations(&rows, "ref").is_ok());
+        for direction in [json!(null), json!("unknown"), json!("output")] {
+            let mut invalid = rows.clone();
+            invalid[0]["exchangeDirection"] = direction;
+            assert!(
+                process_allocations(&invalid, "ref")
+                    .unwrap_err()
+                    .to_string()
+                    .contains("exchangeDirection")
+            );
         }
+        let mut duplicate = rows.clone();
+        duplicate[1]["@dataSetInternalID"] = json!("ref");
+        assert!(
+            process_allocations(&duplicate, "ref")
+                .unwrap_err()
+                .to_string()
+                .contains("duplicate")
+        );
+        let mut missing = rows;
+        missing[0]
+            .as_object_mut()
+            .unwrap()
+            .remove("@dataSetInternalID");
+        assert!(
+            process_allocations(&missing, "residual")
+                .unwrap_err()
+                .to_string()
+                .contains("existing unique")
+        );
     }
 
     #[test]
@@ -541,11 +596,11 @@ mod tests {
     fn semantics_version_is_stable() {
         assert_eq!(
             TIDAS_PROCESS_SEMANTICS_VERSION,
-            "tidas-reference-allocation-v4"
+            "tidas-reference-allocation-v5"
         );
         assert_eq!(
             TIDAS_ALLOCATION_SEMANTICS_VERSION,
-            "tidas-reference-allocation-v4"
+            "tidas-reference-allocation-v5"
         );
         assert_eq!(SIGNED_FLOW_LINK_SEMANTICS_VERSION, "signed-flow-balance-v1");
     }

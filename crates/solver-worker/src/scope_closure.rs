@@ -1750,6 +1750,22 @@ pub async fn load_scope_closure_worker_input(
 #[allow(clippy::too_many_lines)]
 pub fn validate_worker_input(input: &ScopeClosureWorkerInput) -> anyhow::Result<()> {
     let snapshot = parse_data_snapshot_manifest(&input.data_snapshot_manifest)?;
+    if input
+        .requested_scope
+        .link_policy
+        .allocation_semantics_version
+        != crate::tidas_process_semantics::TIDAS_ALLOCATION_SEMANTICS_VERSION
+        || snapshot
+            .requested_scope
+            .link_policy
+            .allocation_semantics_version
+            != crate::tidas_process_semantics::TIDAS_ALLOCATION_SEMANTICS_VERSION
+    {
+        return Err(anyhow::anyhow!(
+            "scope closure requires allocationSemanticsVersion={}",
+            crate::tidas_process_semantics::TIDAS_ALLOCATION_SEMANTICS_VERSION
+        ));
+    }
     if input.requested_scope.roots().is_empty() {
         return Err(anyhow::anyhow!(
             "requested closure scope has no exact roots"
@@ -10048,7 +10064,7 @@ mod tests {
                 "linkPolicy": {
                     "linkSemanticsVersion": "signed-flow-balance-v1",
                     "flowIdentityPolicy": "exact-flow-version-reference-unit-v2",
-                    "allocationSemanticsVersion": "tidas-reference-allocation-v4",
+                    "allocationSemanticsVersion": "tidas-reference-allocation-v5",
                     "technosphereBoundaryPolicy": "cutoff",
                     "providerUniversePolicy": "scope_only"
                 }
@@ -10181,7 +10197,7 @@ mod tests {
             link_policy: ScopeLinkPolicy {
                 link_semantics_version: "signed-flow-balance-v1".to_owned(),
                 flow_identity_policy: "exact-flow-version-reference-unit-v2".to_owned(),
-                allocation_semantics_version: "tidas-reference-allocation-v4".to_owned(),
+                allocation_semantics_version: "tidas-reference-allocation-v5".to_owned(),
                 technosphere_boundary_policy: "cutoff".to_owned(),
                 provider_universe_policy: "scope_only".to_owned(),
             },
@@ -10257,6 +10273,28 @@ mod tests {
             publication_epoch: 1,
             expected_validator_scanner_fingerprint: "scope-closure-validator-scanner.v1".to_owned(),
             request_fingerprint: "5".repeat(64),
+        }
+    }
+
+    #[test]
+    fn certificate_scope_closure_rejects_old_allocation_scope_and_frozen_evidence() {
+        for frozen in [false, true] {
+            let mut input = validated_worker_input("cutoff");
+            if frozen {
+                input.data_snapshot_manifest["requestedScope"]["linkPolicy"]["allocationSemanticsVersion"] =
+                    json!("tidas-reference-allocation-v4");
+            } else {
+                input
+                    .requested_scope
+                    .link_policy
+                    .allocation_semantics_version = "tidas-reference-allocation-v4".to_owned();
+            }
+            assert!(
+                validate_worker_input(&input)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("allocationSemanticsVersion")
+            );
         }
     }
 

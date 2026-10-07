@@ -1402,7 +1402,8 @@ fn parse_scope_closure_snapshot_args(
             let link_policy = &snapshot.requested_scope.link_policy;
             if link_policy.link_semantics_version != "signed-flow-balance-v1"
                 || link_policy.flow_identity_policy != "exact-flow-version-reference-unit-v2"
-                || link_policy.allocation_semantics_version != "tidas-reference-allocation-v4"
+                || link_policy.allocation_semantics_version
+                    != solver_worker::tidas_process_semantics::TIDAS_ALLOCATION_SEMANTICS_VERSION
                 || !matches!(
                     link_policy.provider_universe_policy.as_str(),
                     "scope_only" | "eligible_transitive_expansion-v1"
@@ -3157,7 +3158,7 @@ async fn build_review_submit_overlay_graph(
             })
             .or_insert_with(|| identity.flow_version.clone());
     }
-    let allocation_targets = allocation_product_flow_identities(target_row)?;
+    let allocation_targets = allocation_target_flow_identities(target_row)?;
     let mut flow_requests = collect_exchange_flow_reference_requests(&target_exchanges);
     flow_requests.exact.retain(|identity| {
         allocation_targets.contains(identity) || !baseline_flow_identities.contains(identity)
@@ -3166,7 +3167,7 @@ async fn build_review_submit_overlay_graph(
         .omitted
         .retain(|flow_id| !baseline_omitted_versions.contains_key(flow_id));
     let mut flow_meta = fetch_flow_meta(pool, &flow_requests, None).await?;
-    validate_allocation_product_flows(&allocation_targets, &flow_meta)?;
+    validate_allocation_target_flows(&allocation_targets, &flow_meta)?;
     flow_meta
         .omitted_version_by_id
         .extend(baseline_omitted_versions);
@@ -3448,7 +3449,9 @@ fn reusable_snapshot_policy_matches(
     candidate: &ReuseCandidate,
     decoded: &DecodedSnapshotArtifact,
 ) -> bool {
-    decoded.config.is_numerical_policy_current() && binding_contract_is_current(candidate, decoded)
+    decoded.config.is_numerical_policy_current()
+        && decoded.config.is_allocation_semantics_current()
+        && binding_contract_is_current(candidate, decoded)
 }
 
 /// True when a closure-bound artifact's recorded binding contract matches its own evidence.
@@ -4464,7 +4467,7 @@ async fn build_sparse_payload(
 
 // Explicit targets require authored exact Flow identities. Do not use the
 // legacy omitted-version or heuristic Product classification fallback here.
-fn allocation_product_flow_identities(
+fn allocation_target_flow_identities(
     process: &ProcessRow,
 ) -> anyhow::Result<BTreeSet<FlowLinkIdentity>> {
     let exchanges = process_exchange_items(&process.json);
@@ -4474,7 +4477,7 @@ fn allocation_product_flow_identities(
         &exchanges, &reference,
     )?;
     allocation
-        .product_target_indices
+        .allocation_target_indices
         .iter()
         .map(|&index| {
             let exchange = exchanges[index];
@@ -4501,7 +4504,7 @@ fn allocation_product_flow_identities(
         .collect()
 }
 
-fn validate_allocation_product_flows(
+fn validate_allocation_target_flows(
     targets: &BTreeSet<FlowLinkIdentity>,
     flows: &ResolvedFlowMetadata,
 ) -> anyhow::Result<()> {
@@ -4514,9 +4517,16 @@ fn validate_allocation_product_flows(
                     .pointer("/flowDataSet/modellingAndValidation/LCIMethod/typeOfDataSet")
             })
             .and_then(Value::as_str);
-        if flow_type != Some("Product flow") {
+        if flow_type.is_none() {
             return Err(anyhow::anyhow!(
-                "allocation target must resolve to an exact Product flow: {}@{}",
+                "allocation target exact Flow metadata is missing or unresolved: {}@{}",
+                target.flow_id,
+                target.flow_version
+            ));
+        }
+        if !matches!(flow_type, Some("Product flow" | "Waste flow")) {
+            return Err(anyhow::anyhow!(
+                "allocation target requires exact Product or Waste flow metadata; unsupported type {flow_type:?}: {}@{}",
                 target.flow_id,
                 target.flow_version
             ));
@@ -5119,14 +5129,14 @@ async fn compile_scope_graph(
 
     let allocation_targets = processes
         .iter()
-        .map(allocation_product_flow_identities)
+        .map(allocation_target_flow_identities)
         .collect::<anyhow::Result<Vec<_>>>()?
         .into_iter()
         .flatten()
         .collect::<BTreeSet<_>>();
     let flow_requests = collect_exchange_flow_reference_requests(&exchanges);
     let flow_meta = fetch_flow_meta(pool, &flow_requests, versioned_scope).await?;
-    validate_allocation_product_flows(&allocation_targets, &flow_meta)?;
+    validate_allocation_target_flows(&allocation_targets, &flow_meta)?;
     resolve_requested_flow_versions(&mut exchanges, &flow_meta)?;
     let flow_release_metadata = fetch_flow_release_metadata(pool, &flow_meta.by_identity).await?;
     for exchange in &exchanges {
@@ -11423,7 +11433,7 @@ mod tests {
                 "linkPolicy": {
                     "linkSemanticsVersion": "signed-flow-balance-v1",
                     "flowIdentityPolicy": "exact-flow-version-reference-unit-v2",
-                    "allocationSemanticsVersion": "tidas-reference-allocation-v4",
+                    "allocationSemanticsVersion": "tidas-reference-allocation-v5",
                     "technosphereBoundaryPolicy": boundary_policy,
                     "providerUniversePolicy": provider_universe_policy
                 }
@@ -11559,7 +11569,7 @@ mod tests {
 
     #[test]
     fn certificate_grade_scope_closure_allows_only_medium_singular_risk() {
-        let mut config = test_snapshot_build_config("tidas-reference-allocation-v4");
+        let mut config = test_snapshot_build_config("tidas-reference-allocation-v5");
         let generic_policy = matrix_readiness_policy(&config, true);
         assert!(!generic_policy.allow_medium_singular_risk);
         assert!(!generic_policy.allow_high_singular_risk);
@@ -11588,7 +11598,7 @@ mod tests {
 
     #[test]
     fn allocation_semantics_version_changes_review_submit_source_fingerprint() {
-        let mut config = test_snapshot_build_config("tidas-quantitative-reference-v1");
+        let mut config = test_snapshot_build_config("tidas-reference-allocation-v4");
         let strict_hash = compute_review_submit_overlay_source_hash("baseline", &config)
             .expect("strict source hash");
         config.allocation_semantics_version =
@@ -11612,7 +11622,7 @@ mod tests {
             lciamethod_count: 0,
             lciamethod_max_modified_at_utc: "disabled".to_owned(),
         };
-        let mut config = test_snapshot_build_config("tidas-quantitative-reference-v1");
+        let mut config = test_snapshot_build_config("tidas-reference-allocation-v4");
         let strict_hash = compute_source_fingerprint_from_summary(&summary, &config)
             .expect("strict source fingerprint");
         config.allocation_semantics_version =
@@ -11669,7 +11679,7 @@ mod tests {
             lciamethod_count: 0,
             lciamethod_max_modified_at_utc: "disabled".to_owned(),
         };
-        let mut config = test_snapshot_build_config("tidas-reference-allocation-v4");
+        let mut config = test_snapshot_build_config("tidas-reference-allocation-v5");
         let snapshot_hash = compute_source_fingerprint_from_summary(&summary, &config)
             .expect("signed-flow source fingerprint");
         let overlay_hash = compute_review_submit_overlay_source_hash("baseline", &config)
@@ -12084,7 +12094,7 @@ mod tests {
             let built = assemble_sparse_payload(
                 Uuid::new_v4(),
                 &method,
-                &test_snapshot_build_config("tidas-reference-allocation-v4"),
+                &test_snapshot_build_config("tidas-reference-allocation-v5"),
                 &graph,
                 0.999_999,
                 1e-12,
@@ -12604,7 +12614,7 @@ mod tests {
         let built = assemble_sparse_payload(
             Uuid::new_v4(),
             &method,
-            &test_snapshot_build_config("tidas-reference-allocation-v4"),
+            &test_snapshot_build_config("tidas-reference-allocation-v5"),
             &overlay_graph,
             0.999_999,
             1e-12,
@@ -12725,7 +12735,7 @@ mod tests {
         let built = assemble_sparse_payload(
             Uuid::new_v4(),
             &method,
-            &test_snapshot_build_config("tidas-reference-allocation-v4"),
+            &test_snapshot_build_config("tidas-reference-allocation-v5"),
             &graph,
             0.999_999,
             1e-12,
@@ -12846,7 +12856,7 @@ mod tests {
         let built = assemble_sparse_payload(
             Uuid::new_v4(),
             &method,
-            &test_snapshot_build_config("tidas-reference-allocation-v4"),
+            &test_snapshot_build_config("tidas-reference-allocation-v5"),
             &graph,
             0.999_999,
             1e-12,
@@ -12883,7 +12893,7 @@ mod tests {
         let built = assemble_sparse_payload(
             snapshot_id,
             &method,
-            &test_snapshot_build_config("tidas-reference-allocation-v4"),
+            &test_snapshot_build_config("tidas-reference-allocation-v5"),
             &super::empty_compiled_graph(),
             0.999_999,
             1e-12,
@@ -12915,7 +12925,7 @@ mod tests {
 
         // Fresh ordinary global/subset artifact (no closure binding): the global numerical-policy
         // marker is its evidence, and reuse under the same policy is allowed.
-        let fresh_ordinary = test_snapshot_build_config("tidas-reference-allocation-v4");
+        let fresh_ordinary = test_snapshot_build_config("tidas-reference-allocation-v5");
         let encoded = encode(&fresh_ordinary);
         let decoded =
             super::decode_snapshot_artifact(&encoded.bytes).expect("decode fresh ordinary");
@@ -12924,6 +12934,21 @@ mod tests {
             &candidate(artifact_format),
             &decoded
         ));
+
+        // Correct numerical state policy does not relabel historical allocation evidence.
+        {
+            let mut old = fresh_ordinary.clone();
+            old.allocation_semantics_version = "tidas-reference-allocation-v4".to_owned();
+            let decoded_old = super::decode_snapshot_artifact(&encode(&old).bytes).unwrap();
+            assert_eq!(
+                decoded_old.config.allocation_semantics_version,
+                "tidas-reference-allocation-v4"
+            );
+            assert!(!reusable_snapshot_policy_matches(
+                &candidate(artifact_format),
+                &decoded_old
+            ));
+        }
 
         // Older ordinary global/subset artifact, written before the policy marker existed: it may
         // have been selected under the retired `100..199` membership, so it must not launch a new
@@ -12954,6 +12979,15 @@ mod tests {
         assert!(reusable_snapshot_policy_matches(
             &candidate(artifact_format),
             &closure_decoded
+        ));
+
+        let mut old_closure = current_config.clone();
+        old_closure.allocation_semantics_version = "tidas-reference-allocation-v4".to_owned();
+        let old_closure_decoded =
+            super::decode_snapshot_artifact(&encode(&old_closure).bytes).unwrap();
+        assert!(!reusable_snapshot_policy_matches(
+            &candidate(artifact_format),
+            &old_closure_decoded
         ));
 
         // Older closure-bound artifact without the policy marker is refused too: a binding hash can
@@ -13021,7 +13055,7 @@ mod tests {
         let built = assemble_sparse_payload(
             snapshot_id,
             &method,
-            &test_snapshot_build_config("tidas-reference-allocation-v4"),
+            &test_snapshot_build_config("tidas-reference-allocation-v5"),
             &graph,
             0.999_999,
             1e-12,
@@ -13077,7 +13111,7 @@ mod tests {
             rows: Vec::new(),
             static_bundle: None,
         };
-        let mut build_config = test_snapshot_build_config("tidas-reference-allocation-v4");
+        let mut build_config = test_snapshot_build_config("tidas-reference-allocation-v5");
         build_config.technosphere_boundary_policy = "cutoff".to_owned();
 
         let cutoff = assemble_sparse_payload(
@@ -16754,7 +16788,7 @@ mod tests {
                 json: case["process"].clone(),
             };
             assert!(
-                super::allocation_product_flow_identities(&row)
+                super::allocation_target_flow_identities(&row)
                     .unwrap()
                     .is_empty()
             );
@@ -16886,9 +16920,142 @@ mod tests {
     }
 
     #[test]
-    fn allocation_product_targets_require_exact_declared_product_flows() {
+    fn allocation_input_output_targets_preserve_signed_reference_and_residuals() {
+        for direction in ["Input", "Output"] {
+            for amount in [-2.0_f64, 2.0] {
+                let mut row = allocation_parity_process("a", false);
+                row.json["processDataSet"]["exchanges"]["exchange"][0]["exchangeDirection"] =
+                    json!(direction);
+                row.json["processDataSet"]["exchanges"]["exchange"][0]["resultingAmount"] =
+                    json!(amount);
+                row.json["processDataSet"]["exchanges"]["exchange"][4]["resultingAmount"] =
+                    json!(-10);
+                let targets = super::allocation_target_flow_identities(&row).unwrap();
+                assert_eq!(targets.len(), 2);
+                for flow_type in ["Product flow", "Waste flow"] {
+                    let mut metadata = super::ResolvedFlowMetadata::default();
+                    for target in &targets {
+                        metadata.by_identity.insert(target.clone(), super::FlowRow {
+                            id: target.flow_id, version: target.flow_version.clone(), user_id: None,
+                            state_code: 100, team_id: None, review_id: None,
+                            json: json!({"flowDataSet":{"modellingAndValidation":{"LCIMethod":{"typeOfDataSet":flow_type}}}})
+                        });
+                    }
+                    super::validate_allocation_target_flows(&targets, &metadata).unwrap();
+                }
+                let (_, exchanges, _, _, _) = super::parse_process_chunk(
+                    &row,
+                    0,
+                    NormalizationMode::Strict,
+                    AllocationMode::Strict,
+                )
+                .unwrap();
+                assert_close(exchanges[0].amount.unwrap(), amount.signum());
+                assert_close(exchanges[2].amount.unwrap(), 35.0);
+                assert_close(exchanges[4].amount.unwrap(), -4.0);
+            }
+        }
+    }
+
+    #[test]
+    fn isolated_allocation_v5_snapshot_closure_artifact_roundtrip() {
+        // Synthetic, immutable local input: exact Waste/Input target, no database or object store.
+        let mut row = allocation_parity_process("a", false);
+        row.id = Uuid::from_u128(311);
+        row.json["processDataSet"]["exchanges"]["exchange"][0]["exchangeDirection"] =
+            json!("Input");
+        let targets = super::allocation_target_flow_identities(&row).unwrap();
+        let mut metadata = super::ResolvedFlowMetadata::default();
+        for target in &targets {
+            metadata.by_identity.insert(target.clone(), super::FlowRow {
+                id: target.flow_id, version: target.flow_version.clone(), user_id: None,
+                state_code: 100, team_id: None, review_id: None,
+                json: json!({"flowDataSet":{"modellingAndValidation":{"LCIMethod":{"typeOfDataSet":"Waste flow"}}}})
+            });
+        }
+        super::validate_allocation_target_flows(&targets, &metadata).unwrap();
+        let (_, exchanges, _, _, _) =
+            super::parse_process_chunk(&row, 0, NormalizationMode::Strict, AllocationMode::Strict)
+                .unwrap();
+        let mut graph = super::empty_compiled_graph();
+        graph.processes.push(CompiledProcess {
+            process_idx: 0,
+            process_id: row.id,
+            process_version: row.version.clone(),
+            process_name: None,
+            model_id: None,
+            model_version: None,
+            location: None,
+            reference_year: None,
+            annual_supply_or_production_volume: None,
+            partition: ScopeProcessPartition::Public,
+        });
+        graph.flows.push(CompiledFlow {
+            flow_idx: 0,
+            flow_id: exchanges[4].flow_id,
+            flow_version: exchanges[4].flow_version.clone(),
+            kind: CompiledFlowKind::Elementary,
+            space: CompiledFlowSpace::Biosphere,
+            source_type: solver_worker::compiled_graph::CompiledSourceFlowType::Elementary,
+        });
+        graph.biosphere_edges.push(CompiledBiosphereEdge {
+            process_idx: 0,
+            flow_idx: 0,
+            amount: super::nonzero_residual_coefficient(&exchanges[4]).unwrap(),
+            process_partition: ScopeProcessPartition::Public,
+        });
+        let method = MethodSelection {
+            has_lcia: false,
+            method_id: None,
+            method_version: None,
+            method_count: 0,
+            factor_count: 0,
+            source_evidence: None,
+            rows: Vec::new(),
+            static_bundle: None,
+        };
+        let snapshot_id = Uuid::from_u128(312);
+        let mut config = test_snapshot_build_config(
+            solver_worker::tidas_process_semantics::TIDAS_ALLOCATION_SEMANTICS_VERSION,
+        );
+        let (binding, _, _) = frozen_scope_closure_snapshot("scope_only", "cutoff", "build");
+        config.scope_closure_binding = Some(binding.clone());
+        config.snapshot_build_contract_hash = Some(scope_closure_snapshot_build_contract_hash(
+            &binding,
+            snapshot_id,
+            solver_worker::snapshot_artifacts::SNAPSHOT_ARTIFACT_FORMAT,
+        ));
+        let built = assemble_sparse_payload(
+            snapshot_id,
+            &method,
+            &config,
+            &graph,
+            0.999_999,
+            1e-12,
+            false,
+            &[],
+            &[],
+            false,
+        )
+        .unwrap();
+        assert_close(built.data.biosphere_entries[0].value, 4.0);
+        let artifact = solver_worker::snapshot_artifacts::encode_snapshot_artifact(
+            snapshot_id,
+            config.clone(),
+            built.coverage.clone(),
+            &built.data,
+        )
+        .unwrap();
+        let decoded = super::decode_snapshot_artifact(&artifact.bytes).unwrap();
+        assert_eq!(decoded.config, config);
+        assert_eq!(decoded.payload.process_count, 1);
+        assert_close(decoded.payload.biosphere_entries[0].value, 4.0);
+    }
+
+    #[test]
+    fn allocation_targets_require_exact_declared_product_or_waste_flows() {
         let row = allocation_parity_process("a", false);
-        let targets = super::allocation_product_flow_identities(&row).unwrap();
+        let targets = super::allocation_target_flow_identities(&row).unwrap();
         assert_eq!(targets.len(), 2);
         let mut flows = super::ResolvedFlowMetadata::default();
         for target in &targets {
@@ -16898,24 +17065,39 @@ mod tests {
                 json:json!({"flowDataSet":{"modellingAndValidation":{"LCIMethod":{"typeOfDataSet":"Product flow"}}}})
             });
         }
-        super::validate_allocation_product_flows(&targets, &flows).unwrap();
+        super::validate_allocation_target_flows(&targets, &flows).unwrap();
         let target = targets.first().unwrap().clone();
-        for invalid in [json!("Elementary flow"), json!("Waste flow"), json!(null)] {
+        // Exact Waste metadata wins over another Product revision and baseline-like fallback.
+        flows.by_identity.get_mut(&target).unwrap().json["flowDataSet"]["modellingAndValidation"]
+            ["LCIMethod"]["typeOfDataSet"] = json!("Waste flow");
+        let mut other_revision = flows.by_identity.get(&target).unwrap().clone();
+        other_revision.version = "99.00.000".to_owned();
+        other_revision.json["flowDataSet"]["modellingAndValidation"]["LCIMethod"]["typeOfDataSet"] =
+            json!("Product flow");
+        flows.by_identity.insert(
+            super::flow_link_identity_from_parts(target.flow_id, "99.00.000"),
+            other_revision,
+        );
+        flows
+            .omitted_version_by_id
+            .insert(target.flow_id, "99.00.000".to_owned());
+        super::validate_allocation_target_flows(&targets, &flows).unwrap();
+        for invalid in [json!("Elementary flow"), json!("unknown"), json!(null)] {
             flows.by_identity.get_mut(&target).unwrap().json["flowDataSet"]["modellingAndValidation"]
                 ["LCIMethod"]["typeOfDataSet"] = invalid;
-            assert!(super::validate_allocation_product_flows(&targets, &flows).is_err());
+            assert!(super::validate_allocation_target_flows(&targets, &flows).is_err());
         }
         let mut flow = flows.by_identity.remove(&target).unwrap();
         flow.json["flowDataSet"]["modellingAndValidation"]["LCIMethod"]["typeOfDataSet"] =
             json!("Product flow");
         let wrong_version = super::flow_link_identity_from_parts(target.flow_id, "02.00.000");
         flows.by_identity.insert(wrong_version, flow);
-        assert!(super::validate_allocation_product_flows(&targets, &flows).is_err());
+        assert!(super::validate_allocation_target_flows(&targets, &flows).is_err());
         let mut missing_version = row;
         missing_version.json["processDataSet"]["exchanges"]["exchange"][0]["referenceToFlowDataSet"].as_object_mut().unwrap().remove("@version");
-        assert!(super::allocation_product_flow_identities(&missing_version).is_err());
+        assert!(super::allocation_target_flow_identities(&missing_version).is_err());
         assert!(
-            super::allocation_product_flow_identities(&allocation_parity_process("a", true))
+            super::allocation_target_flow_identities(&allocation_parity_process("a", true))
                 .unwrap()
                 .is_empty()
         );
