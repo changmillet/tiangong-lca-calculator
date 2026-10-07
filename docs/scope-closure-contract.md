@@ -65,11 +65,11 @@ The Worker loads the full service input through `svc_lcia_scope_closure_check_ge
 
 The current internal request identity is `scope-closure-validator-scanner.v1+cutoff-readiness-r4`. Worker also accepts the historical exact values `scope-closure-validator-scanner.v1+cutoff-readiness-r3`, `scope-closure-validator-scanner.v1+cutoff-readiness-r2`, `scope-closure-validator-scanner.v1+cutoff-readiness-r1`, and `scope-closure-validator-scanner.v1` so already-enqueued and in-flight requests remain executable during rollout. This is a closed compatibility set: any other fingerprint fails before scan claim. The revision changes cache identity only; it does not version or alter the public V1 job, result, certificate, or artifact contracts.
 
-New certificate requests bind `allocationSemanticsVersion=tidas-reference-allocation-v4`
-through the Database normalizer and Worker frozen-input validation. New builds and
-reuse require this identity; existing v3 requests and artifacts are not rewritten or
+New certificate requests bind `allocationSemanticsVersion=tidas-reference-allocation-v5`
+through the paired Database normalizer adoption and Worker frozen-input validation. Worker independently requires this marker in both the requested scope and frozen data snapshot before execution; rollout is blocked until Database and Edge adopt v5. New builds and
+reuse require this identity; existing v3/v4 requests and artifacts are not rewritten or
 relabelled. See `docs/provider-linking.md` for the process-wide legacy share and
-exact Product Flow target semantics.
+exact Product/Waste Flow target semantics.
 
 Every newly normalized certificate-grade request freezes `linkPolicy.technosphereBoundaryPolicy=cutoff`. Database accepts the legacy supported input spellings `closed`, `open`, and `cutoff` during normalization, but all of them produce the same canonical cutoff scope before hashes and snapshot identity are computed. Worker requires the frozen value to be exactly `cutoff` at both the service-input and snapshot-builder child-protocol boundaries. It never silently overrides a noncanonical frozen manifest; such input fails before scan claim/publication with `scope_closure_boundary_policy_must_be_cutoff`. Historical artifacts remain readable and generic snapshot/readiness diagnostics retain their explicit three-policy surface.
 

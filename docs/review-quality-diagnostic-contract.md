@@ -28,9 +28,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-10-02
-lastReviewedCommit: de10156262c369bc4d5c44d1ab72f0c94904fb6a
-lastReviewedNote: "Reviewed Worker #307 CI repair: 36 reported test assertions preserve emptiness predicates while showing values on failure for Rust 1.99 Clippy. Runtime, modeling, validation and result contracts remain unchanged; the configured signed-first S3 download boundary remains reviewed."
+lastReviewedAt: 2026-10-07
+lastReviewedCommit: e125472630f6b775d211ec58f1e35783974f3744
+lastReviewedNote: "Reviewed Worker #311 exact Product/Waste Input/Output target contract and v5 evidence admission against e125472; legacy allocation, signed linking, artifact history, lease and publication boundaries are preserved."
 related:
   - AGENTS.md
   - .docpact/config.yaml

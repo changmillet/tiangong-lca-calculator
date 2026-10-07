@@ -889,6 +889,13 @@ fn ensure_numerical_snapshot_policy(
     snapshot_id: Uuid,
     artifact_format: &str,
 ) -> anyhow::Result<()> {
+    if !config.is_allocation_semantics_current() {
+        return Err(anyhow::anyhow!(
+            "snapshot_allocation_semantics_version_mismatch: snapshot {snapshot_id} declares {} instead of {}; rebuild under current allocation semantics",
+            config.allocation_semantics_version,
+            crate::tidas_process_semantics::TIDAS_ALLOCATION_SEMANTICS_VERSION
+        ));
+    }
     if !config.is_numerical_policy_current() {
         return Err(anyhow::anyhow!(
             "snapshot_policy_version_mismatch: snapshot {} declares numerical policy {:?} instead of {}; rebuild it under the current public numerical eligibility policy",
@@ -6300,7 +6307,7 @@ mod tests {
                 provider_lineage_source_sha256: None,
                 reference_normalization_mode: "strict".to_owned(),
                 allocation_fraction_mode: "strict".to_owned(),
-                allocation_semantics_version: "tidas-reference-allocation-v4".to_owned(),
+                allocation_semantics_version: "tidas-reference-allocation-v5".to_owned(),
                 link_semantics_version: "signed-flow-balance-v1".to_owned(),
                 technosphere_boundary_policy: "cutoff".to_owned(),
                 flow_identity_policy: "exact-flow-version-reference-unit-v2".to_owned(),
@@ -6318,6 +6325,19 @@ mod tests {
                 method_version: None,
             }
         };
+        let mut old_allocation = config(Some(crate::NUMERICAL_SNAPSHOT_POLICY_VERSION), None, None);
+        old_allocation.allocation_semantics_version = "tidas-reference-allocation-v4".to_owned();
+        assert!(
+            ensure_numerical_snapshot_policy(
+                &old_allocation,
+                snapshot_id,
+                SNAPSHOT_ARTIFACT_FORMAT
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("snapshot_allocation_semantics_version_mismatch")
+        );
+
         let binding = ScopeClosureSnapshotBinding {
             schema_version: "lcia.scope-closure-snapshot-binding.v1".to_owned(),
             effective_scope_hash: "a".repeat(64),
