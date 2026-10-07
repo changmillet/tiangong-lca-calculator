@@ -1976,10 +1976,62 @@ fn run_tidas_package_command(
     ])
 }
 
+/// Count the actual input scope, including a materialized v2 root group rather
+/// than all original ZIP nodes. Match the native package scanner's flat regular
+/// JSON files and case-insensitive extension without retaining paths in memory.
+fn package_process_document_count(input: &Path) -> anyhow::Result<usize> {
+    let directory = input.join("processes");
+    if !directory.is_dir() {
+        return Ok(0);
+    }
+    let mut count = 0_usize;
+    for entry in fs::read_dir(directory)? {
+        let entry = entry?;
+        if entry.file_type()?.is_file()
+            && entry
+                .path()
+                .extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
+        {
+            count = count
+                .checked_add(1)
+                .context("tidas_package_process_count_overflow")?;
+        }
+    }
+    Ok(count)
+}
+
+fn admit_package_process_coverage(summary: &Value, process_count: usize) -> anyhow::Result<()> {
+    let categories = summary
+        .get("categories")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow::anyhow!("tidas_report_invalid: categories omitted"))?;
+    let mut reported = None;
+    for category in categories {
+        if category.get("category").and_then(Value::as_str) == Some("processes") {
+            anyhow::ensure!(
+                reported.is_none(),
+                "tidas_report_invalid: duplicate Process category"
+            );
+            reported = category.get("document_count").and_then(Value::as_u64);
+            anyhow::ensure!(
+                reported.is_some(),
+                "tidas_report_invalid: Process count omitted"
+            );
+        }
+    }
+    anyhow::ensure!(
+        reported.unwrap_or(0) == u64::try_from(process_count)?,
+        "tidas_package_process_count_mismatch"
+    );
+    tidas_cli::validate_process_semantic_coverage(summary.get("semantic_coverage"), process_count)
+}
+
 fn run_tidas_validation(input_dir: &Path) -> anyhow::Result<TidasValidationReport> {
     let handshake = tidas_cli::handshake()?;
     let temp = TempDir::new().context("create bounded tidas package validation spool")?;
     let issues_path = temp.path().join("validation-issues.jsonl");
+    let process_count = package_process_document_count(input_dir)?;
     let output = run_tidas_package_command(input_dir, &issues_path)?;
     if output.report.get("command").and_then(Value::as_str) != Some("validate")
         || output.report.get("completeness").and_then(Value::as_str) != Some("complete")
@@ -2000,6 +2052,7 @@ fn run_tidas_validation(input_dir: &Path) -> anyhow::Result<TidasValidationRepor
             "tidas_handshake_mismatch: validation asset fingerprint changed after handshake"
         ));
     }
+    admit_package_process_coverage(validation, process_count)?;
     let spool = validation.get("issue_spool").ok_or_else(|| {
         anyhow::anyhow!("tidas_report_invalid: package validation omitted issue_spool")
     })?;
@@ -4490,6 +4543,62 @@ mod tests {
         }
 
         Ok(writer.finish()?.into_inner())
+    }
+
+    #[test]
+    fn package_semantic_coverage_requires_actual_scope_and_complete_checks() {
+        let good = json!({"categories": [{"category": "processes", "document_count": 1}],
+            "semantic_coverage": {"profile": "tidas.process-allocation-reference.v1",
+                "complete": true, "process_count": 1,
+                "checks": {"allocation-target-type": {"invalid": 1, "unresolved": 0}}}});
+        super::admit_package_process_coverage(&good, 1).unwrap();
+        // A complete known-invalid report still reaches the existing domain gate.
+        assert!(super::admit_package_process_coverage(&good, 2).is_err());
+        let mut changed = good.clone();
+        changed.as_object_mut().unwrap().remove("semantic_coverage");
+        assert!(super::admit_package_process_coverage(&changed, 1).is_err());
+        changed = good.clone();
+        changed["semantic_coverage"]["complete"] = json!(false);
+        assert!(super::admit_package_process_coverage(&changed, 1).is_err());
+        changed = good.clone();
+        changed["semantic_coverage"]["checks"]["allocation-target-type"]["unresolved"] = json!(1);
+        assert!(super::admit_package_process_coverage(&changed, 1).is_err());
+        changed = good.clone();
+        changed["semantic_coverage"]["process_count"] = json!(2);
+        assert!(super::admit_package_process_coverage(&changed, 1).is_err());
+        changed = good.clone();
+        changed["semantic_coverage"]["profile"] = json!("old");
+        assert!(super::admit_package_process_coverage(&changed, 1).is_err());
+        changed = good.clone();
+        changed["categories"][0]["document_count"] = json!(0);
+        assert!(super::admit_package_process_coverage(&changed, 1).is_err());
+        changed = good.clone();
+        changed["categories"]
+            .as_array_mut()
+            .unwrap()
+            .push(good["categories"][0].clone());
+        assert!(super::admit_package_process_coverage(&changed, 1).is_err());
+        super::admit_package_process_coverage(&json!({"categories": []}), 0).unwrap();
+    }
+
+    #[test]
+    fn package_process_count_tracks_materialized_directory_not_original_nodes() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let package = temp.path().join("package");
+        let group = temp.path().join("group");
+        for directory in [&package, &group] {
+            std::fs::create_dir_all(directory.join("processes/nested")).unwrap();
+            std::fs::write(directory.join("processes/first.JSON"), b"{}").unwrap();
+            std::fs::write(directory.join("processes/notes.txt"), b"ignored").unwrap();
+            std::fs::write(directory.join("processes/nested/ignored.json"), b"{}").unwrap();
+        }
+        std::fs::write(package.join("processes/second.json"), b"{}").unwrap();
+        assert_eq!(super::package_process_document_count(&package).unwrap(), 2);
+        assert_eq!(super::package_process_document_count(&group).unwrap(), 1);
+        assert_eq!(
+            super::package_process_document_count(temp.path()).unwrap(),
+            0
+        );
     }
 
     #[test]

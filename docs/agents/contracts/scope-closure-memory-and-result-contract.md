@@ -28,8 +28,8 @@ checkPaths:
   - docs/agents/contracts/scope-closure-provider-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-owned-result.v1.schema.json
 lastReviewedAt: 2026-10-07
-lastReviewedCommit: 8c98b824f4118c5d2c3a7caeb4eac2f984871450
-lastReviewedNote: "Reviewed Worker #313 exact frozen Flow context, dependency-bound Process validation cache, full native manifest/fingerprint admission and complete semantic coverage. Native release pin and deployed qualification remain tracked pending; numerical, lease, artifact and historical allocation boundaries are preserved."
+lastReviewedCommit: b2f8e64e372c6e8f90a8b0d8da377c1aee7f386c
+lastReviewedNote: "Reviewed Worker #313 shared complete Process semantic coverage admission used by Scope Closure and package imports. Exact frozen context, cache binding, full native fingerprints and historical semantics remain unchanged; actual native adoption and runtime qualification remain pending."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml

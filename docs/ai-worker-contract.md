@@ -23,9 +23,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-architecture.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-09-20
-lastReviewedCommit: d65bcb2d05ac6fedb08637389e4f9db4148824b4
-lastReviewedNote: "Reviewed Worker #297: AI ruleset source remains the exact TIDAS CLI descriptor; only the qualified binary version advances to 0.3.2."
+lastReviewedAt: 2026-10-07
+lastReviewedCommit: b2f8e64e372c6e8f90a8b0d8da377c1aee7f386c
+lastReviewedNote: "Reviewed Worker #313 shared native consumers: package v1/v2 require exact complete Process semantic coverage for the actual package or materialized root-group directory, preserving full exact Flow context and existing issue policy. Scope Closure uses the same admission contract; actual new native release pin and runtime qualification remain pending."
 related:
   - AGENTS.md
   - .docpact/config.yaml

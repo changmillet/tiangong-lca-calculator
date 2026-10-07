@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-07
-lastReviewedCommit: 8c98b824f4118c5d2c3a7caeb4eac2f984871450
-lastReviewedNote: "Reviewed Worker #313 exact frozen Flow context, dependency-bound Process validation cache, full native manifest/fingerprint admission and complete semantic coverage. Native release pin and deployed qualification remain tracked pending; numerical, lease, artifact and historical allocation boundaries are preserved."
+lastReviewedCommit: b2f8e64e372c6e8f90a8b0d8da377c1aee7f386c
+lastReviewedNote: "Reviewed Worker #313 shared native consumers: package v1/v2 require exact complete Process semantic coverage for the actual package or materialized root-group directory, preserving full exact Flow context and existing issue policy. Scope Closure uses the same admission contract; actual new native release pin and runtime qualification remain pending."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml

@@ -528,6 +528,7 @@ fn validate(
     let handshake = tidas_cli::handshake()?;
     let spool_dir = TempDir::new()?;
     let spool_path = spool_dir.path().join("issues.jsonl");
+    let process_count = super::package_process_document_count(root)?;
     let output = super::run_tidas_package_command(root, &spool_path)?;
     anyhow::ensure!(
         output.report.get("command").and_then(Value::as_str) == Some("validate")
@@ -542,6 +543,7 @@ fn validate(
         summary.get("asset_fingerprint") == handshake.validation_describe.get("asset_fingerprint"),
         "tidas_handshake_mismatch"
     );
+    super::admit_package_process_coverage(summary, process_count)?;
     let spool = summary
         .get("issue_spool")
         .ok_or_else(|| anyhow::anyhow!("tidas_report_invalid"))?;

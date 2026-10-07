@@ -8312,31 +8312,10 @@ fn validate_process_semantic_coverage(
     final_event: &Value,
     process_count: usize,
 ) -> anyhow::Result<()> {
-    if process_count == 0 {
-        return Ok(());
-    }
-    let coverage = final_event
-        .pointer("/summary/semantic_coverage")
-        .ok_or_else(|| anyhow::anyhow!("tidas_semantic_coverage_missing"))?;
-    if coverage.get("profile").and_then(Value::as_str) != Some(PROCESS_SEMANTIC_PROFILE)
-        || coverage.get("complete").and_then(Value::as_bool) != Some(true)
-        || coverage.get("process_count").and_then(Value::as_u64)
-            != Some(u64::try_from(process_count)?)
-        || coverage
-            .get("checks")
-            .and_then(Value::as_object)
-            .is_none_or(|checks| {
-                checks.is_empty()
-                    || checks
-                        .values()
-                        .any(|check| check.get("unresolved").and_then(Value::as_u64) != Some(0))
-            })
-    {
-        return Err(anyhow::anyhow!(
-            "tidas_semantic_coverage_incomplete: applicable Process checks require complete exact context"
-        ));
-    }
-    Ok(())
+    tidas_cli::validate_process_semantic_coverage(
+        final_event.pointer("/summary/semantic_coverage"),
+        process_count,
+    )
 }
 
 fn validate_tidas_final_event(

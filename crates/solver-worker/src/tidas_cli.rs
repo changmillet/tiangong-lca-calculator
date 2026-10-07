@@ -20,6 +20,36 @@ pub const DEFAULT_TIDAS_VERSION: &str = "0.3.2";
 const DEFAULT_TIDAS_TIMEOUT_SECONDS: u64 = 1_800;
 const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
+/// Historical reports without coverage cannot prove this profile ran. Known-invalid
+/// checks remain complete domain evidence; unresolved checks cannot authorize writes.
+pub(crate) fn validate_process_semantic_coverage(
+    coverage: Option<&Value>,
+    process_count: usize,
+) -> anyhow::Result<()> {
+    if process_count == 0 {
+        return Ok(());
+    }
+    let coverage = coverage.ok_or_else(|| anyhow::anyhow!("tidas_semantic_coverage_missing"))?;
+    anyhow::ensure!(
+        coverage.get("profile").and_then(Value::as_str)
+            == Some("tidas.process-allocation-reference.v1")
+            && coverage.get("complete").and_then(Value::as_bool) == Some(true)
+            && coverage.get("process_count").and_then(Value::as_u64)
+                == Some(u64::try_from(process_count)?)
+            && coverage
+                .get("checks")
+                .and_then(Value::as_object)
+                .is_some_and(|checks| {
+                    !checks.is_empty()
+                        && checks
+                            .values()
+                            .all(|check| check.get("unresolved").and_then(Value::as_u64) == Some(0))
+                }),
+        "tidas_semantic_coverage_incomplete: applicable Process checks require complete exact context"
+    );
+    Ok(())
+}
+
 #[derive(Debug)]
 pub struct TidasCommandOutput {
     pub report: Value,
