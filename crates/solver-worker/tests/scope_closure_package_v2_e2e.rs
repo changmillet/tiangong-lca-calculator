@@ -270,6 +270,7 @@ fn process_document(
         }),
         json!({
             "@dataSetInternalID": "2",
+            "allocations": {"allocation": {"@internalReferenceToCoProduct": "1", "@allocatedFraction": "100"}},
             "exchangeDirection": "Output",
             "meanAmount": amount.to_string(),
             "resultingAmount": amount.to_string(),

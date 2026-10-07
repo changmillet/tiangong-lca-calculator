@@ -20,8 +20,8 @@ checkPaths:
   - docs/scope-closure-contract.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: 2026-10-07
-lastReviewedCommit: e125472630f6b775d211ec58f1e35783974f3744
-lastReviewedNote: "Reviewed Worker #311 exact Product/Waste Input/Output target contract and v5 evidence admission against e125472; legacy allocation, signed linking, artifact history, lease and publication boundaries are preserved."
+lastReviewedCommit: 35821d17d20bee5bebaae3202fd42ac83c9fb54b
+lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. Hosted rollout remains separately gated."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -133,8 +133,10 @@ payload 必须仍携带有效 `job_id` compatibility UUID，因为 `lca_package_
 
 1. 下载上传 ZIP artifact；
 2. 解压到临时目录；
-3. 使用唯一 `TIDAS_BIN`（默认 `tidas`）执行 `version` 与 `validate --describe` 握手，要求精确匹配 `TIDAS_EXPECTED_VERSION`（active governed 默认 `0.3.2`）、公开 validation protocol/profile 和 asset fingerprint；
+3. 使用唯一 `TIDAS_BIN`（默认 `tidas`）执行 `version` 与 `validate --describe` 握手，要求精确匹配 `TIDAS_EXPECTED_VERSION`（active governed 默认 `0.3.4`）、公开 validation protocol/profile 和 asset fingerprint；
 4. 通过 `tidas validate <dir> --input-format tidas-json --issues <spool> --format json --progress never` 执行结构化校验；issue 必须写入临时文件型有界 spool，operation report 作为有界 JSON 捕获，Worker 对 report schema、完整性、asset fingerprint 以及 spool SHA-256/bytes/event count 全量复核；
+含 Process 的原始整包与 v2 materialized root group 都由同一 native directory validator 校验；目录内 exact Flow 文档作为语义上下文输入，不对 Process 调用缺少上下文的 single-document validator，也不隐式查询远端 Flow。Worker 按本次实际目录的 flat regular JSON 文件计数，复核 native Process category count 与 `semantic_coverage.process_count`，要求 profile `tidas.process-allocation-reference.v1`、`complete=true` 且所有 check 的 `unresolved=0`。报告省略 coverage、数量/profile 不一致或上下文未解析时，不允许写库；完整的 known-invalid 证据仍进入既有 issue/blocker 处理。v2 root group 数量不使用原 ZIP 全部 nodes 的数量；现有 Process modelling/compliance compatibility filter 不过滤 allocation 检查。没有 Process 的包保持现有流程。
+
 5. 若 `summary.error_count > 0`，直接产出 import report：
    - `code = VALIDATION_FAILED`
    - 不执行 conflict checks

@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-04
-lastReviewedCommit: 9ef53cd9c53df892b91abb857d3be09961c0e900
-lastReviewedNote: "Reviewed Worker #309 direct-membership follow-up against 9ef53cd9: CASE truth and exact summary outputs are preserved while uncorrelated protection sets permit hash aggregation. PostgreSQL fixtures now match observed query-relevant indexes, aggregate cardinalities and allowed session settings; destructive cleanup and consumer contracts remain unchanged."
+lastReviewedAt: 2026-10-07
+lastReviewedCommit: 35821d17d20bee5bebaae3202fd42ac83c9fb54b
+lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. Hosted rollout remains separately gated."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml

@@ -528,6 +528,7 @@ fn validate(
     let handshake = tidas_cli::handshake()?;
     let spool_dir = TempDir::new()?;
     let spool_path = spool_dir.path().join("issues.jsonl");
+    let process_count = super::package_process_document_count(root)?;
     let output = super::run_tidas_package_command(root, &spool_path)?;
     anyhow::ensure!(
         output.report.get("command").and_then(Value::as_str) == Some("validate")
@@ -542,6 +543,7 @@ fn validate(
         summary.get("asset_fingerprint") == handshake.validation_describe.get("asset_fingerprint"),
         "tidas_handshake_mismatch"
     );
+    super::admit_package_process_coverage(summary, process_count)?;
     let spool = summary
         .get("issue_spool")
         .ok_or_else(|| anyhow::anyhow!("tidas_report_invalid"))?;
@@ -1782,6 +1784,138 @@ mod tests {
             fs::read(destination.join(canonical_path(&nodes[0].identity))).unwrap()
         );
     }
+
+    #[test]
+    #[ignore = "requires the actual allocation-qualified published TIDAS_BIN"]
+    #[allow(clippy::too_many_lines)] // Keep exact package/group and failure probes in one native qualification matrix.
+    fn release_allocation_package_and_materialized_group_keep_exact_flow_context() {
+        for kind in ["Product flow", "Waste flow"] {
+            for direction in ["Input", "Output"] {
+                let temp = TempDir::new().unwrap();
+                let root = temp.path().join("input");
+                let (process, flow) = tidas_cli::allocation_release_fixture(kind, direction);
+                let process_id = Uuid::parse_str("55555555-5555-4555-8555-555555555555")
+                    .unwrap()
+                    .as_u128();
+                let flow_id = Uuid::parse_str("11111111-1111-4111-8111-111111111111")
+                    .unwrap()
+                    .as_u128();
+                fixture(
+                    &root,
+                    PackageRootTable::Processes,
+                    process_id,
+                    "01.00.000",
+                    process.clone(),
+                );
+                fixture(
+                    &root,
+                    PackageRootTable::Flows,
+                    flow_id,
+                    "01.00.000",
+                    flow.clone(),
+                );
+                let mut second = process.clone();
+                second["processDataSet"]["processInformation"]["dataSetInformation"]["common:UUID"] =
+                    json!(Uuid::from_u128(2));
+                fixture(&root, PackageRootTable::Processes, 2, "01.00.000", second);
+                let mut evidence = evidence(&temp);
+                let mut nodes = indexed(&temp, &mut evidence);
+                assert_eq!(nodes.len(), 3);
+                let legacy = super::super::run_tidas_validation(&root).unwrap();
+                assert_eq!(legacy.summary.error_count, 0, "{kind}/{direction}");
+                let report = validate(
+                    &root,
+                    "package",
+                    &mut nodes,
+                    &mut evidence,
+                    &CancellationToken::default(),
+                )
+                .unwrap();
+                assert_eq!(
+                    report["operation"]["summary"]["validation"]["semantic_coverage"]["process_count"],
+                    2
+                );
+                let flow_index = nodes
+                    .iter()
+                    .position(|node| node.identity.table == PackageRootTable::Flows)
+                    .unwrap();
+                let process_index = nodes
+                    .iter()
+                    .position(|node| node.identity.id.as_u128() == process_id)
+                    .unwrap();
+                nodes[process_index].edges = vec![flow_index];
+                let group = closure(&nodes, process_index);
+                let directory = TempDir::new().unwrap();
+                materialize(&nodes, &group, directory.path()).unwrap();
+                let report = validate(
+                    directory.path(),
+                    "root_closure",
+                    &mut nodes,
+                    &mut evidence,
+                    &CancellationToken::default(),
+                )
+                .unwrap();
+                assert_eq!(
+                    report["operation"]["summary"]["validation"]["semantic_coverage"]["process_count"],
+                    1
+                );
+                assert_eq!(evidence.errors, 0);
+                // A known-invalid schema or Elementary target is complete evidence;
+                // absence/inexact Flow context is incomplete and must not reach writes.
+                for mode in ["schema", "elementary", "missing", "wrong-version"] {
+                    let mut invalid_process = process.clone();
+                    let mut invalid_flow = flow.clone();
+                    if mode == "schema" {
+                        invalid_process["processDataSet"]["processInformation"]["dataSetInformation"]
+                            ["name"]["baseName"] = json!(1);
+                    } else if mode == "elementary" {
+                        invalid_flow["flowDataSet"]["modellingAndValidation"]["LCIMethod"]["typeOfDataSet"] =
+                            json!("Elementary flow");
+                    } else if mode == "wrong-version" {
+                        invalid_flow["flowDataSet"]["administrativeInformation"]["publicationAndOwnership"]
+                            ["common:dataSetVersion"] = json!("99.00.000");
+                    }
+                    fixture(
+                        directory.path(),
+                        PackageRootTable::Processes,
+                        process_id,
+                        "01.00.000",
+                        invalid_process,
+                    );
+                    let flow_path = directory
+                        .path()
+                        .join(canonical_path(&nodes[flow_index].identity));
+                    if mode == "missing" {
+                        fs::remove_file(&flow_path).unwrap();
+                    } else {
+                        serde_json::to_writer(File::create(&flow_path).unwrap(), &invalid_flow)
+                            .unwrap();
+                    }
+                    let old = super::super::run_tidas_validation(directory.path());
+                    let new = validate(
+                        directory.path(),
+                        mode,
+                        &mut nodes,
+                        &mut evidence,
+                        &CancellationToken::default(),
+                    );
+                    if matches!(mode, "missing" | "wrong-version") {
+                        assert!(old.is_err(), "{mode}");
+                        assert!(new.is_err(), "{mode}");
+                    } else {
+                        assert!(old.unwrap().summary.error_count > 0, "{mode}");
+                        let report = new.unwrap();
+                        assert_eq!(
+                            report["operation"]["summary"]["validation"]["semantic_coverage"]["complete"],
+                            true
+                        );
+                        assert!(nodes[process_index].blocked, "{mode}");
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     #[ignore = "requires the governed release TIDAS_BIN and bundled assets"]
     fn release_validator_matches_legacy_native_gate_and_issue_details() {

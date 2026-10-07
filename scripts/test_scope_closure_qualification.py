@@ -4,6 +4,7 @@ from copy import deepcopy
 import os
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 from unittest.mock import patch
 import zipfile
@@ -278,6 +279,49 @@ class QualificationTests(unittest.TestCase):
             with self.assertRaises(qualification.QualificationError) as captured:
                 qualification._validate_provider_environment()
         self.assertNotIn("lca.tiangong.earth", str(captured.exception))
+
+    def test_provider_harness_uses_canonical_owner_directories_and_exact_git_evidence(self) -> None:
+        # Git hooks export repository overrides; fixture Git must own only its temporary repos.
+        fixture_environment = {key: value for key, value in os.environ.items()
+                               if not key.startswith("GIT_")}
+        with patch.dict(os.environ, fixture_environment, clear=True), tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary).resolve()
+            worker = workspace / "worker"
+            worker.mkdir()
+            components = {}
+            for repo_name, component in (("database", "database"), ("edge-functions", "edge"), ("platform", "next")):
+                repo = workspace / repo_name
+                repo.mkdir()
+                harness = repo / "adapter.sh"
+                harness.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+                harness.chmod(0o700)
+                for args in (("init", "-q"), ("add", "adapter.sh"),
+                             ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                              "-c", "commit.gpgsign=false", "commit", "-qm", "fixture")):
+                    subprocess.run(("git", "-C", str(repo), *args), check=True, capture_output=True)
+                components[component] = qualification._git(repo, "rev-parse", "HEAD")
+            with patch.object(qualification, "_worker_root", return_value=worker):
+                for _owner, component, variable, repo_name in qualification.PROVIDER_ADAPTERS:
+                    with self.subTest(owner=_owner), patch.dict(os.environ, {variable: "adapter.sh"}):
+                        repo, harness = qualification._tracked_provider_harness(variable, repo_name, component, components)
+                        self.assertEqual(repo, workspace / repo_name)
+                        self.assertEqual(harness, repo / "adapter.sh")
+                        with self.assertRaisesRegex(qualification.QualificationError, "exact component SHA"):
+                            qualification._tracked_provider_harness(variable, repo_name, component, {component: SHA})
+                variable = "QUALIFICATION_DATABASE_HARNESS"
+                with patch.dict(os.environ, {variable: str(workspace / "platform" / "adapter.sh")}):
+                    with self.assertRaisesRegex(qualification.QualificationError, "inside its owner repo"):
+                        qualification._tracked_provider_harness(variable, "database", "database", components)
+                untracked = workspace / "database" / "untracked.sh"
+                untracked.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+                untracked.chmod(0o700)
+                with patch.dict(os.environ, {variable: "untracked.sh"}):
+                    with self.assertRaisesRegex(qualification.QualificationError, "git identity"):
+                        qualification._tracked_provider_harness(variable, "database", "database", components)
+                (workspace / "database").rename(workspace / "database-engine")
+                with patch.dict(os.environ, {variable: "adapter.sh"}):
+                    with self.assertRaisesRegex(qualification.QualificationError, "exact component SHA"):
+                        qualification._tracked_provider_harness(variable, "database", "database", components)
 
     def test_provider_child_environment_drops_unscoped_credentials(self) -> None:
         with patch.dict(

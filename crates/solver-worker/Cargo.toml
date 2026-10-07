@@ -36,5 +36,8 @@ zip.workspace = true
 zstd.workspace = true
 solver-core = { path = "../solver-core" }
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+
 [lints]
 workspace = true

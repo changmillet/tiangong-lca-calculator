@@ -27,7 +27,7 @@ EXTERNAL_SCHEMA = "lcia.scope-closure-external-result.v1"
 PROVIDER_SCHEMA = "lcia.scope-closure-provider-result.v1"
 PROVIDER_OWNER_SCHEMA = "lcia.scope-closure-provider-owned-result.v1"
 CAPACITY_SCHEMA = "lcia.scope-closure-capacity-result.v3"
-TIDAS_VERSION = "0.3.2"
+TIDAS_VERSION = "0.3.4"
 TIDAS_PROTOCOL = "document-validation-batch.v1"
 CACHE_MODES = ("cold", "warm", "mixed", "stale")
 SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -65,10 +65,10 @@ PROVIDER_REQUIRED_ENV = (
     "QUALIFICATION_S3_BUCKET",
 )
 PROVIDER_ADAPTERS = (
-    ("database", "database", "QUALIFICATION_DATABASE_HARNESS", "database-engine"),
-    ("storage", "database", "QUALIFICATION_STORAGE_HARNESS", "database-engine"),
-    ("edge", "edge", "QUALIFICATION_EDGE_HARNESS", "tiangong-lca-edge-functions"),
-    ("next", "next", "QUALIFICATION_NEXT_HARNESS", "tiangong-lca-next"),
+    ("database", "database", "QUALIFICATION_DATABASE_HARNESS", "database"),
+    ("storage", "database", "QUALIFICATION_STORAGE_HARNESS", "database"),
+    ("edge", "edge", "QUALIFICATION_EDGE_HARNESS", "edge-functions"),
+    ("next", "next", "QUALIFICATION_NEXT_HARNESS", "platform"),
 )
 PROVIDER_EVIDENCE_FIELDS = {
     "descriptors": {

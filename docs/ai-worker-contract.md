@@ -23,9 +23,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-architecture.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-09-20
-lastReviewedCommit: d65bcb2d05ac6fedb08637389e4f9db4148824b4
-lastReviewedNote: "Reviewed Worker #297: AI ruleset source remains the exact TIDAS CLI descriptor; only the qualified binary version advances to 0.3.2."
+lastReviewedAt: 2026-10-07
+lastReviewedCommit: d0e66891ffbc0387a97ee06e6129a7109cd34cd1
+lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. Hosted rollout remains separately gated."
 related:
   - AGENTS.md
   - .docpact/config.yaml

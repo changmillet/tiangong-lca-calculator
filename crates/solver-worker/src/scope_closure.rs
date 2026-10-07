@@ -7863,6 +7863,95 @@ async fn report_artifact_manifest_hash(pool: &PgPool, artifact_id: Uuid) -> anyh
     Ok(row.try_get("manifest_hash")?)
 }
 
+const PROCESS_SEMANTIC_PROFILE: &str = "tidas.process-allocation-reference.v1";
+const MAX_VALIDATION_CONTEXT_INPUT_BYTES: u64 = 64 * 1024 * 1024;
+
+/// A conservative dependency identity: every frozen Flow revision and its bytes.
+/// Changing even a cache-hit Flow invalidates Process validation evidence.
+fn flow_context_fingerprint(records: &[ClosureDocumentRecord]) -> anyhow::Result<String> {
+    let mut digest = Sha256::new();
+    digest.update(b"worker-exact-flow-context.v1\n");
+    for record in records
+        .iter()
+        .filter(|record| record.identity.category == DatasetCategory::Flows)
+    {
+        digest.update(canonical_json_bytes(&json!({
+            "identity": record.identity,
+            "canonicalContentHash": record.canonical_content_hash,
+        }))?);
+        digest.update(b"\n");
+    }
+    Ok(format!("{:x}", digest.finalize()))
+}
+
+fn validation_context_records(
+    source_path: &Path,
+    selected: &[ClosureDocumentRecord],
+    source_records: &[ClosureDocumentRecord],
+) -> anyhow::Result<Vec<ClosureDocumentRecord>> {
+    admit_validation_context_bytes(selected, scope_closure_memory_budget_bytes())?;
+    let mut records = selected.to_vec();
+    let mut identities = selected
+        .iter()
+        .map(|record| record.identity.clone())
+        .collect::<BTreeSet<_>>();
+    for record in selected
+        .iter()
+        .filter(|record| record.identity.category == DatasetCategory::Processes)
+    {
+        let loaded = ClosureDocumentSpool::load_batch(source_path, std::slice::from_ref(record))?;
+        let document = &loaded[0];
+        for edge in extract_scope_closure_references(
+            &record.identity.document_key(),
+            DatasetCategory::Processes,
+            &document.payload,
+        )
+        .edges
+        {
+            if edge.target_category != "flows" || edge.requested_version_state != "explicit" {
+                continue;
+            }
+            let (Ok(id), Some(version)) =
+                (Uuid::parse_str(&edge.target_uuid), edge.requested_version)
+            else {
+                continue;
+            };
+            let identity = ExactDatasetIdentity {
+                category: DatasetCategory::Flows,
+                id,
+                version,
+            };
+            // Spool records are ordered by exact identity at writer finalization.
+            if let Ok(index) =
+                source_records.binary_search_by(|record| record.identity.cmp(&identity))
+                && identities.insert(identity)
+            {
+                records.push(source_records[index].clone());
+                admit_validation_context_bytes(&records, scope_closure_memory_budget_bytes())?;
+            }
+        }
+    }
+    admit_validation_context_bytes(&records, scope_closure_memory_budget_bytes())?;
+    Ok(records)
+}
+
+fn admit_validation_context_bytes(
+    records: &[ClosureDocumentRecord],
+    budget_bytes: u64,
+) -> anyhow::Result<()> {
+    let bytes = records
+        .iter()
+        .try_fold(0_u64, |total, record| total.checked_add(record.byte_size))
+        .ok_or_else(|| anyhow::anyhow!("tidas_context_input_size_overflow"))?;
+    let limit = MAX_VALIDATION_CONTEXT_INPUT_BYTES.min(budget_bytes / 16);
+    if bytes > limit {
+        return Err(anyhow::anyhow!(
+            "tidas_context_input_budget_exceeded: bytes={bytes}, limit={limit}"
+        ));
+    }
+    Ok(())
+}
+
 #[allow(clippy::too_many_lines)]
 async fn run_tidas_batch_validation_cached(
     pool: &PgPool,
@@ -7871,9 +7960,11 @@ async fn run_tidas_batch_validation_cached(
 ) -> anyhow::Result<TidasBatchValidation> {
     let handshake = tokio::task::spawn_blocking(tidas_cli::handshake).await??;
     let describe = handshake.validation_describe;
+    let flow_context_sha256 = flow_context_fingerprint(documents.records())?;
     let mut aggregate = JsonlValueSpoolWriter::new("validation-issues-unsorted.jsonl")?;
     let mut cache_hit_count = 0_usize;
     let mut validated_count = 0_usize;
+    let mut native_validated_count = 0_usize;
 
     for document_chunk in documents
         .records()
@@ -7882,10 +7973,17 @@ async fn run_tidas_batch_validation_cached(
         enforce_scope_closure_memory_budget("validation_cache_lookup")?;
         let records_for_keys = document_chunk.to_vec();
         let describe_for_keys = describe.clone();
+        let flow_context_for_keys = flow_context_sha256.clone();
         let cache_keys = tokio::task::spawn_blocking(move || {
             records_for_keys
                 .iter()
-                .map(|record| document_validation_cache_key(record, &describe_for_keys))
+                .map(|record| {
+                    document_validation_cache_key(
+                        record,
+                        &describe_for_keys,
+                        &flow_context_for_keys,
+                    )
+                })
                 .collect::<anyhow::Result<Vec<_>>>()
         })
         .await??;
@@ -7928,7 +8026,15 @@ async fn run_tidas_batch_validation_cached(
 
         for validation_batch in missing.chunks(VALIDATION_EXECUTION_BATCH_SIZE) {
             enforce_scope_closure_memory_budget("tidas_validation_batch")?;
-            let owned_records = validation_batch.to_vec();
+            let owned_records =
+                validation_context_records(&documents.path, validation_batch, documents.records())?;
+            native_validated_count = native_validated_count
+                .checked_add(owned_records.len())
+                .ok_or_else(|| anyhow::anyhow!("tidas_native_validation_count_overflow"))?;
+            let selected_keys = validation_batch
+                .iter()
+                .map(|record| record.identity.document_key())
+                .collect::<BTreeSet<_>>();
             let document_spool_path = documents.path.clone();
             let describe_for_validation = describe.clone();
             let uncached = tokio::task::spawn_blocking(move || {
@@ -7946,6 +8052,12 @@ async fn run_tidas_batch_validation_cached(
                     .and_then(Value::as_str)
                     .ok_or_else(|| anyhow::anyhow!("TIDAS issue event omitted document_key"))?
                     .to_owned();
+                // Supplemental Flow documents were fully validated and counted by
+                // native TIDAS. Their evidence is replayed once by their own source
+                // document's cache path, rather than duplicated per Process batch.
+                if !selected_keys.contains(&document_key) {
+                    return Ok(());
+                }
                 aggregate.append(&event)?;
                 issues_by_document
                     .entry(document_key)
@@ -7960,8 +8072,12 @@ async fn run_tidas_batch_validation_cached(
                 let issues = issues_by_document
                     .remove(&record.identity.document_key())
                     .unwrap_or_default();
-                let record =
-                    build_document_validation_evidence(record, &describe, issues.as_slice())?;
+                let record = build_document_validation_evidence(
+                    record,
+                    &describe,
+                    &flow_context_sha256,
+                    issues.as_slice(),
+                )?;
                 let encoded_bytes = canonical_json_bytes(&record)?.len();
                 if !records.is_empty()
                     && record_bytes.saturating_add(encoded_bytes)
@@ -8012,6 +8128,14 @@ async fn run_tidas_batch_validation_cached(
             "issue_count": issue_events.event_count,
             "cache_hit_count": cache_hit_count,
             "validated_count": validated_count,
+            "native_validated_count": native_validated_count,
+            "supplemental_context_validated_count": native_validated_count - validated_count,
+            "worker_process_semantic_coverage": {
+                "profile": PROCESS_SEMANTIC_PROFILE,
+                "complete": true,
+                "process_count": documents.records().iter().filter(|record| record.identity.category == DatasetCategory::Processes).count(),
+                "exact_flow_context_sha256": flow_context_sha256,
+            },
         },
         "fingerprints": describe,
     });
@@ -8057,14 +8181,7 @@ fn run_tidas_batch_validation(
         "--progress",
         "never",
     ])?;
-    if output.report.get("command").and_then(Value::as_str) != Some("validate")
-        || output.report.get("status").and_then(Value::as_str) != Some("succeeded")
-        || output.report.get("completeness").and_then(Value::as_str) != Some("complete")
-    {
-        return Err(anyhow::anyhow!(
-            "tidas_report_invalid: document batch did not return a complete successful validate report"
-        ));
-    }
+    validate_tidas_batch_report(&output.report)?;
     let artifact = output
         .report
         .get("artifacts")
@@ -8114,6 +8231,7 @@ fn run_tidas_batch_validation(
             "TIDAS batch validator final event does not match the requested protocol/profile"
         ));
     }
+    validate_tidas_batch_fingerprints(&final_event, &describe)?;
     let issue_events = issue_events.finish()?;
     validate_tidas_final_event(
         &final_event,
@@ -8121,6 +8239,7 @@ fn run_tidas_batch_validation(
         issue_events.sha256.as_str(),
         documents.len(),
     )?;
+    validate_batch_document_semantics(&final_event, documents)?;
     Ok(TidasBatchValidation {
         describe,
         final_event,
@@ -8157,6 +8276,48 @@ fn spool_tidas_batch_documents(
     Ok((temp, input_dir, manifest_path))
 }
 
+fn validate_tidas_batch_report(report: &Value) -> anyhow::Result<()> {
+    if report.get("command").and_then(Value::as_str) != Some("validate")
+        || report.get("status").and_then(Value::as_str) != Some("succeeded")
+        || report.get("completeness").and_then(Value::as_str) != Some("complete")
+    {
+        return Err(anyhow::anyhow!(
+            "tidas_report_invalid: document batch did not return a complete successful validate report"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_batch_document_semantics(
+    final_event: &Value,
+    documents: &[ClosureDocument],
+) -> anyhow::Result<()> {
+    let process_count = documents
+        .iter()
+        .filter(|document| document.identity.category == DatasetCategory::Processes)
+        .count();
+    validate_process_semantic_coverage(final_event, process_count)
+}
+
+fn validate_tidas_batch_fingerprints(final_event: &Value, describe: &Value) -> anyhow::Result<()> {
+    if final_event.get("fingerprints") != Some(describe) {
+        return Err(anyhow::anyhow!(
+            "tidas_batch_fingerprint_mismatch: native batch differs from admitted handshake"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_process_semantic_coverage(
+    final_event: &Value,
+    process_count: usize,
+) -> anyhow::Result<()> {
+    tidas_cli::validate_process_semantic_coverage(
+        final_event.pointer("/summary/semantic_coverage"),
+        process_count,
+    )
+}
+
 fn validate_tidas_final_event(
     final_event: &Value,
     issue_event_count: u64,
@@ -8190,6 +8351,7 @@ fn validate_tidas_final_event(
 fn document_validation_cache_key(
     document: &ClosureDocumentRecord,
     describe: &Value,
+    flow_context_sha256: &str,
 ) -> anyhow::Result<Value> {
     let package_version = describe
         .pointer("/package/version")
@@ -8231,6 +8393,8 @@ fn document_validation_cache_key(
         "validatorEngineFingerprint": canonical_json_sha256(&json!({
             "engines": engines,
             "rulesetCatalog": ruleset_catalog,
+            "processSemanticProfile": if document.identity.category == DatasetCategory::Processes { Some(PROCESS_SEMANTIC_PROFILE) } else { None },
+            "exactFlowContextSha256": if document.identity.category == DatasetCategory::Processes { Some(flow_context_sha256) } else { None },
         }))?,
         // The v0.1 Rust CLI publishes one fingerprint over all bundled schemas,
         // indexes, methodologies, rulesets, XSD, and XSLT assets.
@@ -8241,9 +8405,10 @@ fn document_validation_cache_key(
 fn build_document_validation_evidence(
     document: &ClosureDocumentRecord,
     describe: &Value,
+    flow_context_sha256: &str,
     issues: &[Value],
 ) -> anyhow::Result<Value> {
-    let mut record = document_validation_cache_key(document, describe)?;
+    let mut record = document_validation_cache_key(document, describe, flow_context_sha256)?;
     let Value::Object(record) = &mut record else {
         unreachable!("cache key is an object")
     };
@@ -10616,6 +10781,173 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn validation_context_includes_cache_hit_exact_flow_and_excludes_other_revision() {
+        let flow = identity(
+            DatasetCategory::Flows,
+            "61616161-6161-4161-8161-616161616161",
+        );
+        let mut wrong = flow.clone();
+        wrong.version = "99.00.000".to_owned();
+        let process = identity(
+            DatasetCategory::Processes,
+            "62626262-6262-4262-8262-626262626262",
+        );
+        let mut writer = ClosureDocumentSpoolWriter::new().unwrap();
+        for document in [
+            ClosureDocument {
+                identity: process.clone(),
+                payload: json!({"processDataSet": {"exchanges": {"exchange": {"referenceToFlowDataSet": reference("flow", flow.id, Some(&flow.version))}}}}),
+            },
+            ClosureDocument {
+                identity: flow.clone(),
+                payload: json!({"flowDataSet": {"type": "Product flow"}}),
+            },
+            ClosureDocument {
+                identity: wrong,
+                payload: json!({"flowDataSet": {"type": "Elementary flow"}}),
+            },
+        ] {
+            writer.append(&document).unwrap();
+        }
+        let spool = writer.finish().unwrap();
+        let selected = spool
+            .records()
+            .iter()
+            .find(|record| record.identity == process)
+            .unwrap();
+        let batch = validation_context_records(
+            &spool.path,
+            std::slice::from_ref(selected),
+            spool.records(),
+        )
+        .unwrap();
+        assert_eq!(
+            batch.len(),
+            2,
+            "only the missing Process and its exact cache-hit Flow belong to the native manifest"
+        );
+        assert_eq!(batch[1].identity, flow);
+        let mut missing_exact = spool.records().to_vec();
+        missing_exact.retain(|record| record.identity != flow);
+        let incomplete =
+            validation_context_records(&spool.path, std::slice::from_ref(selected), &missing_exact)
+                .unwrap();
+        assert_eq!(
+            incomplete.len(),
+            1,
+            "another revision never supplies Flow context"
+        );
+    }
+
+    #[test]
+    fn validation_flow_context_hash_binds_identity_and_canonical_content() {
+        let identity = identity(
+            DatasetCategory::Flows,
+            "63636363-6363-4363-8363-636363636363",
+        );
+        let record = ClosureDocumentRecord {
+            identity,
+            canonical_content_hash: "a".repeat(64),
+            offset: 0,
+            byte_size: 1,
+        };
+        let baseline = flow_context_fingerprint(std::slice::from_ref(&record)).unwrap();
+        let mut changed = record.clone();
+        changed.canonical_content_hash = "b".repeat(64);
+        assert_ne!(
+            baseline,
+            flow_context_fingerprint(std::slice::from_ref(&changed)).unwrap()
+        );
+        changed = record;
+        changed.identity.version = "02.00.000".to_owned();
+        assert_ne!(
+            baseline,
+            flow_context_fingerprint(std::slice::from_ref(&changed)).unwrap()
+        );
+    }
+
+    #[test]
+    fn validation_context_admission_rejects_oversized_or_overflow_before_loading() {
+        let identity = identity(
+            DatasetCategory::Flows,
+            "64646464-6464-4464-8464-646464646464",
+        );
+        let mut record = ClosureDocumentRecord {
+            identity,
+            canonical_content_hash: "a".repeat(64),
+            offset: 0,
+            byte_size: MAX_VALIDATION_CONTEXT_INPUT_BYTES + 1,
+        };
+        assert!(admit_validation_context_bytes(std::slice::from_ref(&record), u64::MAX).is_err());
+        record.byte_size = 2;
+        assert!(admit_validation_context_bytes(std::slice::from_ref(&record), 16).is_err());
+        record.byte_size = u64::MAX;
+        assert!(admit_validation_context_bytes(&[record.clone(), record], u64::MAX).is_err());
+    }
+
+    #[test]
+    fn process_cache_key_binds_flow_context_without_relabeling_published_assets() {
+        let record = ClosureDocumentRecord {
+            identity: identity(
+                DatasetCategory::Processes,
+                "65656565-6565-4565-8565-656565656565",
+            ),
+            canonical_content_hash: "a".repeat(64),
+            offset: 0,
+            byte_size: 1,
+        };
+        let describe = json!({"package":{"version":"test"}, "engines":{}, "ruleset_catalog":{}, "asset_fingerprint":"published-assets", "report_schema_versions":["tidas.validation-report.v1"]});
+        let first = document_validation_cache_key(&record, &describe, "first").unwrap();
+        let second = document_validation_cache_key(&record, &describe, "second").unwrap();
+        assert_ne!(
+            document_evidence_key(&first),
+            document_evidence_key(&second)
+        );
+        assert_eq!(first["tidasSchemaLockSha256"], json!("published-assets"));
+        let mut flow = record;
+        flow.identity.category = DatasetCategory::Flows;
+        let second_flow = document_validation_cache_key(&flow, &describe, "second").unwrap();
+        assert_eq!(
+            second_flow,
+            document_validation_cache_key(&flow, &describe, "first").unwrap()
+        );
+    }
+
+    #[test]
+    fn batch_fingerprint_admission_requires_exact_native_handshake() {
+        let describe = json!({"asset_fingerprint":"published-assets"});
+        let final_event = json!({"fingerprints":{"asset_fingerprint":"published-assets"}});
+        validate_tidas_batch_fingerprints(&final_event, &describe).unwrap();
+        assert!(
+            validate_tidas_batch_fingerprints(
+                &json!({"fingerprints":{"asset_fingerprint":"other-assets"}}),
+                &describe
+            )
+            .is_err()
+        );
+        assert!(validate_tidas_batch_fingerprints(&json!({}), &describe).is_err());
+    }
+
+    #[test]
+    fn process_semantic_coverage_requires_exact_complete_profile_and_count() {
+        let good = json!({"summary": {"semantic_coverage": {"profile": PROCESS_SEMANTIC_PROFILE, "complete": true, "process_count": 2, "checks": {"allocation-target-type": {"unresolved": 0, "invalid": 1}}}}});
+        validate_process_semantic_coverage(&good, 2).unwrap(); // Known invalid is complete evidence.
+        assert!(validate_process_semantic_coverage(&good, 3).is_err());
+        assert!(validate_process_semantic_coverage(&json!({"summary": {}}), 1).is_err());
+        let mut incomplete = good.clone();
+        incomplete["summary"]["semantic_coverage"]["complete"] = json!(false);
+        assert!(validate_process_semantic_coverage(&incomplete, 2).is_err());
+        incomplete = good.clone();
+        incomplete["summary"]["semantic_coverage"]["checks"]["allocation-target-type"]["unresolved"] =
+            json!(1);
+        assert!(validate_process_semantic_coverage(&incomplete, 2).is_err());
+        incomplete = good;
+        incomplete["summary"]["semantic_coverage"]["profile"] = json!("older-profile");
+        assert!(validate_process_semantic_coverage(&incomplete, 2).is_err());
+        validate_process_semantic_coverage(&json!({}), 0).unwrap();
     }
 
     #[tokio::test]
@@ -13724,6 +14056,190 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires the actual allocation-qualified published TIDAS_BIN"]
+    fn release_process_context_survives_native_windows_and_cache_hit_flow() {
+        let describe = tidas_cli::handshake().unwrap().validation_describe;
+        for kind in ["Product flow", "Waste flow"] {
+            for direction in ["Input", "Output"] {
+                let (process, flow_payload) =
+                    tidas_cli::allocation_release_fixture(kind, direction);
+                let flow = identity(
+                    DatasetCategory::Flows,
+                    "11111111-1111-4111-8111-111111111111",
+                );
+                let mut writer = ClosureDocumentSpoolWriter::new().unwrap();
+                writer
+                    .append(&ClosureDocument {
+                        identity: flow.clone(),
+                        payload: flow_payload.clone(),
+                    })
+                    .unwrap();
+                for ordinal in 1..=70_u128 {
+                    let mut payload = process.clone();
+                    payload["processDataSet"]["processInformation"]["dataSetInformation"]["common:UUID"] =
+                        json!(Uuid::from_u128(ordinal));
+                    let mut process_identity = flow.clone();
+                    process_identity.category = DatasetCategory::Processes;
+                    process_identity.id = Uuid::from_u128(ordinal);
+                    writer
+                        .append(&ClosureDocument {
+                            identity: process_identity,
+                            payload,
+                        })
+                        .unwrap();
+                }
+                let spool = writer.finish().unwrap();
+                let processes = spool
+                    .records()
+                    .iter()
+                    .filter(|record| record.identity.category == DatasetCategory::Processes)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                let mut native_count = 0;
+                let mut selected_count = 0;
+                // The Flow is deliberately absent from missing-work windows, as
+                // after a verified cache hit. Every native window still includes it.
+                for selected in processes.chunks(VALIDATION_EXECUTION_BATCH_SIZE) {
+                    let records =
+                        validation_context_records(&spool.path, selected, spool.records()).unwrap();
+                    assert_eq!(records.len(), selected.len() + 1);
+                    let documents =
+                        ClosureDocumentSpool::load_batch(&spool.path, &records).unwrap();
+                    let validated =
+                        run_tidas_batch_validation(&documents, describe.clone()).unwrap();
+                    assert_eq!(validated.issue_events.event_count, 0, "{kind}/{direction}");
+                    assert_eq!(
+                        validated.final_event["summary"]["document_count"],
+                        records.len()
+                    );
+                    assert_eq!(
+                        validated.final_event["summary"]["semantic_coverage"]["process_count"],
+                        selected.len()
+                    );
+                    validate_tidas_batch_fingerprints(&validated.final_event, &describe).unwrap();
+                    native_count += records.len();
+                    selected_count += selected.len();
+                }
+                assert_eq!((selected_count, native_count), (70, 72));
+                let selected = std::slice::from_ref(&processes[0]);
+                let without_flow =
+                    validation_context_records(&spool.path, selected, &processes).unwrap();
+                let incomplete =
+                    ClosureDocumentSpool::load_batch(&spool.path, &without_flow).unwrap();
+                assert!(
+                    run_tidas_batch_validation(&incomplete, describe.clone()).is_err(),
+                    "missing exact context"
+                );
+                let records =
+                    validation_context_records(&spool.path, selected, spool.records()).unwrap();
+                let mut invalid = ClosureDocumentSpool::load_batch(&spool.path, &records).unwrap();
+                invalid[0].payload["processDataSet"]["processInformation"]["dataSetInformation"]
+                    ["name"]["baseName"] = json!(1);
+                let validated = run_tidas_batch_validation(&invalid, describe.clone()).unwrap();
+                assert!(validated.issue_events.event_count > 0);
+                assert_eq!(
+                    validated.final_event["summary"]["semantic_coverage"]["complete"], true,
+                    "known-invalid schema is complete evidence"
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "requires the actual allocation-qualified published TIDAS_BIN"]
+    fn release_allocation_coverage_preserves_applicability_and_compatibility() {
+        let describe = tidas_cli::handshake().unwrap().validation_describe;
+        for mode in [
+            "absent",
+            "scalar",
+            "legacy",
+            "legacy-percent",
+            "sparse-zero",
+            "malformed",
+        ] {
+            let (mut process, flow) =
+                tidas_cli::allocation_release_fixture("Product flow", "Output");
+            let exchanges = process["processDataSet"]["exchanges"]["exchange"]
+                .as_array_mut()
+                .unwrap();
+            match mode {
+                "absent" => {
+                    exchanges[1].as_object_mut().unwrap().remove("allocations");
+                }
+                "scalar" => exchanges[1]["allocations"] = json!({"allocation": {}}),
+                "legacy" | "legacy-percent" => {
+                    exchanges[1].as_object_mut().unwrap().remove("allocations");
+                    exchanges[0]["allocations"] = json!({"allocation":{
+                        "@allocatedFraction":if mode == "legacy-percent" { "100%" } else { "100" }
+                    }});
+                }
+                "sparse-zero" => {
+                    exchanges[1]["allocations"]["allocation"]["@internalReferenceToCoProduct"] =
+                        json!("1");
+                }
+                "malformed" => exchanges[1]["allocations"] = json!({"allocation": []}),
+                _ => unreachable!(),
+            }
+            let source_exchanges = process["processDataSet"]["exchanges"]["exchange"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .collect::<Vec<_>>();
+            let allocations = crate::tidas_process_semantics::resolve_tidas_process_allocations(
+                &source_exchanges,
+                "0",
+            );
+            if mode == "malformed" {
+                assert!(allocations.is_err());
+            } else {
+                let allocations = allocations.unwrap();
+                if mode == "sparse-zero" {
+                    assert_eq!(
+                        allocations.exchanges[1],
+                        crate::tidas_process_semantics::TidasAllocationResolution::SparseZero
+                    );
+                }
+            }
+            let validated = run_tidas_batch_validation(
+                &[
+                    ClosureDocument {
+                        identity: identity(
+                            DatasetCategory::Processes,
+                            "55555555-5555-4555-8555-555555555555",
+                        ),
+                        payload: process,
+                    },
+                    ClosureDocument {
+                        identity: identity(
+                            DatasetCategory::Flows,
+                            "11111111-1111-4111-8111-111111111111",
+                        ),
+                        payload: flow,
+                    },
+                ],
+                describe.clone(),
+            )
+            .unwrap();
+            let coverage = &validated.final_event["summary"]["semantic_coverage"];
+            assert_eq!(coverage["complete"], true, "{mode}");
+            assert_eq!(coverage["process_count"], 1);
+            if matches!(mode, "malformed" | "legacy-percent") {
+                // Legacy percent suffix is accepted semantically; the structural
+                // Perc schema still reports it as known-invalid domain evidence.
+                assert!(validated.issue_events.event_count > 0);
+            } else {
+                assert_eq!(validated.issue_events.event_count, 0, "{mode}");
+            }
+            if matches!(mode, "absent" | "scalar") {
+                assert_eq!(coverage["checks"]["allocation-vector"]["invalid"], 0);
+                let checks = coverage["checks"].as_object().unwrap();
+                assert!(!checks.contains_key("allocation-sum"));
+                assert!(!checks.contains_key("allocation-legacy"));
+            }
+        }
+    }
+
+    #[test]
     #[ignore = "requires a real Rust tidas binary selected by TIDAS_BIN"]
     fn release_tidas_non_empty_issue_stream_closes_raw_bytes() {
         let document = ClosureDocument {
@@ -13733,9 +14249,11 @@ mod tests {
             ),
             payload: json!({"sourceDataSet": {}}),
         };
-        let validation =
-            run_tidas_batch_validation(&[document], json!({"asset_fingerprint": "real-binary"}))
-                .expect("real TIDAS batch stream must satisfy the raw-byte hash contract");
+        let validation = run_tidas_batch_validation(
+            &[document],
+            tidas_cli::handshake().unwrap().validation_describe,
+        )
+        .expect("real TIDAS batch stream must satisfy the raw-byte hash contract");
         assert!(
             validation.issue_events.event_count > 0,
             "fixture must exercise a non-empty TIDAS issue stream"
@@ -15192,7 +15710,8 @@ mod tests {
             .unwrap();
     }
 
-    #[tokio::test]
+    // Virtual time preserves the four periodic renewals without host scheduler jitter.
+    #[tokio::test(start_paused = true)]
     async fn slow_artifact_operation_renews_lease_across_multiple_periods() {
         let heartbeats = Arc::new(AtomicUsize::new(0));
         let observed = Arc::clone(&heartbeats);

@@ -1509,7 +1509,7 @@ fn hmac_sha256_hex(key: &[u8], data: &str) -> anyhow::Result<String> {
 mod tests {
     use std::{
         io::{Read, Write},
-        net::TcpListener,
+        net::{TcpListener, TcpStream},
         sync::{
             Arc, Mutex,
             atomic::{AtomicBool, Ordering},
@@ -1640,6 +1640,50 @@ mod tests {
         thread: Option<thread::JoinHandle<()>>,
     }
 
+    fn read_download_request(stream: &mut TcpStream) -> std::io::Result<Option<String>> {
+        let mut request = Vec::new();
+        loop {
+            let mut chunk = [0_u8; 2048];
+            let read = match stream.read(&mut chunk) {
+                Ok(read) => read,
+                Err(error)
+                    if request.is_empty()
+                        && matches!(
+                            error.kind(),
+                            std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                        ) =>
+                {
+                    return Ok(None);
+                }
+                Err(error) => {
+                    return Err(std::io::Error::new(
+                        error.kind(),
+                        format!(
+                            "download request read failed after {} bytes: {error}",
+                            request.len()
+                        ),
+                    ));
+                }
+            };
+            if read == 0 {
+                return if request.is_empty() {
+                    Ok(None)
+                } else {
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::UnexpectedEof,
+                        format!("download request truncated after {} bytes", request.len()),
+                    ))
+                };
+            }
+            request.extend_from_slice(&chunk[..read]);
+            if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                return String::from_utf8(request)
+                    .map(Some)
+                    .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error));
+            }
+        }
+    }
+
     impl DownloadServer {
         fn new(handler: impl Fn(&str) -> String + Send + 'static) -> Self {
             let listener = TcpListener::bind("127.0.0.1:0").expect("bind download server");
@@ -1662,21 +1706,18 @@ mod tests {
                         Err(error) => panic!("accept download request: {error}"),
                     };
                     stream
+                        .set_nonblocking(false)
+                        .expect("blocking request stream");
+                    stream
                         .set_read_timeout(Some(Duration::from_secs(2)))
                         .expect("read timeout");
-                    let mut request = Vec::new();
-                    loop {
-                        let mut chunk = [0_u8; 2048];
-                        let read = stream.read(&mut chunk).expect("read download request");
-                        if read == 0 {
-                            break;
-                        }
-                        request.extend_from_slice(&chunk[..read]);
-                        if request.windows(4).any(|window| window == b"\r\n\r\n") {
-                            break;
-                        }
-                    }
-                    let request = String::from_utf8(request).expect("request text");
+                    let Some(request) =
+                        read_download_request(&mut stream).expect("read download request")
+                    else {
+                        // An idle/speculative connection contains no HTTP request.
+                        // Preserve partial-header and genuine I/O failures instead of ignoring them.
+                        continue;
+                    };
                     observed.lock().expect("request log").push(request.clone());
                     stream
                         .write_all(handler(&request).as_bytes())
@@ -1705,6 +1746,66 @@ mod tests {
                 .join()
                 .expect("server shutdown");
         }
+    }
+
+    #[test]
+    fn download_mock_ignores_idle_connection_and_serves_the_real_request() {
+        let server = DownloadServer::new(|_| download_response(200, "real-response"));
+        let address = server.endpoint.strip_prefix("http://").unwrap();
+        let _idle = TcpStream::connect(address).unwrap();
+        let mut client = TcpStream::connect(address).unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        client
+            .write_all(b"GET /actual HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            .unwrap();
+        let mut response = String::new();
+        client.read_to_string(&mut response).unwrap();
+        assert!(response.ends_with("real-response"));
+        let requests = server.requests();
+        assert_eq!(requests.len(), 1);
+        assert!(requests[0].starts_with("GET /actual HTTP/1.1"));
+    }
+
+    #[test]
+    fn download_mock_preserves_partial_request_timeout_as_an_error() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let (written, ready) = std::sync::mpsc::channel();
+        let thread = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            ready.recv().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_millis(50)))
+                .unwrap();
+            read_download_request(&mut stream).unwrap_err()
+        });
+        let mut client = TcpStream::connect(address).unwrap();
+        client.write_all(b"GET /partial").unwrap();
+        written.send(()).unwrap();
+        let error = thread.join().unwrap();
+        assert!(matches!(
+            error.kind(),
+            std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+        ));
+        assert!(error.to_string().contains("after 12 bytes"));
+    }
+
+    #[test]
+    fn download_mock_preserves_partial_request_eof_as_an_error() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let thread = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            read_download_request(&mut stream).unwrap_err()
+        });
+        let mut client = TcpStream::connect(address).unwrap();
+        client.write_all(b"GET /partial").unwrap();
+        client.shutdown(std::net::Shutdown::Write).unwrap();
+        let error = thread.join().unwrap();
+        assert_eq!(error.kind(), std::io::ErrorKind::UnexpectedEof);
+        assert!(error.to_string().contains("after 12 bytes"));
     }
 
     fn download_response(status: u16, body: &str) -> String {
