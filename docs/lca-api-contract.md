@@ -26,7 +26,7 @@ checkPaths:
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: 2026-10-07
-lastReviewedCommit: d0e66891ffbc0387a97ee06e6129a7109cd34cd1
+lastReviewedCommit: 35821d17d20bee5bebaae3202fd42ac83c9fb54b
 lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. Hosted rollout remains separately gated."
 related:
   - AGENTS.md

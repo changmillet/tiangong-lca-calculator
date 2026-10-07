@@ -65,10 +65,10 @@ PROVIDER_REQUIRED_ENV = (
     "QUALIFICATION_S3_BUCKET",
 )
 PROVIDER_ADAPTERS = (
-    ("database", "database", "QUALIFICATION_DATABASE_HARNESS", "database-engine"),
-    ("storage", "database", "QUALIFICATION_STORAGE_HARNESS", "database-engine"),
-    ("edge", "edge", "QUALIFICATION_EDGE_HARNESS", "tiangong-lca-edge-functions"),
-    ("next", "next", "QUALIFICATION_NEXT_HARNESS", "tiangong-lca-next"),
+    ("database", "database", "QUALIFICATION_DATABASE_HARNESS", "database"),
+    ("storage", "database", "QUALIFICATION_STORAGE_HARNESS", "database"),
+    ("edge", "edge", "QUALIFICATION_EDGE_HARNESS", "edge-functions"),
+    ("next", "next", "QUALIFICATION_NEXT_HARNESS", "platform"),
 )
 PROVIDER_EVIDENCE_FIELDS = {
     "descriptors": {

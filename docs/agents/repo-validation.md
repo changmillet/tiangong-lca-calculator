@@ -42,7 +42,7 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-07
-lastReviewedCommit: d0e66891ffbc0387a97ee06e6129a7109cd34cd1
+lastReviewedCommit: 35821d17d20bee5bebaae3202fd42ac83c9fb54b
 lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. Hosted rollout remains separately gated."
 related:
   - ../../AGENTS.md
@@ -147,7 +147,11 @@ results plus `external-result.json`. The provider executable requires isolated
 loopback Database/Supabase/S3 targets and four git-tracked owning-repository
 adapters selected by `QUALIFICATION_DATABASE_HARNESS`,
 `QUALIFICATION_STORAGE_HARNESS`, `QUALIFICATION_EDGE_HARNESS`, and
-`QUALIFICATION_NEXT_HARNESS`. A missing owner adapter or non-production
+`QUALIFICATION_NEXT_HARNESS`. Owner checkouts use canonical sibling directories
+`database`, `edge-functions`, and `platform`; the retained `next` evidence component
+key does not rename the physical Platform repository. Exact component HEAD, tracked
+executable and inside-owner checks remain mandatory; legacy folder aliases are not
+a substitute. A missing owner adapter or non-production
 credential is an external blocker, never a skipped or synthetic pass.
 
 `make qualification-test` covers missing child fields, wrong exact SHAs, wrong
