@@ -281,7 +281,10 @@ class QualificationTests(unittest.TestCase):
         self.assertNotIn("lca.tiangong.earth", str(captured.exception))
 
     def test_provider_harness_uses_canonical_owner_directories_and_exact_git_evidence(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
+        # Git hooks export repository overrides; fixture Git must own only its temporary repos.
+        fixture_environment = {key: value for key, value in os.environ.items()
+                               if not key.startswith("GIT_")}
+        with patch.dict(os.environ, fixture_environment, clear=True), tempfile.TemporaryDirectory() as temporary:
             workspace = Path(temporary).resolve()
             worker = workspace / "worker"
             worker.mkdir()
