@@ -180,13 +180,13 @@ mod tests {
     use crate::ai::tidas_suggestion::TidasDatasetType;
 
     #[test]
-    #[ignore = "requires the published Toolkit 0.3.2 binary selected by TIDAS_BIN"]
+    #[ignore = "requires the published Toolkit 0.3.4 binary selected by TIDAS_BIN"]
     fn published_release_loads_both_ai_rulesets_from_one_catalog() {
         let catalog = AiRulesets::load_from_tidas().expect("published ruleset handshake");
         let process = catalog.for_type(TidasDatasetType::Process).unwrap();
         let flow = catalog.for_type(TidasDatasetType::Flow).unwrap();
-        assert_eq!(process.tidas_version, "0.3.2");
-        assert_eq!(flow.tidas_version, "0.3.2");
+        assert_eq!(process.tidas_version, "0.3.4");
+        assert_eq!(flow.tidas_version, "0.3.4");
         assert_eq!(process.catalog_sha256, flow.catalog_sha256);
         assert_eq!(process.ruleset_version, flow.ruleset_version);
         assert_eq!(process.rules.len(), 5);
@@ -227,7 +227,7 @@ mod tests {
             &report,
             "process-authoring/strict",
             TidasDatasetType::Process,
-            "0.3.2",
+            "0.3.4",
         )
         .unwrap();
         assert_eq!(parsed.ruleset_version, "2026.05.23");
@@ -269,7 +269,7 @@ mod tests {
                 &report,
                 "process-authoring/strict",
                 TidasDatasetType::Process,
-                "0.3.2",
+                "0.3.4",
             )
             .is_err()
         );

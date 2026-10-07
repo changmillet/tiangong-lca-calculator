@@ -24,8 +24,8 @@ checkPaths:
   - docs/agents/repo-architecture.md
   - docs/agents/repo-validation.md
 lastReviewedAt: 2026-10-07
-lastReviewedCommit: b2f8e64e372c6e8f90a8b0d8da377c1aee7f386c
-lastReviewedNote: "Reviewed Worker #313 shared native consumers: package v1/v2 require exact complete Process semantic coverage for the actual package or materialized root-group directory, preserving full exact Flow context and existing issue policy. Scope Closure uses the same admission contract; actual new native release pin and runtime qualification remain pending."
+lastReviewedCommit: d0e66891ffbc0387a97ee06e6129a7109cd34cd1
+lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. Hosted rollout remains separately gated."
 related:
   - AGENTS.md
   - .docpact/config.yaml

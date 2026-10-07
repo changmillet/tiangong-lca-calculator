@@ -32,8 +32,8 @@ checkPaths:
   - scripts/run_scope_closure_external_qualification.sh
   - scripts/run_scope_closure_provider_qualification.sh
 lastReviewedAt: 2026-10-07
-lastReviewedCommit: b2f8e64e372c6e8f90a8b0d8da377c1aee7f386c
-lastReviewedNote: "Reviewed Worker #313 shared complete Process semantic coverage admission used by Scope Closure and package imports. Exact frozen context, cache binding, full native fingerprints and historical semantics remain unchanged; actual native adoption and runtime qualification remain pending."
+lastReviewedCommit: d0e66891ffbc0387a97ee06e6129a7109cd34cd1
+lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. Hosted rollout remains separately gated."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -123,7 +123,7 @@ does not change generic TIDAS reference extraction or document validation.
 
 Document validation uses only the published unified Rust `tidas` CLI selected by `TIDAS_BIN` (default `tidas`). No Python entrypoint, legacy binary name, or ordered command-candidate fallback is permitted:
 
-1. `version --format json --progress never` must equal `TIDAS_EXPECTED_VERSION` (active governed default `0.3.2`).
+1. `version --format json --progress never` must equal `TIDAS_EXPECTED_VERSION` (active governed default `0.3.4`).
 2. `validate --describe --format json --progress never` must advertise `document-validation-batch.v1`, `tidas-document-conformance.v1`, the validation report schema, and an immutable asset fingerprint.
 3. Uncached documents and their exact frozen Flow context are spooled as canonical JSON plus an exact JSONL input manifest. The native final document count includes supplemental context records. Exact UUID/version lookup never falls back to a latest or other revision.
 4. The Worker invokes profile `tidas-document-conformance.v1` with bounded memory/queue configuration inherited by the binary.
@@ -142,7 +142,7 @@ Local capacity qualification has two non-interchangeable modes. `real-payload` b
 
 The git-tracked external qualification entrypoint is
 `scripts/run_scope_closure_external_qualification.sh --fixture <zip> --output <dir>`.
-It runs only on Linux, requires an exact executable `TIDAS_BIN=0.3.2`, streams a
+It runs only on Linux, requires an exact executable `TIDAS_BIN=0.3.4`, streams a
 bounded safe extraction without logging payloads, validates the native TIDAS
 protocol and spool identity, and runs the same real package/spool through exact
 `cold`, `warm`, `mixed`, and `stale` capacity modes. The four logical and artifact

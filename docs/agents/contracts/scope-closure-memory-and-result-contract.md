@@ -28,8 +28,8 @@ checkPaths:
   - docs/agents/contracts/scope-closure-provider-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-owned-result.v1.schema.json
 lastReviewedAt: 2026-10-07
-lastReviewedCommit: b2f8e64e372c6e8f90a8b0d8da377c1aee7f386c
-lastReviewedNote: "Reviewed Worker #313 shared complete Process semantic coverage admission used by Scope Closure and package imports. Exact frozen context, cache binding, full native fingerprints and historical semantics remain unchanged; actual native adoption and runtime qualification remain pending."
+lastReviewedCommit: d0e66891ffbc0387a97ee06e6129a7109cd34cd1
+lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. Hosted rollout remains separately gated."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml

@@ -14056,6 +14056,190 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires the actual allocation-qualified published TIDAS_BIN"]
+    fn release_process_context_survives_native_windows_and_cache_hit_flow() {
+        let describe = tidas_cli::handshake().unwrap().validation_describe;
+        for kind in ["Product flow", "Waste flow"] {
+            for direction in ["Input", "Output"] {
+                let (process, flow_payload) =
+                    tidas_cli::allocation_release_fixture(kind, direction);
+                let flow = identity(
+                    DatasetCategory::Flows,
+                    "11111111-1111-4111-8111-111111111111",
+                );
+                let mut writer = ClosureDocumentSpoolWriter::new().unwrap();
+                writer
+                    .append(&ClosureDocument {
+                        identity: flow.clone(),
+                        payload: flow_payload.clone(),
+                    })
+                    .unwrap();
+                for ordinal in 1..=70_u128 {
+                    let mut payload = process.clone();
+                    payload["processDataSet"]["processInformation"]["dataSetInformation"]["common:UUID"] =
+                        json!(Uuid::from_u128(ordinal));
+                    let mut process_identity = flow.clone();
+                    process_identity.category = DatasetCategory::Processes;
+                    process_identity.id = Uuid::from_u128(ordinal);
+                    writer
+                        .append(&ClosureDocument {
+                            identity: process_identity,
+                            payload,
+                        })
+                        .unwrap();
+                }
+                let spool = writer.finish().unwrap();
+                let processes = spool
+                    .records()
+                    .iter()
+                    .filter(|record| record.identity.category == DatasetCategory::Processes)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                let mut native_count = 0;
+                let mut selected_count = 0;
+                // The Flow is deliberately absent from missing-work windows, as
+                // after a verified cache hit. Every native window still includes it.
+                for selected in processes.chunks(VALIDATION_EXECUTION_BATCH_SIZE) {
+                    let records =
+                        validation_context_records(&spool.path, selected, spool.records()).unwrap();
+                    assert_eq!(records.len(), selected.len() + 1);
+                    let documents =
+                        ClosureDocumentSpool::load_batch(&spool.path, &records).unwrap();
+                    let validated =
+                        run_tidas_batch_validation(&documents, describe.clone()).unwrap();
+                    assert_eq!(validated.issue_events.event_count, 0, "{kind}/{direction}");
+                    assert_eq!(
+                        validated.final_event["summary"]["document_count"],
+                        records.len()
+                    );
+                    assert_eq!(
+                        validated.final_event["summary"]["semantic_coverage"]["process_count"],
+                        selected.len()
+                    );
+                    validate_tidas_batch_fingerprints(&validated.final_event, &describe).unwrap();
+                    native_count += records.len();
+                    selected_count += selected.len();
+                }
+                assert_eq!((selected_count, native_count), (70, 72));
+                let selected = std::slice::from_ref(&processes[0]);
+                let without_flow =
+                    validation_context_records(&spool.path, selected, &processes).unwrap();
+                let incomplete =
+                    ClosureDocumentSpool::load_batch(&spool.path, &without_flow).unwrap();
+                assert!(
+                    run_tidas_batch_validation(&incomplete, describe.clone()).is_err(),
+                    "missing exact context"
+                );
+                let records =
+                    validation_context_records(&spool.path, selected, spool.records()).unwrap();
+                let mut invalid = ClosureDocumentSpool::load_batch(&spool.path, &records).unwrap();
+                invalid[0].payload["processDataSet"]["processInformation"]["dataSetInformation"]
+                    ["name"]["baseName"] = json!(1);
+                let validated = run_tidas_batch_validation(&invalid, describe.clone()).unwrap();
+                assert!(validated.issue_events.event_count > 0);
+                assert_eq!(
+                    validated.final_event["summary"]["semantic_coverage"]["complete"], true,
+                    "known-invalid schema is complete evidence"
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "requires the actual allocation-qualified published TIDAS_BIN"]
+    fn release_allocation_coverage_preserves_applicability_and_compatibility() {
+        let describe = tidas_cli::handshake().unwrap().validation_describe;
+        for mode in [
+            "absent",
+            "scalar",
+            "legacy",
+            "legacy-percent",
+            "sparse-zero",
+            "malformed",
+        ] {
+            let (mut process, flow) =
+                tidas_cli::allocation_release_fixture("Product flow", "Output");
+            let exchanges = process["processDataSet"]["exchanges"]["exchange"]
+                .as_array_mut()
+                .unwrap();
+            match mode {
+                "absent" => {
+                    exchanges[1].as_object_mut().unwrap().remove("allocations");
+                }
+                "scalar" => exchanges[1]["allocations"] = json!({"allocation": {}}),
+                "legacy" | "legacy-percent" => {
+                    exchanges[1].as_object_mut().unwrap().remove("allocations");
+                    exchanges[0]["allocations"] = json!({"allocation":{
+                        "@allocatedFraction":if mode == "legacy-percent" { "100%" } else { "100" }
+                    }});
+                }
+                "sparse-zero" => {
+                    exchanges[1]["allocations"]["allocation"]["@internalReferenceToCoProduct"] =
+                        json!("1");
+                }
+                "malformed" => exchanges[1]["allocations"] = json!({"allocation": []}),
+                _ => unreachable!(),
+            }
+            let source_exchanges = process["processDataSet"]["exchanges"]["exchange"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .collect::<Vec<_>>();
+            let allocations = crate::tidas_process_semantics::resolve_tidas_process_allocations(
+                &source_exchanges,
+                "0",
+            );
+            if mode == "malformed" {
+                assert!(allocations.is_err());
+            } else {
+                let allocations = allocations.unwrap();
+                if mode == "sparse-zero" {
+                    assert_eq!(
+                        allocations.exchanges[1],
+                        crate::tidas_process_semantics::TidasAllocationResolution::SparseZero
+                    );
+                }
+            }
+            let validated = run_tidas_batch_validation(
+                &[
+                    ClosureDocument {
+                        identity: identity(
+                            DatasetCategory::Processes,
+                            "55555555-5555-4555-8555-555555555555",
+                        ),
+                        payload: process,
+                    },
+                    ClosureDocument {
+                        identity: identity(
+                            DatasetCategory::Flows,
+                            "11111111-1111-4111-8111-111111111111",
+                        ),
+                        payload: flow,
+                    },
+                ],
+                describe.clone(),
+            )
+            .unwrap();
+            let coverage = &validated.final_event["summary"]["semantic_coverage"];
+            assert_eq!(coverage["complete"], true, "{mode}");
+            assert_eq!(coverage["process_count"], 1);
+            if matches!(mode, "malformed" | "legacy-percent") {
+                // Legacy percent suffix is accepted semantically; the structural
+                // Perc schema still reports it as known-invalid domain evidence.
+                assert!(validated.issue_events.event_count > 0);
+            } else {
+                assert_eq!(validated.issue_events.event_count, 0, "{mode}");
+            }
+            if matches!(mode, "absent" | "scalar") {
+                assert_eq!(coverage["checks"]["allocation-vector"]["invalid"], 0);
+                let checks = coverage["checks"].as_object().unwrap();
+                assert!(!checks.contains_key("allocation-sum"));
+                assert!(!checks.contains_key("allocation-legacy"));
+            }
+        }
+    }
+
+    #[test]
     #[ignore = "requires a real Rust tidas binary selected by TIDAS_BIN"]
     fn release_tidas_non_empty_issue_stream_closes_raw_bytes() {
         let document = ClosureDocument {

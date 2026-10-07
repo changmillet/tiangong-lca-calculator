@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 pub const TIDAS_OPERATION_REPORT_SCHEMA: &str = "tidas.operation-report.v1";
 pub const TIDAS_BATCH_PROTOCOL: &str = "document-validation-batch.v1";
 pub const TIDAS_BATCH_PROFILE: &str = "tidas-document-conformance.v1";
-pub const DEFAULT_TIDAS_VERSION: &str = "0.3.2";
+pub const DEFAULT_TIDAS_VERSION: &str = "0.3.4";
 const DEFAULT_TIDAS_TIMEOUT_SECONDS: u64 = 1_800;
 const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -48,6 +48,55 @@ pub(crate) fn validate_process_semantic_coverage(
         "tidas_semantic_coverage_incomplete: applicable Process checks require complete exact context"
     );
     Ok(())
+}
+
+#[cfg(test)]
+pub(crate) fn allocation_release_fixture(kind: &str, direction: &str) -> (Value, Value) {
+    use serde_json::json;
+    let mut process: Value = serde_json::from_str(include_str!(
+        "../tests/fixtures/scope_closure_package_v2_e2e/process-template.json"
+    ))
+    .unwrap();
+    let mut flow: Value = serde_json::from_str(include_str!(
+        "../tests/fixtures/scope_closure_package_v2_e2e/flow-template.json"
+    ))
+    .unwrap();
+    let process_id = "55555555-5555-4555-8555-555555555555";
+    let flow_id = "11111111-1111-4111-8111-111111111111";
+    let version = "01.00.000";
+    let data = &mut process["processDataSet"];
+    data["processInformation"]["dataSetInformation"]["common:UUID"] = json!(process_id);
+    data["administrativeInformation"]["publicationAndOwnership"]["common:dataSetVersion"] =
+        json!(version);
+    let modelling = &mut data["modellingAndValidation"];
+    modelling["dataSourcesTreatmentAndRepresentativeness"]["annualSupplyOrProductionVolume"] =
+        json!({"@xml:lang":"en","#text":"100 kg/year"});
+    modelling["validation"] = json!({"review":{"@type":"Not reviewed"}});
+    modelling["complianceDeclarations"] = json!({"compliance":{
+        "common:referenceToComplianceSystem":{"@type":"source data set","@refObjectId":"33333333-3333-4333-8333-333333333333","@version":version,"@uri":"../sources/33333333-3333-4333-8333-333333333333.xml","common:shortDescription":{"@xml:lang":"en","#text":"Synthetic source"}},
+        "common:approvalOfOverallCompliance":"Not defined", "common:nomenclatureCompliance":"Not defined",
+        "common:methodologicalCompliance":"Not defined", "common:reviewCompliance":"Not defined",
+        "common:documentationCompliance":"Not defined", "common:qualityCompliance":"Not defined"}});
+    let mut row = data["exchanges"]["exchange"][0].clone();
+    row["exchangeDirection"] = json!(direction);
+    row["referenceToFlowDataSet"]["@refObjectId"] = json!(flow_id);
+    row["referenceToFlowDataSet"]["@version"] = json!(version);
+    let mut residual = row.clone();
+    residual["@dataSetInternalID"] = json!("1");
+    residual["exchangeDirection"] = json!("Output");
+    residual["allocations"] =
+        json!({"allocation":{"@internalReferenceToCoProduct":"0","@allocatedFraction":"100"}});
+    data["exchanges"]["exchange"] = json!([row, residual]);
+    let data = &mut flow["flowDataSet"];
+    data["flowInformation"]["dataSetInformation"]["common:UUID"] = json!(flow_id);
+    data["administrativeInformation"]["publicationAndOwnership"]["common:dataSetVersion"] =
+        json!(version);
+    data["modellingAndValidation"]["LCIMethod"]["typeOfDataSet"] = json!(kind);
+    data["flowProperties"]["flowProperty"]["referenceToFlowPropertyDataSet"]["@refObjectId"] =
+        json!("22222222-2222-4222-8222-222222222222");
+    data["flowProperties"]["flowProperty"]["referenceToFlowPropertyDataSet"]["@version"] =
+        json!(version);
+    (process, flow)
 }
 
 #[derive(Debug)]
@@ -526,7 +575,7 @@ mod tests {
 
     #[test]
     fn governed_release_version_is_the_runtime_default() {
-        assert_eq!(DEFAULT_TIDAS_VERSION, "0.3.2");
+        assert_eq!(DEFAULT_TIDAS_VERSION, "0.3.4");
         if std::env::var_os("TIDAS_EXPECTED_VERSION").is_none() {
             assert_eq!(expected_version(), DEFAULT_TIDAS_VERSION);
         }
@@ -547,9 +596,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "requires a prior release binary selected by TIDAS_BIN and expected 0.3.2"]
+    #[ignore = "requires a prior release binary selected by TIDAS_BIN and expected 0.3.4"]
     fn previous_release_binary_is_rejected_by_exact_version_handshake() {
-        let error = handshake().expect_err("prior release must not pass 0.3.2 handshake");
+        let error = handshake().expect_err("prior release must not pass 0.3.4 handshake");
         assert!(error.to_string().contains("tidas_version_mismatch"));
     }
 
