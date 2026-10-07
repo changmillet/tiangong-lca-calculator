@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-08
-lastReviewedCommit: 0fb1768e05137d6401fc046bfd3719c8963950b0
-lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. The qualification-driven heartbeat regression uses dev-only paused virtual time without changing production lease policy; new component receipts remain required. Hosted rollout remains separately gated."
+lastReviewedCommit: 312280cf40cd53607a76de819b58e37e8d203934
+lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. The qualification-driven heartbeat regression uses dev-only paused virtual time without changing production lease policy; the test-only download mock preserves empty-versus-partial request failures and accepted-socket blocking behavior; new component/capacity receipts remain required. Hosted rollout remains separately gated."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -406,3 +406,5 @@ DB/Storage harness additionally proves normal and Review-overlay certificate, ca
 snapshot and BuildV2 numerical behavior with an explicit full residual allocation.
 These synthetic qualification receipts do not imply a hosted deployment or an
 original business Closure/calculation submission.
+
+The local DownloadServer test fixture ignores only a connection that closes or reaches its unchanged read timeout before any request byte. A partial header timeout/EOF, invalid UTF-8 or actual response write failure remains an error. Regression coverage keeps an idle connection ahead of a real HTTP request and verifies synchronized partial-header timeouts and EOF retain the observed byte count; production transfer deadlines and network behavior are unchanged.
