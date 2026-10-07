@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-07
-lastReviewedCommit: 35821d17d20bee5bebaae3202fd42ac83c9fb54b
-lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. Hosted rollout remains separately gated."
+lastReviewedAt: 2026-10-08
+lastReviewedCommit: 0fb1768e05137d6401fc046bfd3719c8963950b0
+lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. The qualification-driven heartbeat regression uses dev-only paused virtual time without changing production lease policy; new component receipts remain required. Hosted rollout remains separately gated."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -57,6 +57,8 @@ related:
   - ./contracts/scope-closure-memory-and-result-contract.md
   - ./contracts/portal-lcia-projection-contract.md
 ---
+
+The periodic lease heartbeat timing test uses Tokio 1.50.0 paused virtual time through the dev-only `test-util` feature. The initial heartbeat and four periodic renewals remain required; production timers and missed-tick behavior are unchanged. This isolates the assertion from host scheduling while retaining cancellation tests.
 
 ## Default Baseline
 

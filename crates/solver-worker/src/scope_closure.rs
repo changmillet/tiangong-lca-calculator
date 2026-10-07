@@ -15710,7 +15710,8 @@ mod tests {
             .unwrap();
     }
 
-    #[tokio::test]
+    // Virtual time preserves the four periodic renewals without host scheduler jitter.
+    #[tokio::test(start_paused = true)]
     async fn slow_artifact_operation_renews_lease_across_multiple_periods() {
         let heartbeats = Arc::new(AtomicUsize::new(0));
         let observed = Arc::clone(&heartbeats);
