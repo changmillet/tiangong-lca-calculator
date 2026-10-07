@@ -28,8 +28,8 @@ checkPaths:
   - docs/agents/contracts/scope-closure-provider-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-owned-result.v1.schema.json
 lastReviewedAt: 2026-10-07
-lastReviewedCommit: e125472630f6b775d211ec58f1e35783974f3744
-lastReviewedNote: "Reviewed Worker #311 exact Product/Waste Input/Output target contract and v5 evidence admission against e125472; legacy allocation, signed linking, artifact history, lease and publication boundaries are preserved."
+lastReviewedCommit: 8c98b824f4118c5d2c3a7caeb4eac2f984871450
+lastReviewedNote: "Reviewed Worker #313 exact frozen Flow context, dependency-bound Process validation cache, full native manifest/fingerprint admission and complete semantic coverage. Native release pin and deployed qualification remain tracked pending; numerical, lease, artifact and historical allocation boundaries are preserved."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml

@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-04
-lastReviewedCommit: 9ef53cd9c53df892b91abb857d3be09961c0e900
-lastReviewedNote: "Reviewed Worker #309 direct-membership follow-up against 9ef53cd9: CASE truth and exact summary outputs are preserved while uncorrelated protection sets permit hash aggregation. PostgreSQL fixtures now match observed query-relevant indexes, aggregate cardinalities and allowed session settings; destructive cleanup and consumer contracts remain unchanged."
+lastReviewedAt: 2026-10-07
+lastReviewedCommit: 8c98b824f4118c5d2c3a7caeb4eac2f984871450
+lastReviewedNote: "Reviewed Worker #313 exact frozen Flow context, dependency-bound Process validation cache, full native manifest/fingerprint admission and complete semantic coverage. Native release pin and deployed qualification remain tracked pending; numerical, lease, artifact and historical allocation boundaries are preserved."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
