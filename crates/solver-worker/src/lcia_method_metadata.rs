@@ -74,6 +74,7 @@ pub(crate) fn localized_text(value: Option<&Value>) -> Option<String> {
         Value::String(value) => Some(value.trim().to_owned()).filter(|value| !value.is_empty()),
         Value::Object(value) => value
             .get("#text")
+            .or_else(|| value.get("value"))
             .and_then(Value::as_str)
             .map(str::trim)
             .filter(|value| !value.is_empty())
@@ -83,6 +84,7 @@ pub(crate) fn localized_text(value: Option<&Value>) -> Option<String> {
             .find(|value| {
                 value
                     .get("@xml:lang")
+                    .or_else(|| value.get("@lang"))
                     .and_then(Value::as_str)
                     .is_some_and(|language| language.eq_ignore_ascii_case("en"))
             })

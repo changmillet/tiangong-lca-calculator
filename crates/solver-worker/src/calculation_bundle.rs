@@ -2667,6 +2667,24 @@ mod tests {
         .unwrap()
     }
 
+    fn method_source_evidence(impact: &ReleaseImpact, document: Value) -> CompiledReleaseEvidence {
+        CompiledReleaseEvidence {
+            processes: Vec::new(),
+            inventory_exchanges: Vec::new(),
+            technosphere_edges: Vec::new(),
+            biosphere_edges: Vec::new(),
+            source_datasets: vec![CompiledReleaseSourceDataset {
+                dataset_type: CompiledReleaseSourceDatasetType::LciaMethod,
+                role: CompiledReleaseSourceDatasetRole::Support,
+                dataset_id: impact.id,
+                dataset_version: impact.version.clone(),
+                document_sha256: sha256_bytes(&canonical_value_json_bytes(&document).unwrap()),
+                document,
+            }],
+            source_reference_provenance: None,
+        }
+    }
+
     #[test]
     fn canonical_method_metadata_reaches_csv_xlsx_and_portal_without_value_conversion() {
         let mut writer = fixture_writer_with_method_indices(&[0]);
@@ -2683,21 +2701,7 @@ mod tests {
         impact.impact_name = crate::lcia_method_metadata::name(&document).unwrap();
         impact.unit = crate::lcia_method_metadata::result_unit(&document).unwrap();
         let impacts = validate_impacts(&[impact]).unwrap();
-        let evidence = CompiledReleaseEvidence {
-            processes: Vec::new(),
-            inventory_exchanges: Vec::new(),
-            technosphere_edges: Vec::new(),
-            biosphere_edges: Vec::new(),
-            source_datasets: vec![CompiledReleaseSourceDataset {
-                dataset_type: CompiledReleaseSourceDatasetType::LciaMethod,
-                role: CompiledReleaseSourceDatasetRole::Support,
-                dataset_id: impacts[0].id,
-                dataset_version: impacts[0].version.clone(),
-                document_sha256: sha256_bytes(&canonical_value_json_bytes(&document).unwrap()),
-                document,
-            }],
-            source_reference_provenance: None,
-        };
+        let evidence = method_source_evidence(&impacts[0], document);
         let (_, portal_impacts) = portal_projection_axes(&[], &impacts, &evidence).unwrap();
         assert_eq!(portal_impacts[0].impact_name.len(), 2);
         assert_eq!(portal_impacts[0].impact_name[0].value, "气候变化");
@@ -2755,6 +2759,33 @@ mod tests {
         let mut stale = impacts;
         stale[0].name = format!("LCIA Method {}", stale[0].id);
         assert!(portal_projection_axes(&[], &stale, &evidence).is_err());
+    }
+
+    #[test]
+    fn shared_method_name_selection_preserves_portal_value_and_language_aliases() {
+        let names = json!([
+            {"@lang": "zh", "value": "气候变化"},
+            {"@lang": "en", "value": "Climate change"}
+        ]);
+        let document = json!({"LCIAMethodDataSet": {"methodInfo": {"dataSetInfo": {
+            "name": {"baseName": names}
+        }}}});
+        let selected = crate::lcia_method_metadata::name_value(&document)
+            .expect("retain the already-supported Portal localized value form");
+        let localized = portal_localized_text(selected).unwrap();
+        assert_eq!(localized.len(), 2);
+        assert_eq!(localized[0].language, "zh");
+        assert_eq!(localized[1].value, "Climate change");
+        assert_eq!(
+            crate::lcia_method_metadata::name(&document).as_deref(),
+            Some("Climate change")
+        );
+        let mut impact = reviewed_impact(0, 0);
+        impact.impact_name = "Climate change".to_owned();
+        let impacts = validate_impacts(&[impact]).unwrap();
+        let evidence = method_source_evidence(&impacts[0], document);
+        let (_, projected) = portal_projection_axes(&[], &impacts, &evidence).unwrap();
+        assert_eq!(projected[0].impact_name, localized);
     }
 
     #[test]
