@@ -331,6 +331,14 @@ pub fn ensure_certificate_scope_closure_boundary_policy(actual: &str) -> anyhow:
 
 #[must_use]
 pub fn scope_closure_input_failure_code(error: &anyhow::Error) -> Option<&'static str> {
+    if let Some(error) = error.downcast_ref::<ValidationContextAdmissionError>() {
+        return Some(match error {
+            ValidationContextAdmissionError::BudgetExceeded { .. } => {
+                "tidas_context_input_budget_exceeded"
+            }
+            ValidationContextAdmissionError::SizeOverflow => "tidas_context_input_size_overflow",
+        });
+    }
     error
         .downcast_ref::<ScopeClosureBoundaryPolicyError>()
         .map(|_| SCOPE_CLOSURE_BOUNDARY_POLICY_ERROR_CODE)
@@ -7866,6 +7874,62 @@ async fn report_artifact_manifest_hash(pool: &PgPool, artifact_id: Uuid) -> anyh
 const PROCESS_SEMANTIC_PROFILE: &str = "tidas.process-allocation-reference.v1";
 const MAX_VALIDATION_CONTEXT_INPUT_BYTES: u64 = 64 * 1024 * 1024;
 
+#[derive(Debug, thiserror::Error)]
+enum ValidationContextAdmissionError {
+    #[error("tidas_context_input_budget_exceeded: bytes={bytes}, limit={limit}")]
+    BudgetExceeded { bytes: u64, limit: u64 },
+    #[error("tidas_context_input_size_overflow")]
+    SizeOverflow,
+}
+
+struct ValidationContextBatch {
+    selected: Vec<ClosureDocumentRecord>,
+    context: Vec<ClosureDocumentRecord>,
+}
+
+/// Split only recoverable aggregate admission failures. A singleton must retain
+/// all its exact Flow context and still fit the unchanged byte limit.
+fn validation_context_batches(
+    source_path: &Path,
+    selected: &[ClosureDocumentRecord],
+    source_records: &[ClosureDocumentRecord],
+    budget_bytes: u64,
+) -> anyhow::Result<Vec<ValidationContextBatch>> {
+    if selected.is_empty() {
+        return Ok(Vec::new());
+    }
+    match validation_context_records_with_budget(
+        source_path,
+        selected,
+        source_records,
+        budget_bytes,
+    ) {
+        Ok(context) => Ok(vec![ValidationContextBatch {
+            selected: selected.to_vec(),
+            context,
+        }]),
+        Err(error)
+            if selected.len() > 1
+                && matches!(
+                    error.downcast_ref::<ValidationContextAdmissionError>(),
+                    Some(ValidationContextAdmissionError::BudgetExceeded { .. })
+                ) =>
+        {
+            let (left, right) = selected.split_at(selected.len() / 2);
+            let mut batches =
+                validation_context_batches(source_path, left, source_records, budget_bytes)?;
+            batches.extend(validation_context_batches(
+                source_path,
+                right,
+                source_records,
+                budget_bytes,
+            )?);
+            Ok(batches)
+        }
+        Err(error) => Err(error),
+    }
+}
+
 /// A conservative dependency identity: every frozen Flow revision and its bytes.
 /// Changing even a cache-hit Flow invalidates Process validation evidence.
 fn flow_context_fingerprint(records: &[ClosureDocumentRecord]) -> anyhow::Result<String> {
@@ -7884,12 +7948,27 @@ fn flow_context_fingerprint(records: &[ClosureDocumentRecord]) -> anyhow::Result
     Ok(format!("{:x}", digest.finalize()))
 }
 
+#[cfg(test)]
 fn validation_context_records(
     source_path: &Path,
     selected: &[ClosureDocumentRecord],
     source_records: &[ClosureDocumentRecord],
 ) -> anyhow::Result<Vec<ClosureDocumentRecord>> {
-    admit_validation_context_bytes(selected, scope_closure_memory_budget_bytes())?;
+    validation_context_records_with_budget(
+        source_path,
+        selected,
+        source_records,
+        scope_closure_memory_budget_bytes(),
+    )
+}
+
+fn validation_context_records_with_budget(
+    source_path: &Path,
+    selected: &[ClosureDocumentRecord],
+    source_records: &[ClosureDocumentRecord],
+    budget_bytes: u64,
+) -> anyhow::Result<Vec<ClosureDocumentRecord>> {
+    admit_validation_context_bytes(selected, budget_bytes)?;
     let mut records = selected.to_vec();
     let mut identities = selected
         .iter()
@@ -7927,11 +8006,11 @@ fn validation_context_records(
                 && identities.insert(identity)
             {
                 records.push(source_records[index].clone());
-                admit_validation_context_bytes(&records, scope_closure_memory_budget_bytes())?;
+                admit_validation_context_bytes(&records, budget_bytes)?;
             }
         }
     }
-    admit_validation_context_bytes(&records, scope_closure_memory_budget_bytes())?;
+    admit_validation_context_bytes(&records, budget_bytes)?;
     Ok(records)
 }
 
@@ -7942,12 +8021,10 @@ fn admit_validation_context_bytes(
     let bytes = records
         .iter()
         .try_fold(0_u64, |total, record| total.checked_add(record.byte_size))
-        .ok_or_else(|| anyhow::anyhow!("tidas_context_input_size_overflow"))?;
+        .ok_or(ValidationContextAdmissionError::SizeOverflow)?;
     let limit = MAX_VALIDATION_CONTEXT_INPUT_BYTES.min(budget_bytes / 16);
     if bytes > limit {
-        return Err(anyhow::anyhow!(
-            "tidas_context_input_budget_exceeded: bytes={bytes}, limit={limit}"
-        ));
+        return Err(ValidationContextAdmissionError::BudgetExceeded { bytes, limit }.into());
     }
     Ok(())
 }
@@ -8024,82 +8101,94 @@ async fn run_tidas_batch_validation_cached(
             }
         }
 
-        for validation_batch in missing.chunks(VALIDATION_EXECUTION_BATCH_SIZE) {
+        for validation_window in missing.chunks(VALIDATION_EXECUTION_BATCH_SIZE) {
             enforce_scope_closure_memory_budget("tidas_validation_batch")?;
-            let owned_records =
-                validation_context_records(&documents.path, validation_batch, documents.records())?;
-            native_validated_count = native_validated_count
-                .checked_add(owned_records.len())
-                .ok_or_else(|| anyhow::anyhow!("tidas_native_validation_count_overflow"))?;
-            let selected_keys = validation_batch
-                .iter()
-                .map(|record| record.identity.document_key())
-                .collect::<BTreeSet<_>>();
-            let document_spool_path = documents.path.clone();
-            let describe_for_validation = describe.clone();
-            let uncached = tokio::task::spawn_blocking(move || {
-                let owned_batch =
-                    ClosureDocumentSpool::load_batch(&document_spool_path, &owned_records)?;
-                run_tidas_batch_validation(&owned_batch, describe_for_validation)
-            })
-            .await??;
-            validated_count += validation_batch.len();
+            for batch in validation_context_batches(
+                &documents.path,
+                validation_window,
+                documents.records(),
+                scope_closure_memory_budget_bytes(),
+            )? {
+                enforce_scope_closure_memory_budget("tidas_validation_batch")?;
+                let validation_batch = batch.selected.as_slice();
+                let owned_records = batch.context;
+                native_validated_count = native_validated_count
+                    .checked_add(owned_records.len())
+                    .ok_or_else(|| anyhow::anyhow!("tidas_native_validation_count_overflow"))?;
+                let selected_keys = validation_batch
+                    .iter()
+                    .map(|record| record.identity.document_key())
+                    .collect::<BTreeSet<_>>();
+                let document_spool_path = documents.path.clone();
+                let describe_for_validation = describe.clone();
+                let uncached = tokio::task::spawn_blocking(move || {
+                    let owned_batch =
+                        ClosureDocumentSpool::load_batch(&document_spool_path, &owned_records)?;
+                    run_tidas_batch_validation(&owned_batch, describe_for_validation)
+                })
+                .await??;
+                validated_count += validation_batch.len();
 
-            let mut issues_by_document = BTreeMap::<String, Vec<Value>>::new();
-            uncached.issue_events.visit(|event| {
-                let document_key = event
-                    .get("document_key")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| anyhow::anyhow!("TIDAS issue event omitted document_key"))?
-                    .to_owned();
-                // Supplemental Flow documents were fully validated and counted by
-                // native TIDAS. Their evidence is replayed once by their own source
-                // document's cache path, rather than duplicated per Process batch.
-                if !selected_keys.contains(&document_key) {
-                    return Ok(());
-                }
-                aggregate.append(&event)?;
-                issues_by_document
-                    .entry(document_key)
-                    .or_default()
-                    .push(event);
-                Ok(())
-            })?;
+                let mut issues_by_document = BTreeMap::<String, Vec<Value>>::new();
+                uncached.issue_events.visit(|event| {
+                    let document_key = event
+                        .get("document_key")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow::anyhow!("TIDAS issue event omitted document_key"))?
+                        .to_owned();
+                    // Supplemental Flow documents were fully validated and counted by
+                    // native TIDAS. Their evidence is replayed once by their own source
+                    // document's cache path, rather than duplicated per Process batch.
+                    if !selected_keys.contains(&document_key) {
+                        return Ok(());
+                    }
+                    aggregate.append(&event)?;
+                    issues_by_document
+                        .entry(document_key)
+                        .or_default()
+                        .push(event);
+                    Ok(())
+                })?;
 
-            let mut records = Vec::new();
-            let mut record_bytes = 0_usize;
-            for record in validation_batch {
-                let issues = issues_by_document
-                    .remove(&record.identity.document_key())
-                    .unwrap_or_default();
-                let record = build_document_validation_evidence(
-                    record,
-                    &describe,
-                    &flow_context_sha256,
-                    issues.as_slice(),
-                )?;
-                let encoded_bytes = canonical_json_bytes(&record)?.len();
-                if !records.is_empty()
-                    && record_bytes.saturating_add(encoded_bytes)
-                        > VALIDATION_CACHE_RECORD_BATCH_BYTES
-                {
-                    record_document_validation_evidence(pool, worker_job_id, records.as_slice())
+                let mut records = Vec::new();
+                let mut record_bytes = 0_usize;
+                for record in validation_batch {
+                    let issues = issues_by_document
+                        .remove(&record.identity.document_key())
+                        .unwrap_or_default();
+                    let record = build_document_validation_evidence(
+                        record,
+                        &describe,
+                        &flow_context_sha256,
+                        issues.as_slice(),
+                    )?;
+                    let encoded_bytes = canonical_json_bytes(&record)?.len();
+                    if !records.is_empty()
+                        && record_bytes.saturating_add(encoded_bytes)
+                            > VALIDATION_CACHE_RECORD_BATCH_BYTES
+                    {
+                        record_document_validation_evidence(
+                            pool,
+                            worker_job_id,
+                            records.as_slice(),
+                        )
                         .await?;
-                    records.clear();
-                    record_bytes = 0;
+                        records.clear();
+                        record_bytes = 0;
+                    }
+                    if encoded_bytes > VALIDATION_CACHE_RECORD_BATCH_BYTES {
+                        return Err(anyhow::anyhow!(
+                            "validation cache record exceeds the {VALIDATION_CACHE_RECORD_BATCH_BYTES} byte memory budget"
+                        ));
+                    }
+                    record_bytes = record_bytes.saturating_add(encoded_bytes);
+                    records.push(record);
                 }
-                if encoded_bytes > VALIDATION_CACHE_RECORD_BATCH_BYTES {
-                    return Err(anyhow::anyhow!(
-                        "validation cache record exceeds the {VALIDATION_CACHE_RECORD_BATCH_BYTES} byte memory budget"
-                    ));
+                if !records.is_empty() {
+                    record_document_validation_evidence(pool, worker_job_id, &records).await?;
                 }
-                record_bytes = record_bytes.saturating_add(encoded_bytes);
-                records.push(record);
+                enforce_scope_closure_memory_budget("validation_cache_record")?;
             }
-            if !records.is_empty() {
-                record_document_validation_evidence(pool, worker_job_id, &records).await?;
-            }
-            enforce_scope_closure_memory_budget("validation_cache_record")?;
         }
     }
 
@@ -10886,6 +10975,285 @@ mod tests {
         assert!(admit_validation_context_bytes(std::slice::from_ref(&record), 16).is_err());
         record.byte_size = u64::MAX;
         assert!(admit_validation_context_bytes(&[record.clone(), record], u64::MAX).is_err());
+    }
+
+    fn sized_validation_record(index: u128, bytes: u64) -> ClosureDocumentRecord {
+        ClosureDocumentRecord {
+            identity: ExactDatasetIdentity {
+                category: DatasetCategory::Lciamethods,
+                id: Uuid::from_u128(index),
+                version: "01.00.000".to_owned(),
+            },
+            canonical_content_hash: "a".repeat(64),
+            offset: 0,
+            byte_size: bytes,
+        }
+    }
+
+    #[test]
+    fn validation_batches_split_production_sized_aggregate_without_losing_documents() {
+        let records = [36_105_476, 34_000_000, 30_000_000, 25_000_000, 20_943_859]
+            .into_iter()
+            .enumerate()
+            .map(|(i, bytes)| sized_validation_record(i as u128, bytes))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            records.iter().map(|r| r.byte_size).sum::<u64>(),
+            146_049_335
+        );
+        // Metadata-only methods need no file read before byte admission.
+        let batches =
+            validation_context_batches(Path::new("does-not-exist"), &records, &records, u64::MAX)
+                .unwrap();
+        assert!(batches.len() > 1);
+        assert_eq!(
+            batches
+                .iter()
+                .flat_map(|b| b.selected.iter())
+                .cloned()
+                .collect::<Vec<_>>(),
+            records
+        );
+        for batch in batches {
+            assert_eq!(batch.selected, batch.context);
+            assert!(
+                batch.context.iter().map(|r| r.byte_size).sum::<u64>()
+                    <= MAX_VALIDATION_CONTEXT_INPUT_BYTES
+            );
+        }
+    }
+
+    #[test]
+    fn validation_batches_preserve_byte_boundaries_and_do_not_retry_singleton_or_overflow() {
+        let cap = MAX_VALIDATION_CONTEXT_INPUT_BYTES;
+        for bytes in [cap - 1, cap] {
+            let records = [sized_validation_record(1, bytes)];
+            assert_eq!(
+                validation_context_batches(Path::new("unused"), &records, &records, u64::MAX)
+                    .unwrap()
+                    .len(),
+                1
+            );
+        }
+        let records = [
+            sized_validation_record(1, cap),
+            sized_validation_record(2, 1),
+        ];
+        assert_eq!(
+            validation_context_batches(Path::new("unused"), &records, &records, u64::MAX)
+                .unwrap()
+                .len(),
+            2
+        );
+        for (bytes, budget) in [(cap + 1, u64::MAX), (2, 16)] {
+            let records = [sized_validation_record(1, bytes)];
+            let error = validation_context_batches(Path::new("unused"), &records, &records, budget)
+                .err()
+                .unwrap()
+                .context("validation stage");
+            assert_eq!(
+                scope_closure_input_failure_code(&error),
+                Some("tidas_context_input_budget_exceeded")
+            );
+        }
+        let records = [
+            sized_validation_record(1, u64::MAX),
+            sized_validation_record(2, 1),
+        ];
+        let error = validation_context_batches(Path::new("unused"), &records, &records, u64::MAX)
+            .err()
+            .unwrap();
+        assert_eq!(
+            scope_closure_input_failure_code(&error),
+            Some("tidas_context_input_size_overflow")
+        );
+        assert!(
+            validation_context_batches(Path::new("unused"), &[], &[], u64::MAX)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn validation_batches_split_with_cache_hit_flow_context_in_every_process_window() {
+        let flow = identity(
+            DatasetCategory::Flows,
+            "61616161-6161-4161-8161-616161616161",
+        );
+        let mut writer = ClosureDocumentSpoolWriter::new().unwrap();
+        for index in 1..=2 {
+            writer.append(&ClosureDocument {
+                identity: ExactDatasetIdentity { category: DatasetCategory::Processes, id: Uuid::from_u128(index), version: "01.00.000".to_owned() },
+                payload: json!({"processDataSet":{"exchanges":{"exchange":{"referenceToFlowDataSet":reference("flow", flow.id, Some(&flow.version))}}}}),
+            }).unwrap();
+        }
+        writer
+            .append(&ClosureDocument {
+                identity: flow.clone(),
+                payload: json!({"flowDataSet":{"type":"Product flow"}}),
+            })
+            .unwrap();
+        let spool = writer.finish().unwrap();
+        let selected = spool
+            .records()
+            .iter()
+            .filter(|r| r.identity.category == DatasetCategory::Processes)
+            .cloned()
+            .collect::<Vec<_>>();
+        let flow_bytes = spool
+            .records()
+            .iter()
+            .find(|r| r.identity == flow)
+            .unwrap()
+            .byte_size;
+        // Both selected Process records fit; only their required Flow context
+        // pushes the aggregate beyond this deterministic test budget.
+        let single_context_bytes = selected.iter().map(|r| r.byte_size).max().unwrap() + flow_bytes;
+        let limit = selected
+            .iter()
+            .map(|r| r.byte_size)
+            .sum::<u64>()
+            .max(single_context_bytes);
+        assert!(selected.iter().map(|r| r.byte_size).sum::<u64>() <= limit);
+        let batches =
+            validation_context_batches(&spool.path, &selected, spool.records(), limit * 16)
+                .unwrap();
+        assert_eq!(batches.len(), 2);
+        for batch in &batches {
+            assert_eq!(batch.selected.len(), 1);
+            assert_eq!(batch.context.len(), 2);
+            assert_eq!(batch.context[1].identity, flow);
+        }
+        assert_eq!(
+            batches
+                .iter()
+                .flat_map(|b| b.selected.iter())
+                .cloned()
+                .collect::<Vec<_>>(),
+            selected
+        );
+        let error = validation_context_batches(
+            &spool.path,
+            &selected[..1],
+            spool.records(),
+            (single_context_bytes - 1) * 16,
+        )
+        .err()
+        .unwrap();
+        assert_eq!(
+            scope_closure_input_failure_code(&error),
+            Some("tidas_context_input_budget_exceeded")
+        );
+    }
+
+    #[test]
+    #[ignore = "requires published TIDAS 0.3.4 and materializes 146,049,335 synthetic input bytes"]
+    fn release_validation_batches_complete_production_sized_method_context() {
+        let handshake = tidas_cli::handshake().unwrap();
+        let mut writer = ClosureDocumentSpoolWriter::new().unwrap();
+        for (index, bytes) in [
+            36_105_476_u64,
+            34_000_000,
+            30_000_000,
+            25_000_000,
+            20_943_859,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let mut payload: Value = serde_json::from_str(include_str!(
+                "../tests/fixtures/scope_closure_package_v2_e2e/method-template.json"
+            ))
+            .unwrap();
+            let identity = ExactDatasetIdentity {
+                category: DatasetCategory::Lciamethods,
+                id: Uuid::from_u128(index as u128 + 1),
+                version: "01.00.000".to_owned(),
+            };
+            payload["LCIAMethodDataSet"]["LCIAMethodInformation"]["dataSetInformation"]["common:UUID"] =
+                json!(identity.id);
+            let mut document = ClosureDocument { identity, payload };
+            document.payload["LCIAMethodDataSet"]["LCIAMethodInformation"]["impactModel"]["modelDescription"]
+                ["#text"] = json!("");
+            let baseline = canonical_json_bytes(&document).unwrap().len();
+            document.payload["LCIAMethodDataSet"]["LCIAMethodInformation"]["impactModel"]["modelDescription"]
+                ["#text"] = json!("x".repeat(usize::try_from(bytes).unwrap() - baseline));
+            writer.append(&document).unwrap();
+        }
+        let spool = writer.finish().unwrap();
+        assert_eq!(
+            spool.records().iter().map(|r| r.byte_size).sum::<u64>(),
+            146_049_335
+        );
+        assert!(admit_validation_context_bytes(spool.records(), u64::MAX).is_err());
+        let batches =
+            validation_context_batches(&spool.path, spool.records(), spool.records(), u64::MAX)
+                .unwrap();
+        let mut validated = Vec::new();
+        let mut issues = Vec::new();
+        for batch in &batches {
+            let documents = ClosureDocumentSpool::load_batch(&spool.path, &batch.context).unwrap();
+            let result =
+                run_tidas_batch_validation(&documents, handshake.validation_describe.clone())
+                    .unwrap();
+            assert_eq!(
+                result.final_event["summary"]["document_count"],
+                json!(batch.context.len())
+            );
+            result
+                .issue_events
+                .visit(|event| {
+                    issues.push(event);
+                    Ok(())
+                })
+                .unwrap();
+            validated.extend(batch.selected.iter().map(|r| r.identity.clone()));
+        }
+        assert_eq!(
+            validated,
+            spool
+                .records()
+                .iter()
+                .map(|r| r.identity.clone())
+                .collect::<Vec<_>>()
+        );
+        // Complete event equality against independent one-document native runs:
+        // changing windows may not drop, duplicate or rewrite validation findings.
+        let mut expected_issues = Vec::new();
+        for record in spool.records() {
+            let document =
+                ClosureDocumentSpool::load_batch(&spool.path, std::slice::from_ref(record))
+                    .unwrap();
+            let result =
+                run_tidas_batch_validation(&document, handshake.validation_describe.clone())
+                    .unwrap();
+            result
+                .issue_events
+                .visit(|event| {
+                    expected_issues.push(event);
+                    Ok(())
+                })
+                .unwrap();
+        }
+        // Native ordinals and file names identify a position within an invocation,
+        // not the dataset or finding. All identity/hash and semantic fields stay
+        // in this comparison; their values must be identical across window sizes.
+        for event in issues.iter_mut().chain(&mut expected_issues) {
+            event.as_object_mut().unwrap().remove("document_ordinal");
+            event["issue"].as_object_mut().unwrap().remove("file_path");
+        }
+        sort_by_canonical_value(&mut issues);
+        sort_by_canonical_value(&mut expected_issues);
+        assert!(
+            issues == expected_issues,
+            "complete native findings must be equivalent across windows"
+        );
+        println!(
+            "production-sized synthetic native qualification: bytes=146049335 documents={} batches={} issues={}",
+            validated.len(),
+            batches.len(),
+            issues.len()
+        );
     }
 
     #[test]
