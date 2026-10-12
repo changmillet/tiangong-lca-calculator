@@ -646,8 +646,8 @@ mod tests {
     fn lease_heartbeat_period_refreshes_before_expiry() {
         assert_eq!(lease_heartbeat_period(1), Duration::from_millis(333));
         assert_eq!(lease_heartbeat_period(2), Duration::from_millis(666));
-        assert_eq!(lease_heartbeat_period(3), Duration::from_millis(1_000));
-        assert_eq!(lease_heartbeat_period(900), Duration::from_secs(300));
+        assert_eq!(lease_heartbeat_period(3), Duration::from_secs(1));
+        assert_eq!(lease_heartbeat_period(900), Duration::from_mins(5));
         assert_eq!(lease_heartbeat_period(-1), Duration::from_millis(333));
         for lease_seconds in 1..=3 {
             assert!(

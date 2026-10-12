@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-12
-lastReviewedCommit: 3ff92677ab0c2a7ce1426e7a0bb5102b11290840
-lastReviewedNote: "Reviewed Worker #316: byte-admitted exact-context windows split deterministically, preserve all selected documents and exact Flow revisions, and retain singleton/overflow failure. Artifact, certificate, lease, package and Portal contracts remain unchanged. Synthetic native capacity and complete baseline evidence are recorded on #316; hosted rollout/replay is separately authorized and tracked."
+lastReviewedCommit: 729c5a602c1562a2926750114bee141d51444a9a
+lastReviewedNote: "Reviewed Worker #318 warm-history recovery: R5 request admission pairs with the Database scanner-config revision while historical v1/R1-R4 requests remain compatible. No public schema, numerical/scientific rules, source bytes, lease/certificate fences or immutable artifacts change. Native warm-history consumer qualification remains required."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -71,6 +71,30 @@ cargo fmt --all -- --check
 ```
 
 Treat the last two commands as non-negotiable hard gates after code changes.
+
+### LCIA method metadata and existing snapshots
+
+For canonical metadata changes, run `cargo test -p solver-worker lcia_method_metadata`,
+`cargo test -p solver-worker --bin snapshot_builder`, and
+`cargo test -p solver-worker calculation_bundle` as well as the baseline. Cover
+canonical and legacy localized names, method-specific result labels, missing/invalid
+text, unchanged factor/identity data, CSV/XLSX values and Portal's frozen-name check.
+The source-fingerprint regression must distinguish the old ordinary snapshot cache.
+
+Native candidate qualification additionally requires a separately isolated DB/queue
+and Storage plus the actual consumer/Edge configuration and exact original public-100
+Manager BuildV2 inputs. Retain a completed R4 scan and its old snapshot/package, then
+apply the paired Database R5 configuration migration in the isolated fixture. A normal
+new check with unchanged source/scope/policy must create a distinct R5 scan and new
+snapshot/certificate/build evidence; another identical R5 request must share that R5
+scan. Preserve all R4 evidence and prove actual candidate/builder identities. `WORKER_ID` does not isolate a shared solver queue;
+`SNAPSHOT_BUILDER_BIN` has fallback candidates, so record the program actually used.
+A new token alone can reuse a completed scan and its old snapshot. Verify the
+versioned warm-history recovery through actual preview and CSV/XLSX downloads; a
+cold-only empty-environment run does not qualify it. Owner-draft admission, Portal
+publication and unrelated Process saves are outside this original R1 validation. Local unit
+tests and synthetic E2E fixtures do not establish original-consumer acceptance or a
+production deployment.
 
 The local `pre-push` hook runs the docpact gate first and then runs `make check`. The GitHub `ci` workflow is manual-dispatch only, so ordinary branch pushes do not spend Actions minutes on standalone tests.
 

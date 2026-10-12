@@ -24,9 +24,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-10-02
-lastReviewedCommit: de10156262c369bc4d5c44d1ab72f0c94904fb6a
-lastReviewedNote: "Reviewed Worker #307 CI repair: 36 reported test assertions preserve emptiness predicates while showing values on failure for Rust 1.99 Clippy. Runtime, modeling, validation and result contracts remain unchanged; the configured signed-first S3 download boundary remains reviewed."
+lastReviewedAt: 2026-10-12
+lastReviewedCommit: c6558afa865feaf3b34c862896f500dc77b4ae2c
+lastReviewedNote: "Reviewed Worker #318 canonical LCIA display metadata, legacy aliases and source-fingerprint v4. Method identities, factors, numerical policy, provider/allocation/readiness rules, frozen artifacts and lease/publication boundaries are unchanged; original-consumer candidate qualification remains separate."
 related:
   - AGENTS.md
   - .docpact/config.yaml

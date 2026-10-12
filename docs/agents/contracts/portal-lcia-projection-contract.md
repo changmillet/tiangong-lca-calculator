@@ -26,8 +26,8 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
 lastReviewedAt: 2026-10-12
-lastReviewedCommit: 3ff92677ab0c2a7ce1426e7a0bb5102b11290840
-lastReviewedNote: "Reviewed Worker #316: byte-admitted exact-context windows split deterministically, preserve all selected documents and exact Flow revisions, and retain singleton/overflow failure. Artifact, certificate, lease, package and Portal contracts remain unchanged. Synthetic native capacity and complete baseline evidence are recorded on #316; hosted rollout/replay is separately authorized and tracked."
+lastReviewedCommit: c6558afa865feaf3b34c862896f500dc77b4ae2c
+lastReviewedNote: "Reviewed Worker #318 canonical LCIA display metadata, legacy aliases and source-fingerprint v4. Method identities, factors, numerical policy, provider/allocation/readiness rules, frozen artifacts and lease/publication boundaries are unchanged; original-consumer candidate qualification remains separate."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml
@@ -53,6 +53,7 @@ The Worker derives the projection only while materializing the same verified Cal
 
 - Process order and identity come from the certificate-bound `input_manifest.processes` and frozen Calculation Bundle Process axis.
 - Method order and identity come from the frozen snapshot impact axis and exact reviewed LCIA Method source documents.
+- Localized Method names use the shared canonical `LCIAMethodInformation.dataSetInformation.common:name` reader with retained legacy aliases. Snapshot selection chooses a readable English-first label; Portal preserves the full localized value and still requires the certified name to occur in it. Result-unit labels retain method-specific equivalents rather than the referenced property's generic physical unit.
 - Values are streamed from the locally produced, compressed LCIA shards after compressed and uncompressed byte-size, SHA-256, record-count, range, and Cartesian-order verification.
 - Process and Method document SHA-256 values come from the immutable snapshot source closure, never mutable solve-time database reads.
 - Artifact binding includes input manifest, closure certificate, numerical snapshot, closure bundle, snapshot index/build contract, Calculation Bundle content/manifest, LCIA chunk set, result artifact, and query artifact hashes. Before any V3 preparation, the reused numerical snapshot must also declare the current global numerical-policy marker (`numerical_policy_version = public-numerical-state-100-excluding-result-120:v1`) in its artifact config: the binding hashes above prove the exact frozen evidence, while the marker proves the artifact was built under the current public numerical eligibility policy. A snapshot written before the marker existed fails closed for V3 rather than being silently re-executed.

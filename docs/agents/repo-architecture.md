@@ -37,8 +37,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-12
-lastReviewedCommit: 3ff92677ab0c2a7ce1426e7a0bb5102b11290840
-lastReviewedNote: "Reviewed Worker #316: byte-admitted exact-context windows split deterministically, preserve all selected documents and exact Flow revisions, and retain singleton/overflow failure. Artifact, certificate, lease, package and Portal contracts remain unchanged. Synthetic native capacity and complete baseline evidence are recorded on #316; hosted rollout/replay is separately authorized and tracked."
+lastReviewedCommit: 729c5a602c1562a2926750114bee141d51444a9a
+lastReviewedNote: "Reviewed Worker #318 warm-history recovery: R5 request admission pairs with the Database scanner-config revision while historical v1/R1-R4 requests remain compatible. No public schema, numerical/scientific rules, source bytes, lease/certificate fences or immutable artifacts change. Native warm-history consumer qualification remains required."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -84,6 +84,7 @@ Keep these constraints in mind before editing `crates/solver-core/**` or worker 
 | `crates/solver-worker/src/storage.rs` | S3-compatible object operations plus byte-capped, hash-verified, cancellable file download/upload primitives |
 | `crates/solver-worker/src/snapshot_artifacts.rs` | numerical HDF5 envelope, Review projections, release-metadata/source-closure descriptor chain, and legacy graph/v1 readers |
 | `crates/solver-worker/src/calculation_bundle.rs` | canonical content-addressed Calculation Bundle shards plus streaming LCIA XLSX/CSV, LCI Parquet/CSV, and whole-bundle audit downloads |
+| `crates/solver-worker/src/lcia_method_metadata.rs` | canonical/legacy LCIA display-name fields, localized text selection and method result-quantity labels; no factor conversion or source-reference resolution |
 | `crates/solver-worker/src/portal_lcia_projection.rs` | V3-only typed Process/Impact/Value spool, canonical decimals, int32be hashes, verified LCIA shard reader, and bounded Database batches |
 | `crates/solver-worker/src/artifact_gc.rs` | generic artifact lifecycle candidate validation and object-first retry-safe GC state machine |
 | `crates/solver-worker/src/scope_closure.rs` | frozen-release closure traversal, TIDAS validation, canonical v3 issue partitions, compact root-impact/witness evidence, staged artifact publication, scan reuse, and package certificate verification |

@@ -32,8 +32,8 @@ checkPaths:
   - scripts/run_scope_closure_external_qualification.sh
   - scripts/run_scope_closure_provider_qualification.sh
 lastReviewedAt: 2026-10-12
-lastReviewedCommit: 3ff92677ab0c2a7ce1426e7a0bb5102b11290840
-lastReviewedNote: "Reviewed Worker #316: byte-admitted exact-context windows split deterministically, preserve all selected documents and exact Flow revisions, and retain singleton/overflow failure. Artifact, certificate, lease, package and Portal contracts remain unchanged. Synthetic native capacity and complete baseline evidence are recorded on #316; hosted rollout/replay is separately authorized and tracked."
+lastReviewedCommit: 729c5a602c1562a2926750114bee141d51444a9a
+lastReviewedNote: "Reviewed Worker #318 warm-history recovery: R5 request admission pairs with the Database scanner-config revision while historical v1/R1-R4 requests remain compatible. No public schema, numerical/scientific rules, source bytes, lease/certificate fences or immutable artifacts change. Native warm-history consumer qualification remains required."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -63,7 +63,7 @@ The canonical job kind is `lcia.scope_closure_check` with payload schema `lcia.s
 
 The Worker loads the full service input through `svc_lcia_scope_closure_check_get_worker_input`. It requires the normalized requested scope, scope/policy/request hashes, expected validator-scanner fingerprint, publication epoch, and `lcia.scope-closure-data-snapshot.v2`.
 
-The current internal request identity is `scope-closure-validator-scanner.v1+cutoff-readiness-r4`. Worker also accepts the historical exact values `scope-closure-validator-scanner.v1+cutoff-readiness-r3`, `scope-closure-validator-scanner.v1+cutoff-readiness-r2`, `scope-closure-validator-scanner.v1+cutoff-readiness-r1`, and `scope-closure-validator-scanner.v1` so already-enqueued and in-flight requests remain executable during rollout. This is a closed compatibility set: any other fingerprint fails before scan claim. The revision changes cache identity only; it does not version or alter the public V1 job, result, certificate, or artifact contracts.
+The current internal request identity is `scope-closure-validator-scanner.v1+cutoff-readiness-r5`. Worker also accepts the historical exact values `scope-closure-validator-scanner.v1+cutoff-readiness-r4`, `scope-closure-validator-scanner.v1+cutoff-readiness-r3`, `scope-closure-validator-scanner.v1+cutoff-readiness-r2`, `scope-closure-validator-scanner.v1+cutoff-readiness-r1`, and `scope-closure-validator-scanner.v1` so already-enqueued and in-flight requests remain executable during rollout. This is a closed compatibility set: any other fingerprint fails before scan claim. The revision changes cache identity only; it does not version or alter the public V1 job, result, certificate, or artifact contracts. R5 accompanies the canonical LCIA metadata reader: Database advances the singleton scanner revision for new requests, making the same frozen input receive a different request fingerprint and scan execution instead of reusing an R4 completed scan with placeholder names/unknown units. Historical R4 checks, certificates, snapshots, artifacts and recorded fingerprints remain unchanged. All eligible solver Workers must support R5 before the Database configuration migration is applied; adding R5 to a Worker alone does not change request normalization or force a fresh scan. The new scan uses the same public numerical policy, method identities/factors and TIDAS validation requirements.
 
 New certificate requests bind `allocationSemanticsVersion=tidas-reference-allocation-v5`
 through the paired Database normalizer adoption and Worker frozen-input validation. Worker independently requires this marker in both the requested scope and frozen data snapshot before execution; rollout is blocked until Database and Edge adopt v5. New builds and
