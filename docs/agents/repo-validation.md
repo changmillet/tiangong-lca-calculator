@@ -82,12 +82,17 @@ text, unchanged factor/identity data, CSV/XLSX values and Portal's frozen-name c
 The source-fingerprint regression must distinguish the old ordinary snapshot cache.
 
 Native candidate qualification additionally requires a separately isolated DB/queue
-and Storage plus the actual consumer/Edge configuration, exact original frozen inputs,
-actual candidate/builder identities, and a fresh closure scan producing new snapshot,
-certificate and build evidence. `WORKER_ID` does not isolate a shared solver queue;
+and Storage plus the actual consumer/Edge configuration and exact original public-100
+Manager BuildV2 inputs. Retain a completed R4 scan and its old snapshot/package, then
+apply the paired Database R5 configuration migration in the isolated fixture. A normal
+new check with unchanged source/scope/policy must create a distinct R5 scan and new
+snapshot/certificate/build evidence; another identical R5 request must share that R5
+scan. Preserve all R4 evidence and prove actual candidate/builder identities. `WORKER_ID` does not isolate a shared solver queue;
 `SNAPSHOT_BUILDER_BIN` has fallback candidates, so record the program actually used.
-A new check can reuse a completed scan and its old snapshot. Preserve historical
-artifacts and verify that reuse did not occur for the repaired candidate. Local unit
+A new token alone can reuse a completed scan and its old snapshot. Verify the
+versioned warm-history recovery through actual preview and CSV/XLSX downloads; a
+cold-only empty-environment run does not qualify it. Owner-draft admission, Portal
+publication and unrelated Process saves are outside this original R1 validation. Local unit
 tests and synthetic E2E fixtures do not establish original-consumer acceptance or a
 production deployment.
 
