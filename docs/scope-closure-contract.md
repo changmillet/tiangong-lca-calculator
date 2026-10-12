@@ -32,8 +32,8 @@ checkPaths:
   - scripts/run_scope_closure_external_qualification.sh
   - scripts/run_scope_closure_provider_qualification.sh
 lastReviewedAt: 2026-10-12
-lastReviewedCommit: 3ff92677ab0c2a7ce1426e7a0bb5102b11290840
-lastReviewedNote: "Reviewed Worker #316: byte-admitted exact-context windows split deterministically, preserve all selected documents and exact Flow revisions, and retain singleton/overflow failure. Artifact, certificate, lease, package and Portal contracts remain unchanged. Synthetic native capacity and complete baseline evidence are recorded on #316; hosted rollout/replay is separately authorized and tracked."
+lastReviewedCommit: 729c5a602c1562a2926750114bee141d51444a9a
+lastReviewedNote: "Reviewed Worker #318 warm-history recovery: R5 request admission pairs with the Database scanner-config revision while historical v1/R1-R4 requests remain compatible. No public schema, numerical/scientific rules, source bytes, lease/certificate fences or immutable artifacts change. Native warm-history consumer qualification remains required."
 related:
   - AGENTS.md
   - .docpact/config.yaml

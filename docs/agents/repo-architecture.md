@@ -37,8 +37,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-12
-lastReviewedCommit: c6558afa865feaf3b34c862896f500dc77b4ae2c
-lastReviewedNote: "Reviewed Worker #318 canonical LCIA display metadata, legacy aliases and source-fingerprint v4. Method identities, factors, numerical policy, provider/allocation/readiness rules, frozen artifacts and lease/publication boundaries are unchanged; original-consumer candidate qualification remains separate."
+lastReviewedCommit: 729c5a602c1562a2926750114bee141d51444a9a
+lastReviewedNote: "Reviewed Worker #318 warm-history recovery: R5 request admission pairs with the Database scanner-config revision while historical v1/R1-R4 requests remain compatible. No public schema, numerical/scientific rules, source bytes, lease/certificate fences or immutable artifacts change. Native warm-history consumer qualification remains required."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
