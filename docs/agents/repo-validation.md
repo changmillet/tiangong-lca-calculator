@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-08
-lastReviewedCommit: 312280cf40cd53607a76de819b58e37e8d203934
-lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. The qualification-driven heartbeat regression uses dev-only paused virtual time without changing production lease policy; the test-only download mock preserves empty-versus-partial request failures and accepted-socket blocking behavior; new component/capacity receipts remain required. Hosted rollout remains separately gated."
+lastReviewedAt: 2026-10-12
+lastReviewedCommit: 3ff92677ab0c2a7ce1426e7a0bb5102b11290840
+lastReviewedNote: "Reviewed Worker #316: byte-admitted exact-context windows split deterministically, preserve all selected documents and exact Flow revisions, and retain singleton/overflow failure. Artifact, certificate, lease, package and Portal contracts remain unchanged. Synthetic native capacity and complete baseline evidence are recorded on #316; hosted rollout/replay is separately authorized and tracked."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -408,3 +408,9 @@ These synthetic qualification receipts do not imply a hosted deployment or an
 original business Closure/calculation submission.
 
 The local DownloadServer test fixture ignores only a connection that closes or reaches its unchanged read timeout before any request byte. A partial header timeout/EOF, invalid UTF-8 or actual response write failure remains an error. Regression coverage keeps an idle connection ahead of a real HTTP request and verifies synchronized partial-header timeouts and EOF retain the observed byte count; production transfer deadlines and network behavior are unchanged.
+
+## Scope Closure byte-admitted validation windows
+
+Worker #316 retains the 64 MiB and one-sixteenth memory limit, splitting aggregate windows deterministically while keeping selected document order, exact supplemental Flow identities (including cache hits), native coverage and cache ownership. The offline `validation_batches` regressions cover 64 MiB minus/equal/plus one byte, the observed 146,049,335-byte aggregate, configured-budget rejection, overflow, shared Flow context after splitting and an unsplittable Process-plus-Flow context.
+
+With the published Toolkit 0.3.4 binary, run `TIDAS_BIN=/exact/tidas cargo test -p solver-worker --lib release_validation_batches_complete_production_sized_method_context -- --ignored --nocapture`. This generated synthetic payload totals exactly 146,049,335 bytes, requires complete native document counts and compares every issue event against independent singleton native validation. Record time/peak memory; this is actual-validator synthetic capacity evidence, not a real production package or hosted replay. Existing native Process/context probes and full baseline gates remain required.

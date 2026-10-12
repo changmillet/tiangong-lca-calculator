@@ -31,9 +31,9 @@ checkPaths:
   - scripts/scope_closure_qualification.py
   - scripts/run_scope_closure_external_qualification.sh
   - scripts/run_scope_closure_provider_qualification.sh
-lastReviewedAt: 2026-10-07
-lastReviewedCommit: 35821d17d20bee5bebaae3202fd42ac83c9fb54b
-lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. Hosted rollout remains separately gated."
+lastReviewedAt: 2026-10-12
+lastReviewedCommit: 3ff92677ab0c2a7ce1426e7a0bb5102b11290840
+lastReviewedNote: "Reviewed Worker #316: byte-admitted exact-context windows split deterministically, preserve all selected documents and exact Flow revisions, and retain singleton/overflow failure. Artifact, certificate, lease, package and Portal contracts remain unchanged. Synthetic native capacity and complete baseline evidence are recorded on #316; hosted rollout/replay is separately authorized and tracked."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -101,7 +101,7 @@ LCIA methods requested by the frozen manifest remain ordinary closure inputs.
 
 CPU-heavy graph finalization runs through Tokio's blocking pool so sorting, coalescing, and affected-root analysis cannot occupy a lease-heartbeat runtime thread. Canonical ordering materializes each serialized sort key once per collection, and the Worker emits phase durations and collection counts for capacity diagnosis without changing the evidence payload.
 
-Fetched document payloads are canonicalized and appended to a temporary random-access spool during traversal, then released after reference extraction. The retained document index contains only exact identity, canonical content hash, file offset, and byte size. Reference-edge and resolved-reference evidence is likewise file-backed; affected-root analysis uses numeric identity IDs and compact adjacency lists rather than repeated full identity objects per graph edge. Cache hits replay immutable source evidence. Each TIDAS execution selects at most 64 uncached documents and explicitly appends their exact referenced frozen Flow documents, including cache hits, as native manifest context. Context input is admitted before loading and stays within 64 MiB and one-sixteenth of the configured Worker memory budget; an oversized batch fails closed rather than silently omitting context.
+Fetched document payloads are canonicalized and appended to a temporary random-access spool during traversal, then released after reference extraction. The retained document index contains only exact identity, canonical content hash, file offset, and byte size. Reference-edge and resolved-reference evidence is likewise file-backed; affected-root analysis uses numeric identity IDs and compact adjacency lists rather than repeated full identity objects per graph edge. Cache hits replay immutable source evidence. Each TIDAS execution selects at most 64 uncached documents and explicitly appends their exact referenced frozen Flow documents, including cache hits, as native manifest context. Context input is admitted before loading and stays within 64 MiB and one-sixteenth of the configured Worker memory budget; an oversized aggregate is split deterministically into smaller windows and readmitted with each window’s complete exact Flow context before loading. A singleton that still exceeds the limit, integer overflow or a spool error fails closed; context is never omitted. Unsplittable admission failures retain the stable `tidas_context_input_budget_exceeded` or `tidas_context_input_size_overflow` code in the canonical failure projection.
 
 Every database fetch is constrained to an identity in the frozen release manifest. The Worker canonicalizes each fetched JSON document and compares it with the release's `canonicalContentHash`. These conditions make the scan incomplete and block certificate issuance:
 

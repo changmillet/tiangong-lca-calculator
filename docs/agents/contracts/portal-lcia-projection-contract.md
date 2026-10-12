@@ -25,9 +25,9 @@ checkPaths:
   - crates/solver-worker/src/worker_jobs.rs
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-10-07
-lastReviewedCommit: e125472630f6b775d211ec58f1e35783974f3744
-lastReviewedNote: "Reviewed Worker #311 exact Product/Waste Input/Output target contract and v5 evidence admission against e125472; legacy allocation, signed linking, artifact history, lease and publication boundaries are preserved."
+lastReviewedAt: 2026-10-12
+lastReviewedCommit: 3ff92677ab0c2a7ce1426e7a0bb5102b11290840
+lastReviewedNote: "Reviewed Worker #316: byte-admitted exact-context windows split deterministically, preserve all selected documents and exact Flow revisions, and retain singleton/overflow failure. Artifact, certificate, lease, package and Portal contracts remain unchanged. Synthetic native capacity and complete baseline evidence are recorded on #316; hosted rollout/replay is separately authorized and tracked."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml
