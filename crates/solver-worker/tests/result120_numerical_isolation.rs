@@ -1249,7 +1249,7 @@ async fn enqueue_job(
 }
 
 async fn wait_for_job(pool: &PgPool, job_id: Uuid) -> anyhow::Result<(String, Value, Value)> {
-    tokio::time::timeout(Duration::from_secs(180), async {
+    tokio::time::timeout(Duration::from_mins(3), async {
         loop {
             let row = sqlx::query(
                 "SELECT status, error_code, error_message, diagnostics, result_json FROM private.worker_jobs WHERE id=$1",
