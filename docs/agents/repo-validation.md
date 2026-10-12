@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-12
-lastReviewedCommit: 3ff92677ab0c2a7ce1426e7a0bb5102b11290840
-lastReviewedNote: "Reviewed Worker #316: byte-admitted exact-context windows split deterministically, preserve all selected documents and exact Flow revisions, and retain singleton/overflow failure. Artifact, certificate, lease, package and Portal contracts remain unchanged. Synthetic native capacity and complete baseline evidence are recorded on #316; hosted rollout/replay is separately authorized and tracked."
+lastReviewedCommit: c6558afa865feaf3b34c862896f500dc77b4ae2c
+lastReviewedNote: "Reviewed Worker #318 canonical LCIA display metadata, legacy aliases and source-fingerprint v4. Method identities, factors, numerical policy, provider/allocation/readiness rules, frozen artifacts and lease/publication boundaries are unchanged; original-consumer candidate qualification remains separate."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml

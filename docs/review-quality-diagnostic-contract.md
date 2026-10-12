@@ -28,9 +28,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-10-07
-lastReviewedCommit: e125472630f6b775d211ec58f1e35783974f3744
-lastReviewedNote: "Reviewed Worker #311 exact Product/Waste Input/Output target contract and v5 evidence admission against e125472; legacy allocation, signed linking, artifact history, lease and publication boundaries are preserved."
+lastReviewedAt: 2026-10-12
+lastReviewedCommit: c6558afa865feaf3b34c862896f500dc77b4ae2c
+lastReviewedNote: "Reviewed Worker #318 and equivalent Duration constructors in existing lease tests for Rust 1.95 Clippy. Queue selection, heartbeat timing, lease fencing, handler and review semantics are unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml

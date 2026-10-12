@@ -23,9 +23,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-architecture.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-10-07
-lastReviewedCommit: d0e66891ffbc0387a97ee06e6129a7109cd34cd1
-lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. Hosted rollout remains separately gated."
+lastReviewedAt: 2026-10-12
+lastReviewedCommit: c6558afa865feaf3b34c862896f500dc77b4ae2c
+lastReviewedNote: "Reviewed Worker #318 and equivalent Duration constructors in existing lease tests for Rust 1.95 Clippy. Queue selection, heartbeat timing, lease fencing, handler and review semantics are unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
