@@ -8102,6 +8102,7 @@ async fn run_tidas_batch_validation_cached(
         }
 
         for validation_window in missing.chunks(VALIDATION_EXECUTION_BATCH_SIZE) {
+            enforce_scope_closure_memory_budget("tidas_validation_batch")?;
             for batch in validation_context_batches(
                 &documents.path,
                 validation_window,
