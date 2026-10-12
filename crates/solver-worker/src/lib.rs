@@ -68,9 +68,11 @@ pub const NUMERICAL_SNAPSHOT_POLICY_VERSION: &str =
 
 /// Schema of the numerical source fingerprint that participates in snapshot/cache identity.
 ///
-/// Bumped because the fingerprint now incorporates [`NUMERICAL_SNAPSHOT_POLICY_VERSION`], so a
-/// fingerprint computed under an older policy can never match a new build or reuse lookup.
-pub const NUMERICAL_SOURCE_FINGERPRINT_SCHEMA: &str = "source-fingerprint:v3";
+/// V4 separates canonical LCIA name/result-quantity readers from old metadata caches even when
+/// source rows are unchanged. The numerical-policy binding introduced in V3 remains intact.
+/// This only fences ordinary builder reuse; a certified package still consumes its exact frozen
+/// snapshot and needs a genuinely fresh closure scan to produce corrected metadata.
+pub const NUMERICAL_SOURCE_FINGERPRINT_SCHEMA: &str = "source-fingerprint:v4";
 
 /// True when a recorded numerical-policy marker is the current one.
 ///
@@ -447,6 +449,7 @@ pub mod db_pool;
 pub mod file_cache;
 pub mod graph_types;
 pub mod http;
+pub mod lcia_method_metadata;
 pub mod local_reports;
 pub mod package_artifacts;
 pub mod package_db;

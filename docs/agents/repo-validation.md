@@ -72,6 +72,25 @@ cargo fmt --all -- --check
 
 Treat the last two commands as non-negotiable hard gates after code changes.
 
+### LCIA method metadata and existing snapshots
+
+For canonical metadata changes, run `cargo test -p solver-worker lcia_method_metadata`,
+`cargo test -p solver-worker --bin snapshot_builder`, and
+`cargo test -p solver-worker calculation_bundle` as well as the baseline. Cover
+canonical and legacy localized names, method-specific result labels, missing/invalid
+text, unchanged factor/identity data, CSV/XLSX values and Portal's frozen-name check.
+The source-fingerprint regression must distinguish the old ordinary snapshot cache.
+
+Native candidate qualification additionally requires a separately isolated DB/queue
+and Storage plus the actual consumer/Edge configuration, exact original frozen inputs,
+actual candidate/builder identities, and a fresh closure scan producing new snapshot,
+certificate and build evidence. `WORKER_ID` does not isolate a shared solver queue;
+`SNAPSHOT_BUILDER_BIN` has fallback candidates, so record the program actually used.
+A new check can reuse a completed scan and its old snapshot. Preserve historical
+artifacts and verify that reuse did not occur for the repaired candidate. Local unit
+tests and synthetic E2E fixtures do not establish original-consumer acceptance or a
+production deployment.
+
 The local `pre-push` hook runs the docpact gate first and then runs `make check`. The GitHub `ci` workflow is manual-dispatch only, so ordinary branch pushes do not spend Actions minutes on standalone tests.
 
 ### CI dependency cache qualification

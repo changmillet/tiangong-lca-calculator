@@ -1467,13 +1467,14 @@ fn portal_projection_axes(
                 impact.id,
                 impact.version.as_str(),
             )?;
-            let name = portal_lcia_method_name(&source.document).ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Portal LCIA method name is missing for {}@{}",
-                    impact.id,
-                    impact.version
-                )
-            })?;
+            let name =
+                crate::lcia_method_metadata::name_value(&source.document).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Portal LCIA method name is missing for {}@{}",
+                        impact.id,
+                        impact.version
+                    )
+                })?;
             let impact_name = portal_localized_text(name)?;
             if !impact_name
                 .iter()
@@ -1600,24 +1601,6 @@ fn portal_geography_precision(code: &str) -> &'static str {
         3.. if valid_country && valid_subdivisions => "city",
         _ => "other",
     }
-}
-
-fn portal_lcia_method_name(document: &Value) -> Option<&Value> {
-    [
-        ("LCIAMethodInformation", "dataSetInformation"),
-        ("methodInformation", "dataSetInformation"),
-        ("methodInfo", "dataSetInformation"),
-        ("methodInfo", "dataSetInfo"),
-    ]
-    .into_iter()
-    .find_map(|(information, data_set_information)| {
-        let data = document
-            .get("LCIAMethodDataSet")?
-            .get(information)?
-            .get(data_set_information)?;
-        data.get("name")
-            .and_then(|name| name.get("baseName").or(Some(name)))
-    })
 }
 
 fn portal_localized_text(value: &Value) -> anyhow::Result<Vec<PortalLocalizedText>> {
@@ -2682,6 +2665,96 @@ mod tests {
             &evidence,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn canonical_method_metadata_reaches_csv_xlsx_and_portal_without_value_conversion() {
+        let mut writer = fixture_writer_with_method_indices(&[0]);
+        let document = json!({"LCIAMethodDataSet": {"LCIAMethodInformation": {
+            "dataSetInformation": {"common:name": [
+                {"@xml:lang": "zh", "#text": "气候变化"},
+                {"@xml:lang": "en", "#text": "Climate change"}
+            ]},
+            "quantitativeReference": {"referenceQuantity": {
+                "common:shortDescription": {"#text": "kg CO2 equivalents", "@xml:lang": "en"}
+            }}
+        }}});
+        let mut impact = reviewed_impact(0, 0);
+        impact.impact_name = crate::lcia_method_metadata::name(&document).unwrap();
+        impact.unit = crate::lcia_method_metadata::result_unit(&document).unwrap();
+        let impacts = validate_impacts(&[impact]).unwrap();
+        let evidence = CompiledReleaseEvidence {
+            processes: Vec::new(),
+            inventory_exchanges: Vec::new(),
+            technosphere_edges: Vec::new(),
+            biosphere_edges: Vec::new(),
+            source_datasets: vec![CompiledReleaseSourceDataset {
+                dataset_type: CompiledReleaseSourceDatasetType::LciaMethod,
+                role: CompiledReleaseSourceDatasetRole::Support,
+                dataset_id: impacts[0].id,
+                dataset_version: impacts[0].version.clone(),
+                document_sha256: sha256_bytes(&canonical_value_json_bytes(&document).unwrap()),
+                document,
+            }],
+            source_reference_provenance: None,
+        };
+        let (_, portal_impacts) = portal_projection_axes(&[], &impacts, &evidence).unwrap();
+        assert_eq!(portal_impacts[0].impact_name.len(), 2);
+        assert_eq!(portal_impacts[0].impact_name[0].value, "气候变化");
+        assert_eq!(portal_impacts[0].result_unit, "kg CO2 equivalents");
+
+        let processes = writer.processes.clone();
+        writer
+            .write_result_chunk(
+                0,
+                &[SolveResult {
+                    x: Some(vec![1.0]),
+                    g: None,
+                    h: Some(vec![42.5]),
+                    factorization_state: FactorizationState::Ready,
+                }],
+            )
+            .unwrap();
+        let built = writer.finish().unwrap();
+        let shards = built
+            .artifacts
+            .iter()
+            .filter(|artifact| artifact.metadata.kind == "lcia")
+            .collect::<Vec<_>>();
+        let directory = tempfile::tempdir().unwrap();
+        let csv = directory.path().join("lcia.csv.zip");
+        let xlsx = directory.path().join("lcia.xlsx");
+        assert_eq!(
+            write_lcia_csv_zip(&csv, &shards, &processes, &impacts).unwrap(),
+            1
+        );
+        assert_eq!(
+            write_lcia_xlsx(&xlsx, &shards, &processes, &impacts).unwrap(),
+            1
+        );
+        for (path, member) in [
+            (csv, "lcia-results.csv"),
+            (xlsx, "xl/worksheets/sheet1.xml"),
+        ] {
+            let mut archive = zip::ZipArchive::new(File::open(path).unwrap()).unwrap();
+            let mut text = String::new();
+            archive
+                .by_name(member)
+                .unwrap()
+                .read_to_string(&mut text)
+                .unwrap();
+            for expected in [
+                "Climate change",
+                "kg CO2 equivalents",
+                "42.5",
+                impacts[0].id.to_string().as_str(),
+            ] {
+                assert!(text.contains(expected), "missing {expected} in {member}");
+            }
+        }
+        let mut stale = impacts;
+        stale[0].name = format!("LCIA Method {}", stale[0].id);
+        assert!(portal_projection_axes(&[], &stale, &evidence).is_err());
     }
 
     #[test]

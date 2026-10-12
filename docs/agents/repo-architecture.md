@@ -84,6 +84,7 @@ Keep these constraints in mind before editing `crates/solver-core/**` or worker 
 | `crates/solver-worker/src/storage.rs` | S3-compatible object operations plus byte-capped, hash-verified, cancellable file download/upload primitives |
 | `crates/solver-worker/src/snapshot_artifacts.rs` | numerical HDF5 envelope, Review projections, release-metadata/source-closure descriptor chain, and legacy graph/v1 readers |
 | `crates/solver-worker/src/calculation_bundle.rs` | canonical content-addressed Calculation Bundle shards plus streaming LCIA XLSX/CSV, LCI Parquet/CSV, and whole-bundle audit downloads |
+| `crates/solver-worker/src/lcia_method_metadata.rs` | canonical/legacy LCIA display-name fields, localized text selection and method result-quantity labels; no factor conversion or source-reference resolution |
 | `crates/solver-worker/src/portal_lcia_projection.rs` | V3-only typed Process/Impact/Value spool, canonical decimals, int32be hashes, verified LCIA shard reader, and bounded Database batches |
 | `crates/solver-worker/src/artifact_gc.rs` | generic artifact lifecycle candidate validation and object-first retry-safe GC state machine |
 | `crates/solver-worker/src/scope_closure.rs` | frozen-release closure traversal, TIDAS validation, canonical v3 issue partitions, compact root-impact/witness evidence, staged artifact publication, scan reuse, and package certificate verification |

@@ -25,6 +25,8 @@ use crate::calculation_evidence::{
     validate_method_factor_source_request,
 };
 
+use crate::lcia_method_metadata::localized_text;
+
 const MAX_MANIFEST_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_STATIC_ASSET_BYTES: u64 = 128 * 1024 * 1024;
 const MAX_DECOMPRESSED_FACTOR_BYTES: u64 = 512 * 1024 * 1024;
@@ -983,29 +985,6 @@ fn parse_finite_number(value: Option<&Value>) -> anyhow::Result<f64> {
         return Err(anyhow::anyhow!("LCIA factor value must be finite"));
     }
     Ok(number)
-}
-
-fn localized_text(value: Option<&Value>) -> Option<String> {
-    match value? {
-        Value::String(value) => Some(value.trim().to_owned()).filter(|value| !value.is_empty()),
-        Value::Object(value) => value
-            .get("#text")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToOwned::to_owned),
-        Value::Array(values) => values
-            .iter()
-            .find(|value| {
-                value
-                    .get("@xml:lang")
-                    .and_then(Value::as_str)
-                    .is_some_and(|language| language.eq_ignore_ascii_case("en"))
-            })
-            .and_then(|value| localized_text(Some(value)))
-            .or_else(|| values.iter().find_map(|value| localized_text(Some(value)))),
-        _ => None,
-    }
 }
 
 #[cfg(test)]

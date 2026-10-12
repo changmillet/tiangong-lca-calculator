@@ -54,6 +54,7 @@ use solver_worker::db_pool::{APP_SNAPSHOT_BUILDER, WorkerDbPoolOptions};
 use solver_worker::graph_types::{
     RequestRootProcess, ResolvedScopeProcess, ScopeProcessPartition, SnapshotSelectionMode,
 };
+use solver_worker::lcia_method_metadata;
 use solver_worker::local_reports::{
     DEFAULT_LOCAL_SNAPSHOT_REPORT_MAX_FILES, DEFAULT_LOCAL_SNAPSHOT_REPORT_MIN_FREE_BYTES,
     DEFAULT_LOCAL_SNAPSHOT_REPORT_RETENTION_DAYS, LocalReportWriteOutcome, LocalSnapshotReportMode,
@@ -3839,101 +3840,6 @@ fn exact_scope_closure_method_axis(
         .collect()
 }
 
-fn parse_lang_text(value: &Value) -> Option<String> {
-    match value {
-        Value::String(text) => {
-            let trimmed = text.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(trimmed.to_owned())
-            }
-        }
-        Value::Object(map) => {
-            if let Some(text) = map.get("#text").and_then(Value::as_str) {
-                let trimmed = text.trim();
-                if !trimmed.is_empty() {
-                    return Some(trimmed.to_owned());
-                }
-            }
-            None
-        }
-        Value::Array(arr) => {
-            let preferred = arr.iter().find(|entry| {
-                entry
-                    .get("@xml:lang")
-                    .and_then(Value::as_str)
-                    .is_some_and(|lang| lang.eq_ignore_ascii_case("en"))
-            });
-            if let Some(entry) = preferred
-                && let Some(text) = parse_lang_text(entry)
-            {
-                return Some(text);
-            }
-            arr.iter().find_map(parse_lang_text)
-        }
-        _ => None,
-    }
-}
-
-fn parse_string_path(value: &Value, path: &[&str]) -> Option<String> {
-    let mut current = value;
-    for key in path {
-        current = current.get(*key)?;
-    }
-    parse_lang_text(current)
-}
-
-fn parse_lcia_method_name(method_json: &Value) -> Option<String> {
-    parse_string_path(
-        method_json,
-        &[
-            "LCIAMethodDataSet",
-            "methodInformation",
-            "dataSetInformation",
-            "name",
-            "baseName",
-        ],
-    )
-    .or_else(|| {
-        parse_string_path(
-            method_json,
-            &[
-                "LCIAMethodDataSet",
-                "methodInfo",
-                "dataSetInfo",
-                "name",
-                "baseName",
-            ],
-        )
-    })
-}
-
-fn parse_lcia_method_unit(method_json: &Value) -> Option<String> {
-    parse_string_path(
-        method_json,
-        &[
-            "LCIAMethodDataSet",
-            "methodInformation",
-            "quantitativeReference",
-            "referenceToReferenceUnitGroup",
-            "common:shortDescription",
-        ],
-    )
-    .or_else(|| {
-        parse_string_path(
-            method_json,
-            &[
-                "LCIAMethodDataSet",
-                "methodInfo",
-                "quantitativeReference",
-                "referenceToReferenceUnitGroup",
-                "common:shortDescription",
-            ],
-        )
-    })
-}
-
 fn load_impact_factor_sets(method: &MethodSelection) -> anyhow::Result<Vec<ImpactFactorSet>> {
     if !method.has_lcia {
         return Ok(Vec::new());
@@ -4027,9 +3933,10 @@ fn load_impact_factor_sets(method: &MethodSelection) -> anyhow::Result<Vec<Impac
             method_version: identity.method_version.clone(),
             artifact_locator_id: identity.artifact_locator_id,
             impact_key: format!("method:{}", identity.method_id),
-            impact_name: parse_lcia_method_name(&row.json)
+            impact_name: lcia_method_metadata::name(&row.json)
                 .unwrap_or_else(|| format!("LCIA Method {}", identity.method_id)),
-            unit: parse_lcia_method_unit(&row.json).unwrap_or_else(|| "unknown".to_owned()),
+            unit: lcia_method_metadata::result_unit(&row.json)
+                .unwrap_or_else(|| "unknown".to_owned()),
             factors_by_flow: factor_map,
             factors_by_flow_direction: directional_factor_map,
         });
@@ -11610,6 +11517,41 @@ mod tests {
     }
 
     #[test]
+    fn canonical_lcia_metadata_does_not_reuse_legacy_source_fingerprint() {
+        let summary = SourceSnapshotSummary {
+            process_count: 2,
+            process_max_modified_at_utc: "unchanged".to_owned(),
+            lifecyclemodel_count: 0,
+            lifecyclemodel_max_modified_at_utc: "none".to_owned(),
+            lifecyclemodel_payload_sha256: "empty".to_owned(),
+            flow_count: 3,
+            flow_max_modified_at_utc: "unchanged".to_owned(),
+            lciamethod_count: 25,
+            lciamethod_max_modified_at_utc: "unchanged".to_owned(),
+        };
+        let config = test_snapshot_build_config("tidas-reference-allocation-v5");
+        // The pre-fix cache contract: source rows can remain byte-identical while
+        // their method metadata is interpreted differently by the repaired reader.
+        let legacy = json!({
+            "schema": "source-fingerprint:v3",
+            "numerical_policy_version": config.numerical_policy_version,
+            "source": {
+                "processes": {"count": 2, "max_modified_at_utc": "unchanged"},
+                "lifecyclemodels": {
+                    "count": 0, "max_modified_at_utc": "none", "payload_sha256": "empty"
+                },
+                "flows": {"count": 3, "max_modified_at_utc": "unchanged"},
+                "lciamethods": {"count": 25, "max_modified_at_utc": "unchanged"}
+            },
+            "config": config
+        });
+        assert_ne!(
+            compute_source_fingerprint_from_summary(&summary, &config).unwrap(),
+            super::sha256_bytes(&serde_json::to_vec(&legacy).unwrap())
+        );
+    }
+
+    #[test]
     fn numerical_policy_and_allocation_semantics_change_snapshot_source_fingerprint() {
         let mut summary = SourceSnapshotSummary {
             process_count: 2,
@@ -17845,6 +17787,72 @@ mod tests {
             resolve_lcia_method_source_row(Uuid::new_v4(), method_version, locator_id, &rows)
                 .expect_err("unreviewed locator/document identity drift must fail closed");
         assert!(mismatch.to_string().contains("identity alias mismatch"));
+    }
+
+    #[test]
+    fn canonical_lcia_metadata_survives_database_loading_and_snapshot_axis() {
+        let method_id = Uuid::new_v4();
+        let flow_id = Uuid::new_v4();
+        let method_version = "01.00.000";
+        let rows = resolve_database_lcia_method_rows(vec![super::MethodRow {
+            id: method_id,
+            version: method_version.to_owned(),
+            json: json!({
+                "LCIAMethodDataSet": {
+                    "LCIAMethodInformation": {
+                        "dataSetInformation": {
+                            "common:UUID": method_id.to_string(),
+                            "common:name": [
+                                {"@xml:lang": "zh", "#text": "气候变化"},
+                                {"@xml:lang": "en", "#text": "Climate change"}
+                            ]
+                        },
+                        "quantitativeReference": {
+                            "referenceQuantity": {
+                                "@type": "flow property data set",
+                                "@refObjectId": "93a60a56-a3c8-11da-a746-0800200b9a66",
+                                "@version": "03.00.003",
+                                "common:shortDescription": {
+                                    "@xml:lang": "en", "#text": "kg CO2 equivalents"
+                                }
+                            }
+                        }
+                    },
+                    "characterisationFactors": {
+                        "factor": [{
+                            "referenceToFlowDataSet": {"@refObjectId": flow_id.to_string()},
+                            "exchangeDirection": "Output",
+                            "meanValue": "2.5"
+                        }]
+                    }
+                }
+            }),
+        }])
+        .expect("canonical method identity");
+        let method = MethodSelection {
+            has_lcia: true,
+            method_id: None,
+            method_version: None,
+            method_count: 1,
+            factor_count: 1,
+            source_evidence: None,
+            rows,
+            static_bundle: None,
+        };
+        let impacts = load_impact_factor_sets(&method).expect("load method");
+        assert_eq!(impacts[0].factors_by_flow.get(&flow_id), Some(&2.5));
+        assert_eq!(
+            impacts[0]
+                .factors_by_flow_direction
+                .get(&(flow_id, ExchangeDirection::Output)),
+            Some(&2.5)
+        );
+        let axis = super::build_snapshot_impact_map(Uuid::new_v4(), &method, &impacts)
+            .expect("snapshot impact axis");
+        assert_eq!(axis[0].impact_id, method_id);
+        assert_eq!(axis[0].impact_version.as_deref(), Some(method_version));
+        assert_eq!(axis[0].impact_name, "Climate change");
+        assert_eq!(axis[0].unit, "kg CO2 equivalents");
     }
 
     #[test]
