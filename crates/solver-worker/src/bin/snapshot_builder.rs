@@ -5407,14 +5407,23 @@ fn build_compiled_release_evidence(
     source_datasets: Vec<CompiledReleaseSourceDataset>,
     source_reference_provenance: Option<CompiledSourceReferenceProvenance>,
 ) -> anyhow::Result<CompiledReleaseEvidence> {
+    // Full-library builds must not rescan every exchange for every process.
+    let mut references_by_process: HashMap<i32, Vec<&ParsedExchange>> = HashMap::new();
+    for exchange in exchanges
+        .iter()
+        .filter(|exchange| exchange.is_reference_exchange)
+    {
+        references_by_process
+            .entry(exchange.process_idx)
+            .or_default()
+            .push(exchange);
+    }
     let mut release_processes = Vec::with_capacity(processes.len());
     for process in processes {
-        let reference_exchanges = exchanges
-            .iter()
-            .filter(|exchange| {
-                exchange.process_idx == process.process_idx && exchange.is_reference_exchange
-            })
-            .collect::<Vec<_>>();
+        let reference_exchanges = references_by_process
+            .get(&process.process_idx)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
         if reference_exchanges.len() != 1 {
             return Err(anyhow::anyhow!(
                 "release evidence requires exactly one quantitative reference for process={}@{}",
@@ -18450,7 +18459,7 @@ mod tests {
         }];
 
         let evidence = build_compiled_release_evidence(
-            &[process],
+            std::slice::from_ref(&process),
             &exchanges,
             &flow_metadata,
             &flow_kinds,
@@ -18480,5 +18489,41 @@ mod tests {
         assert_eq!(explicit.flow_version, "01.00.000");
         assert_eq!(explicit.unit, "m2");
         assert_eq!(evidence.technosphere_edges[0].flow_version, "01.01.001");
+
+        // Missing and duplicate references must still fail closed, including a
+        // reference belonging to another (non-contiguous) process index.
+        let build = |items: &[ParsedExchange]| {
+            build_compiled_release_evidence(
+                std::slice::from_ref(&process),
+                items,
+                &flow_metadata,
+                &flow_kinds,
+                Vec::new(),
+                Vec::new(),
+                None,
+            )
+        };
+        assert!(
+            build(&exchanges[1..])
+                .unwrap_err()
+                .to_string()
+                .contains("requires exactly one quantitative reference")
+        );
+        let mut duplicate = exchanges.clone();
+        duplicate.push(exchanges[0].clone());
+        assert!(
+            build(&duplicate)
+                .unwrap_err()
+                .to_string()
+                .contains("requires exactly one quantitative reference")
+        );
+        duplicate.last_mut().unwrap().process_idx = 42;
+        let with_other_process =
+            build(&duplicate).expect("another process reference is independent");
+        assert_eq!(with_other_process.processes.len(), 1);
+        assert_eq!(
+            with_other_process.processes[0].quantitative_reference_flow_id,
+            product_flow_id
+        );
     }
 }
