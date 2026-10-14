@@ -6005,11 +6005,7 @@ fn lcia_gap_reason(
         Some("unsupported_exchange_direction")
     } else if direction_by_flow.get(&observation.flow_id) == Some(&None) {
         Some("ambiguous_elementary_flow_direction_axis")
-    } else if observation
-        .amount
-        .filter(|value| value.is_finite())
-        .is_none()
-    {
+    } else if observation.amount.is_none_or(|value| !value.is_finite()) {
         Some("invalid_exchange_amount")
     } else if observation.direction.is_some_and(|direction| {
         method
