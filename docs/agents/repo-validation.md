@@ -96,7 +96,7 @@ publication and unrelated Process saves are outside this original R1 validation.
 tests and synthetic E2E fixtures do not establish original-consumer acceptance or a
 production deployment.
 
-The local `pre-push` hook runs the docpact gate first and then runs `make check`. The GitHub `ci` workflow is manual-dispatch only, so ordinary branch pushes do not spend Actions minutes on standalone tests.
+The local `pre-push` hook runs the docpact gate first and then runs `make check`. The GitHub `ci` workflow runs for pull requests targeting `main` and also supports manual dispatch. Check for an existing run at the submitted head before dispatching another run.
 
 ### CI dependency cache qualification
 
