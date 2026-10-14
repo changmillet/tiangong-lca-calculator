@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-12
-lastReviewedCommit: 729c5a602c1562a2926750114bee141d51444a9a
-lastReviewedNote: "Reviewed Worker #318 warm-history recovery: R5 request admission pairs with the Database scanner-config revision while historical v1/R1-R4 requests remain compatible. No public schema, numerical/scientific rules, source bytes, lease/certificate fences or immutable artifacts change. Native warm-history consumer qualification remains required."
+lastReviewedAt: 2026-10-14
+lastReviewedCommit: 5d7c3cbf2d16d743791f13e86052eb42de46a2aa
+lastReviewedNote: "Reviewed Worker #320 snapshot replay and typed upload blockage. Coverage matching, provider/allocation rules and numerical matrices remain unchanged; v3 request and v2 replay evidence require coordinated consumers. Full local and historical replay proof is recorded on #320."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -96,7 +96,7 @@ publication and unrelated Process saves are outside this original R1 validation.
 tests and synthetic E2E fixtures do not establish original-consumer acceptance or a
 production deployment.
 
-The local `pre-push` hook runs the docpact gate first and then runs `make check`. The GitHub `ci` workflow is manual-dispatch only, so ordinary branch pushes do not spend Actions minutes on standalone tests.
+The local `pre-push` hook runs the docpact gate first and then runs `make check`. The GitHub `ci` workflow runs for pull requests targeting `main` and also supports manual dispatch. Check for an existing run at the submitted head before dispatching another run.
 
 ### CI dependency cache qualification
 

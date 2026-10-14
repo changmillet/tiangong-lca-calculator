@@ -13,7 +13,7 @@ pub const METHOD_SOURCE_REQUEST_SCHEMA_VERSION: &str = "lca.method_factor_source
 pub const METHOD_SOURCE_SNAPSHOT_SCHEMA_VERSION: &str = "lca.method_factor_source.snapshot.v2";
 pub const STATIC_CACHE_BUNDLE_SCHEMA_VERSION: &str = "lcia.static_cache_bundle.v1";
 pub const STATIC_CACHE_BUNDLE_MANIFEST_PATH: &str = "lciamethods/cache_manifest.json";
-pub const FACTOR_COVERAGE_CONTRACT_SCHEMA_VERSION: &str = "lcia.method_factor_coverage.contract.v2";
+pub const FACTOR_COVERAGE_CONTRACT_SCHEMA_VERSION: &str = "lcia.method_factor_coverage.contract.v3";
 pub const FACTOR_COVERAGE_EVIDENCE_SCHEMA_VERSION: &str = "lcia.method_factor_coverage.matrix.v1";
 pub const CALCULATION_EVIDENCE_SCHEMA_VERSION: &str = "lca.calculation_evidence.v2";
 pub const UNCHARACTERIZED_ARTIFACT_FORMAT: &str = "lcia-uncharacterized-jsonl:v2";
@@ -256,6 +256,43 @@ pub struct LcaCalculationEvidence {
     pub lcia_factor_coverage: LciaFactorCoverageEvidence,
 }
 
+/// Exact attributed elementary exchange input, stored once per snapshot for on-demand replay.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LciaExchangeObservation {
+    pub flow_id: Uuid,
+    pub flow_version: String,
+    pub direction: Option<LciaExchangeDirection>,
+    pub direction_label: String,
+    pub exchange_id: String,
+    pub amount: Option<f64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum LciaExchangeDirection {
+    Input,
+    Output,
+}
+
+impl LciaExchangeDirection {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Input => "Input",
+            Self::Output => "Output",
+        }
+    }
+    #[must_use]
+    pub const fn signed_flow_direction(self) -> crate::signed_flow::SignedFlowDirection {
+        match self {
+            Self::Input => crate::signed_flow::SignedFlowDirection::Input,
+            Self::Output => crate::signed_flow::SignedFlowDirection::Output,
+        }
+    }
+}
+
+pub const REPLAY_COVERAGE_SCHEMA_VERSION: &str = "lcia.method_factor_coverage.matrix.v2";
+pub const REPLAY_ARTIFACT_FORMAT: &str = "lcia-coverage-replay-snapshot:v1";
+
 /// One required row in the incomplete-coverage JSONL artifact.
 #[derive(Debug, Clone, Serialize)]
 pub struct LciaUncharacterizedRecord {
@@ -392,8 +429,8 @@ pub fn expected_factor_coverage_contract() -> Value {
             "amount",
             "reason",
         ],
-        "evidence_delivery": "artifact",
-        "evidence_artifact_format": UNCHARACTERIZED_ARTIFACT_FORMAT,
+        "evidence_delivery": "snapshot_replay",
+        "evidence_artifact_format": REPLAY_ARTIFACT_FORMAT,
         "incomplete_when_any": ["unmatched", "invalid", "unsupported_direction"],
         "status_field": "coverage_status",
         "complete_status": "complete",
@@ -670,7 +707,11 @@ pub fn validate_calculation_evidence(evidence: &LcaCalculationEvidence) -> anyho
     normalize_sha256(&source.method_identity_manifest_sha256)?;
 
     let coverage = &evidence.lcia_factor_coverage;
-    if coverage.schema_version != FACTOR_COVERAGE_EVIDENCE_SCHEMA_VERSION
+    if ![
+        FACTOR_COVERAGE_EVIDENCE_SCHEMA_VERSION,
+        REPLAY_COVERAGE_SCHEMA_VERSION,
+    ]
+    .contains(&coverage.schema_version.as_str())
         || coverage.missing_factor_semantics != MISSING_FACTOR_SEMANTICS
         || coverage.count_unit != COVERAGE_COUNT_UNIT
         || coverage.key_dimensions != ["method_id", "method_version", "flow_uuid", "direction"]
@@ -799,7 +840,12 @@ pub fn validate_calculation_evidence(evidence: &LcaCalculationEvidence) -> anyho
                 anyhow::anyhow!("incomplete LCIA factor coverage requires a gap artifact")
             })?;
             if artifact.artifact_url.trim().is_empty()
-                || artifact.artifact_format != UNCHARACTERIZED_ARTIFACT_FORMAT
+                || artifact.artifact_format
+                    != if coverage.schema_version == REPLAY_COVERAGE_SCHEMA_VERSION {
+                        REPLAY_ARTIFACT_FORMAT
+                    } else {
+                        UNCHARACTERIZED_ARTIFACT_FORMAT
+                    }
                 || artifact.record_count == 0
                 || artifact.record_count != gap_count
             {
@@ -1051,6 +1097,37 @@ mod tests {
         })
         .expect_err("drift must fail");
         assert!(error.to_string().contains("process_states"));
+    }
+
+    #[test]
+    fn replay_evidence_is_version_bound_and_legacy_evidence_stays_valid() {
+        let mut evidence = complete_evidence("a".repeat(64));
+        validate_calculation_evidence(&evidence).unwrap();
+        evidence.lcia_factor_coverage.schema_version = REPLAY_COVERAGE_SCHEMA_VERSION.to_owned();
+        validate_calculation_evidence(&evidence).unwrap();
+        evidence.lcia_factor_coverage.counts.matched -= 1;
+        evidence.lcia_factor_coverage.counts.unmatched = 1;
+        evidence.lcia_factor_coverage.by_method[0].counts.matched -= 1;
+        evidence.lcia_factor_coverage.by_method[0].counts.unmatched = 1;
+        evidence.lcia_factor_coverage.coverage_status = "incomplete_coverage".to_owned();
+        evidence.lcia_factor_coverage.uncharacterized_evidence =
+            Some(LciaUncharacterizedEvidenceArtifact {
+                artifact_url: "s3://private/release-evidence.json.zst".to_owned(),
+                artifact_format: REPLAY_ARTIFACT_FORMAT.to_owned(),
+                artifact_sha256: "b".repeat(64),
+                record_count: 1,
+            });
+        validate_calculation_evidence(&evidence).unwrap();
+        evidence.lcia_factor_coverage.schema_version =
+            FACTOR_COVERAGE_EVIDENCE_SCHEMA_VERSION.to_owned();
+        assert!(validate_calculation_evidence(&evidence).is_err());
+        evidence
+            .lcia_factor_coverage
+            .uncharacterized_evidence
+            .as_mut()
+            .unwrap()
+            .artifact_format = UNCHARACTERIZED_ARTIFACT_FORMAT.to_owned();
+        validate_calculation_evidence(&evidence).unwrap();
     }
 
     fn complete_evidence(scope_hash: String) -> LcaCalculationEvidence {

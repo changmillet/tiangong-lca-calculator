@@ -566,6 +566,8 @@ impl SnapshotReviewGateEvidence {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotReleaseEvidence {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lcia_coverage_inputs: Option<Vec<crate::calculation_evidence::LciaExchangeObservation>>,
     pub processes: Vec<compiled_graph::CompiledReleaseProcess>,
     pub inventory_exchanges: Vec<compiled_graph::CompiledReleaseInventoryExchange>,
     pub technosphere_edges: Vec<compiled_graph::CompiledReleaseTechnosphereEdge>,
@@ -578,6 +580,8 @@ pub struct SnapshotReleaseEvidence {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SnapshotReleaseEvidenceRef<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lcia_coverage_inputs: Option<&'a [crate::calculation_evidence::LciaExchangeObservation]>,
     processes: &'a [compiled_graph::CompiledReleaseProcess],
     inventory_exchanges: &'a [compiled_graph::CompiledReleaseInventoryExchange],
     technosphere_edges: &'a [compiled_graph::CompiledReleaseTechnosphereEdge],
@@ -865,6 +869,21 @@ pub fn encode_snapshot_release_evidence_artifact(
     release_evidence: &CompiledReleaseEvidence,
     source_closure_artifact: &SnapshotLinkedArtifact,
 ) -> anyhow::Result<EncodedSnapshotReleaseEvidenceArtifact> {
+    encode_snapshot_release_evidence_with_lcia_inputs(
+        snapshot_id,
+        release_evidence,
+        source_closure_artifact,
+        None,
+    )
+}
+
+/// Adds method-independent replay inputs to the existing compressed snapshot sidecar.
+pub fn encode_snapshot_release_evidence_with_lcia_inputs(
+    snapshot_id: Uuid,
+    release_evidence: &CompiledReleaseEvidence,
+    source_closure_artifact: &SnapshotLinkedArtifact,
+    lcia_coverage_inputs: Option<&[crate::calculation_evidence::LciaExchangeObservation]>,
+) -> anyhow::Result<EncodedSnapshotReleaseEvidenceArtifact> {
     let source_dataset_count = u64::try_from(release_evidence.source_datasets.len())?;
     let file = Builder::new()
         .prefix("lca-snapshot-release-evidence-")
@@ -880,6 +899,7 @@ pub fn encode_snapshot_release_evidence_artifact(
             format: SNAPSHOT_RELEASE_EVIDENCE_FORMAT,
             snapshot_id,
             release_evidence: SnapshotReleaseEvidenceRef {
+                lcia_coverage_inputs,
                 processes: &release_evidence.processes,
                 inventory_exchanges: &release_evidence.inventory_exchanges,
                 technosphere_edges: &release_evidence.technosphere_edges,
@@ -1378,6 +1398,34 @@ mod tests {
         };
         assert!(decoded_evidence.processes.is_empty());
         assert_eq!(decoded_evidence.source_closure_artifact.byte_size, 42);
+        assert!(decoded_evidence.lcia_coverage_inputs.is_none());
+        let inputs = vec![crate::calculation_evidence::LciaExchangeObservation {
+            flow_id: uuid::Uuid::from_u128(7),
+            flow_version: "01.00.000".to_owned(),
+            direction: None,
+            direction_label: "unknown".to_owned(),
+            exchange_id: "process:version:0".to_owned(),
+            amount: None,
+        }];
+        let replay = super::encode_snapshot_release_evidence_with_lcia_inputs(
+            snapshot_id,
+            &release_evidence,
+            &source_closure_artifact,
+            Some(&inputs),
+        )
+        .unwrap();
+        let DecodedSnapshotReleaseEvidence::Linked(restored) =
+            decode_snapshot_release_evidence_artifact(replay.path(), snapshot_id).unwrap()
+        else {
+            panic!("linked replay");
+        };
+        assert_eq!(
+            serde_json::to_value(restored.lcia_coverage_inputs.unwrap()).unwrap(),
+            serde_json::to_value(inputs).unwrap()
+        );
+        assert!(
+            decode_snapshot_release_evidence_artifact(replay.path(), uuid::Uuid::new_v4()).is_err()
+        );
 
         let legacy_file = Builder::new()
             .suffix(".json.zst")

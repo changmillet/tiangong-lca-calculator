@@ -1,8 +1,8 @@
 version: 1
 layout: repo
-lastReviewedAt: "2026-10-12"
-lastReviewedCommit: "729c5a602c1562a2926750114bee141d51444a9a"
-lastReviewedNote: "Reviewed Worker #318 warm-history recovery: R5 request admission pairs with the Database scanner-config revision while historical v1/R1-R4 requests remain compatible. No public schema, numerical/scientific rules, source bytes, lease/certificate fences or immutable artifacts change. Native warm-history consumer qualification remains required."
+lastReviewedAt: "2026-10-14"
+lastReviewedCommit: "5d7c3cbf2d16d743791f13e86052eb42de46a2aa"
+lastReviewedNote: "Reviewed Worker #320 snapshot replay and typed upload blockage. Coverage matching, provider/allocation rules and numerical matrices remain unchanged; v3 request and v2 replay evidence require coordinated consumers. Full local and historical replay proof is recorded on #320."
 
 # Keep deterministic governance facts here.
 # AGENTS.md remains the repo contract entrypoint.

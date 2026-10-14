@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-12
-lastReviewedCommit: 729c5a602c1562a2926750114bee141d51444a9a
-lastReviewedNote: "Reviewed Worker #318 warm-history recovery: R5 request admission pairs with the Database scanner-config revision while historical v1/R1-R4 requests remain compatible. No public schema, numerical/scientific rules, source bytes, lease/certificate fences or immutable artifacts change. Native warm-history consumer qualification remains required."
+lastReviewedAt: 2026-10-14
+lastReviewedCommit: 5d7c3cbf2d16d743791f13e86052eb42de46a2aa
+lastReviewedNote: "Reviewed Worker #320 snapshot replay and typed upload blockage. Coverage matching, provider/allocation rules and numerical matrices remain unchanged; v3 request and v2 replay evidence require coordinated consumers. Full local and historical replay proof is recorded on #320."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -256,4 +256,4 @@ Use this rule:
 
 ## Local Docpact Push Gate
 
-This repository has a versioned local `pre-push` hook under `.githooks/pre-push` that delegates to `scripts/docpact-gate.sh` and then runs `make check`. The gate resolves the CLI through `scripts/docpact`, so local agent shells do not need bare `docpact` on `PATH`. The hook is the local guard for docpact config validation, enforced doc-governance linting, and worker runtime tests; the GitHub `ci` workflow is manual-dispatch only.
+This repository has a versioned local `pre-push` hook under `.githooks/pre-push` that delegates to `scripts/docpact-gate.sh` and then runs `make check`. The gate resolves the CLI through `scripts/docpact`, so local agent shells do not need bare `docpact` on `PATH`. The hook is the local guard for docpact config validation, enforced doc-governance linting, and worker runtime tests; the GitHub `ci` workflow runs for pull requests targeting `main` and also supports manual dispatch.
