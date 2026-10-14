@@ -27,13 +27,13 @@ use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 use solver_core::{ModelSparseData, SparseTriplet};
 use solver_worker::calculation_evidence::{
-    CALCULATION_EVIDENCE_SCHEMA_VERSION, FACTOR_COVERAGE_EVIDENCE_SCHEMA_VERSION,
-    LcaCalculationEvidence, LcaMethodFactorSourceSnapshot, LciaFactorCoverageCounts,
+    CALCULATION_EVIDENCE_SCHEMA_VERSION, LcaCalculationEvidence, LcaMethodFactorSourceSnapshot,
+    LciaExchangeDirection as ExchangeDirection, LciaExchangeObservation, LciaFactorCoverageCounts,
     LciaFactorCoverageEvidence, LciaMethodFactorCoverage, LciaUncharacterizedEvidenceArtifact,
     LciaUncharacterizedRecord, MISSING_FACTOR_SEMANTICS, PUBLIC_PLUS_OWNER_DRAFT_SCOPE,
-    PublicOwnerDraftBuildRequest, RELEASE_METHOD_IDENTITIES, UNCHARACTERIZED_ARTIFACT_FORMAT,
-    ValidatedPublicOwnerDraftScope, canonical_json_bytes, sha256_bytes,
-    validate_calculation_evidence, validate_public_owner_draft_build_request,
+    PublicOwnerDraftBuildRequest, RELEASE_METHOD_IDENTITIES, REPLAY_ARTIFACT_FORMAT,
+    REPLAY_COVERAGE_SCHEMA_VERSION, ValidatedPublicOwnerDraftScope, canonical_json_bytes,
+    sha256_bytes, validate_calculation_evidence, validate_public_owner_draft_build_request,
 };
 use solver_worker::compiled_graph::{
     CompiledAllocationStats, CompiledBalanceResolution, CompiledBiosphereEdge,
@@ -70,7 +70,7 @@ use solver_worker::scope_closure::{
     DataSnapshotManifest, DatasetCategory, ensure_certificate_scope_closure_boundary_policy,
 };
 use solver_worker::signed_flow::{
-    ReferencePivot, SIGNED_FLOW_CLOSURE_TOLERANCE, SignedFlowDirection, TechnosphereBoundaryPolicy,
+    ReferencePivot, SIGNED_FLOW_CLOSURE_TOLERANCE, TechnosphereBoundaryPolicy,
     WeightedReferencePort, normalize_reference_coefficient, resolve_weighted_balance,
     signed_coefficient,
 };
@@ -83,7 +83,7 @@ use solver_worker::snapshot_artifacts::{
     SnapshotReviewBaseline, SnapshotReviewGateEvidence, SnapshotSingularRisk,
     SnapshotUnmatchedFlowEntry, SnapshotVolumeWeightSummary, decode_snapshot_artifact,
     encode_snapshot_artifact_with_links, encode_snapshot_artifact_with_purpose_artifacts,
-    encode_snapshot_release_evidence_artifact, encode_snapshot_source_closure_artifact,
+    encode_snapshot_release_evidence_with_lcia_inputs, encode_snapshot_source_closure_artifact,
 };
 use solver_worker::snapshot_builder_protocol::{
     SNAPSHOT_BUILDER_BLOCKED_EXIT_CODE, SnapshotBuilderDiscoveryFile, SnapshotBuilderTerminal,
@@ -119,8 +119,6 @@ const SOURCE_CLOSURE_SUPPORT_QUERY_BATCH_SIZE: usize = 512;
 const SOURCE_CLOSURE_SUPPORT_BATCH_MAX_BYTES: usize = 64 * 1024 * 1024;
 const DEFAULT_SOURCE_CLOSURE_TOTAL_DOCUMENT_BYTES: usize = 1024 * 1024 * 1024;
 const SOURCE_CLOSURE_TOTAL_DOCUMENT_BYTES_ENV: &str = "SOURCE_CLOSURE_TOTAL_DOCUMENT_BYTES";
-const MAX_LCIA_GAP_EVIDENCE_RECORDS: u64 = 25_000_000;
-const MAX_LCIA_GAP_EVIDENCE_BYTES: u64 = 8 * 1024 * 1024 * 1024;
 
 fn source_closure_total_document_bytes_limit() -> usize {
     source_closure_total_document_bytes_limit_from(
@@ -190,6 +188,22 @@ fn matrix_readiness_policy(
 #[derive(Debug, Clone, Parser)]
 #[command(name = "snapshot-builder")]
 struct Cli {
+    /// Diagnose a saved snapshot without a database or calculation; requires artifact, hash, output and a method selection.
+    #[arg(long, requires_all = ["replay_lcia_artifact", "replay_index_sha256", "replay_lcia_output"])]
+    replay_lcia_index: Option<PathBuf>,
+    /// Compressed release-evidence file referenced by the trusted snapshot index.
+    #[arg(long, requires = "replay_lcia_index")]
+    replay_lcia_artifact: Option<PathBuf>,
+    /// Expected SHA-256 of the saved snapshot index from authoritative artifact metadata.
+    #[arg(long, requires = "replay_lcia_index")]
+    replay_index_sha256: Option<String>,
+    /// New JSONL output file; existing files are never overwritten. Stdout contains only a compact JSON receipt.
+    #[arg(long, requires = "replay_lcia_index")]
+    replay_lcia_output: Option<PathBuf>,
+    /// Explicitly expand all methods; otherwise --method-id selects one reviewed method.
+    #[arg(long, requires = "replay_lcia_index", conflicts_with = "method_id")]
+    replay_all_methods: bool,
+
     #[arg(long, env = "DATABASE_URL")]
     database_url: Option<String>,
     #[arg(long, env = "CONN")]
@@ -392,28 +406,6 @@ struct SourceDatasetReference {
     dataset_type: CompiledReleaseSourceDatasetType,
     id: Uuid,
     version: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
-enum ExchangeDirection {
-    Input,
-    Output,
-}
-
-impl ExchangeDirection {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Input => "Input",
-            Self::Output => "Output",
-        }
-    }
-
-    const fn signed_flow_direction(self) -> SignedFlowDirection {
-        match self {
-            Self::Input => SignedFlowDirection::Input,
-            Self::Output => SignedFlowDirection::Output,
-        }
-    }
 }
 
 fn parse_exchange_direction(value: Option<&str>) -> Option<ExchangeDirection> {
@@ -1042,24 +1034,12 @@ struct ActiveLciaFactorSelection {
     direction_by_flow: HashMap<Uuid, Option<ExchangeDirection>>,
 }
 
-#[derive(Debug, Clone)]
-struct LciaExchangeObservation {
-    flow_id: Uuid,
-    flow_version: String,
-    direction: Option<ExchangeDirection>,
-    direction_label: String,
-    exchange_id: String,
-    amount: Option<f64>,
-}
-
 #[derive(Debug)]
 struct LciaFactorCoverageBuild {
     counts: LciaFactorCoverageCounts,
     by_method: Vec<LciaMethodFactorCoverage>,
-    records: tempfile::NamedTempFile,
+    observations: Vec<LciaExchangeObservation>,
     record_count: u64,
-    artifact_byte_size: u64,
-    artifact_sha256: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1466,16 +1446,18 @@ fn scope_closure_boundary_policy(
 #[tokio::main]
 async fn main() -> anyhow::Result<ExitCode> {
     let cli = Cli::parse();
+    if cli.replay_lcia_index.is_some() {
+        replay_lcia_evidence(&cli).await?;
+        return Ok(ExitCode::SUCCESS);
+    }
     let blocking_reasons_path = cli.scope_closure_blocking_reasons_file.clone();
     match Box::pin(run_snapshot_builder(cli)).await {
         Ok(()) => Ok(ExitCode::SUCCESS),
         Err(error) => {
-            if let Some(SnapshotSourceClosureError::Blocked { code, issues }) =
-                error.downcast_ref::<SnapshotSourceClosureError>()
-            {
+            if let Some((code, issues)) = snapshot_builder_blockage(&error) {
                 let descriptor = blocking_reasons_path
                     .as_deref()
-                    .map(|path| write_blocking_reasons_file(path, issues))
+                    .map(|path| write_blocking_reasons_file(path, &issues))
                     .transpose()?;
                 println!(
                     "{}",
@@ -1494,6 +1476,165 @@ async fn main() -> anyhow::Result<ExitCode> {
             Err(error)
         }
     }
+}
+
+fn snapshot_builder_blockage(error: &anyhow::Error) -> Option<(String, Vec<Value>)> {
+    if let Some(SnapshotSourceClosureError::Blocked { code, issues }) =
+        error.downcast_ref::<SnapshotSourceClosureError>()
+    {
+        return Some((code.clone(), issues.clone()));
+    }
+    error.downcast_ref::<solver_worker::storage::ObjectStoreUploadError>()
+        .filter(|error| error.is_oversize())
+        .map(|_| ("artifact_too_large".to_owned(), vec![serde_json::json!({
+            "code": "artifact_too_large", "message": "Object storage rejected the artifact size; repair the build or storage limit before an explicit retry."
+        })]))
+}
+
+fn verified_local_file_hash(path: &Path, expected: &str) -> anyhow::Result<()> {
+    use std::io::Read;
+    let mut input = fs::File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0_u8; 64 * 1024];
+    loop {
+        let n = input.read(&mut buffer)?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buffer[..n]);
+    }
+    anyhow::ensure!(
+        hex::encode(hasher.finalize()) == expected,
+        "replay input SHA-256 mismatch: {}",
+        path.display()
+    );
+    Ok(())
+}
+
+async fn replay_lcia_evidence(cli: &Cli) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        cli.method_id.is_some() || cli.replay_all_methods,
+        "select --method-id or explicitly --replay-all-methods"
+    );
+    let index_path = cli.replay_lcia_index.as_ref().expect("CLI requires index");
+    verified_local_file_hash(
+        index_path,
+        cli.replay_index_sha256
+            .as_deref()
+            .expect("CLI requires index hash"),
+    )?;
+    let index: SnapshotIndexDocument = serde_json::from_reader(fs::File::open(index_path)?)?;
+    anyhow::ensure!(index.version == 1, "unsupported snapshot index version");
+    let evidence = index
+        .calculation_evidence
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("snapshot has no LCIA coverage evidence"))?;
+    validate_calculation_evidence(evidence)?;
+    anyhow::ensure!(
+        evidence.lcia_factor_coverage.schema_version == REPLAY_COVERAGE_SCHEMA_VERSION,
+        "legacy snapshot has no replay inputs; use its retained JSONL artifact"
+    );
+    let descriptor = evidence
+        .lcia_factor_coverage
+        .uncharacterized_evidence
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("snapshot coverage is complete; no gaps to export"))?;
+    let artifact_path = cli
+        .replay_lcia_artifact
+        .as_ref()
+        .expect("CLI requires artifact");
+    verified_local_file_hash(artifact_path, &descriptor.artifact_sha256)?;
+    let solver_worker::snapshot_artifacts::DecodedSnapshotReleaseEvidence::Linked(release) =
+        solver_worker::snapshot_artifacts::decode_snapshot_release_evidence_artifact(
+            artifact_path,
+            index.snapshot_id,
+        )?
+    else {
+        anyhow::bail!("legacy release evidence has no replay inputs");
+    };
+    let observations = release
+        .lcia_coverage_inputs
+        .ok_or_else(|| anyhow::anyhow!("snapshot is missing LCIA replay inputs"))?;
+    let source = TrustedStaticCacheSource::new(
+        cli.lcia_static_cache_dir.clone(),
+        cli.lcia_static_cache_base_url.clone(),
+    )?;
+    let bundle = load_verified_static_lcia_bundle(
+        &source,
+        &solver_worker::calculation_evidence::method_factor_source_contract_fixture(),
+    )
+    .await?;
+    anyhow::ensure!(
+        bundle.source_evidence == evidence.lcia_method_factor_source,
+        "method bundle does not match historical snapshot"
+    );
+    let method = MethodSelection {
+        has_lcia: true,
+        method_id: None,
+        method_version: None,
+        method_count: i64::try_from(bundle.methods.len())?,
+        factor_count: 0,
+        source_evidence: Some(bundle.source_evidence.clone()),
+        rows: vec![],
+        static_bundle: Some(bundle),
+    };
+    let mut factors = load_impact_factor_sets(&method)?;
+    let coverage = build_lcia_factor_coverage(
+        &observations,
+        &factors,
+        &unique_supported_direction_by_flow(&observations),
+    )?;
+    anyhow::ensure!(
+        coverage.counts == evidence.lcia_factor_coverage.counts
+            && coverage.by_method == evidence.lcia_factor_coverage.by_method,
+        "replayed coverage differs from snapshot counts"
+    );
+    if let Some(id) = cli.method_id {
+        factors.retain(|method| method.impact_id == id);
+    }
+    anyhow::ensure!(
+        !factors.is_empty(),
+        "requested method is not in this snapshot"
+    );
+    if let Some(version) = &cli.method_version {
+        anyhow::ensure!(
+            factors
+                .iter()
+                .all(|method| &method.method_version == version),
+            "requested method version differs from this snapshot"
+        );
+    }
+    let output = cli
+        .replay_lcia_output
+        .as_ref()
+        .expect("CLI requires output");
+    let parent = output
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
+    let mut bytes = 0_u64;
+    let record_count = visit_lcia_gaps(&observations, &factors, |record| {
+        let mut line = serde_json::to_vec(&record)?;
+        line.push(b'\n');
+        bytes = bytes
+            .checked_add(u64::try_from(line.len())?)
+            .ok_or_else(|| anyhow::anyhow!("replay output size overflow"))?;
+        anyhow::ensure!(
+            bytes <= 8 * 1024 * 1024 * 1024,
+            "requested replay exceeds 8 GiB; select a single method"
+        );
+        temporary.write_all(&line)?;
+        Ok(())
+    })?;
+    temporary.flush()?;
+    temporary.persist_noclobber(output)?;
+    println!(
+        "{}",
+        serde_json::json!({"schema_version":"lcia.coverage_replay.receipt.v1", "snapshot_id":index.snapshot_id,
+        "method_count":factors.len(), "record_count":record_count, "byte_size":bytes, "coverage_verified":true, "selection_complete":true, "output":output})
+    );
+    Ok(())
 }
 
 async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
@@ -2120,10 +2261,14 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
         .as_ref()
         .zip(source_closure_artifact.as_ref())
         .map(|(evidence, source_closure_artifact)| {
-            encode_snapshot_release_evidence_artifact(
+            encode_snapshot_release_evidence_with_lcia_inputs(
                 snapshot_id,
                 evidence,
                 source_closure_artifact,
+                built
+                    .lcia_factor_coverage
+                    .as_ref()
+                    .map(|coverage| coverage.observations.as_slice()),
             )
         })
         .transpose()?;
@@ -2158,7 +2303,7 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
         snapshot_id,
         &build_config,
         &built,
-        release_evidence_artifact,
+        release_evidence_artifact.clone(),
     )?;
     build_timing.encode_artifact_sec += encode_started.elapsed().as_secs_f64();
 
@@ -2174,13 +2319,11 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
     build_timing.upload_artifact_sec += upload_started.elapsed().as_secs_f64();
 
     attach_versioned_calculation_evidence(
-        &store,
-        snapshot_id,
+        release_evidence_artifact.as_ref(),
         &mut built,
         versioned_scope.as_ref(),
         &method,
-    )
-    .await?;
+    )?;
 
     let snapshot_index_bytes = serde_json::to_vec(&built.snapshot_index)?;
     let snapshot_index_sha256 = sha256_bytes(snapshot_index_bytes.as_slice());
@@ -2276,9 +2419,8 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn attach_versioned_calculation_evidence(
-    store: &ObjectStoreClient,
-    snapshot_id: Uuid,
+fn attach_versioned_calculation_evidence(
+    replay_artifact: Option<&SnapshotLinkedArtifact>,
     built: &mut BuildOutput,
     versioned_scope: Option<&ValidatedPublicOwnerDraftScope>,
     method: &MethodSelection,
@@ -2308,23 +2450,12 @@ async fn attach_versioned_calculation_evidence(
     let uncharacterized_evidence = if record_count == 0 {
         None
     } else {
-        let artifact_byte_size = coverage.records.as_file().metadata()?.len();
-        if artifact_byte_size != coverage.artifact_byte_size {
-            return Err(anyhow::anyhow!(
-                "LCIA gap evidence spool byte-size changed before upload"
-            ));
-        }
-        let artifact_url = store
-            .upload_snapshot_lcia_uncharacterized_evidence_file(
-                snapshot_id,
-                coverage.records.path(),
-                artifact_byte_size,
-            )
-            .await?;
+        let artifact = replay_artifact
+            .ok_or_else(|| anyhow::anyhow!("LCIA replay requires snapshot release evidence"))?;
         Some(LciaUncharacterizedEvidenceArtifact {
-            artifact_url,
-            artifact_format: UNCHARACTERIZED_ARTIFACT_FORMAT.to_owned(),
-            artifact_sha256: coverage.artifact_sha256.clone(),
+            artifact_url: artifact.object_url.clone(),
+            artifact_format: REPLAY_ARTIFACT_FORMAT.to_owned(),
+            artifact_sha256: artifact.sha256.clone(),
             record_count,
         })
     };
@@ -2333,7 +2464,7 @@ async fn attach_versioned_calculation_evidence(
         scope_manifest_sha256: scope.scope_manifest_sha256.clone(),
         lcia_method_factor_source: source,
         lcia_factor_coverage: LciaFactorCoverageEvidence {
-            schema_version: FACTOR_COVERAGE_EVIDENCE_SCHEMA_VERSION.to_owned(),
+            schema_version: REPLAY_COVERAGE_SCHEMA_VERSION.to_owned(),
             source_snapshot_sha256: method
                 .source_evidence
                 .as_ref()
@@ -5865,122 +5996,81 @@ fn unique_supported_direction_by_flow(
         .collect()
 }
 
+fn lcia_gap_reason(
+    observation: &LciaExchangeObservation,
+    method: &ImpactFactorSet,
+    direction_by_flow: &HashMap<Uuid, Option<ExchangeDirection>>,
+) -> Option<&'static str> {
+    if observation.direction.is_none() {
+        Some("unsupported_exchange_direction")
+    } else if direction_by_flow.get(&observation.flow_id) == Some(&None) {
+        Some("ambiguous_elementary_flow_direction_axis")
+    } else if observation
+        .amount
+        .filter(|value| value.is_finite())
+        .is_none()
+    {
+        Some("invalid_exchange_amount")
+    } else if observation.direction.is_some_and(|direction| {
+        method
+            .factors_by_flow_direction
+            .contains_key(&(observation.flow_id, direction))
+    }) {
+        None
+    } else {
+        Some("no_lcia_factor_for_flow_direction")
+    }
+}
+
 fn build_lcia_factor_coverage(
     observations: &[LciaExchangeObservation],
     impact_factor_sets: &[ImpactFactorSet],
     direction_by_flow: &HashMap<Uuid, Option<ExchangeDirection>>,
 ) -> anyhow::Result<LciaFactorCoverageBuild> {
+    // Matching depends on a unique flow/direction and amount validity, never exchange identity.
+    let mut groups = HashMap::new();
+    for observation in observations {
+        let key = (
+            observation.flow_id,
+            observation.direction,
+            observation.amount.is_some_and(f64::is_finite),
+        );
+        let entry = groups.entry(key).or_insert((observation, 0_u64));
+        entry.1 = entry
+            .1
+            .checked_add(1)
+            .ok_or_else(|| anyhow::anyhow!("LCIA observation count overflow"))?;
+    }
     let mut counts = LciaFactorCoverageCounts::default();
     let mut by_method = Vec::with_capacity(impact_factor_sets.len());
-    let mut records = tempfile::Builder::new()
-        .prefix("lcia-uncharacterized-")
-        .suffix(".jsonl")
-        .tempfile()?;
-    let mut record_count = 0_u64;
-    let mut artifact_byte_size = 0_u64;
-    let mut artifact_hasher = Sha256::new();
-    let mut sorted_observations = observations.iter().collect::<Vec<_>>();
-    sorted_observations.sort_by(|left, right| {
-        left.flow_id
-            .cmp(&right.flow_id)
-            .then_with(|| left.direction_label.cmp(&right.direction_label))
-            .then_with(|| left.exchange_id.cmp(&right.exchange_id))
-    });
-    let mut sorted_methods = impact_factor_sets.iter().collect::<Vec<_>>();
-    sorted_methods.sort_by_key(|method| (method.impact_id, method.method_version.clone()));
-
-    for method in sorted_methods {
+    let mut methods = impact_factor_sets.iter().collect::<Vec<_>>();
+    methods.sort_by_key(|method| (method.impact_id, &method.method_version));
+    for method in methods {
         let mut method_counts = LciaFactorCoverageCounts::default();
-        for observation in &sorted_observations {
-            let amount = observation.amount.filter(|value| value.is_finite());
-            let outcome = if observation.direction.is_none() {
-                Some(("unsupported_direction", "unsupported_exchange_direction"))
-            } else if direction_by_flow.get(&observation.flow_id) == Some(&None) {
-                Some((
-                    "unsupported_direction",
-                    "ambiguous_elementary_flow_direction_axis",
-                ))
-            } else if amount.is_none() {
-                Some(("invalid", "invalid_exchange_amount"))
-            } else if observation.direction.is_some_and(|direction| {
-                method
-                    .factors_by_flow_direction
-                    .contains_key(&(observation.flow_id, direction))
-            }) {
-                None
-            } else {
-                Some(("unmatched", "no_lcia_factor_for_flow_direction"))
+        for (observation, multiplicity) in groups.values() {
+            let count = match lcia_gap_reason(observation, method, direction_by_flow) {
+                None => &mut method_counts.matched,
+                Some("invalid_exchange_amount") => &mut method_counts.invalid,
+                Some("no_lcia_factor_for_flow_direction") => &mut method_counts.unmatched,
+                Some(_) => &mut method_counts.unsupported_direction,
             };
-
-            match outcome {
-                None => method_counts.matched = method_counts.matched.saturating_add(1),
-                Some((kind, reason)) => {
-                    match kind {
-                        "unmatched" => {
-                            method_counts.unmatched = method_counts.unmatched.saturating_add(1);
-                        }
-                        "invalid" => {
-                            method_counts.invalid = method_counts.invalid.saturating_add(1);
-                        }
-                        "unsupported_direction" => {
-                            method_counts.unsupported_direction =
-                                method_counts.unsupported_direction.saturating_add(1);
-                        }
-                        _ => return Err(anyhow::anyhow!("unknown LCIA coverage outcome")),
-                    }
-                    let record = LciaUncharacterizedRecord {
-                        method_id: method.impact_id,
-                        method_version: method.method_version.clone(),
-                        artifact_locator_id: method.artifact_locator_id,
-                        flow_uuid: observation.flow_id,
-                        flow_version: observation.flow_version.clone(),
-                        direction: observation.direction.map_or_else(
-                            || observation.direction_label.clone(),
-                            |direction| direction.as_str().to_owned(),
-                        ),
-                        exchange_id: observation.exchange_id.clone(),
-                        amount,
-                        reason: reason.to_owned(),
-                    };
-                    let mut line = serde_json::to_vec(&record)?;
-                    line.push(b'\n');
-                    if record_count >= MAX_LCIA_GAP_EVIDENCE_RECORDS {
-                        return Err(anyhow::anyhow!(
-                            "LCIA gap evidence exceeds the {MAX_LCIA_GAP_EVIDENCE_RECORDS}-record fail-closed limit"
-                        ));
-                    }
-                    artifact_byte_size = artifact_byte_size
-                        .checked_add(u64::try_from(line.len())?)
-                        .ok_or_else(|| anyhow::anyhow!("LCIA gap evidence byte-size overflow"))?;
-                    if artifact_byte_size > MAX_LCIA_GAP_EVIDENCE_BYTES {
-                        return Err(anyhow::anyhow!(
-                            "LCIA gap evidence exceeds the {MAX_LCIA_GAP_EVIDENCE_BYTES}-byte fail-closed limit"
-                        ));
-                    }
-                    records.write_all(&line)?;
-                    artifact_hasher.update(&line);
-                    record_count = record_count
-                        .checked_add(1)
-                        .ok_or_else(|| anyhow::anyhow!("LCIA gap record count overflow"))?;
-                }
-            }
+            *count = count
+                .checked_add(*multiplicity)
+                .ok_or_else(|| anyhow::anyhow!("LCIA coverage count overflow"))?;
         }
-        counts.matched = counts
-            .matched
-            .checked_add(method_counts.matched)
-            .ok_or_else(|| anyhow::anyhow!("LCIA matched count overflow"))?;
-        counts.unmatched = counts
-            .unmatched
-            .checked_add(method_counts.unmatched)
-            .ok_or_else(|| anyhow::anyhow!("LCIA unmatched count overflow"))?;
-        counts.invalid = counts
-            .invalid
-            .checked_add(method_counts.invalid)
-            .ok_or_else(|| anyhow::anyhow!("LCIA invalid count overflow"))?;
-        counts.unsupported_direction = counts
-            .unsupported_direction
-            .checked_add(method_counts.unsupported_direction)
-            .ok_or_else(|| anyhow::anyhow!("LCIA unsupported-direction count overflow"))?;
+        for (total, count) in [
+            (&mut counts.matched, method_counts.matched),
+            (&mut counts.unmatched, method_counts.unmatched),
+            (&mut counts.invalid, method_counts.invalid),
+            (
+                &mut counts.unsupported_direction,
+                method_counts.unsupported_direction,
+            ),
+        ] {
+            *total = total
+                .checked_add(count)
+                .ok_or_else(|| anyhow::anyhow!("LCIA coverage count overflow"))?;
+        }
         by_method.push(LciaMethodFactorCoverage {
             method_id: method.impact_id,
             method_version: method.method_version.clone(),
@@ -5988,15 +6078,58 @@ fn build_lcia_factor_coverage(
             counts: method_counts,
         });
     }
-    records.flush()?;
+    let record_count = counts
+        .unmatched
+        .checked_add(counts.invalid)
+        .and_then(|n| n.checked_add(counts.unsupported_direction))
+        .ok_or_else(|| anyhow::anyhow!("LCIA gap count overflow"))?;
     Ok(LciaFactorCoverageBuild {
         counts,
         by_method,
-        records,
+        observations: observations.to_vec(),
         record_count,
-        artifact_byte_size,
-        artifact_sha256: hex::encode(artifact_hasher.finalize()),
     })
+}
+
+/// Only explicit diagnostic requests expand method/exchange pairs; calculation never calls this.
+fn visit_lcia_gaps(
+    observations: &[LciaExchangeObservation],
+    methods: &[ImpactFactorSet],
+    mut visit: impl FnMut(LciaUncharacterizedRecord) -> anyhow::Result<()>,
+) -> anyhow::Result<u64> {
+    let directions = unique_supported_direction_by_flow(observations);
+    let mut sorted = observations.iter().collect::<Vec<_>>();
+    sorted.sort_by(|a, b| {
+        a.flow_id
+            .cmp(&b.flow_id)
+            .then_with(|| a.direction_label.cmp(&b.direction_label))
+            .then_with(|| a.exchange_id.cmp(&b.exchange_id))
+    });
+    let mut methods = methods.iter().collect::<Vec<_>>();
+    methods.sort_by_key(|method| (method.impact_id, &method.method_version));
+    let mut count = 0;
+    for method in methods {
+        for observation in &sorted {
+            if let Some(reason) = lcia_gap_reason(observation, method, &directions) {
+                visit(LciaUncharacterizedRecord {
+                    method_id: method.impact_id,
+                    method_version: method.method_version.clone(),
+                    artifact_locator_id: method.artifact_locator_id,
+                    flow_uuid: observation.flow_id,
+                    flow_version: observation.flow_version.clone(),
+                    direction: observation.direction.map_or_else(
+                        || observation.direction_label.clone(),
+                        |d| d.as_str().to_owned(),
+                    ),
+                    exchange_id: observation.exchange_id.clone(),
+                    amount: observation.amount.filter(|n| n.is_finite()),
+                    reason: reason.to_owned(),
+                })?;
+                count += 1;
+            }
+        }
+    }
+    Ok(count)
 }
 
 fn build_snapshot_impact_map(
@@ -16464,6 +16597,269 @@ mod tests {
     }
 
     #[test]
+    fn oversized_upload_has_a_valid_non_retryable_subprocess_terminal() {
+        let mut error = solver_worker::storage::ObjectStoreUploadError {
+            stage: "upload_multipart_part",
+            upload_mode: "multipart",
+            status_code: Some(413),
+            s3_error_code: Some("EntityTooLarge".to_owned()),
+            object_byte_size: Some(2_852_206_324),
+            max_upload_bytes: None,
+            part_number: Some(65),
+            part_count: None,
+            message: "private details must not reach protocol".to_owned(),
+        };
+        let (code, reasons) =
+            super::snapshot_builder_blockage(&anyhow::Error::new(error.clone())).unwrap();
+        let terminal = solver_worker::snapshot_builder_protocol::SnapshotBuilderTerminal::blocked(
+            code, reasons,
+        );
+        let line = terminal.to_line().unwrap();
+        assert!(!line.contains("private details"));
+        assert_eq!(
+            solver_worker::snapshot_builder_protocol::parse_terminal(&line).unwrap(),
+            terminal
+        );
+        error.status_code = Some(503);
+        error.s3_error_code = None;
+        assert!(super::snapshot_builder_blockage(&anyhow::Error::new(error)).is_none());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires LCIA_TEST_STATIC_CACHE_DIR pointing to the reviewed static-cache root"]
+    async fn replay_saved_snapshot_with_real_method_bundle() {
+        let cache_root = std::env::var("LCIA_TEST_STATIC_CACHE_DIR").expect("static cache root");
+        let source =
+            super::TrustedStaticCacheSource::new(Some(cache_root.clone().into()), None).unwrap();
+        let bundle = super::load_verified_static_lcia_bundle(
+            &source,
+            &solver_worker::calculation_evidence::method_factor_source_contract_fixture(),
+        )
+        .await
+        .unwrap();
+        let method = MethodSelection {
+            has_lcia: true,
+            method_id: None,
+            method_version: None,
+            method_count: 25,
+            factor_count: 0,
+            source_evidence: Some(bundle.source_evidence.clone()),
+            rows: vec![],
+            static_bundle: Some(bundle),
+        };
+        let factors = super::load_impact_factor_sets(&method).unwrap();
+        let observations = vec![
+            LciaExchangeObservation {
+                flow_id: Uuid::nil(),
+                flow_version: "01.00.000".to_owned(),
+                direction: Some(ExchangeDirection::Output),
+                direction_label: "Output".to_owned(),
+                exchange_id: "process:version:0".to_owned(),
+                amount: Some(1.0),
+            },
+            LciaExchangeObservation {
+                flow_id: Uuid::from_u128(3),
+                flow_version: "01.00.000".to_owned(),
+                direction: None,
+                direction_label: "unknown".to_owned(),
+                exchange_id: "process:version:1".to_owned(),
+                amount: None,
+            },
+        ];
+        let coverage = build_lcia_factor_coverage(
+            &observations,
+            &factors,
+            &unique_supported_direction_by_flow(&observations),
+        )
+        .unwrap();
+        assert_eq!(coverage.record_count, 50);
+        let snapshot_id = Uuid::new_v4();
+        let source_link = super::SnapshotLinkedArtifact {
+            format: "snapshot-source-closure-json-zstd:v1".to_owned(),
+            object_url: "s3://test/source.json.zst".to_owned(),
+            sha256: "a".repeat(64),
+            byte_size: 1,
+            content_type: "application/zstd".to_owned(),
+        };
+        let release = CompiledReleaseEvidence {
+            processes: vec![],
+            inventory_exchanges: vec![],
+            technosphere_edges: vec![],
+            biosphere_edges: vec![],
+            source_datasets: vec![],
+            source_reference_provenance: None,
+        };
+        let encoded = super::encode_snapshot_release_evidence_with_lcia_inputs(
+            snapshot_id,
+            &release,
+            &source_link,
+            Some(&observations),
+        )
+        .unwrap();
+        let source = method.source_evidence.unwrap();
+        let evidence = solver_worker::calculation_evidence::LcaCalculationEvidence {
+            schema_version: super::CALCULATION_EVIDENCE_SCHEMA_VERSION.to_owned(),
+            scope_manifest_sha256: "b".repeat(64),
+            lcia_factor_coverage: solver_worker::calculation_evidence::LciaFactorCoverageEvidence {
+                schema_version: super::REPLAY_COVERAGE_SCHEMA_VERSION.to_owned(),
+                source_snapshot_sha256: source.source_snapshot_sha256.clone(),
+                method_manifest_sha256: source.method_manifest_sha256.clone(),
+                factor_manifest_sha256: source.factor_manifest_sha256.clone(),
+                method_identity_manifest_sha256: source.method_identity_manifest_sha256.clone(),
+                count_unit: "exchange_method_pair".to_owned(),
+                key_dimensions: ["method_id", "method_version", "flow_uuid", "direction"]
+                    .into_iter()
+                    .map(str::to_owned)
+                    .collect(),
+                coverage_status: "incomplete_coverage".to_owned(),
+                missing_factor_semantics: super::MISSING_FACTOR_SEMANTICS.to_owned(),
+                counts: coverage.counts,
+                by_method: coverage.by_method,
+                uncharacterized_evidence: Some(
+                    solver_worker::calculation_evidence::LciaUncharacterizedEvidenceArtifact {
+                        artifact_url: "s3://test/release.json.zst".to_owned(),
+                        artifact_format: super::REPLAY_ARTIFACT_FORMAT.to_owned(),
+                        artifact_sha256: encoded.sha256.clone(),
+                        record_count: 50,
+                    },
+                ),
+            },
+            lcia_method_factor_source: source,
+        };
+        let mut index = super::SnapshotIndexDocument {
+            version: 1,
+            snapshot_id,
+            process_count: 1,
+            impact_count: 25,
+            process_map: vec![],
+            impact_map: vec![],
+            calculation_evidence: Some(evidence),
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let index_path = directory.path().join("index.json");
+        let output = directory.path().join("gaps.jsonl");
+        let bytes = serde_json::to_vec(&index).unwrap();
+        std::fs::write(&index_path, &bytes).unwrap();
+        let args = vec![
+            "snapshot_builder".to_owned(),
+            "--replay-lcia-index".to_owned(),
+            index_path.display().to_string(),
+            "--replay-index-sha256".to_owned(),
+            super::sha256_bytes(&bytes),
+            "--replay-lcia-artifact".to_owned(),
+            encoded.path().display().to_string(),
+            "--replay-lcia-output".to_owned(),
+            output.display().to_string(),
+            "--method-id".to_owned(),
+            factors[0].impact_id.to_string(),
+            "--lcia-static-cache-dir".to_owned(),
+            cache_root,
+        ];
+        let mut cli = <super::Cli as clap::Parser>::try_parse_from(args).unwrap();
+        super::replay_lcia_evidence(&cli).await.unwrap();
+        let original = std::fs::read_to_string(&output).unwrap();
+        assert_eq!(original.lines().count(), 2);
+        assert!(original.contains("unsupported_exchange_direction"));
+        assert!(original.contains("no_lcia_factor_for_flow_direction"));
+        assert!(super::replay_lcia_evidence(&cli).await.is_err());
+        assert_eq!(std::fs::read_to_string(&output).unwrap(), original);
+        cli.replay_lcia_output = Some(directory.path().join("tampered.jsonl"));
+        cli.replay_index_sha256 = Some("0".repeat(64));
+        assert!(super::replay_lcia_evidence(&cli).await.is_err());
+        assert!(!cli.replay_lcia_output.as_ref().unwrap().exists());
+        // Even a trusted, newly hashed index cannot claim counts inconsistent with saved inputs.
+        let counts = &mut index
+            .calculation_evidence
+            .as_mut()
+            .unwrap()
+            .lcia_factor_coverage;
+        counts.counts.unmatched -= 1;
+        counts.counts.matched += 1;
+        counts.by_method[0].counts.unmatched -= 1;
+        counts.by_method[0].counts.matched += 1;
+        counts
+            .uncharacterized_evidence
+            .as_mut()
+            .unwrap()
+            .record_count -= 1;
+        let bytes = serde_json::to_vec(&index).unwrap();
+        std::fs::write(&index_path, &bytes).unwrap();
+        cli.replay_index_sha256 = Some(super::sha256_bytes(&bytes));
+        assert!(
+            super::replay_lcia_evidence(&cli)
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("replayed coverage differs")
+        );
+        assert!(!cli.replay_lcia_output.as_ref().unwrap().exists());
+    }
+
+    #[test]
+    fn replay_preserves_invalid_unknown_ambiguous_and_repeated_inputs_without_method_expansion() {
+        let flow = Uuid::from_u128(1);
+        let mut observations = vec![
+            LciaExchangeObservation {
+                flow_id: flow,
+                flow_version: "01.00.000".to_owned(),
+                direction: Some(ExchangeDirection::Output),
+                direction_label: "Output".to_owned(),
+                exchange_id: "process:version:0".to_owned(),
+                amount: Some(1.0)
+            };
+            20_000
+        ];
+        observations.push(LciaExchangeObservation {
+            flow_id: Uuid::from_u128(2),
+            amount: None,
+            ..observations[0].clone()
+        });
+        observations.push(LciaExchangeObservation {
+            flow_id: Uuid::from_u128(3),
+            direction: None,
+            direction_label: "Unknown".to_owned(),
+            ..observations[0].clone()
+        });
+        let factors = (10..35)
+            .map(|id| ImpactFactorSet {
+                impact_id: Uuid::from_u128(id),
+                method_version: "01.00.000".to_owned(),
+                artifact_locator_id: Uuid::from_u128(id),
+                impact_key: String::new(),
+                impact_name: String::new(),
+                unit: String::new(),
+                factors_by_flow: HashMap::new(),
+                // Explicit zero is still an existing factor, unlike an absent key.
+                factors_by_flow_direction: HashMap::from([(
+                    (flow, ExchangeDirection::Output),
+                    0.0,
+                )]),
+            })
+            .collect::<Vec<_>>();
+        let saved = serde_json::to_vec(&observations).unwrap();
+        let restored = serde_json::from_slice::<Vec<LciaExchangeObservation>>(&saved).unwrap();
+        let directions = unique_supported_direction_by_flow(&restored);
+        let coverage = build_lcia_factor_coverage(&restored, &factors, &directions).unwrap();
+        assert_eq!(coverage.counts.matched, 500_000);
+        assert_eq!(coverage.counts.invalid, 25);
+        assert_eq!(coverage.counts.unsupported_direction, 25);
+        assert_eq!(coverage.observations.len(), observations.len());
+        let mut reasons = HashMap::new();
+        let count = super::visit_lcia_gaps(&restored, &factors, |record| {
+            assert_eq!(record.exchange_id, "process:version:0");
+            *reasons.entry(record.reason).or_insert(0) += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(count, coverage.record_count);
+        assert_eq!(reasons["invalid_exchange_amount"], 25);
+        assert_eq!(reasons["unsupported_exchange_direction"], 25);
+        let one = build_lcia_factor_coverage(&restored, &factors[..1], &directions).unwrap();
+        assert_eq!(serde_json::to_vec(&one.observations).unwrap(), saved);
+        assert_eq!(serde_json::to_vec(&coverage.observations).unwrap(), saved);
+    }
+
+    #[test]
     fn factor_coverage_matches_flow_and_direction_and_surfaces_gaps() {
         let flow_id = Uuid::new_v4();
         let factors = vec![ImpactFactorSet {
@@ -16489,8 +16885,13 @@ mod tests {
             build_lcia_factor_coverage(&observations, &factors, &directions).expect("coverage");
         assert_eq!(coverage.counts.matched, 0);
         assert_eq!(coverage.counts.unmatched, 1);
-        let gap_jsonl = std::fs::read_to_string(coverage.records.path()).expect("read gaps");
-        assert!(gap_jsonl.contains("no_lcia_factor_for_flow_direction"));
+        let mut records = Vec::new();
+        super::visit_lcia_gaps(&observations, &factors, |record| {
+            records.push(record);
+            Ok(())
+        })
+        .expect("replay");
+        assert_eq!(records[0].reason, "no_lcia_factor_for_flow_direction");
 
         let mut ambiguous = observations;
         ambiguous.push(LciaExchangeObservation {
@@ -16646,17 +17047,13 @@ mod tests {
         assert_eq!(coverage.by_method[0].counts.matched, 1);
         assert_eq!(coverage.by_method[0].counts.unmatched, 1);
         assert_eq!(coverage.by_method[1].method_id, method_b);
-        let lines = std::fs::read_to_string(coverage.records.path()).expect("gaps");
-        let records = lines
-            .lines()
-            .map(|line| serde_json::from_str::<serde_json::Value>(line).expect("gap record"))
-            .collect::<Vec<_>>();
-        assert_eq!(
-            std::fs::metadata(coverage.records.path())
-                .expect("gap metadata")
-                .len(),
-            coverage.artifact_byte_size
-        );
+        let mut records = Vec::new();
+        super::visit_lcia_gaps(&observations, &factors, |record| {
+            records.push(serde_json::to_value(record)?);
+            Ok(())
+        })
+        .expect("replay");
+        assert_eq!(coverage.observations.len(), observations.len());
         assert_eq!(records[0]["method_id"], json!(method_a));
         assert_eq!(records[1]["method_id"], json!(method_b));
     }

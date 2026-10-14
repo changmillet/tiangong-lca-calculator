@@ -68,11 +68,12 @@ pub const NUMERICAL_SNAPSHOT_POLICY_VERSION: &str =
 
 /// Schema of the numerical source fingerprint that participates in snapshot/cache identity.
 ///
-/// V4 separates canonical LCIA name/result-quantity readers from old metadata caches even when
+/// V5 separates replay-capable LCIA evidence from expanded gap files. V4 separated
+/// canonical LCIA name/result-quantity readers from old metadata caches even when
 /// source rows are unchanged. The numerical-policy binding introduced in V3 remains intact.
 /// This only fences ordinary builder reuse; a certified package still consumes its exact frozen
 /// snapshot and needs a genuinely fresh closure scan to produce corrected metadata.
-pub const NUMERICAL_SOURCE_FINGERPRINT_SCHEMA: &str = "source-fingerprint:v4";
+pub const NUMERICAL_SOURCE_FINGERPRINT_SCHEMA: &str = "source-fingerprint:v5";
 
 /// True when a recorded numerical-policy marker is the current one.
 ///
