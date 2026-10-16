@@ -1250,9 +1250,21 @@ fn build_calculation_downloads(
     let lcia_artifacts = artifacts_of_kind(artifacts, "lcia");
 
     let lcia_xlsx = download_directory.join("lcia-results.xlsx");
-    let lcia_record_count = write_lcia_xlsx(&lcia_xlsx, &lcia_artifacts, processes, impacts)?;
+    let lcia_record_count = write_lcia_xlsx(
+        &lcia_xlsx,
+        &lcia_artifacts,
+        processes,
+        impacts,
+        &crate::resource::CancellationToken::default(),
+    )?;
     let lcia_csv = download_directory.join("lcia-results.csv.zip");
-    let lcia_csv_count = write_lcia_csv_zip(&lcia_csv, &lcia_artifacts, processes, impacts)?;
+    let lcia_csv_count = write_lcia_csv_zip(
+        &lcia_csv,
+        &lcia_artifacts,
+        processes,
+        impacts,
+        &crate::resource::CancellationToken::default(),
+    )?;
     if lcia_csv_count != lcia_record_count {
         return Err(anyhow::anyhow!(
             "LCIA semantic download row count drift: xlsx={lcia_record_count} csv={lcia_csv_count}"
@@ -1260,7 +1272,12 @@ fn build_calculation_downloads(
     }
 
     let lci_parquet = download_directory.join("lci-inventory.parquet");
-    let lci_record_count = write_lci_parquet(&lci_parquet, &lci_artifacts, processes)?;
+    let lci_record_count = write_lci_parquet(
+        &lci_parquet,
+        &lci_artifacts,
+        processes,
+        &crate::resource::CancellationToken::default(),
+    )?;
     let lci_csv = download_directory.join("lci-inventory-csv.zip");
     let lci_csv_count = write_lci_csv_zip(&lci_csv, &lci_artifacts, processes)?;
     if lci_csv_count != lci_record_count {
@@ -1746,7 +1763,9 @@ fn write_lcia_csv_zip(
     artifacts: &[&LocalCalculationBundleArtifact],
     processes: &[ReleaseProcessRecord],
     impacts: &[ReleaseImpact],
+    cancellation: &crate::resource::CancellationToken,
 ) -> anyhow::Result<u64> {
+    cancellation.check("calculation_export_lcia_csv_start")?;
     let mut zip = ZipWriter::new(File::create(path)?);
     zip.start_file(
         "lcia-results.csv",
@@ -1757,11 +1776,14 @@ fn write_lcia_csv_zip(
     let mut total = 0_u64;
     for artifact in artifacts {
         let observed = visit_gzip_ndjson::<LciaRecord, _>(&artifact.local_path, |record| {
-            write_csv_row(&mut zip, lcia_row(&record, processes, &impact_lookup)?)
+            write_csv_row(&mut zip, lcia_row(&record, processes, &impact_lookup)?)?;
+            cancellation.check("calculation_export_lcia_csv_row")?;
+            Ok(())
         })?;
         require_record_count(artifact, observed)?;
         total = total.saturating_add(observed);
     }
+    cancellation.check("calculation_export_lcia_csv_finish")?;
     zip.finish()?;
     Ok(total)
 }
@@ -1863,7 +1885,9 @@ fn write_lcia_xlsx(
     artifacts: &[&LocalCalculationBundleArtifact],
     processes: &[ReleaseProcessRecord],
     impacts: &[ReleaseImpact],
+    cancellation: &crate::resource::CancellationToken,
 ) -> anyhow::Result<u64> {
+    cancellation.check("calculation_export_lcia_xlsx_start")?;
     let mut zip = ZipWriter::new(File::create(path)?);
     let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
     zip.start_file("[Content_Types].xml", options)?;
@@ -1888,11 +1912,14 @@ fn write_lcia_xlsx(
                 ));
             }
             let row = lcia_row(&record, processes, &impact_lookup)?;
-            write_xlsx_lcia_row(&mut zip, usize::try_from(total)?.saturating_add(1), &row)
+            write_xlsx_lcia_row(&mut zip, usize::try_from(total)?.saturating_add(1), &row)?;
+            cancellation.check("calculation_export_lcia_xlsx_row")?;
+            Ok(())
         })?;
         require_record_count(artifact, observed)?;
     }
     zip.write_all(b"</sheetData></worksheet>")?;
+    cancellation.check("calculation_export_lcia_xlsx_finish")?;
     zip.finish()?;
     Ok(total)
 }
@@ -2027,6 +2054,7 @@ fn write_lci_parquet(
     path: &Path,
     artifacts: &[&LocalCalculationBundleArtifact],
     processes: &[ReleaseProcessRecord],
+    cancellation: &crate::resource::CancellationToken,
 ) -> anyhow::Result<u64> {
     let schema = Arc::new(Schema::new(
         LCI_EXPORT_HEADERS
@@ -2061,6 +2089,7 @@ fn write_lci_parquet(
                     anyhow::anyhow!("LCI Parquet process index is outside the certified axis")
                 })?;
                 batch.push(record, process);
+                cancellation.check("calculation_export_parquet_row")?;
                 total = total.saturating_add(1);
                 if batch.len() >= 50_000 {
                     writer.write(&batch.take_record_batch(Arc::clone(&schema))?)?;
@@ -2745,11 +2774,25 @@ mod tests {
         let csv = directory.path().join("lcia.csv.zip");
         let xlsx = directory.path().join("lcia.xlsx");
         assert_eq!(
-            write_lcia_csv_zip(&csv, &shards, &processes, &impacts).unwrap(),
+            write_lcia_csv_zip(
+                &csv,
+                &shards,
+                &processes,
+                &impacts,
+                &crate::resource::CancellationToken::default()
+            )
+            .unwrap(),
             1
         );
         assert_eq!(
-            write_lcia_xlsx(&xlsx, &shards, &processes, &impacts).unwrap(),
+            write_lcia_xlsx(
+                &xlsx,
+                &shards,
+                &processes,
+                &impacts,
+                &crate::resource::CancellationToken::default()
+            )
+            .unwrap(),
             1
         );
         for (path, member) in [

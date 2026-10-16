@@ -376,7 +376,7 @@ fn generate(
                 cancellation.check("calculation_export_parquet_shard")?;
                 let name = format!("lci-inventory-{index:06}.parquet");
                 let path = directory.join(&name);
-                let count = write_lci_parquet(&path, &[*artifact], &processes)?;
+                let count = write_lci_parquet(&path, &[*artifact], &processes, cancellation)?;
                 files.push(local_download(
                     "lci_inventory_parquet",
                     "advanced_data",
@@ -406,9 +406,9 @@ fn generate(
             };
             let path = directory.join(name);
             let count = if format == ExportFormat::LciaXlsx {
-                write_lcia_xlsx(&path, &lcia, &processes, &impacts)?
+                write_lcia_xlsx(&path, &lcia, &processes, &impacts, cancellation)?
             } else {
-                write_lcia_csv_zip(&path, &lcia, &processes, &impacts)?
+                write_lcia_csv_zip(&path, &lcia, &processes, &impacts, cancellation)?
             };
             Ok(vec![local_download(
                 role, "results", name, media, count, path,
@@ -426,6 +426,7 @@ fn generate(
                 manifest_path.to_owned(),
             )?];
             for (i, artifact) in artifacts.iter().enumerate() {
+                cancellation.check("calculation_export_audit_file")?;
                 let name = format!("evidence-{i:06}.ndjson.gz");
                 files.push(local_download(
                     "calculation_evidence_bundle",
@@ -601,6 +602,50 @@ mod tests {
                     assert_eq!(file.metadata.sha256, source.metadata.sha256);
                 }
             }
+        }
+    }
+
+    #[test]
+    fn conversion_observes_cancellation_after_processing_a_row() {
+        let built = fixture();
+        for (format, stage, name) in [
+            (
+                ExportFormat::LciaCsv,
+                "calculation_export_lcia_csv_row",
+                "lcia-results.csv.zip",
+            ),
+            (
+                ExportFormat::LciaXlsx,
+                "calculation_export_lcia_xlsx_row",
+                "lcia-results.xlsx",
+            ),
+            (
+                ExportFormat::Parquet,
+                "calculation_export_parquet_row",
+                "lci-inventory-000000.parquet",
+            ),
+        ] {
+            let out = tempfile::tempdir().unwrap();
+            let cancellation = CancellationToken::default();
+            cancellation.cancel_at_stage(stage);
+            assert!(!cancellation.is_cancelled());
+            let error = generate(
+                out.path(),
+                &built.manifest_path,
+                &built.artifacts,
+                1,
+                format,
+                &cancellation,
+            )
+            .unwrap_err();
+            assert!(
+                matches!(error.downcast_ref::<crate::resource::ResourceError>(), Some(crate::resource::ResourceError::Cancelled { stage: observed }) if *observed == stage)
+            );
+            assert!(cancellation.is_cancelled());
+            assert!(
+                out.path().join(name).exists(),
+                "conversion opened the output before cancellation"
+            );
         }
     }
 
