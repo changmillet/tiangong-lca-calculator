@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-14
-lastReviewedCommit: 5d7c3cbf2d16d743791f13e86052eb42de46a2aa
-lastReviewedNote: "Reviewed Worker #320 snapshot replay and typed upload blockage. Coverage matching, provider/allocation rules and numerical matrices remain unchanged; v3 request and v2 replay evidence require coordinated consumers. Full local and historical replay proof is recorded on #320."
+lastReviewedAt: 2026-10-16
+lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
+lastReviewedNote: "Reviewed for Worker #320 phase one: independent immutable-bundle export jobs, default Parquet, bounded compressed CSV and terminal polling protection. Existing authorization, numerical, lease and production boundaries remain; validation results belong to the linked Issues and PRs."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -70,7 +70,7 @@ Keep these constraints in mind before editing `crates/solver-core/**` or worker 
 - Do not introduce explicit matrix inversion for solve paths. Reuse factorization or sparse-solve flows instead.
 - Heavy recomputation belongs in async worker jobs, not inline request handlers or API-edge adapters.
 - If a change affects factorization reuse, provider matching, or snapshot payload shape, review worker and persistence paths together.
-- `solve_all_unit` treats Calculation Bundle partitions plus manifest as the complete result. Its query artifact is a bounded deterministic chunk index, while the retained HDF5 result row is only a compatibility descriptor; neither path may reconstruct a process-by-impact `h_matrix`.
+- `solve_all_unit` treats Calculation Bundle partitions plus manifest as the complete result. Optional presentation exports are independent explicit jobs and never gate readiness. Its query artifact is a bounded deterministic chunk index, while the retained HDF5 result row is only a compatibility descriptor; neither path may reconstruct a process-by-impact `h_matrix`.
 - The factorization cache accounts retained CSC capacities plus UMFPACK's workload-reported symbolic/numeric object sizes, enforces a hard byte capacity with deterministic LRU eviction, and releases invalidated entries immediately. Pre-factorization admission uses deployment-tuned fill-in headroom and must not be described as input-independent constant memory.
 
 ## Stable Path Map
@@ -83,7 +83,7 @@ Keep these constraints in mind before editing `crates/solver-core/**` or worker 
 | `crates/solver-worker/src/resource.rs` | shared `worker.resource-profile.v1` admission, cancellation, Linux RSS/cgroup telemetry, and owned/temp/object/cache counters |
 | `crates/solver-worker/src/storage.rs` | S3-compatible object operations plus byte-capped, hash-verified, cancellable file download/upload primitives |
 | `crates/solver-worker/src/snapshot_artifacts.rs` | numerical HDF5 envelope, Review projections, release-metadata/source-closure descriptor chain, and legacy graph/v1 readers |
-| `crates/solver-worker/src/calculation_bundle.rs` | canonical content-addressed Calculation Bundle shards plus streaming LCIA XLSX/CSV, LCI Parquet/CSV, and whole-bundle audit downloads |
+| `crates/solver-worker/src/calculation_bundle.rs` | canonical content-addressed Calculation Bundle shards and frozen method axis; optional exports live in `calculation_bundle/exports.rs` |
 | `crates/solver-worker/src/lcia_method_metadata.rs` | canonical/legacy LCIA display-name fields, localized text selection and method result-quantity labels; no factor conversion or source-reference resolution |
 | `crates/solver-worker/src/portal_lcia_projection.rs` | V3-only typed Process/Impact/Value spool, canonical decimals, int32be hashes, verified LCIA shard reader, and bounded Database batches |
 | `crates/solver-worker/src/artifact_gc.rs` | generic artifact lifecycle candidate validation and object-first retry-safe GC state machine |

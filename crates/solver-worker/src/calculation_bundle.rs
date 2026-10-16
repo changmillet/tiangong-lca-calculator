@@ -1,3 +1,5 @@
+pub mod exports;
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::File,
@@ -169,6 +171,8 @@ pub struct CalculationDownloadArtifact {
     pub sha256: String,
     pub byte_size: u64,
     pub record_count: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_path: Option<String>,
 }
 
 #[derive(Debug)]
@@ -295,7 +299,7 @@ pub struct CalculationBundleWriter {
     portal_projection_axes: Option<(Vec<PortalProcessSource>, Vec<PortalImpactSource>)>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ReleaseProcessRecord {
     process_index: usize,
@@ -309,19 +313,19 @@ struct GlobalReference {
     version: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct QuantitativeReference {
     exchange_internal_id: String,
     flow: GlobalReference,
-    direction: &'static str,
+    direction: String,
     reference_unit: String,
     mean_amount: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pivot: Option<QuantitativeReferencePivot>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct QuantitativeReferencePivot {
     raw_direction: CompiledExchangeDirection,
@@ -331,7 +335,7 @@ struct QuantitativeReferencePivot {
     normalized_coefficient: f64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct ReleaseImpact {
     index: usize,
     id: Uuid,
@@ -606,7 +610,7 @@ impl CalculationBundleWriter {
                             id: process.quantitative_reference_flow_id,
                             version: process.quantitative_reference_flow_version.clone(),
                         },
-                        direction: "Output",
+                        direction: "Output".to_owned(),
                         reference_unit: process.reference_unit.clone(),
                         mean_amount: process.normalized_mean_amount,
                         pivot,
@@ -682,6 +686,21 @@ impl CalculationBundleWriter {
             portal_projection_axes: None,
         };
         writer.write_static_artifacts(release_evidence)?;
+        let method_path = "axes/methods.ndjson.gz";
+        let mut methods =
+            DeterministicGzipNdjsonWriter::create(&writer.directory.path().join(method_path))?;
+        for impact in &writer.impacts {
+            methods.write(impact)?;
+        }
+        writer.push_finished_ndjson(
+            "method_axis",
+            "tiangong.calculation-bundle.method-axis.v1",
+            method_path.to_owned(),
+            0,
+            process_count - 1,
+            methods.finish()?,
+        );
+
         Ok(writer)
     }
 
@@ -906,13 +925,6 @@ impl CalculationBundleWriter {
         let manifest_byte_size = u64::try_from(manifest_bytes.len())?;
         let manifest_path = self.directory.path().join("calculation-bundle.json");
         std::fs::write(&manifest_path, manifest_bytes)?;
-        let downloads = build_calculation_downloads(
-            self.directory.path(),
-            &manifest_path,
-            &self.artifacts,
-            &self.processes,
-            &self.impacts,
-        )?;
         let portal_lcia_projection = self
             .portal_projection_axes
             .take()
@@ -931,7 +943,7 @@ impl CalculationBundleWriter {
             manifest_path,
             manifest,
             artifacts: self.artifacts,
-            downloads,
+            downloads: Vec::new(),
             portal_lcia_projection,
         })
     }
@@ -1224,6 +1236,7 @@ impl CalculationBundleWriter {
 }
 
 #[allow(clippy::similar_names)]
+#[cfg(test)]
 fn build_calculation_downloads(
     directory: &Path,
     manifest_path: &Path,
@@ -1322,6 +1335,7 @@ fn local_download(
             sha256: sha256_file(&local_path)?,
             byte_size,
             record_count,
+            source_path: None,
         },
         local_path,
     })
@@ -1752,6 +1766,7 @@ fn write_lcia_csv_zip(
     Ok(total)
 }
 
+#[cfg(test)]
 fn write_lci_csv_zip(
     path: &Path,
     artifacts: &[&LocalCalculationBundleArtifact],
@@ -2061,6 +2076,7 @@ fn write_lci_parquet(
     Ok(total)
 }
 
+#[cfg(test)]
 fn write_audit_archive(
     path: &Path,
     manifest_path: &Path,
@@ -2465,7 +2481,7 @@ mod tests {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn fixture_writer() -> CalculationBundleWriter {
+    pub(super) fn fixture_writer() -> CalculationBundleWriter {
         let method_indices = (0..RELEASE_METHOD_IDENTITIES.len()).collect::<Vec<_>>();
         fixture_writer_with_method_indices(&method_indices)
     }
@@ -2822,43 +2838,39 @@ mod tests {
             .unwrap();
         let built = writer.finish().unwrap();
         assert_eq!(built.manifest.schema_version, CALCULATION_BUNDLE_FORMAT);
-        assert_eq!(built.manifest.artifacts.len(), 8);
+        assert_eq!(built.manifest.artifacts.len(), 9);
         assert_eq!(built.bundle_content_hash.len(), 64);
-        assert_eq!(built.downloads.len(), 5);
-        assert_eq!(
-            built
-                .downloads
-                .iter()
-                .find(|artifact| artifact.metadata.role == "lcia_results_xlsx")
+        assert!(built.downloads.is_empty());
+        assert!(
+            !built
+                .manifest_path
+                .parent()
                 .unwrap()
-                .metadata
-                .record_count,
-            25
+                .join("downloads")
+                .exists()
         );
+        let processes =
+            exports::load_processes(&built.artifacts, built.manifest.snapshot.process_count)
+                .unwrap();
+        let impacts = exports::load_impacts(&built.artifacts).unwrap();
+        let downloads = build_calculation_downloads(
+            built.manifest_path.parent().unwrap(),
+            &built.manifest_path,
+            &built.artifacts,
+            &processes,
+            &impacts,
+        )
+        .unwrap();
+        assert_eq!(downloads.len(), 5);
         assert_eq!(
-            built
-                .downloads
+            downloads
                 .iter()
-                .find(|artifact| artifact.metadata.role == "lci_inventory_parquet")
+                .find(|a| a.metadata.role == "lci_inventory_parquet")
                 .unwrap()
                 .metadata
                 .record_count,
             1
         );
-        let audit = built
-            .downloads
-            .iter()
-            .find(|artifact| artifact.metadata.role == "calculation_evidence_bundle")
-            .unwrap();
-        let mut archive = zip::ZipArchive::new(File::open(&audit.local_path).unwrap()).unwrap();
-        assert!(archive.by_name("calculation-bundle.json").is_ok());
-        for artifact in &built.manifest.artifacts {
-            let mut entry = archive.by_name(&artifact.path).unwrap();
-            assert_eq!(entry.size(), artifact.byte_size);
-            let mut bytes = Vec::new();
-            entry.read_to_end(&mut bytes).unwrap();
-            assert_eq!(sha256_bytes(&bytes), artifact.sha256);
-        }
 
         let lci = built
             .artifacts

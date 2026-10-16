@@ -25,9 +25,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: 2026-10-12
-lastReviewedCommit: 729c5a602c1562a2926750114bee141d51444a9a
-lastReviewedNote: "Reviewed Worker #318 warm-history recovery: R5 request admission pairs with the Database scanner-config revision while historical v1/R1-R4 requests remain compatible. No public schema, numerical/scientific rules, source bytes, lease/certificate fences or immutable artifacts change. Native warm-history consumer qualification remains required."
+lastReviewedAt: 2026-10-16
+lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
+lastReviewedNote: "Reviewed for Worker #320 phase one: independent immutable-bundle export jobs, default Parquet, bounded compressed CSV and terminal polling protection. Existing authorization, numerical, lease and production boundaries remain; validation results belong to the linked Issues and PRs."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -457,7 +457,11 @@ fresh `snapshot_builder` run 也会在 `report_dir` 下尝试写出 `matrix-read
 - `next_action`: 例如 `publish_ready`、`repair_provider_closure_then_recheck`、`repair_compute_stability_then_recheck`。
 - `metrics.provider_closure`: residual/written balance、unmatched opposite-sign reference、multi-candidate unresolved 和 equal-fallback 统计。
 
-`solve_all_unit` 的 canonical Calculation Bundle 继续由 manifest 与 gzip NDJSON shards 组成。Package build 另外生成 `tiangong.calculation-download.v1` 顶层语义产物：`lcia-results.xlsx`、`lcia-results.csv.zip`、`lci-inventory.parquet`、`lci-inventory-csv.zip` 和 `calculation-evidence-bundle.zip`。这些文件以 role、group、media type、record count、byte size、SHA-256 和对象引用登记，但不进入 canonical manifest 的 `artifacts[]`，因此不会改变或递归依赖 bundle content hash。审计 ZIP 原字节收录 manifest 与全部 canonical shards；原始 shard 仍用于预览、查询和机器复核，不作为普通产品下载列表。
+`solve_all_unit` 与 package build 只生成 canonical Calculation Bundle（manifest 与 gzip NDJSON shards）及查询索引；计算就绪不依赖任何下载格式生成或上传。新 Bundle 另冻结很小的 `method_axis`，保存计算实际使用的方法身份、名称和单位，供之后的导出使用，数值算法不变。历史 `tiangong.calculation-download.v1` 文件仍可读取。
+
+`lca.calculation_export.request.v1` 是独立 solver-queue job，payload 为服务端绑定的 `{packageId,bundle,format}`。默认 `parquet`；支持 `csv`、`lcia_xlsx`、`lcia_csv`、`audit`。仅从已完成、hash/size 校验通过的不可变 Bundle 派生，不调用 solver 或读取当前源数据。Parquet 按原 LCI shard 输出；CSV 为独立 `.csv.gz` 文件，每片最多 250,000 条数据行、64 MiB 序列化 CSV（包含表头），上传对象也受 64 MiB 上限保护，gzip level 6 / mtime 0。其他对象上限 512 MiB；清单上限 5 MiB、10,000 个成员。审计直接复用 canonical 对象，清单以 `sourcePath` 保留原始路径映射，不生成或上传整包 ZIP。
+
+导出有独立 Worker 终态和 `lca.calculation_export.result.v1` 结果；结果绑定原 Bundle hash、manifest hash、job、package、format，并提供逐文件 hash/size/count 和最后上传的 manifest。只有 lease-fenced 完成可发布结果。CPU 转换离开 async executor；租约丢失会取消后续工作，CSV 每行、Parquet 每片检查 cooperative cancellation。导出失败不能撤销计算结果。状态读取不入队；重复显式请求也复用终态，重试必须走已有显式 Worker retry。所有 cached solve 终态同样不得由查询触发新任务，Storage 413 / EntityTooLarge 归类为 `artifact_too_large`、non-retryable。
 - `metrics.graph_readiness`: process/flow/impact scale、A/B/C/M nnz、reference/allocation closure 和 singular risk。
 - `metrics.compute_stability`: factorization readiness、matrix validation report、sample unit solves、non-finite count 和 negative LCIA count。
 - `balance_evidence` / `unresolved_balances`: signed coefficient、routing weight、activity requirement、closure residual 和未闭合原因；`provider_evidence` 作为兼容投影保留。
