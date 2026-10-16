@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-14
-lastReviewedCommit: 5d7c3cbf2d16d743791f13e86052eb42de46a2aa
-lastReviewedNote: "Reviewed Worker #320 snapshot replay and typed upload blockage. Coverage matching, provider/allocation rules and numerical matrices remain unchanged; v3 request and v2 replay evidence require coordinated consumers. Full local and historical replay proof is recorded on #320."
+lastReviewedAt: 2026-10-16
+lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
+lastReviewedNote: 'Worker #322: bounded Cargo/pip/Actions monitoring reuses native Rust CI and adds scoped synthetic Brightway dependency proof; exact Toolkit, runtime, native/data/model and deployment boundaries remain intact.'
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -100,7 +100,7 @@ The local `pre-push` hook runs the docpact gate first and then runs `make check`
 
 ### CI dependency cache qualification
 
-The manual Rust CI installs SuiteSparse, OpenBLAS, LAPACK and pkg-config before
+Rust CI installs SuiteSparse, OpenBLAS, LAPACK and pkg-config before
 collecting native identity. The cache key binds the runner image, full installed
 package versions and architectures, alternatives selections, compiler and
 pkg-config versions, and the fingerprint/workflow implementation. Missing or
@@ -120,6 +120,10 @@ Separate compilation from test execution: the original run 34760671018 spent
 113 seconds compiling for Clippy and 155 seconds compiling the test profile;
 its 229-second Test step is not solely test-body execution. This is a baseline,
 not evidence of the new cache's speedup.
+
+## Python dependency smoke
+
+The focused Python 3.12 Linux job installs `tools/bw25-validator`, checks installed dependency consistency, and runs its secretless synthetic Brightway/HDF5/CLI suite. See [dependency maintenance](dependency-maintenance.md) for exact commands, path selection and platform/qualification limits. This does not replace native Rust CI or frozen real-data parity proof.
 
 ## Validation Matrix
 

@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-14
-lastReviewedCommit: 5d7c3cbf2d16d743791f13e86052eb42de46a2aa
-lastReviewedNote: "Reviewed Worker #320 snapshot replay and typed upload blockage. Coverage matching, provider/allocation rules and numerical matrices remain unchanged; v3 request and v2 replay evidence require coordinated consumers. Full local and historical replay proof is recorded on #320."
+lastReviewedAt: 2026-10-16
+lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
+lastReviewedNote: 'Worker #322: bounded Cargo/pip/Actions monitoring reuses native Rust CI and adds scoped synthetic Brightway dependency proof; exact Toolkit, runtime, native/data/model and deployment boundaries remain intact.'
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md
@@ -131,6 +131,7 @@ Keep these entry-level facts in `AGENTS.md`. Use `README.md` and `docs/agents/re
 - routine branch base: `main`
 - routine PR base: `main`
 - canonical repo-wide check: `make check`
+- dependency monitoring and scoped synthetic Python checks: `docs/agents/dependency-maintenance.md`; existing native, data, model and production qualification remains separate
 - hard post-edit gates:
   - `cargo clippy -p solver-worker --all-targets --all-features -- -D warnings`
   - `cargo fmt --all -- --check`

@@ -1,0 +1,52 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: '04:00'
+      timezone: Asia/Shanghai
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 2
+    groups:
+      arrow-parquet:
+        patterns: ['arrow-*', parquet]
+        update-types: [minor, patch]
+      native-artifacts:
+        patterns: ['hdf5*', flate2, zstd, zip]
+        update-types: [minor, patch]
+      async-runtime:
+        patterns: [axum, reqwest, sqlx, tokio]
+        update-types: [minor, patch]
+  - package-ecosystem: pip
+    directory: /tools/bw25-validator
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: '04:20'
+      timezone: Asia/Shanghai
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 2
+    groups:
+      brightway-numerical:
+        patterns: [brightway25, pypardiso, numpy, scipy, h5py]
+        update-types: [minor, patch]
+      artifact-access:
+        patterns: [boto3, 'psycopg*', requests]
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: '04:40'
+      timezone: Asia/Shanghai
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 1
+    groups:
+      actions:
+        patterns: ['*']

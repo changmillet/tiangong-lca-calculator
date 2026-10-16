@@ -1,8 +1,8 @@
 version: 1
 layout: repo
-lastReviewedAt: "2026-10-14"
-lastReviewedCommit: "5d7c3cbf2d16d743791f13e86052eb42de46a2aa"
-lastReviewedNote: "Reviewed Worker #320 snapshot replay and typed upload blockage. Coverage matching, provider/allocation rules and numerical matrices remain unchanged; v3 request and v2 replay evidence require coordinated consumers. Full local and historical replay proof is recorded on #320."
+lastReviewedAt: 2026-10-16
+lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
+lastReviewedNote: 'Worker #322: bounded Cargo/pip/Actions monitoring reuses native Rust CI and adds scoped synthetic Brightway dependency proof; exact Toolkit, runtime, native/data/model and deployment boundaries remain intact.'
 
 # Keep deterministic governance facts here.
 # AGENTS.md remains the repo contract entrypoint.
@@ -16,6 +16,7 @@ catalog:
       workflowDocs:
         - docs/agents/repo-validation.md
         - docs/agents/repo-architecture.md
+        - docs/agents/dependency-maintenance.md
         - docs/agents/contracts/scope-closure-memory-and-result-contract.md
         - docs/agents/contracts/portal-lcia-projection-contract.md
       workspaceIntegrationRequired: true
@@ -42,6 +43,7 @@ ownership:
           - docs/implicit-regional-supply-mix-modeling.en.md
           - docs/tidas-package-contract.md
           - .github/workflows/ai-doc-lint.yml
+          - .github/dependabot.yml
       ownerRepo: worker
     - id: solver-runtime-and-ci
       paths:
@@ -56,6 +58,7 @@ ownership:
         include:
           - scripts/**
           - tools/bw25-validator/**
+          - .github/workflows/python-validator.yml
       ownerRepo: worker
     - id: runtime-sql-expectations
       paths:
@@ -84,6 +87,7 @@ coverage:
     - .docpact/**
     - docs/agents/repo-validation.md
     - docs/agents/repo-architecture.md
+    - docs/agents/dependency-maintenance.md
     - docs/agents/contracts/scope-closure-memory-and-result-contract.md
     - docs/agents/contracts/portal-lcia-projection-contract.md
     - docs/agents/contracts/*.schema.json
@@ -106,6 +110,8 @@ coverage:
     - supabase/migrations/**
     - .github/workflows/ai-doc-lint.yml
     - .github/workflows/ci.yml
+    - .github/workflows/python-validator.yml
+    - .github/dependabot.yml
   exclude:
     - .git/**
     - .github/scripts/**
@@ -120,6 +126,11 @@ freshness:
 
 routing:
   intents:
+    dependency-maintenance:
+      paths:
+        - .github/dependabot.yml
+        - .github/workflows/python-validator.yml
+        - docs/agents/dependency-maintenance.md
     local-docpact-gate:
       paths:
         - .githooks/pre-push
@@ -264,6 +275,7 @@ docInventory:
     - .docpact/config.yaml
     - docs/agents/repo-validation.md
     - docs/agents/repo-architecture.md
+    - docs/agents/dependency-maintenance.md
     - docs/agents/contracts/scope-closure-memory-and-result-contract.md
     - docs/agents/contracts/portal-lcia-projection-contract.md
     - docs/lca-api-contract.md
@@ -283,6 +295,20 @@ repo:
   owner: worker
 
 rules:
+  - id: worker-dependency-monitoring-contract
+    scope: repo
+    repo: worker
+    triggers:
+      - path: .github/dependabot.yml
+        kind: dependency-monitoring-config
+      - path: .github/workflows/python-validator.yml
+        kind: python-dependency-validation
+      - path: docs/agents/dependency-maintenance.md
+        kind: dependency-maintainer-guide
+    requiredDocs:
+      - path: docs/agents/dependency-maintenance.md
+        mode: review_or_update
+    reason: Monitoring groups and scoped Python proof must agree with the maintenance guide without changing native, data, model or deployment qualification boundaries.
   - id: worker-bootstrap-contract
     scope: repo
     repo: worker

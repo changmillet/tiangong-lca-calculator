@@ -1,0 +1,45 @@
+name: Python validator
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/bw25-validator/**'
+      - '.github/workflows/python-validator.yml'
+      - '.github/dependabot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-validator-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  brightway-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AWS_EC2_METADATA_DISABLED: 'true'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/bw25-validator/pyproject.toml
+      - name: Install validator dependencies
+        run: python -m pip install ./tools/bw25-validator
+      - name: Verify installed dependency consistency
+        run: python -m pip check
+      - name: Record installed dependency versions
+        run: python -m pip freeze
+      - name: Exercise offline numerical and artifact contracts
+        run: python -m unittest discover -s tools/bw25-validator/tests -v
