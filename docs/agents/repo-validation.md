@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-16
-lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
-lastReviewedNote: "Reviewed for Worker #320 phase one: independent immutable-bundle export jobs, default Parquet, bounded compressed CSV and terminal polling protection. Existing authorization, numerical, lease and production boundaries remain; validation results belong to the linked Issues and PRs."
+lastReviewedCommit: 8a698fb5e38f787b98230329c61c4e0c1a3e541a
+lastReviewedNote: "Reviewed merge of Worker #320/PR #323 (5e191a93) with #322 dependency monitoring (8a698fb5): independent immutable-bundle export jobs, default Parquet, bounded CSV, terminal protection and bounded Cargo/pip/Actions monitoring are retained. Exact Toolkit, native/runtime/data/model, authorization, lease and production boundaries remain intact. Metadata conflict resolution only; final merged Rust gates remain required."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -100,7 +100,7 @@ The local `pre-push` hook runs the docpact gate first and then runs `make check`
 
 ### CI dependency cache qualification
 
-The manual Rust CI installs SuiteSparse, OpenBLAS, LAPACK and pkg-config before
+Rust CI installs SuiteSparse, OpenBLAS, LAPACK and pkg-config before
 collecting native identity. The cache key binds the runner image, full installed
 package versions and architectures, alternatives selections, compiler and
 pkg-config versions, and the fingerprint/workflow implementation. Missing or
@@ -120,6 +120,10 @@ Separate compilation from test execution: the original run 34760671018 spent
 113 seconds compiling for Clippy and 155 seconds compiling the test profile;
 its 229-second Test step is not solely test-body execution. This is a baseline,
 not evidence of the new cache's speedup.
+
+## Python dependency smoke
+
+The focused Python 3.12 Linux job installs `tools/bw25-validator`, checks installed dependency consistency, and runs its secretless synthetic Brightway/HDF5/CLI suite. See [dependency maintenance](dependency-maintenance.md) for exact commands, path selection and platform/qualification limits. This does not replace native Rust CI or frozen real-data parity proof.
 
 ## Validation Matrix
 
