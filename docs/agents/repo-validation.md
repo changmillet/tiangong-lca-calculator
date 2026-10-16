@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-16
-lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
-lastReviewedNote: 'Worker #322: bounded Cargo/pip/Actions monitoring reuses native Rust CI and adds scoped synthetic Brightway dependency proof; exact Toolkit, runtime, native/data/model and deployment boundaries remain intact.'
+lastReviewedCommit: 8a698fb5e38f787b98230329c61c4e0c1a3e541a
+lastReviewedNote: "Reviewed merge of Worker #320/PR #323 (5e191a93) with #322 dependency monitoring (8a698fb5): independent immutable-bundle export jobs, default Parquet, bounded CSV, terminal protection and bounded Cargo/pip/Actions monitoring are retained. Exact Toolkit, native/runtime/data/model, authorization, lease and production boundaries remain intact. Metadata conflict resolution only; final merged Rust gates remain required."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -442,3 +442,9 @@ The local DownloadServer test fixture ignores only a connection that closes or r
 Worker #316 retains the 64 MiB and one-sixteenth memory limit, splitting aggregate windows deterministically while keeping selected document order, exact supplemental Flow identities (including cache hits), native coverage and cache ownership. The offline `validation_batches` regressions cover 64 MiB minus/equal/plus one byte, the observed 146,049,335-byte aggregate, configured-budget rejection, overflow, shared Flow context after splitting and an unsplittable Process-plus-Flow context.
 
 With the published Toolkit 0.3.4 binary, run `TIDAS_BIN=/exact/tidas cargo test -p solver-worker --lib release_validation_batches_complete_production_sized_method_context -- --ignored --nocapture`. This generated synthetic payload totals exactly 146,049,335 bytes, requires complete native document counts and compares every issue event against independent singleton native validation. Record time/peak memory; this is actual-validator synthetic capacity evidence, not a real production package or hosted replay. Existing native Process/context probes and full baseline gates remain required.
+
+## Independent calculation export qualification
+
+Worker #320 phase one requires bundle/export regressions (no eager downloads, default Parquet, CSV actual escaped byte and row boundaries, hashes/counts, cancellation, audit byte reuse), typed upload 413 classification, full `make check`, paired Database/Edge/Platform tests, and original 17,524-process / 25-method non-production qualification. Prove export failure leaves calculated query values readable and repeated reads create no successor jobs. Preserve the independent 438,100-value baseline; never upload private fixtures to GitHub.
+
+Phase-one original full-library execution receipts are retained in [`../validation/2026-10-16-calculation-exports-phase1.json`](../validation/2026-10-16-calculation-exports-phase1.json): each exported member has size/hash/count proof; the independent Parquet-to-CSV row comparison, 413/no-successor/readiness checks, explicit recovery and live authorization/audit reuse retain their bounded outputs. They describe isolated execution, not production acceptance. LCIA CSV/XLSX and Parquet conversion must observe cancellation during record traversal, after work has started.

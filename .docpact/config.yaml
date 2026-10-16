@@ -1,8 +1,8 @@
 version: 1
 layout: repo
 lastReviewedAt: 2026-10-16
-lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
-lastReviewedNote: 'Worker #322: bounded Cargo/pip/Actions monitoring reuses native Rust CI and adds scoped synthetic Brightway dependency proof; exact Toolkit, runtime, native/data/model and deployment boundaries remain intact.'
+lastReviewedCommit: 8a698fb5e38f787b98230329c61c4e0c1a3e541a
+lastReviewedNote: "Reviewed merge of Worker #320/PR #323 (5e191a93) with #322 dependency monitoring (8a698fb5): independent immutable-bundle export jobs, default Parquet, bounded CSV, terminal protection and bounded Cargo/pip/Actions monitoring are retained. Exact Toolkit, native/runtime/data/model, authorization, lease and production boundaries remain intact. Metadata conflict resolution only; final merged Rust gates remain required."
 
 # Keep deterministic governance facts here.
 # AGENTS.md remains the repo contract entrypoint.

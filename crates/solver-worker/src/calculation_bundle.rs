@@ -1,3 +1,5 @@
+pub mod exports;
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::File,
@@ -169,6 +171,8 @@ pub struct CalculationDownloadArtifact {
     pub sha256: String,
     pub byte_size: u64,
     pub record_count: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_path: Option<String>,
 }
 
 #[derive(Debug)]
@@ -295,7 +299,7 @@ pub struct CalculationBundleWriter {
     portal_projection_axes: Option<(Vec<PortalProcessSource>, Vec<PortalImpactSource>)>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ReleaseProcessRecord {
     process_index: usize,
@@ -309,19 +313,19 @@ struct GlobalReference {
     version: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct QuantitativeReference {
     exchange_internal_id: String,
     flow: GlobalReference,
-    direction: &'static str,
+    direction: String,
     reference_unit: String,
     mean_amount: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pivot: Option<QuantitativeReferencePivot>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct QuantitativeReferencePivot {
     raw_direction: CompiledExchangeDirection,
@@ -331,7 +335,7 @@ struct QuantitativeReferencePivot {
     normalized_coefficient: f64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct ReleaseImpact {
     index: usize,
     id: Uuid,
@@ -606,7 +610,7 @@ impl CalculationBundleWriter {
                             id: process.quantitative_reference_flow_id,
                             version: process.quantitative_reference_flow_version.clone(),
                         },
-                        direction: "Output",
+                        direction: "Output".to_owned(),
                         reference_unit: process.reference_unit.clone(),
                         mean_amount: process.normalized_mean_amount,
                         pivot,
@@ -682,6 +686,21 @@ impl CalculationBundleWriter {
             portal_projection_axes: None,
         };
         writer.write_static_artifacts(release_evidence)?;
+        let method_path = "axes/methods.ndjson.gz";
+        let mut methods =
+            DeterministicGzipNdjsonWriter::create(&writer.directory.path().join(method_path))?;
+        for impact in &writer.impacts {
+            methods.write(impact)?;
+        }
+        writer.push_finished_ndjson(
+            "method_axis",
+            "tiangong.calculation-bundle.method-axis.v1",
+            method_path.to_owned(),
+            0,
+            process_count - 1,
+            methods.finish()?,
+        );
+
         Ok(writer)
     }
 
@@ -906,13 +925,6 @@ impl CalculationBundleWriter {
         let manifest_byte_size = u64::try_from(manifest_bytes.len())?;
         let manifest_path = self.directory.path().join("calculation-bundle.json");
         std::fs::write(&manifest_path, manifest_bytes)?;
-        let downloads = build_calculation_downloads(
-            self.directory.path(),
-            &manifest_path,
-            &self.artifacts,
-            &self.processes,
-            &self.impacts,
-        )?;
         let portal_lcia_projection = self
             .portal_projection_axes
             .take()
@@ -931,7 +943,7 @@ impl CalculationBundleWriter {
             manifest_path,
             manifest,
             artifacts: self.artifacts,
-            downloads,
+            downloads: Vec::new(),
             portal_lcia_projection,
         })
     }
@@ -1224,6 +1236,7 @@ impl CalculationBundleWriter {
 }
 
 #[allow(clippy::similar_names)]
+#[cfg(test)]
 fn build_calculation_downloads(
     directory: &Path,
     manifest_path: &Path,
@@ -1237,9 +1250,21 @@ fn build_calculation_downloads(
     let lcia_artifacts = artifacts_of_kind(artifacts, "lcia");
 
     let lcia_xlsx = download_directory.join("lcia-results.xlsx");
-    let lcia_record_count = write_lcia_xlsx(&lcia_xlsx, &lcia_artifacts, processes, impacts)?;
+    let lcia_record_count = write_lcia_xlsx(
+        &lcia_xlsx,
+        &lcia_artifacts,
+        processes,
+        impacts,
+        &crate::resource::CancellationToken::default(),
+    )?;
     let lcia_csv = download_directory.join("lcia-results.csv.zip");
-    let lcia_csv_count = write_lcia_csv_zip(&lcia_csv, &lcia_artifacts, processes, impacts)?;
+    let lcia_csv_count = write_lcia_csv_zip(
+        &lcia_csv,
+        &lcia_artifacts,
+        processes,
+        impacts,
+        &crate::resource::CancellationToken::default(),
+    )?;
     if lcia_csv_count != lcia_record_count {
         return Err(anyhow::anyhow!(
             "LCIA semantic download row count drift: xlsx={lcia_record_count} csv={lcia_csv_count}"
@@ -1247,7 +1272,12 @@ fn build_calculation_downloads(
     }
 
     let lci_parquet = download_directory.join("lci-inventory.parquet");
-    let lci_record_count = write_lci_parquet(&lci_parquet, &lci_artifacts, processes)?;
+    let lci_record_count = write_lci_parquet(
+        &lci_parquet,
+        &lci_artifacts,
+        processes,
+        &crate::resource::CancellationToken::default(),
+    )?;
     let lci_csv = download_directory.join("lci-inventory-csv.zip");
     let lci_csv_count = write_lci_csv_zip(&lci_csv, &lci_artifacts, processes)?;
     if lci_csv_count != lci_record_count {
@@ -1322,6 +1352,7 @@ fn local_download(
             sha256: sha256_file(&local_path)?,
             byte_size,
             record_count,
+            source_path: None,
         },
         local_path,
     })
@@ -1732,7 +1763,9 @@ fn write_lcia_csv_zip(
     artifacts: &[&LocalCalculationBundleArtifact],
     processes: &[ReleaseProcessRecord],
     impacts: &[ReleaseImpact],
+    cancellation: &crate::resource::CancellationToken,
 ) -> anyhow::Result<u64> {
+    cancellation.check("calculation_export_lcia_csv_start")?;
     let mut zip = ZipWriter::new(File::create(path)?);
     zip.start_file(
         "lcia-results.csv",
@@ -1743,15 +1776,19 @@ fn write_lcia_csv_zip(
     let mut total = 0_u64;
     for artifact in artifacts {
         let observed = visit_gzip_ndjson::<LciaRecord, _>(&artifact.local_path, |record| {
-            write_csv_row(&mut zip, lcia_row(&record, processes, &impact_lookup)?)
+            write_csv_row(&mut zip, lcia_row(&record, processes, &impact_lookup)?)?;
+            cancellation.check("calculation_export_lcia_csv_row")?;
+            Ok(())
         })?;
         require_record_count(artifact, observed)?;
         total = total.saturating_add(observed);
     }
+    cancellation.check("calculation_export_lcia_csv_finish")?;
     zip.finish()?;
     Ok(total)
 }
 
+#[cfg(test)]
 fn write_lci_csv_zip(
     path: &Path,
     artifacts: &[&LocalCalculationBundleArtifact],
@@ -1848,7 +1885,9 @@ fn write_lcia_xlsx(
     artifacts: &[&LocalCalculationBundleArtifact],
     processes: &[ReleaseProcessRecord],
     impacts: &[ReleaseImpact],
+    cancellation: &crate::resource::CancellationToken,
 ) -> anyhow::Result<u64> {
+    cancellation.check("calculation_export_lcia_xlsx_start")?;
     let mut zip = ZipWriter::new(File::create(path)?);
     let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
     zip.start_file("[Content_Types].xml", options)?;
@@ -1873,11 +1912,14 @@ fn write_lcia_xlsx(
                 ));
             }
             let row = lcia_row(&record, processes, &impact_lookup)?;
-            write_xlsx_lcia_row(&mut zip, usize::try_from(total)?.saturating_add(1), &row)
+            write_xlsx_lcia_row(&mut zip, usize::try_from(total)?.saturating_add(1), &row)?;
+            cancellation.check("calculation_export_lcia_xlsx_row")?;
+            Ok(())
         })?;
         require_record_count(artifact, observed)?;
     }
     zip.write_all(b"</sheetData></worksheet>")?;
+    cancellation.check("calculation_export_lcia_xlsx_finish")?;
     zip.finish()?;
     Ok(total)
 }
@@ -2012,6 +2054,7 @@ fn write_lci_parquet(
     path: &Path,
     artifacts: &[&LocalCalculationBundleArtifact],
     processes: &[ReleaseProcessRecord],
+    cancellation: &crate::resource::CancellationToken,
 ) -> anyhow::Result<u64> {
     let schema = Arc::new(Schema::new(
         LCI_EXPORT_HEADERS
@@ -2046,6 +2089,7 @@ fn write_lci_parquet(
                     anyhow::anyhow!("LCI Parquet process index is outside the certified axis")
                 })?;
                 batch.push(record, process);
+                cancellation.check("calculation_export_parquet_row")?;
                 total = total.saturating_add(1);
                 if batch.len() >= 50_000 {
                     writer.write(&batch.take_record_batch(Arc::clone(&schema))?)?;
@@ -2061,6 +2105,7 @@ fn write_lci_parquet(
     Ok(total)
 }
 
+#[cfg(test)]
 fn write_audit_archive(
     path: &Path,
     manifest_path: &Path,
@@ -2465,7 +2510,7 @@ mod tests {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn fixture_writer() -> CalculationBundleWriter {
+    pub(super) fn fixture_writer() -> CalculationBundleWriter {
         let method_indices = (0..RELEASE_METHOD_IDENTITIES.len()).collect::<Vec<_>>();
         fixture_writer_with_method_indices(&method_indices)
     }
@@ -2729,11 +2774,25 @@ mod tests {
         let csv = directory.path().join("lcia.csv.zip");
         let xlsx = directory.path().join("lcia.xlsx");
         assert_eq!(
-            write_lcia_csv_zip(&csv, &shards, &processes, &impacts).unwrap(),
+            write_lcia_csv_zip(
+                &csv,
+                &shards,
+                &processes,
+                &impacts,
+                &crate::resource::CancellationToken::default()
+            )
+            .unwrap(),
             1
         );
         assert_eq!(
-            write_lcia_xlsx(&xlsx, &shards, &processes, &impacts).unwrap(),
+            write_lcia_xlsx(
+                &xlsx,
+                &shards,
+                &processes,
+                &impacts,
+                &crate::resource::CancellationToken::default()
+            )
+            .unwrap(),
             1
         );
         for (path, member) in [
@@ -2822,43 +2881,39 @@ mod tests {
             .unwrap();
         let built = writer.finish().unwrap();
         assert_eq!(built.manifest.schema_version, CALCULATION_BUNDLE_FORMAT);
-        assert_eq!(built.manifest.artifacts.len(), 8);
+        assert_eq!(built.manifest.artifacts.len(), 9);
         assert_eq!(built.bundle_content_hash.len(), 64);
-        assert_eq!(built.downloads.len(), 5);
-        assert_eq!(
-            built
-                .downloads
-                .iter()
-                .find(|artifact| artifact.metadata.role == "lcia_results_xlsx")
+        assert!(built.downloads.is_empty());
+        assert!(
+            !built
+                .manifest_path
+                .parent()
                 .unwrap()
-                .metadata
-                .record_count,
-            25
+                .join("downloads")
+                .exists()
         );
+        let processes =
+            exports::load_processes(&built.artifacts, built.manifest.snapshot.process_count)
+                .unwrap();
+        let impacts = exports::load_impacts(&built.artifacts).unwrap();
+        let downloads = build_calculation_downloads(
+            built.manifest_path.parent().unwrap(),
+            &built.manifest_path,
+            &built.artifacts,
+            &processes,
+            &impacts,
+        )
+        .unwrap();
+        assert_eq!(downloads.len(), 5);
         assert_eq!(
-            built
-                .downloads
+            downloads
                 .iter()
-                .find(|artifact| artifact.metadata.role == "lci_inventory_parquet")
+                .find(|a| a.metadata.role == "lci_inventory_parquet")
                 .unwrap()
                 .metadata
                 .record_count,
             1
         );
-        let audit = built
-            .downloads
-            .iter()
-            .find(|artifact| artifact.metadata.role == "calculation_evidence_bundle")
-            .unwrap();
-        let mut archive = zip::ZipArchive::new(File::open(&audit.local_path).unwrap()).unwrap();
-        assert!(archive.by_name("calculation-bundle.json").is_ok());
-        for artifact in &built.manifest.artifacts {
-            let mut entry = archive.by_name(&artifact.path).unwrap();
-            assert_eq!(entry.size(), artifact.byte_size);
-            let mut bytes = Vec::new();
-            entry.read_to_end(&mut bytes).unwrap();
-            assert_eq!(sha256_bytes(&bytes), artifact.sha256);
-        }
 
         let lci = built
             .artifacts

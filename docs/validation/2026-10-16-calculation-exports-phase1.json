@@ -1,0 +1,2679 @@
+{
+  "schemaVersion": "calculation-export-qualification.v1",
+  "scope": "Original full-library non-production replay; no production rollout or private draft repair claimed",
+  "observedAt": "2026-10-16",
+  "runtimeSource": {
+    "worker": "5ec74242101a6bc2dc72813a8f59010949f859f6",
+    "database": "290d4d20b1bca3468034b54a2ed7870ca4b4b77c",
+    "edge": "760265170ee83beca5e566a3e6fd001d75200e3c",
+    "platform": "2dbf4c7f50fcaf5a7287f01afb491a479e292669"
+  },
+  "sourceBoundary": "The all-unit run preceded a helper-only upload_or_reuse refactor and a test-only row-parity addition in the Worker commit; numerical code was unchanged. Both 413 recovery runs and audit ran the refactored runtime. Cancellation follow-up does not change serialized values and has separate focused proof.",
+  "results": {
+    "all-unit-parity.json": {
+      "sha256": "dcbaf281dd52ba0ad6c3c39ad17aa95e6803303a8d6af01876c124526bf6eccf",
+      "observed": {
+        "processes": 17524,
+        "methods": 25,
+        "values": 438100,
+        "chunks": 69,
+        "max_absolute_delta": 3.0517578125e-05,
+        "max_scaled_delta": 2.2128359279149016e-16,
+        "outside_tolerance": 0,
+        "tolerance": "atol=1e-8, rtol=1e-8",
+        "baseline": "original failed snapshot matrix, independently reloaded into unchanged solver-core/UMFPACK",
+        "exactly_equal": false,
+        "chunk_receipts": [
+          {
+            "name": "lcia-000000.ndjson.gz",
+            "bytes": 34111,
+            "sha256": "0d938f2f3b4485ab0d9dde677fc1891b4dea40d51860ab1935610f5a87638c64",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000001.ndjson.gz",
+            "bytes": 35162,
+            "sha256": "dc493c5c26a20677d1fba5eb9c4f55f1e6338f72dcb152e4a9c74cc31972ff96",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000002.ndjson.gz",
+            "bytes": 32261,
+            "sha256": "98d9c5dbaa8d2de32b60dea791b9389957e60b2a88b6fe1a037838adbd97030f",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000003.ndjson.gz",
+            "bytes": 38397,
+            "sha256": "30c83e36122688870257403c5fb49dd0f79c2e712c37f6881674b3e246a23ed4",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000004.ndjson.gz",
+            "bytes": 35574,
+            "sha256": "e3297f5d16174627b30455f3ce13ee0bf690b4d7ed28d95da928f33a177ddd97",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000005.ndjson.gz",
+            "bytes": 38865,
+            "sha256": "039426fe37dd13a83c6a52f6cfed2ee06942152d53e0c913db0ee2e24f5b94c8",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000006.ndjson.gz",
+            "bytes": 34904,
+            "sha256": "afa4a8e4e019ad83917810705034ff7842f93a5159ef8dfabe65aa08568f3767",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000007.ndjson.gz",
+            "bytes": 36232,
+            "sha256": "257bd170df38c93693859d00c2621f24484f693b1f0200458ccbdd7b6125f9c8",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000008.ndjson.gz",
+            "bytes": 34552,
+            "sha256": "b614f31e2baa26d67bc2ae3b98486a89997101021ebbc4a52e627180d9bf8899",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000009.ndjson.gz",
+            "bytes": 37641,
+            "sha256": "5d8face35aef56d82927cdc3053087e763149bb709a1a0f54f3fd2d798a9ca0d",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000010.ndjson.gz",
+            "bytes": 38576,
+            "sha256": "f4952979dd0608d8654a446a188b7ec9338f4f7b27bed4ee25ebe50c1c8b9159",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000011.ndjson.gz",
+            "bytes": 33093,
+            "sha256": "6ff26ac4d1d233e88fc6e5164bb9409fa3115f622ab2f737636539b25e20ce8b",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000012.ndjson.gz",
+            "bytes": 36412,
+            "sha256": "e63642aea89b6c3a80943691dee75f077f089576271b6d057aa3d43da1919187",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000013.ndjson.gz",
+            "bytes": 33869,
+            "sha256": "c7ad0222dbc45e245590ccabb6130db65f71e11ae72bec1b6d8c767777464645",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000014.ndjson.gz",
+            "bytes": 34470,
+            "sha256": "e1a5a56e8c2fb34cee8a45cc381eb866f13a564b87f5642ac53a1c300d1293b4",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000015.ndjson.gz",
+            "bytes": 36665,
+            "sha256": "b94d6d41d97bf641aa844673cf85816c0ef85bf73b444bbc8ceabd1f3322be82",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000016.ndjson.gz",
+            "bytes": 34775,
+            "sha256": "45c369e256dd162a6d98f6019e5d8195d8bbf2007c90ff4e3bf08e6925aca7a2",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000017.ndjson.gz",
+            "bytes": 35231,
+            "sha256": "4b43c1fc14edab489b3884845a2e682d9bd0972a61b143e9143e9ec232bdb42c",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000018.ndjson.gz",
+            "bytes": 39793,
+            "sha256": "49eba83d005d0293abd0aa4eb91bb4cdb0009514c726127d37fd46f764d172de",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000019.ndjson.gz",
+            "bytes": 35220,
+            "sha256": "af5b89dcd08cc2291bbb3ea432379c51a342b4bfb8d49d100cdfea0cbddfc87e",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000020.ndjson.gz",
+            "bytes": 37076,
+            "sha256": "dcbe068ccd45fd1225e8d0fcefa1f80893fbf4dc054b1ceb0a28de9de0c09fe8",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000021.ndjson.gz",
+            "bytes": 37404,
+            "sha256": "1b3effa4bdedaf0f0dd60c3dd73f98932bf3afe74e11212159d1991e7ef86d20",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000022.ndjson.gz",
+            "bytes": 35615,
+            "sha256": "13f3af41405513c3f638775006b92faefeeec87f268810e08acfd9421e7c042e",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000023.ndjson.gz",
+            "bytes": 35878,
+            "sha256": "a6581ab7842fbc5c8017af7b1fc2c5f9c66a8348ce4005a6a805954a468560bb",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000024.ndjson.gz",
+            "bytes": 36762,
+            "sha256": "f6bbc10d02b689c9824a45157b3b8aee31503c09c1b47f07395bde7a68660234",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000025.ndjson.gz",
+            "bytes": 36501,
+            "sha256": "945df9ffa12b1dccd58271f1f66c7b708dc1045a4c1abbd6663548253b127103",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000026.ndjson.gz",
+            "bytes": 34396,
+            "sha256": "94885802925eece2ad649616e867f73aadd381f0f8351016ec35a9430f13dd33",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000027.ndjson.gz",
+            "bytes": 35404,
+            "sha256": "7efed8d5e717a74488fb051b327c291616017b9b432f968a5e5b30333ab92cc8",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000028.ndjson.gz",
+            "bytes": 35340,
+            "sha256": "1fc63a889d728fd4a6874fead3338b1311163ad4370f056c1b07bde62ec1d0ae",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000029.ndjson.gz",
+            "bytes": 32733,
+            "sha256": "63c5b5994ccfb35337cad296775faa15b40b5c3d2992666c18c9ee0e8e56f392",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000030.ndjson.gz",
+            "bytes": 35389,
+            "sha256": "5cb4209c034ad80c6e62d2bfc28625870bc9a52a30f09fbc3d81a08345ba42d6",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000031.ndjson.gz",
+            "bytes": 34380,
+            "sha256": "97625d1f7c2013f8cb5491b5c19000741a85584c36e53937280922a29c6ce9ca",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000032.ndjson.gz",
+            "bytes": 34973,
+            "sha256": "7de275d8d9b79a5192abd11da538234cc7d82ff0b91b856e0b2e1f7e3489ff3b",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000033.ndjson.gz",
+            "bytes": 40156,
+            "sha256": "be1d435b4b10c96a5c7b2f879e219d866670b2a1330058c9cdece02f2f700f7b",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000034.ndjson.gz",
+            "bytes": 35724,
+            "sha256": "2097a90bac98c7e00d75c60245805043d57d0e85f504f661ee4344dd21928e45",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000035.ndjson.gz",
+            "bytes": 36493,
+            "sha256": "456338c5a64348c5810472fa36965c53ff9318604e6d978d18a26891fdeb31f7",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000036.ndjson.gz",
+            "bytes": 34301,
+            "sha256": "ace8d1b48ec87864133d85fc0ac566493469019b2620d060e183c7b50395983c",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000037.ndjson.gz",
+            "bytes": 38045,
+            "sha256": "21a0081f9e8d8b6854d4a5937ed57e0b16870f5be7d0b092ab713b6b80c57837",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000038.ndjson.gz",
+            "bytes": 38732,
+            "sha256": "3ef464eafc5a973201bd38ee2348075ec312f0e3da0451c4e8f498bfae1bb715",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000039.ndjson.gz",
+            "bytes": 38363,
+            "sha256": "6d9390642ef081c6fdc9cd792b669a02e1b0e93b286f294fcd95cdd536f17909",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000040.ndjson.gz",
+            "bytes": 36484,
+            "sha256": "c95736340c17a761975340d618073c8a3b72beb071cf9d9ed7255ef7cab32b5d",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000041.ndjson.gz",
+            "bytes": 35655,
+            "sha256": "75307161a8e10a091ac07c051ad389ea28ed079f0943e565032cf8a7004f42ac",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000042.ndjson.gz",
+            "bytes": 36299,
+            "sha256": "7960387e725c6c596f4a8bd6ab34ee3aca959b42df05547ae09dccbf54eb0209",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000043.ndjson.gz",
+            "bytes": 35293,
+            "sha256": "47c4702ff8a42f0bf5dd862a4386bc6dd370df56ddba970f77fec7b1f4379c9b",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000044.ndjson.gz",
+            "bytes": 33966,
+            "sha256": "0f758772e2ecf15ff4e2197ac3f731bab84996a88dde213893d5ed72e29ac6c1",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000045.ndjson.gz",
+            "bytes": 39152,
+            "sha256": "2e7a8aeeaff0e8774bf1499d1f141807a79112762de3505fe432b69a3fdb4ea5",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000046.ndjson.gz",
+            "bytes": 34538,
+            "sha256": "561d228a97fdc28a93e8411544d664ae929386d35d7901dac755559c8d6d070b",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000047.ndjson.gz",
+            "bytes": 35660,
+            "sha256": "167b33bfd3774f40b2c98858aef73ea223baadbd7c6f34d19c1c3e20aca75301",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000048.ndjson.gz",
+            "bytes": 36820,
+            "sha256": "5bbe74918a5a01ee13e9266ad0bf0c6aa2a24374fc52b001cfd2d752c3ca0e4c",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000049.ndjson.gz",
+            "bytes": 35935,
+            "sha256": "f966786e325c1e216a59ab0309ef86804fbb6bbf1f3026e7e818c410fa9df8c2",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000050.ndjson.gz",
+            "bytes": 37692,
+            "sha256": "b4ab338df920dcfa2bdf08724109029df04de76476fca7e4ef89f18e02b301b1",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000051.ndjson.gz",
+            "bytes": 37244,
+            "sha256": "bf5c27d6d3aac8b14271ffccabcadf40de052f0e4f6ea07b62b31c46e1bb8607",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000052.ndjson.gz",
+            "bytes": 33846,
+            "sha256": "9a421134795f92587b11eab1659e1f26cd2f5703cb50892a64793f9e1194ffef",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000053.ndjson.gz",
+            "bytes": 37191,
+            "sha256": "2d64e5254b661ffb8ca6d7eb3dbcc2a6113f89c703c975fa0cc7227a22847497",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000054.ndjson.gz",
+            "bytes": 32924,
+            "sha256": "844109235826514141c8b460a56af85a65e0d12e82c36b1012550090012a6ac1",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000055.ndjson.gz",
+            "bytes": 35704,
+            "sha256": "35cadaca030cd82f53a02f9575c680ea17f891f9db623b368341ca6d8e70c3c9",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000056.ndjson.gz",
+            "bytes": 35314,
+            "sha256": "a424152f1bc174602b771f9cea47140348f633296f01e2ba6eb326f9fc6428ac",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000057.ndjson.gz",
+            "bytes": 35592,
+            "sha256": "121e31ce6a65e0c3c1628755e96303ef49d9cf0d7dbffd5185711946eaa39d7b",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000058.ndjson.gz",
+            "bytes": 35361,
+            "sha256": "88a716badbbaee4e0dc72776eec02dd08d92f5c58f18cfe6ea5a58f8fec9ae94",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000059.ndjson.gz",
+            "bytes": 38436,
+            "sha256": "d79813f11e00d9220f7b0a345ce2b2197bfb069c5c4853f8299551b6e8f6e7d6",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000060.ndjson.gz",
+            "bytes": 34287,
+            "sha256": "8edf691d02f4ba8ab5dcfab977acd5864344abad36adfa6da98f11f6d7a910ed",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000061.ndjson.gz",
+            "bytes": 36866,
+            "sha256": "3a546457837fec676b027a8287c20fa6e4f410f36756318957330ccf1f5fc12d",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000062.ndjson.gz",
+            "bytes": 40150,
+            "sha256": "814b53307f68349a94938ab091a3aa0970172af1813ad87eded73d9f8b62b908",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000063.ndjson.gz",
+            "bytes": 37866,
+            "sha256": "68982c578d07c41070120bfdb8359c8825d0a61a6a590245687a8b30ad2fe331",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000064.ndjson.gz",
+            "bytes": 32863,
+            "sha256": "a2bc8252b293ebc22f3969c261035bd9f45f8d7c83626b0bd9a1cc79ef96509d",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000065.ndjson.gz",
+            "bytes": 36732,
+            "sha256": "5d3b970982adec756c3928288a2741c279db0fb6277019e7ee386ba51ec44aac",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000066.ndjson.gz",
+            "bytes": 36711,
+            "sha256": "0e7979a65bba95f46023c0ae9b3c7556c577f4e88793cce81a3420a340be99f7",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000067.ndjson.gz",
+            "bytes": 34768,
+            "sha256": "09b0a76b321fbaa9ec0cde8731ee0592494bc948e917fc2e711a6ac0ceec5da5",
+            "records": 6400
+          },
+          {
+            "name": "lcia-000068.ndjson.gz",
+            "bytes": 17395,
+            "sha256": "24113a5fe6cd82d718ddd646b23fdd3d9a6299328fde2e681bd8dbab6fffc131",
+            "records": 2900
+          }
+        ]
+      }
+    },
+    "parquet-qualification.json": {
+      "sha256": "a89bbbaa24f2c6ee04528f7a7894381fdc9e4a15dc1b6499551dc5a9095203db",
+      "observed": {
+        "format": "parquet",
+        "files": 69,
+        "rows": 31192161,
+        "bytes": 282332519,
+        "largestFile": 4577324,
+        "largestRawCsvBytes": 0,
+        "checks": "Every signed object SHA-256/byte size verified; manifest descriptors exact; every gzip stream bounded after decompression",
+        "members": [
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "488d452a5bd9ab30ff7433acfc818655a1ac900ae8349bda0fbbdc34229371fa",
+            "byteSize": 4393569,
+            "fileName": "lci-inventory-000000.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 489333,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "e9a0a739221a5c216e83d8a79833479e6e751e803c71b6e7e71439d09cc0f803",
+            "byteSize": 4151461,
+            "fileName": "lci-inventory-000001.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 460167,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "a80d08c0b6b6b4c2a9e3cb98f7d0acb2845ff63ba23bd5b4a17e9e3fdc26aa55",
+            "byteSize": 4577324,
+            "fileName": "lci-inventory-000002.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 510679,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "a5711d6f525dbb3041477295650532811610fb9b55cac9ed3c6cd9168ba77279",
+            "byteSize": 4116811,
+            "fileName": "lci-inventory-000003.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 454605,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "42c1a7439fe0bb8e77be0e3084baefdc967d6195659b82465ec5eb8d82bd2709",
+            "byteSize": 4355020,
+            "fileName": "lci-inventory-000004.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 483558,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "1b502b9a29b8465fdcdc2e29f869664fb5844573801f200aa1b9e75b71e9668e",
+            "byteSize": 3874934,
+            "fileName": "lci-inventory-000005.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 426858,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "4cccc38dc5784dc056e70751e894195dcd0f71b6c09eaf463bfc3c500863dc1d",
+            "byteSize": 4018048,
+            "fileName": "lci-inventory-000006.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 443443,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "adc5424038959c21327119eaef32d5da1cc83e86623e03c0c1e42af713293aa3",
+            "byteSize": 4036049,
+            "fileName": "lci-inventory-000007.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 446926,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "ce0ee647b17dee94b7ff3774aca7a6d65e432cab73cc86b5f46151f6f0f79da1",
+            "byteSize": 4289826,
+            "fileName": "lci-inventory-000008.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 475395,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "e135823986b25afd9f36b163f166d45519e22adcd8b89c90a54505fcd97cee37",
+            "byteSize": 4022918,
+            "fileName": "lci-inventory-000009.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 443213,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "0320a06516f38d1f5039649036877f037e5b2a2e8659a7bb815302110b7fdc64",
+            "byteSize": 4018188,
+            "fileName": "lci-inventory-000010.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 444842,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "8c3fa48116993610e2ad2085b18ff7ed4d3f1f73880ed3eb07a3f8f35e2a3f76",
+            "byteSize": 4472982,
+            "fileName": "lci-inventory-000011.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 498223,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "a7e56f9425698c9ded91d74082e0b1c0cde1783260819e130bf5d380b963604e",
+            "byteSize": 4102561,
+            "fileName": "lci-inventory-000012.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 453392,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "fcd1b5de939101aeab62507f048a5240e3c4df6efc9eaa6af21bef9d6f0927ae",
+            "byteSize": 4267241,
+            "fileName": "lci-inventory-000013.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 473644,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "39201f1c9e6fcf4eaea25f8e3547fb61bbac1a7e6f96149a5cb2dc6c26fd9d00",
+            "byteSize": 4106154,
+            "fileName": "lci-inventory-000014.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 453218,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "a9c0f5931f1139241897b03b3c8ff970922c742e8f3e5c48a3314c8e9ef8e33f",
+            "byteSize": 4324690,
+            "fileName": "lci-inventory-000015.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 478689,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "9ceaff44de9d8e1cfd7835486a332eb735e232adb94d14a8162cc060752c95ca",
+            "byteSize": 4250656,
+            "fileName": "lci-inventory-000016.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 470865,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "67c77dc65706ab24be53af86e4cb5db13ea187bd5067cd41284f79716be60038",
+            "byteSize": 4091304,
+            "fileName": "lci-inventory-000017.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 452485,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "fb36341180cf5404c5dd03fd8d29ea8524bf2a83f7fab2a4f093f29bad892554",
+            "byteSize": 4022970,
+            "fileName": "lci-inventory-000018.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 445086,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "cfcde7fcbc64d302801c42f53e87baf92fa954559b32bb44372a9e123e1a388e",
+            "byteSize": 3951931,
+            "fileName": "lci-inventory-000019.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 434622,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "ee984b078cb675c9809db8879cc57d43d10d173bc77c169ee07131ece7ae7a21",
+            "byteSize": 3974342,
+            "fileName": "lci-inventory-000020.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 438135,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "d3d042e5ff47678e7a6a542ffb53b25571695f82c3a4bb2943753101044db5ca",
+            "byteSize": 3987709,
+            "fileName": "lci-inventory-000021.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 439742,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "d843637b44b7655bdd230f10c28bcdd6615a156d48e4c57b614253a505842efc",
+            "byteSize": 4218869,
+            "fileName": "lci-inventory-000022.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 467008,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "9e852dc5b5a7e2c5ab2cd1be6e939e04a51236062cfd14732ea7bfaa8fa6b1e7",
+            "byteSize": 4117464,
+            "fileName": "lci-inventory-000023.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 454259,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "1eb9aa5cd8f188900b9afa2cb635f47f9997d4a93119c1539f08d020d5d784cb",
+            "byteSize": 4002693,
+            "fileName": "lci-inventory-000024.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 443521,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "41033968d634c90e1944c614b2c95310420414f1a42c3b51befd5ad758ab5936",
+            "byteSize": 4186809,
+            "fileName": "lci-inventory-000025.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 464368,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "70ee0b905499d88e0da02d6c1b9b15d6d42a36e9b67e632b51bb40a8e02e5c75",
+            "byteSize": 3968915,
+            "fileName": "lci-inventory-000026.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 436872,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "5f94d6597d3c659cfc663c2d7f1a4e42073648c8601179d688bf5d1ab31d17bd",
+            "byteSize": 4053891,
+            "fileName": "lci-inventory-000027.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 445851,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "6c8f8efbb59549a6d53fab9b1f5fa36164dd918e0add53dbe66deb439a26c98f",
+            "byteSize": 4332781,
+            "fileName": "lci-inventory-000028.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 481071,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "a7c32de3641a75b474a5374e1535890e3d79a60cd023ed0ffdb44fcb4c0341ac",
+            "byteSize": 4228954,
+            "fileName": "lci-inventory-000029.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 468665,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "22cac67ada71d4477acbdc430ad16ba38b19fa63005fe7b1995c8477cef88316",
+            "byteSize": 4339877,
+            "fileName": "lci-inventory-000030.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 481537,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "e8a023f80151f314cc87cd7ee3795505a7f3b101b21e8c1caf2f4bffae12f2bf",
+            "byteSize": 4169588,
+            "fileName": "lci-inventory-000031.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 461516,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "cd5f19ff995cac815c7510b1d5951d065adb8774f8033dbcc621b3828c93a913",
+            "byteSize": 4275784,
+            "fileName": "lci-inventory-000032.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 475624,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "6d52881a88483eada06ecc00fb140bae817e3209f48fcf7d1d6ae11bc1645288",
+            "byteSize": 3796033,
+            "fileName": "lci-inventory-000033.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 415170,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "085d42fef1992266e2bf7779a91ff4a09fae283880504c23e0294db8782eb77d",
+            "byteSize": 4134341,
+            "fileName": "lci-inventory-000034.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 457205,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "90e5a0ebfbe1b874e99ea77d7c033dcae3eefc27296ba1a2104931c06d712d93",
+            "byteSize": 3948706,
+            "fileName": "lci-inventory-000035.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 435698,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "b0f5ebf2caaf7dd612b6306456f4d5d7b6de0692bca097eaef2582520dcfc917",
+            "byteSize": 4237803,
+            "fileName": "lci-inventory-000036.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 468877,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "a8d21f0baeeb97cdea878affcfc0627cbebab206db9efae768feda72d5b9a90d",
+            "byteSize": 4195221,
+            "fileName": "lci-inventory-000037.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 464556,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "5e626e6996b88e3629b79765fa31af8fa50875c54a4f7befff7e9e052338a638",
+            "byteSize": 3947365,
+            "fileName": "lci-inventory-000038.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 433404,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "87ad3f2ddae654c3a546ae49f788950175ac6b64e9da1b37326b385b5abe9e76",
+            "byteSize": 3945872,
+            "fileName": "lci-inventory-000039.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 435203,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "a5648f29a1c6adfca8ec14b9e95b61d694550fffc1d7969bcaf2314ab6a05e7f",
+            "byteSize": 3830210,
+            "fileName": "lci-inventory-000040.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 420994,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "e150555146eb434e8a217b0b64b02b997ed40ef4131dce47274a5f1b15041ea1",
+            "byteSize": 4185670,
+            "fileName": "lci-inventory-000041.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 463457,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "121753c7ed12c4ffb1dfebc1d6ec6d03a439c5a1aa0db5149b23ee536539a0a3",
+            "byteSize": 4078866,
+            "fileName": "lci-inventory-000042.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 449798,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "af79efbcdd797e716699b52a9f36084237c20da857f2947ea51c25ce2bb422de",
+            "byteSize": 4340548,
+            "fileName": "lci-inventory-000043.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 481102,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "0947ae02e19a9cb029999877bf09ff5151b81ab263d1c6657b7f11cbf2d5e25f",
+            "byteSize": 4324560,
+            "fileName": "lci-inventory-000044.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 480194,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "a07ded04bda288f80950cf69a3d2afb5ad779fb51da777d7ee0851a5aa0f9e75",
+            "byteSize": 3855450,
+            "fileName": "lci-inventory-000045.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 423391,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "6168c57007fad5f55fb87fcceae1b293c8dfea046c28697ffeb84979f966ccf6",
+            "byteSize": 4147174,
+            "fileName": "lci-inventory-000046.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 458585,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "eda75b216ef43d15e49d8990541ba9905aff6a9b0381ad3611ed9817eb5d2873",
+            "byteSize": 3998876,
+            "fileName": "lci-inventory-000047.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 440630,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "d9ec5b238e1f817992f9129c4c1a6d229957e36e23a84c9a0b9ffaa4c2d930ab",
+            "byteSize": 4017080,
+            "fileName": "lci-inventory-000048.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 440899,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "42663d55751894c92a65dd4e4c4bac7330df430d7234abfb4873008078317070",
+            "byteSize": 4019601,
+            "fileName": "lci-inventory-000049.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 444948,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "fbaa0d6a5c400d508c82f064bb062c9cf726304fe0f12822abbc5947d3a1f536",
+            "byteSize": 4171847,
+            "fileName": "lci-inventory-000050.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 461675,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "2485f6ac0916b74a82619add7fb0c9e7e2e1732e77462939d52cb3fed80dd5ff",
+            "byteSize": 3885535,
+            "fileName": "lci-inventory-000051.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 426066,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "8aa8ad36bf5748687199ed3b43b4e614d2fe9468c55208edfc212b32342a1953",
+            "byteSize": 4382140,
+            "fileName": "lci-inventory-000052.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 486815,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "183834093d13549498505ae2485dccb257e611074d93035ee7eba1bc4317a4bd",
+            "byteSize": 3976593,
+            "fileName": "lci-inventory-000053.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 438025,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "def010bfa44137704653d4380a3b07706ab4efdceb2190e32ad808a97f231288",
+            "byteSize": 4316552,
+            "fileName": "lci-inventory-000054.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 478949,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "d1cfe03b5993c455719bb9f19e1b4023bfd49b8ef462864d339abb745a7af159",
+            "byteSize": 4352264,
+            "fileName": "lci-inventory-000055.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 484145,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "ef9a967f588aeb3e1d32ade7cabcbfc79c0ba3cccde41e0c033e95a2770f059d",
+            "byteSize": 4151592,
+            "fileName": "lci-inventory-000056.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 458687,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "caf27bf871c33ebde24eca2b25f52d9fd1f0c0aacc18f0250e81ab943ec8dda4",
+            "byteSize": 3947298,
+            "fileName": "lci-inventory-000057.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 435489,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "130cd90071e43f14404365217565594c690a6dc4007203e5867a31fd4374977a",
+            "byteSize": 4246307,
+            "fileName": "lci-inventory-000058.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 470973,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "e0e1f654aad77d66ceeab2fc32ce45f0b55eae73b328502e692e773a309e3b52",
+            "byteSize": 3961852,
+            "fileName": "lci-inventory-000059.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 435917,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "bc0634e856d3cc8b599c4ce7c51c2df3431a44ada6016b01c97b159b1a3d5e96",
+            "byteSize": 4247392,
+            "fileName": "lci-inventory-000060.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 471619,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "1b79b01d2ed956a18d1a71c41671fd8d8e887e915263d905e0a908c222d40d42",
+            "byteSize": 4040317,
+            "fileName": "lci-inventory-000061.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 445231,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "7dfe4658e5afda51dfe1b1b486688098109b07bdb5e32d1b9fd7defd333faedc",
+            "byteSize": 3977400,
+            "fileName": "lci-inventory-000062.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 437752,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "3cd29f29a61520a34a0763d369424e99051497e9133e16b13571468b9b9b7a25",
+            "byteSize": 3958591,
+            "fileName": "lci-inventory-000063.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 434990,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "c9ca82de7ae5e30dd4700afe9bea6a8dfccaca42a071e4cd59619707f7e5859e",
+            "byteSize": 4066344,
+            "fileName": "lci-inventory-000064.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 449588,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "8973c89d2955bebdb0997a109b5d9476b77f6c01c224b532d6dcadff225fecb1",
+            "byteSize": 3926044,
+            "fileName": "lci-inventory-000065.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 430618,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "809748af6e352ffcd37df66b46ba7bc25e092929417122f3550709e0d4e2894e",
+            "byteSize": 4080666,
+            "fileName": "lci-inventory-000066.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 450620,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "08f41d6a22ada8cca7f321a36a9806e932e7ed909b25519f0c6e0ed2f0baa3d3",
+            "byteSize": 4326632,
+            "fileName": "lci-inventory-000067.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 479593,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          },
+          {
+            "role": "lci_inventory_parquet",
+            "group": "advanced_data",
+            "sha256": "400db5b54fe12ab8a01a773953af02307db59c84fae2c0b1635dda52e4362700",
+            "byteSize": 2011464,
+            "fileName": "lci-inventory-000068.parquet",
+            "mediaType": "application/vnd.apache.parquet",
+            "recordCount": 203886,
+            "schemaVersion": "tiangong.calculation-download.v1"
+          }
+        ]
+      }
+    },
+    "csv-qualification.json": {
+      "sha256": "878b95dd80cf487a75bd4647c082af15a93bea7933e70c01014cc77920fc3ec2",
+      "observed": {
+        "format": "csv",
+        "files": 125,
+        "rows": 31192161,
+        "bytes": 1095581334,
+        "largestFile": 8839036,
+        "largestRawCsvBytes": 34941908,
+        "checks": "Every signed object SHA-256/byte size verified; manifest descriptors exact; every gzip stream bounded after decompression",
+        "members": [
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "15f6b19f6931717f72ffd5b7ca615b9a3807ea7b530489a9e35e1eacf99aa861",
+            "byteSize": 8777882,
+            "fileName": "lci-inventory-000000.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34086402
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "66ab44e380e530710248987465d0d19aea86181d0c3009526ab1880cc6a3cb9e",
+            "byteSize": 8811706,
+            "fileName": "lci-inventory-000001.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34172036
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "b49edd497117d99f6acd8013eb7233e03a46f9812609fb62f3cb675e2a396dba",
+            "byteSize": 8786387,
+            "fileName": "lci-inventory-000002.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34308666
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "3062e47bcaf411593ee52f8f488a001f31f74528cb73246fd11a89c71e536825",
+            "byteSize": 8789046,
+            "fileName": "lci-inventory-000003.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34220812
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "2a0c29b6ccf0fe6b066028d18ce772b05e7ce02a8effed890d3147db7c8f4ebc",
+            "byteSize": 8834272,
+            "fileName": "lci-inventory-000004.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34152420
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "317caf53f2ad7a3f2fa893fe648a47676f6ba6f08eb156b6c1501eff50692fd1",
+            "byteSize": 8797670,
+            "fileName": "lci-inventory-000005.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34233912
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "f66f650f1893f039e0cf00071631a655d98c42c0e61d81d143e258a3d2ea0a32",
+            "byteSize": 8754657,
+            "fileName": "lci-inventory-000006.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34252120
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "fb1168d8f6ac1e97ff2473f66a2c751ca3d4f79ba94d172b538f47fd19374fc5",
+            "byteSize": 8786740,
+            "fileName": "lci-inventory-000007.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34390507
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "0688175da7e1da830dbd727d5f01ed15dba2857af87ff296838ef69fd5951a25",
+            "byteSize": 8821601,
+            "fileName": "lci-inventory-000008.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34440165
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "6bc5b19c3f728839ceaf4512336ca5341aa96bae4557f45148129ce7ac3b27f4",
+            "byteSize": 8719723,
+            "fileName": "lci-inventory-000009.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34512145
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "f184dd79505550e0f876b08f3688261f7423d4676a49bc451b2dedb7cc9d4fb6",
+            "byteSize": 8760882,
+            "fileName": "lci-inventory-000010.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34439760
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "ac26a186d63942eb05b9667ff2ac7e8deb9baf975cbd617a5a7a0903f8d17117",
+            "byteSize": 8812154,
+            "fileName": "lci-inventory-000011.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34557353
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "92f8f505d8e30aafeaa079f41c7e6f911642ea78799fa19ac97782d4414fc164",
+            "byteSize": 8774251,
+            "fileName": "lci-inventory-000012.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34482328
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "bc321cd2719dd5ca5ebf54f1c149b1e0895bd0ef0739ccce4cd689fedafe087a",
+            "byteSize": 8766623,
+            "fileName": "lci-inventory-000013.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34506730
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "87edf37d0599ecfb2444a7db01243132fa7420c0a135f66aa166fb0384799e36",
+            "byteSize": 8743814,
+            "fileName": "lci-inventory-000014.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34512056
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "bcdcbe9b46c289eadc2fed07195d4b1170099fb6a6cd2298789c0a746d8e7871",
+            "byteSize": 8828715,
+            "fileName": "lci-inventory-000015.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34494989
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "0482b6318a78d66090387cab068cae4ba0ba03afb2c20fc27ef698fd088fe012",
+            "byteSize": 8794214,
+            "fileName": "lci-inventory-000016.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34420153
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "ae4df8df2e8dd490991a3450f0610cd4b1a3c84632495db325863cf120fe65d9",
+            "byteSize": 8765472,
+            "fileName": "lci-inventory-000017.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34505282
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "aaedfddddf530531336a13e8878999228936e47d9dc53d3d4e26428450a30572",
+            "byteSize": 8766328,
+            "fileName": "lci-inventory-000018.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34584841
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "893b2b26929b4080478b13b1defd610dbfa5e439faabf77e555de0cd4e6250ce",
+            "byteSize": 8747616,
+            "fileName": "lci-inventory-000019.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34603744
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "83e4fd615dd83a4b9489dcc84b5f2c10d1ca812351faf8c2dc388e828c9121cc",
+            "byteSize": 8777641,
+            "fileName": "lci-inventory-000020.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34426942
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "e140ad19bf92801d377a5b7276b532bf1d2c6c90d2d5fe91da3f39ddda828511",
+            "byteSize": 8808537,
+            "fileName": "lci-inventory-000021.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34527487
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "4b1cd74663864bbf2d4f07a9d3a499f22a74ddc3ead8254834ae71e28bf3c0c4",
+            "byteSize": 8784309,
+            "fileName": "lci-inventory-000022.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34571120
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "d95fd1a69eac4792ce10c648cd7af0df858f979e1781b8438d4e74c2ed12b09b",
+            "byteSize": 8790461,
+            "fileName": "lci-inventory-000023.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34478799
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "c5ea68e5308976e5127c82c254335d27ad89e31dcd966999ec24ecc475d830ec",
+            "byteSize": 8831329,
+            "fileName": "lci-inventory-000024.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34459113
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "008ae25b7036b097241b0cd910892d4a4084c7b23676a10f391aacd37c9147b0",
+            "byteSize": 8763874,
+            "fileName": "lci-inventory-000025.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34622908
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "b3f1405d6005331fe3ea93e28d56c09ee45f26995916d422b7385fbdab5249d3",
+            "byteSize": 8810464,
+            "fileName": "lci-inventory-000026.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34446659
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "9808dfd6eb4d3dac689349b3696770a09606f446eb0a3a1da995529b0ab10723",
+            "byteSize": 8778424,
+            "fileName": "lci-inventory-000027.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34512776
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "bb3f29375b48c8c4c1cc708e6694cdf9eb42870beacfbbc0ff0b83bf23ff2298",
+            "byteSize": 8807215,
+            "fileName": "lci-inventory-000028.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34412811
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "a44fb480fd639348d55f506020c04bbf6aba96e5c5c423593967b718b495a5e9",
+            "byteSize": 8749115,
+            "fileName": "lci-inventory-000029.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34443262
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "a60e3c0add82447a3776f5bbd8ac982214b6c36a11f069542ffcb1d72df4f175",
+            "byteSize": 8775767,
+            "fileName": "lci-inventory-000030.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34525932
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "4317dcda1b4434e2f684b3edb35d829bce3e3c748fb2b7be9964df5c5fe23eff",
+            "byteSize": 8817230,
+            "fileName": "lci-inventory-000031.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34464084
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "452812b236456c03867aea6d2a7fdf799c4ee3e9eec40cebeb8beaa707466432",
+            "byteSize": 8792793,
+            "fileName": "lci-inventory-000032.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34553015
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "611a3325e90a620a23440e86f2f459fd1854863af6fb5fe18bd1877c115f2b8b",
+            "byteSize": 8797638,
+            "fileName": "lci-inventory-000033.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34509527
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "d94d50f0fb3004762c147a4db8a5877439bc9d91dedbbf331b01e7e56b66450a",
+            "byteSize": 8715521,
+            "fileName": "lci-inventory-000034.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34541901
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "a98d5de12de9ab6fe44a8fd1a06cedffbabd947f7402f41474cf8b0ef7acd9a2",
+            "byteSize": 8786421,
+            "fileName": "lci-inventory-000035.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34529455
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "140b5e03796fc3c0243150ee53f5d7d4e0cebed093c8d223585d6404e887e689",
+            "byteSize": 8771039,
+            "fileName": "lci-inventory-000036.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34626525
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "e87456190934cf1c21b9d08fbf97bf3cae29fee853a71d16c61d5a1ca857beb8",
+            "byteSize": 8753801,
+            "fileName": "lci-inventory-000037.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34555606
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "13a53e02fc0d07b17aad5709864999f5e323a37c362c457bb40d01e360cdbe2b",
+            "byteSize": 8809125,
+            "fileName": "lci-inventory-000038.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34498450
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "d567b9771eb61e95cfc52c9e386bc79a6c1044b84e9e600aacaf5136ae11925a",
+            "byteSize": 8765185,
+            "fileName": "lci-inventory-000039.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34468440
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "2df2728d23d63dac671c2770b41080cb41c89592dce2a08791ca7e426badeed0",
+            "byteSize": 8720468,
+            "fileName": "lci-inventory-000040.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34486209
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "ec308ea900ed3ec16aad270741330340ecbba2c67009e417fd9220e180d10bda",
+            "byteSize": 8839036,
+            "fileName": "lci-inventory-000041.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34440498
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "48ead3bed5bb122bbb99c7d81730a532201aa60b93597b9be6b9f8d99c80ac44",
+            "byteSize": 8734797,
+            "fileName": "lci-inventory-000042.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34481342
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "2d9ebe212f8b8281f045dfd6fa6236a323c9e9e03205d9099a97452a7b619605",
+            "byteSize": 8795219,
+            "fileName": "lci-inventory-000043.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34473341
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "17b1b7e36ac977769e2031e89fecc9e8ef6423e6ac28d558e8603d9876795bca",
+            "byteSize": 8788960,
+            "fileName": "lci-inventory-000044.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34365981
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "6c1888fbf70a145d120ddebceb0a7b69aac089b84fcd239110434b4a141b398e",
+            "byteSize": 8758082,
+            "fileName": "lci-inventory-000045.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34581008
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "f67393fe4d0b1abc2cd3e49888fe34041e42017145e063e37d55712bc084c404",
+            "byteSize": 8805585,
+            "fileName": "lci-inventory-000046.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34407440
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "c5b0e206d5f4768acfaf4f3b08f5129ca8c8dbab18316c658ef00b98f891c003",
+            "byteSize": 8737206,
+            "fileName": "lci-inventory-000047.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34602205
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "b3e279cddc461777ef412fa57d913112632cd1d77b1cbb57ed7e131058b10dd4",
+            "byteSize": 8775812,
+            "fileName": "lci-inventory-000048.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34436166
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "71ac96701ade80f687576049b32bd0ec825e98c4eaa04ca818933f221c2bf129",
+            "byteSize": 8816747,
+            "fileName": "lci-inventory-000049.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34527263
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "ab55ca3d8e576b62093a7dd58eacc22e37286224119caf5a16281a04ef65a98d",
+            "byteSize": 8779487,
+            "fileName": "lci-inventory-000050.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34436579
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "d20395444eab16b17c07df49947756891334b007443f6a3a3b940b47a78e2675",
+            "byteSize": 8739924,
+            "fileName": "lci-inventory-000051.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34479240
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "23ad6c4413f59dba402ef2db437121a8072a726bb3127c50d764df5c85df57dd",
+            "byteSize": 8810186,
+            "fileName": "lci-inventory-000052.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34532055
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "55621787b211043922ee41fc1f432f1ae0c68ea78780496c555cca96764279e1",
+            "byteSize": 8777109,
+            "fileName": "lci-inventory-000053.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34460858
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "837c5b18420b9ea58f4dfe26ce87d1c722f9c9ad465ed52ab7cccadef93b6fc5",
+            "byteSize": 8813908,
+            "fileName": "lci-inventory-000054.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34468354
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "7ce2fce3cf3c727dc30c0eabcfec153c21672c319b1e2e413ca44fe06378d463",
+            "byteSize": 8818581,
+            "fileName": "lci-inventory-000055.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34559189
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "9517661a663d0a1a343ffbe426411bb9593d1fbb18c1f693027f5ce4ec5bbcb8",
+            "byteSize": 8786466,
+            "fileName": "lci-inventory-000056.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34448536
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "57f785a699796d3eec5c035e8d043eeb3408200b3e084ff4060ae8f34828abd2",
+            "byteSize": 8787450,
+            "fileName": "lci-inventory-000057.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34510627
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "5e88c3dd265c1de7087ea3ec712bb67d717e4bc27bca5efdc5600c4667564552",
+            "byteSize": 8787097,
+            "fileName": "lci-inventory-000058.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34529825
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "9fa0d60add8f6c012abe955932af9edcee3346008f0050b56391ca298bb750f9",
+            "byteSize": 8784367,
+            "fileName": "lci-inventory-000059.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34472714
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "6c55dea9f364f6cdf988d7e7cacf567ef9ac311fe33323693cc843d970dbcb8c",
+            "byteSize": 8794886,
+            "fileName": "lci-inventory-000060.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34512089
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "0f8056db69a91962d20da934c1323b908af8eec4f0b87ae28ee2cbe2c0f2b707",
+            "byteSize": 8726138,
+            "fileName": "lci-inventory-000061.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34366900
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "569f02fbc22032847b10056569bee1763734cad56bc7ea5232c19ff05032073c",
+            "byteSize": 8721354,
+            "fileName": "lci-inventory-000062.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34482511
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "500796483e3f18d3df96fe083371505f0e76ce11194059132846893675245011",
+            "byteSize": 8788972,
+            "fileName": "lci-inventory-000063.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34387452
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "7eb8dc59a17f768dbb8fd9bc80f75baf2d2d9c40e8e0812679aa9b54b90ee9b3",
+            "byteSize": 8817651,
+            "fileName": "lci-inventory-000064.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34606234
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "1d1f7aac04310806f82f18fd890b4a1a91f16f31faf5be4690ab56de4c0876fd",
+            "byteSize": 8755839,
+            "fileName": "lci-inventory-000065.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34574183
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "372a5795936e4ceca8862bbbb63e3597dcc513ce27dc8641e477b7d3973a6533",
+            "byteSize": 8780851,
+            "fileName": "lci-inventory-000066.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34425203
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "1187f7d38bc76fa6571b7a60d99180a298e888f079d6dc9f0dd865001eed50b8",
+            "byteSize": 8799455,
+            "fileName": "lci-inventory-000067.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34463554
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "8a15816f427b1e79855f454b920769e8f7f96210660a3548ea05b0a0b4f3f04e",
+            "byteSize": 8755684,
+            "fileName": "lci-inventory-000068.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34556710
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "960d9e43e991f83d0d34ad65d4cbe5b25657536548eec275fc916630531d56a4",
+            "byteSize": 8793436,
+            "fileName": "lci-inventory-000069.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34530304
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "28b5a08267268b6daf39a9533f30bd2135a22d5469d03dfac06229cf1fcc3774",
+            "byteSize": 8746633,
+            "fileName": "lci-inventory-000070.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34453976
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "d5084a0a226cc128aa75bb6b21d4b0caf09c24f74cf1b09e7c61dd6a84f49f76",
+            "byteSize": 8746730,
+            "fileName": "lci-inventory-000071.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34593210
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "781d4e5e8c06a163e352dfd1b455011da33e4237878aad7a4f02b2c3440d5b74",
+            "byteSize": 8788063,
+            "fileName": "lci-inventory-000072.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34677118
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "2dbd35fb2cf623ae7f59d6ddb18e714660903d6c408686e180e36e984e7091d7",
+            "byteSize": 8722137,
+            "fileName": "lci-inventory-000073.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34835745
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "f4f5c60d824f6a4dbf4c43df45479e95c43141f3f0e9184f51124888a5c72f57",
+            "byteSize": 8794855,
+            "fileName": "lci-inventory-000074.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34649222
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "9dcb232061dc2f71ed2395d8a5195f72d82f48687e02f16dcfd1b47c8346bf80",
+            "byteSize": 8809072,
+            "fileName": "lci-inventory-000075.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34797675
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "f8af0a51277482cb1efbb88b8d0acd29a0e1bf6445ea43069860d55a4bcc7c1f",
+            "byteSize": 8764485,
+            "fileName": "lci-inventory-000076.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34757896
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "da4dcc71161c95a9479f94b9afea3df2dbd3f79fae6472884d485c1d67f56d07",
+            "byteSize": 8795670,
+            "fileName": "lci-inventory-000077.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34722758
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "e3116bb03f2ef2da05b6bee7c9704e77d931a5373a6bfc05cc62193d3bb3bfd1",
+            "byteSize": 8760223,
+            "fileName": "lci-inventory-000078.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34733079
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "65399b7d3c47db106ec98e29a35fd3161c11d66341ad4003e7d6b03e5b753bee",
+            "byteSize": 8802323,
+            "fileName": "lci-inventory-000079.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34784397
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "2722889f41e681ffd800a0dd4dcce76e4f46c7d685cdd3a8841b10ded85976e0",
+            "byteSize": 8796022,
+            "fileName": "lci-inventory-000080.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34696664
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "7e0db2c5c3c8dd8cf516abbe36d01d6ef81612b961f477ab7d3e29485c564b93",
+            "byteSize": 8814228,
+            "fileName": "lci-inventory-000081.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34709300
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "5d5142c5cc364e4f12ef711a49200a35ff861af687cd535d6d8da0659fe1b5ba",
+            "byteSize": 8739977,
+            "fileName": "lci-inventory-000082.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34750005
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "a1f758939502cac4101ed6e5819383cd9c1833b117ac4319cd0121983244e46d",
+            "byteSize": 8765671,
+            "fileName": "lci-inventory-000083.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34775236
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "59f556f6c1694117a47f73ff12252e39603011e4e7b53bad6350dbe3dafe7f3f",
+            "byteSize": 8805383,
+            "fileName": "lci-inventory-000084.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34677448
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "045ec7521e0b86fb5b0a17b6a72754fdccad92ee2184bb773de3e60fcde19396",
+            "byteSize": 8815434,
+            "fileName": "lci-inventory-000085.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34716960
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "0ea88a808c590daa462ee1c134d1c9fee4476fe3efd04c7fbb87f6b56c2ad105",
+            "byteSize": 8754392,
+            "fileName": "lci-inventory-000086.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34719028
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "fcf72cc66386a078ef9b520371c9ba72754d07b4a30d7d7c924b566241f32f6e",
+            "byteSize": 8774026,
+            "fileName": "lci-inventory-000087.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34742705
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "a3b0ee5536c501519dd0d2073c6e0db73f085a14b38661429e0ef49380470988",
+            "byteSize": 8755394,
+            "fileName": "lci-inventory-000088.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34741876
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "92563b69995773684636df73b949d84bceacd2854c467b32ad96581f4ead7db3",
+            "byteSize": 8776265,
+            "fileName": "lci-inventory-000089.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34765839
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "e7efe9449e765424101c1e5354e4ec14014d62bb5405706e0e214e7517b53e2a",
+            "byteSize": 8815885,
+            "fileName": "lci-inventory-000090.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34763980
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "30975c94770b0da86ac24d333fcd6044052e23d63efd57e439a31fbf299cf664",
+            "byteSize": 8744190,
+            "fileName": "lci-inventory-000091.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34819168
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "2b76d6810b220e24a7350a3ac078319d5cf2296e9d32d56d849898d1e3593695",
+            "byteSize": 8768919,
+            "fileName": "lci-inventory-000092.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34815212
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "cfd639d47473310be78fd5caa543621fe711420e77fef1a7a367b57d7f7cc397",
+            "byteSize": 8769166,
+            "fileName": "lci-inventory-000093.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34827013
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "52be3179edea10ca8df93771212e831f09cd810baa64b073f3b68639e7d43667",
+            "byteSize": 8783057,
+            "fileName": "lci-inventory-000094.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34667060
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "50f43014a1b223f903fafc1419957f0d4718da0c5493c7bc04636d0eeea10c0e",
+            "byteSize": 8759999,
+            "fileName": "lci-inventory-000095.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34628150
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "4273e659def77825215ec8ee0872657957309d2ad266fc6124103874903dd4c2",
+            "byteSize": 8779716,
+            "fileName": "lci-inventory-000096.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34871363
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "8f6770231085d9c444b6e50c672eaa294b72cafca3092f569e6241590ef99a40",
+            "byteSize": 8784850,
+            "fileName": "lci-inventory-000097.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34714645
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "b730470be78132c27284a2401e4659a4484d7812b7d9bb88948c5edae71c5a35",
+            "byteSize": 8798934,
+            "fileName": "lci-inventory-000098.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34675845
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "a793b8f53ae84bbbd5c30c8a042ee2ad269fd4bd8857927f7730eeaea8bc86cd",
+            "byteSize": 8825214,
+            "fileName": "lci-inventory-000099.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34711436
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "7fed3e60d9d9782a8bc71beba9cb46e4dfb96282a217af65db9fb136d75c0b4c",
+            "byteSize": 8816789,
+            "fileName": "lci-inventory-000100.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34677378
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "7fd89d9b380aef060a1e57214dbece47c8350a7f0593663124cf586ac689ca00",
+            "byteSize": 8760550,
+            "fileName": "lci-inventory-000101.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34941908
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "59cf73f225d5e82de53ed739e169c0cebeec148d34e6b75eda40c2d18784f308",
+            "byteSize": 8790133,
+            "fileName": "lci-inventory-000102.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34836853
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "6dac89d6d196b46a9f253b40f0f23be039c6680db1845525143e42c2b2ae8241",
+            "byteSize": 8793398,
+            "fileName": "lci-inventory-000103.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34827482
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "8bf0d7ee301d5a28e3c58e532bd698a57744eb3d8e9a84bf23f5440ab0a27169",
+            "byteSize": 8804368,
+            "fileName": "lci-inventory-000104.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34785668
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "55f9d4d58a9ca31e7658c73712c2ccb83128608888f807ddd781a727c348e381",
+            "byteSize": 8773564,
+            "fileName": "lci-inventory-000105.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34793214
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "955c4b98a0c041ab6d8844881e7a57f4a92e9d0c185635ce9459abb6ac38173d",
+            "byteSize": 8782006,
+            "fileName": "lci-inventory-000106.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34796636
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "495de954c0bbb34db82864ea3936206199c3ec7fc7c8669599772dcdadd8e47b",
+            "byteSize": 8789177,
+            "fileName": "lci-inventory-000107.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34766919
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "25318cdc432276e68d439bcb6377ea83660b37010417dea9d84ef9b2239429c2",
+            "byteSize": 8782782,
+            "fileName": "lci-inventory-000108.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34811543
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "39314493dee488350ed32114ddcd0090d41e1c54b2497e5212b948582a990d70",
+            "byteSize": 8738913,
+            "fileName": "lci-inventory-000109.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34813084
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "194286be2c8d628f424b0c6a34645495d940cbf5b4d1359fed5fde99b1d916f9",
+            "byteSize": 8822521,
+            "fileName": "lci-inventory-000110.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34749699
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "58485291128d7a859e413142facf406180de163ed74ca452652454536c8f2967",
+            "byteSize": 8793701,
+            "fileName": "lci-inventory-000111.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34764583
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "dde5326a99f5fab9532f312578bb2c07b087616f53e6b188643257eb00489bf1",
+            "byteSize": 8757850,
+            "fileName": "lci-inventory-000112.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34827069
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "47b0b7595ee49682fe36065566876f1d81e7e87743efc97818b3d9e78686e5f9",
+            "byteSize": 8747672,
+            "fileName": "lci-inventory-000113.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34815593
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "e3258de7f22125d62c944efb2eb19cd7a89957d62829628d00eb4940b7ed1bc2",
+            "byteSize": 8761337,
+            "fileName": "lci-inventory-000114.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34794929
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "757c88f7a4c6082977c777039495ee6ec22661159701055145623b787e3764cb",
+            "byteSize": 8780526,
+            "fileName": "lci-inventory-000115.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34809391
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "17fe33286712274bacacafa8d205f748c0b975a538a38862c7a3ef5a53391e11",
+            "byteSize": 8755499,
+            "fileName": "lci-inventory-000116.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34749049
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "602234f630ede8a3f7fff0a446fcd06c95ff13ea3d1440effcedad05b01cd84d",
+            "byteSize": 8811116,
+            "fileName": "lci-inventory-000117.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34775098
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "ab43262a66128e795b42235bb0360709868c18cad7f54c5f39a1da848aa04ac5",
+            "byteSize": 8753680,
+            "fileName": "lci-inventory-000118.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34737352
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "9509e741db6a37aca99a2f6ef879235996e3040b0cf8b385eb2a1925efd9044f",
+            "byteSize": 8798182,
+            "fileName": "lci-inventory-000119.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34742112
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "e472689d537528b51a6c5d8d453b394723fdea8f636aa6a6c457ae2ad16f7ba7",
+            "byteSize": 8799741,
+            "fileName": "lci-inventory-000120.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34840125
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "a04a8d37b545435ff9459b9380172125af8898726b03edc5a54f78a7b211229a",
+            "byteSize": 8766273,
+            "fileName": "lci-inventory-000121.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34773023
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "2cbde1de2239f00a409e5050412fec30dd2d487e9293915a93e03f0e7f648431",
+            "byteSize": 8801273,
+            "fileName": "lci-inventory-000122.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34810693
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "03608a214f75039669a0efea69e38aa126c88452457e128ffb81e78620ce3348",
+            "byteSize": 8790651,
+            "fileName": "lci-inventory-000123.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 250000,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 34679059
+          },
+          {
+            "role": "lci_inventory_csv",
+            "group": "advanced_data",
+            "sha256": "e6ec34f48f32f68402a84ef966c9b62f8311ae3a43bfb6bfe34b9375b8b4b85b",
+            "byteSize": 6736324,
+            "fileName": "lci-inventory-000124.csv.gz",
+            "mediaType": "application/gzip",
+            "recordCount": 192161,
+            "schemaVersion": "tiangong.calculation-download.v1",
+            "uncompressedBytes": 26696268
+          }
+        ]
+      }
+    },
+    "failure-isolation.json": {
+      "sha256": "51c4fc2b341317384c72c7e66fa5b0eff500d95b0b54c9bcab4a7b8f4b12e84c",
+      "observed": {
+        "terminalStatus": "failed",
+        "errorCode": "artifact_too_large",
+        "retryable": false,
+        "polls": 20,
+        "numericReads": 20,
+        "workerJobCountBefore": 5,
+        "workerJobCountAfter": 5,
+        "sameCalculationResult": true,
+        "sameFailedExportJob": true,
+        "sourceBundleUnchanged": true
+      }
+    },
+    "csv-failure-isolation.json": {
+      "sha256": "714fb0a107fab1404818db485da4776c7eb0baac6ce39da6df2a8cacecff2013",
+      "observed": {
+        "terminalStatus": "failed",
+        "errorCode": "artifact_too_large",
+        "retryable": false,
+        "polls": 20,
+        "numericReads": 20,
+        "workerJobCountBefore": 7,
+        "workerJobCountAfter": 7,
+        "sameCalculationResult": true,
+        "sameFailedExportJob": true,
+        "sourceBundleUnchanged": true
+      }
+    },
+    "access-audit-qualification.json": {
+      "sha256": "945ca8aff949277b0aabd17be0d4a1d734fdbd12cc6efbca4c3203b97ca4ba44",
+      "observed": {
+        "revokedReadStatus": 403,
+        "revokedEnqueueStatus": 403,
+        "revokedCallsCreatedJobs": false,
+        "roleRestored": true,
+        "auditFileCount": 418,
+        "auditPages": 21,
+        "canonicalObjectsReused": true,
+        "exportManifestLocatorFree": true
+      }
+    },
+    "ui-qualification.json": {
+      "sha256": "5770254e6b98cc30343471ede6f4aa4dfc473b7160298d34aa5f0ecf861f707d",
+      "observed": {
+        "schema": "local-ui-qualification.v1",
+        "sourceCommit": "2dbf4c7f5",
+        "surface": "actual CalculationExportsPanel and service bundled with credential-free synthetic backend fixture; not authenticated full-app E2E",
+        "checks": [
+          "default Parquet",
+          "20-file pagination",
+          "format switch resets page",
+          "manifest download with SHA-256 verification",
+          "terminal failure disables generation and stops polling",
+          "explicit request transitions running to completed",
+          "390x844 viewport has no horizontal document overflow"
+        ],
+        "screenshots": [
+          "ui-narrow.png",
+          "ui-terminal.png",
+          "ui-completed.png"
+        ],
+        "console": "one favicon 404; no application errors or warnings"
+      }
+    }
+  },
+  "rowParityExecution": {
+    "command": "CALCULATION_EXPORT_QUALIFICATION_DIR=<private downloaded exports> cargo test --release -p solver-worker --lib original_full_library_parquet_and_csv_are_row_exact -- --ignored --nocapture",
+    "stdout": [
+      "Original full-library CSV/Parquet row parity: 31192161 exact rows",
+      "test calculation_bundle::exports::tests::original_full_library_parquet_and_csv_are_row_exact ... ok",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 487 filtered out; finished in 24.90s"
+    ],
+    "logSha256": "4888ea864574da7ce02590c24f3c67e84dda283fac6caad755005d61af26fce3"
+  },
+  "explicitRetryRecovery": {
+    "lcia_csv": {
+      "status": "completed",
+      "workerJobId": "b55d493a-4c34-450f-b994-086dc0f23d2a",
+      "files": [
+        {
+          "fileName": "lcia-results.csv.zip",
+          "byteSize": 3827828,
+          "sha256": "781cdae28d47ee1efbfe0623f4853d1a75f07bc141a9aa556717a93b3aa8c70b",
+          "recordCount": 438100
+        }
+      ]
+    },
+    "lcia_xlsx": {
+      "status": "completed",
+      "workerJobId": "ddcc894d-4627-4f7d-8037-796b48a74935",
+      "files": [
+        {
+          "fileName": "lcia-results.xlsx",
+          "byteSize": 23632872,
+          "sha256": "3253302eb97b515c4c754eab8ac8335acaba91c1bdb7bd7c86ce72e97252c0db",
+          "recordCount": 438100
+        }
+      ]
+    }
+  },
+  "privacy": "Contains counts, hashes and bounded verification output only. Input records, credentials, signed URLs and storage locators remain outside Git.",
+  "cancellationFollowup": {
+    "sourceSha256": {
+      "crates/solver-worker/src/calculation_bundle.rs": "12f66a002beac6f747eeb837576a38af4b207ae19eba07b0629e3f9eb40625a5",
+      "crates/solver-worker/src/calculation_bundle/exports.rs": "2da164d5edf6b58234982aaa60fd0e03b4513629f5e1beed8881621361b8da36"
+    },
+    "focusedCommand": "cargo test -p solver-worker --lib calculation_bundle",
+    "focusedStdout": [
+      "test calculation_bundle::exports::tests::conversion_observes_cancellation_after_processing_a_row ... ok",
+      "test result: ok. 17 passed; 0 failed; 1 ignored; 0 measured; 471 filtered out; finished in 0.34s"
+    ],
+    "fullCommand": "make check",
+    "fullTestResults": [
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 468 passed; 0 failed; 21 ignored; 0 measured; 0 filtered out; finished in 53.34s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.21s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 131 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.55s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s",
+      "test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 6 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 1 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ],
+    "fullLogSha256": "2d719d387da243a4b18b4b4e07c42ff0fd85fb2b6c5638ac7b71f0b7d8c6f052"
+  }
+}
