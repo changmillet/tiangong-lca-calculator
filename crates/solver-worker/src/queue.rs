@@ -415,6 +415,10 @@ pub async fn run_solver_worker_jobs_loop(
 
 #[allow(clippy::too_many_lines)]
 async fn process_solver_worker_job(state: &AppState, job: WorkerJob, lease_seconds: i32) {
+    if job.job_kind == crate::calculation_bundle::exports::JOB_KIND {
+        process_calculation_export_job(state, &job, lease_seconds).await;
+        return;
+    }
     let payload = match solver_worker_job_payload(&job) {
         Ok(payload) => payload,
         Err(err) => {
@@ -601,6 +605,69 @@ async fn process_solver_worker_job(state: &AppState, job: WorkerJob, lease_secon
         Err(err) => {
             record_solver_worker_job_failure(state, &job, &payload, lca_job_id, &err).await;
         }
+    }
+}
+
+async fn process_calculation_export_job(state: &AppState, job: &WorkerJob, lease_seconds: i32) {
+    use crate::calculation_bundle::exports;
+    let work = async {
+        anyhow::ensure!(
+            job.payload_schema_version == exports::REQUEST_SCHEMA,
+            "unsupported calculation export schema"
+        );
+        let request: exports::ExportRequest = serde_json::from_value(job.payload.clone())?;
+        crate::worker_jobs::heartbeat_worker_job(
+            &state.queue_pool,
+            job.id,
+            job.lease_token,
+            "export_calculation",
+            0.05,
+            None,
+            lease_seconds,
+        )
+        .await?;
+        exports::execute(&state.object_store, job.id, request).await
+    };
+    let outcome = run_portal_lcia_v3_package_build_with_lease_renewal(
+        state,
+        job.id,
+        job.lease_token,
+        lease_seconds,
+        work,
+    )
+    .await;
+    let result = match outcome {
+        Ok(result) => WorkerJobResult {
+            status: "completed".to_owned(),
+            result_json: Some(serde_json::to_value(result).expect("export result is serializable")),
+            result_schema_version: Some(exports::RESULT_SCHEMA.to_owned()),
+            result_ref: None,
+            diagnostics: None,
+            error_code: None,
+            error_message: None,
+            error_details: None,
+            blocker_codes: Vec::new(),
+            resolution_scope: None,
+            retryable: None,
+        },
+        Err(error) => WorkerJobResult::failed(
+            error
+                .downcast_ref::<crate::storage::ObjectStoreUploadError>()
+                .map_or(
+                    "calculation_export_failed",
+                    crate::storage::ObjectStoreUploadError::error_code,
+                ),
+            error.to_string(),
+            json!({"workerJobId": job.id}),
+            None,
+            None,
+            classify_solver_worker_failure(exports::JOB_KIND, &error),
+        ),
+    };
+    if let Err(error) =
+        record_worker_job_result_reliably(&state.queue_pool, job.id, job.lease_token, result).await
+    {
+        error!(error = %error, worker_job_id = %job.id, "failed to record calculation export result");
     }
 }
 
@@ -866,6 +933,12 @@ async fn record_invalid_solver_worker_job_payload(
 }
 
 fn classify_solver_worker_failure(job_kind: &str, error: &anyhow::Error) -> FailureDisposition {
+    if let Some(failure) = error.downcast_ref::<crate::storage::ObjectStoreUploadError>()
+        && failure.is_oversize()
+    {
+        return FailureDisposition::NonRetryable;
+    }
+
     if job_kind == "lca.build_snapshot"
         && let Some(failure) = error.downcast_ref::<SnapshotBuilderProcessFailure>()
     {
@@ -963,14 +1036,14 @@ async fn record_solver_worker_job_failure(
         return;
     }
 
+    let error_code = error
+        .downcast_ref::<crate::storage::ObjectStoreUploadError>()
+        .map_or(
+            "solver_worker_job_failed",
+            crate::storage::ObjectStoreUploadError::error_code,
+        );
     let diagnostics = build_failure_diagnostics(state, payload, error).await;
-    let _ = mark_result_cache_failed(
-        &state.pool,
-        lca_job_id,
-        "job_execution_failed",
-        &err_message,
-    )
-    .await;
+    let _ = mark_result_cache_failed(&state.pool, lca_job_id, error_code, &err_message).await;
     if let Err(err) = link_lca_worker_job_domain_refs(&state.pool, job.id, lca_job_id).await {
         warn!(
             error = %err,
@@ -980,7 +1053,7 @@ async fn record_solver_worker_job_failure(
         );
     }
     let mut result = WorkerJobResult::failed(
-        "solver_worker_job_failed",
+        error_code,
         err_message,
         json!({
             "workerJobId": job.id,
@@ -2204,6 +2277,33 @@ mod tests {
         types::JobPayload,
         worker_jobs::{FailureDisposition, WorkerJob},
     };
+
+    #[test]
+    fn storage_413_is_terminal_even_through_context() {
+        let error = anyhow::Error::new(crate::storage::ObjectStoreUploadError {
+            stage: "multipart_part",
+            upload_mode: "multipart",
+            status_code: Some(413),
+            s3_error_code: Some("EntityTooLarge".to_owned()),
+            object_byte_size: Some(1_095_555_311),
+            max_upload_bytes: None,
+            part_number: Some(65),
+            part_count: None,
+            message: "upload rejected".to_owned(),
+        })
+        .context("calculation export upload failed");
+        assert_eq!(
+            classify_solver_worker_failure("lca.solve_all_unit", &error),
+            FailureDisposition::NonRetryable
+        );
+        assert_eq!(
+            error
+                .downcast_ref::<crate::storage::ObjectStoreUploadError>()
+                .unwrap()
+                .error_code(),
+            "artifact_too_large"
+        );
+    }
 
     #[test]
     fn immutable_solver_failures_are_non_retryable() {

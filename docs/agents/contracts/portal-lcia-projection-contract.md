@@ -25,9 +25,9 @@ checkPaths:
   - crates/solver-worker/src/worker_jobs.rs
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-10-12
-lastReviewedCommit: c6558afa865feaf3b34c862896f500dc77b4ae2c
-lastReviewedNote: "Reviewed Worker #318 canonical LCIA display metadata, legacy aliases and source-fingerprint v4. Method identities, factors, numerical policy, provider/allocation/readiness rules, frozen artifacts and lease/publication boundaries are unchanged; original-consumer candidate qualification remains separate."
+lastReviewedAt: 2026-10-16
+lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
+lastReviewedNote: "Reviewed for Worker #320 phase one: independent immutable-bundle export jobs, default Parquet, bounded compressed CSV and terminal polling protection. Existing authorization, numerical, lease and production boundaries remain; validation results belong to the linked Issues and PRs."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml

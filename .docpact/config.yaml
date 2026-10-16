@@ -1,8 +1,8 @@
 version: 1
 layout: repo
-lastReviewedAt: "2026-10-14"
-lastReviewedCommit: "5d7c3cbf2d16d743791f13e86052eb42de46a2aa"
-lastReviewedNote: "Reviewed Worker #320 snapshot replay and typed upload blockage. Coverage matching, provider/allocation rules and numerical matrices remain unchanged; v3 request and v2 replay evidence require coordinated consumers. Full local and historical replay proof is recorded on #320."
+lastReviewedAt: "2026-10-16"
+lastReviewedCommit: "3abc6502b0582448a562c4263e63215196eb184a"
+lastReviewedNote: "Reviewed Worker #320 phase-one calculation/export separation and terminal protection; ownership, branch and production boundaries remain unchanged."
 
 # Keep deterministic governance facts here.
 # AGENTS.md remains the repo contract entrypoint.
