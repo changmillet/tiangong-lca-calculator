@@ -2957,6 +2957,7 @@ mod tests {
         let process_a = Uuid::new_v4();
         let process_b = Uuid::new_v4();
         let index = crate::snapshot_index::SnapshotIndexDocument {
+            lcia_applicability: None,
             version: 1,
             snapshot_id: Uuid::new_v4(),
             process_count: 2,

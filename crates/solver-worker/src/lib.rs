@@ -450,6 +450,7 @@ pub mod db_pool;
 pub mod file_cache;
 pub mod graph_types;
 pub mod http;
+pub mod lcia_applicability;
 pub mod lcia_method_metadata;
 pub mod local_reports;
 pub mod package_artifacts;

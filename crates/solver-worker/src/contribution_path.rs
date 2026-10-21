@@ -640,6 +640,7 @@ mod tests {
         let impact_id = Uuid::new_v4();
 
         let snapshot_index = SnapshotIndexDocument {
+            lcia_applicability: None,
             version: 1,
             snapshot_id,
             process_count: 3,

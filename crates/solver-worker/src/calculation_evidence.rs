@@ -261,6 +261,9 @@ pub struct LcaCalculationEvidence {
 pub struct LciaExchangeObservation {
     pub flow_id: Uuid,
     pub flow_version: String,
+    /// Exact LCIA applicability field. Old replay records omitted it and remain unknown.
+    #[serde(default)]
+    pub location: crate::lcia_applicability::FactorLocation,
     pub direction: Option<LciaExchangeDirection>,
     pub direction_label: String,
     pub exchange_id: String,

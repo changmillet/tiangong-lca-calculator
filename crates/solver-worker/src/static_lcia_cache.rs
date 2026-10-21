@@ -112,11 +112,15 @@ pub struct StaticLciaMethod {
     pub unit: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StaticLciaFactor {
     pub flow_id: Uuid,
+    pub flow_version: String,
     pub direction: StaticLciaDirection,
     pub value: f64,
+    pub source_index_key: String,
+    pub source_factor_index: usize,
+    pub source_record_sha256: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -613,6 +617,7 @@ impl<'de> Visitor<'de> for FactorIndexVisitor<'_, '_> {
             let canonical_record =
                 canonical_json_bytes(&serde_json::to_value(&record).map_err(A::Error::custom)?)
                     .map_err(A::Error::custom)?;
+            let source_record_sha256 = sha256_bytes(&canonical_record);
             self.accumulator.canonical_record_bytes = self
                 .accumulator
                 .canonical_record_bytes
@@ -645,7 +650,7 @@ impl<'de> Visitor<'de> for FactorIndexVisitor<'_, '_> {
             if factors.is_empty() {
                 return Err(A::Error::custom("LCIA factor index record is empty"));
             }
-            for factor in factors {
+            for (source_factor_index, factor) in factors.into_iter().enumerate() {
                 if !self.accumulator.allowed_methods.contains_key(&factor.key) {
                     return Err(A::Error::custom(format!(
                         "LCIA factor references an unmanifested method {}",
@@ -659,8 +664,12 @@ impl<'de> Visitor<'de> for FactorIndexVisitor<'_, '_> {
                     .expect("manifested method factor vector")
                     .push(StaticLciaFactor {
                         flow_id: record.flow_id,
+                        flow_version: record.flow_version.clone(),
                         direction,
                         value,
+                        source_index_key: index_key.clone(),
+                        source_factor_index,
+                        source_record_sha256: source_record_sha256.clone(),
                     });
                 self.accumulator
                     .unique_keys

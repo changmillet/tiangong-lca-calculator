@@ -2418,7 +2418,7 @@ fn validate_sha256(value: &str, field: &str) -> anyhow::Result<()> {
     }
 }
 
-fn validate_version(value: &str, field: &str) -> anyhow::Result<()> {
+pub(crate) fn validate_version(value: &str, field: &str) -> anyhow::Result<()> {
     let bytes = value.as_bytes();
     if bytes.len() == 9
         && bytes[2] == b'.'
@@ -2598,6 +2598,7 @@ mod tests {
             })
             .collect();
         let index = SnapshotIndexDocument {
+            lcia_applicability: None,
             version: 1,
             snapshot_id,
             process_count: 1,

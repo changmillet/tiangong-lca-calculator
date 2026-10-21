@@ -64,6 +64,10 @@ pub struct SnapshotBuildConfig {
     /// current marker; decoding and historical reads never consult it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub numerical_policy_version: Option<String>,
+    /// LCIA applicability policy used to construct the characterization matrix. Missing markers
+    /// remain decodable for history, but cannot authorize a new LCIA calculation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lcia_applicability_policy_version: Option<String>,
     /// Optional `user_id` inclusion in process selection.
     #[serde(default)]
     pub include_user_id: Option<Uuid>,
@@ -151,6 +155,14 @@ pub struct SnapshotBuildConfig {
 }
 
 impl SnapshotBuildConfig {
+    /// Inventory-only snapshots do not require LCIA applicability evidence.
+    #[must_use]
+    pub fn is_lcia_applicability_policy_current(&self) -> bool {
+        !self.has_lcia
+            || self.lcia_applicability_policy_version.as_deref()
+                == Some(crate::lcia_applicability::POLICY_VERSION)
+    }
+
     /// True when this snapshot binds the currently validated allocation-target contract.
     #[must_use]
     pub fn is_allocation_semantics_current(&self) -> bool {
@@ -1101,6 +1113,7 @@ mod tests {
         let config = SnapshotBuildConfig {
             process_states: crate::default_snapshot_process_states_arg(),
             numerical_policy_version: Some(crate::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned()),
+            lcia_applicability_policy_version: None,
             include_user_id: None,
             data_scope: None,
             scope_manifest_sha256: None,
@@ -1257,6 +1270,8 @@ mod tests {
         let decoded = decode_snapshot_artifact(encoded.bytes.as_slice()).expect("decode");
         assert_eq!(decoded.snapshot_id, snapshot_id);
         assert_eq!(decoded.config, config);
+        assert_eq!(decoded.config.lcia_applicability_policy_version, None);
+        assert!(!decoded.config.is_lcia_applicability_policy_current());
         assert_eq!(decoded.coverage, coverage);
         assert_eq!(decoded.payload, payload);
         assert!(decoded.compiled_graph.is_none());
@@ -1406,6 +1421,7 @@ mod tests {
             direction_label: "unknown".to_owned(),
             exchange_id: "process:version:0".to_owned(),
             amount: None,
+            location: crate::lcia_applicability::FactorLocation::Unknown,
         }];
         let replay = super::encode_snapshot_release_evidence_with_lcia_inputs(
             snapshot_id,
@@ -1489,6 +1505,8 @@ mod tests {
             "method_version": null
         });
         let parsed: SnapshotBuildConfig = serde_json::from_value(legacy).expect("parse legacy");
+        assert_eq!(parsed.lcia_applicability_policy_version, None);
+        assert!(!parsed.is_lcia_applicability_policy_current());
         assert_eq!(parsed.biosphere_sign_mode, "signed");
         assert_eq!(parsed.allocation_semantics_version, "legacy-unscoped-v0");
         assert_eq!(parsed.include_user_id, None);

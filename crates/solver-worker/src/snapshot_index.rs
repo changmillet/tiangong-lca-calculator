@@ -15,6 +15,9 @@ pub struct SnapshotIndexDocument {
     /// Exact scope, method-source, and factor-coverage proof for versioned snapshots.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calculation_evidence: Option<LcaCalculationEvidence>,
+    /// Actual selected/rejected source records and existing matrix-axis coordinates.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lcia_applicability: Option<crate::lcia_applicability::ApplicabilityEvidence>,
 }
 
 /// Process mapping entry inside `snapshot-index-v1.json`.

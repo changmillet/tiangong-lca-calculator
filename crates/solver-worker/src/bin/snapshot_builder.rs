@@ -22,8 +22,8 @@ use std::time::{Duration, Instant};
 use chrono::{DateTime, TimeDelta, Utc};
 use clap::Parser;
 use rayon::prelude::*;
-use serde::Serialize;
-use serde_json::{Map, Value};
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value, json};
 use sha2::{Digest, Sha256};
 use solver_core::{ModelSparseData, SparseTriplet};
 use solver_worker::calculation_evidence::{
@@ -33,7 +33,8 @@ use solver_worker::calculation_evidence::{
     LciaUncharacterizedRecord, MISSING_FACTOR_SEMANTICS, PUBLIC_PLUS_OWNER_DRAFT_SCOPE,
     PublicOwnerDraftBuildRequest, RELEASE_METHOD_IDENTITIES, REPLAY_ARTIFACT_FORMAT,
     REPLAY_COVERAGE_SCHEMA_VERSION, ValidatedPublicOwnerDraftScope, canonical_json_bytes,
-    sha256_bytes, validate_calculation_evidence, validate_public_owner_draft_build_request,
+    canonical_json_sha256, sha256_bytes, validate_calculation_evidence,
+    validate_public_owner_draft_build_request,
 };
 use solver_worker::compiled_graph::{
     CompiledAllocationStats, CompiledBalanceResolution, CompiledBiosphereEdge,
@@ -53,6 +54,10 @@ use solver_worker::compiled_graph::{
 use solver_worker::db_pool::{APP_SNAPSHOT_BUILDER, WorkerDbPoolOptions};
 use solver_worker::graph_types::{
     RequestRootProcess, ResolvedScopeProcess, ScopeProcessPartition, SnapshotSelectionMode,
+};
+use solver_worker::lcia_applicability::{
+    self, ApplicabilityError, ApplicabilityEvidence, DecisionStatus, FactorDecision,
+    FactorLocation, MethodFactors, SelectionRecord,
 };
 use solver_worker::lcia_method_metadata;
 use solver_worker::local_reports::{
@@ -99,8 +104,7 @@ use solver_worker::snapshot_source_closure::{
 };
 use solver_worker::source_reference_policy::{ArtifactPurpose, SourceReferenceAction};
 use solver_worker::static_lcia_cache::{
-    StaticLciaDirection, TrustedStaticCacheSource, VerifiedStaticLciaBundle,
-    load_verified_static_lcia_bundle,
+    TrustedStaticCacheSource, VerifiedStaticLciaBundle, load_verified_static_lcia_bundle,
 };
 use solver_worker::storage::ObjectStoreClient;
 use uuid::Uuid;
@@ -188,6 +192,16 @@ fn matrix_readiness_policy(
 #[derive(Debug, Clone, Parser)]
 #[command(name = "snapshot-builder")]
 struct Cli {
+    /// Hash-bound, local-only applicability diagnosis. Does not connect to DB/Storage or solve.
+    #[arg(long, requires_all = ["diagnose_lcia_request_sha256", "diagnose_lcia_output", "diagnose_lcia_binary_sha256"], conflicts_with_all = ["replay_lcia_index", "database_url", "conn", "lcia_static_cache_base_url", "lcia_static_cache_dir", "method_id", "method_version", "snapshot_id"])]
+    diagnose_lcia_request: Option<PathBuf>,
+    #[arg(long, requires = "diagnose_lcia_request")]
+    diagnose_lcia_request_sha256: Option<String>,
+    #[arg(long, requires = "diagnose_lcia_request")]
+    diagnose_lcia_binary_sha256: Option<String>,
+    /// New output path; existing files are never overwritten.
+    #[arg(long, requires = "diagnose_lcia_request")]
+    diagnose_lcia_output: Option<PathBuf>,
     /// Diagnose a saved snapshot without a database or calculation; requires artifact, hash, output and a method selection.
     #[arg(long, requires_all = ["replay_lcia_artifact", "replay_index_sha256", "replay_lcia_output"])]
     replay_lcia_index: Option<PathBuf>,
@@ -433,6 +447,7 @@ struct ParsedExchange {
     allocation_fraction: f64,
     allocation_target_internal_id: String,
     location: Option<String>,
+    lcia_location: FactorLocation,
 }
 
 #[derive(Debug, Clone)]
@@ -1006,8 +1021,7 @@ struct ImpactFactorSet {
     impact_key: String,
     impact_name: String,
     unit: String,
-    factors_by_flow: HashMap<Uuid, f64>,
-    factors_by_flow_direction: HashMap<(Uuid, ExchangeDirection), f64>,
+    factors: MethodFactors,
 }
 
 #[derive(Debug)]
@@ -1029,7 +1043,12 @@ struct CompiledScopeGraph {
 
 #[derive(Debug, Clone, Default)]
 struct ActiveLciaFactorSelection {
-    factors_by_impact: Vec<BTreeMap<Uuid, f64>>,
+    factors_by_impact: Vec<BTreeMap<FlowLinkIdentity, f64>>,
+    decisions: Vec<(usize, FlowLinkIdentity, FactorDecision)>,
+    observation_groups_sha256: String,
+    unmatched_group_count: u64,
+    invalid_group_count: u64,
+    unsupported_direction_group_count: u64,
     active_flow_ids: BTreeSet<Uuid>,
     direction_by_flow: HashMap<Uuid, Option<ExchangeDirection>>,
 }
@@ -1446,6 +1465,14 @@ fn scope_closure_boundary_policy(
 #[tokio::main]
 async fn main() -> anyhow::Result<ExitCode> {
     let cli = Cli::parse();
+    if cli.diagnose_lcia_request.is_some() {
+        let qualified = diagnose_lcia_applicability(&cli).await?;
+        return Ok(if qualified {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::from(2)
+        });
+    }
     if cli.replay_lcia_index.is_some() {
         replay_lcia_evidence(&cli).await?;
         return Ok(ExitCode::SUCCESS);
@@ -1478,7 +1505,319 @@ async fn main() -> anyhow::Result<ExitCode> {
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LciaDiagnosticRequest {
+    schema_version: String,
+    source: LciaDiagnosticSource,
+    #[serde(default)]
+    observations: Vec<LciaExchangeObservation>,
+    #[serde(default)]
+    artifacts: Vec<LciaDiagnosticArtifact>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+enum LciaDiagnosticSource {
+    ReviewedStaticCache { root: PathBuf },
+    MethodDocuments { methods: Vec<LciaDiagnosticMethod> },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LciaDiagnosticMethod {
+    artifact_locator_id: Uuid,
+    method_version: String,
+    document: Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LciaDiagnosticArtifact {
+    path: PathBuf,
+    sha256: String,
+}
+
+fn hash_bounded_local_file(path: &Path, expected: &str, limit: u64) -> anyhow::Result<Value> {
+    use std::io::Read;
+    anyhow::ensure!(
+        path.is_absolute(),
+        "diagnostic input paths must be absolute"
+    );
+    anyhow::ensure!(
+        expected.len() == 64 && expected.bytes().all(|b| b.is_ascii_hexdigit()),
+        "diagnostic SHA256 must be 64 hexadecimal characters"
+    );
+    let mut input = fs::File::open(path)?;
+    anyhow::ensure!(
+        input.metadata()?.is_file(),
+        "diagnostic input must be a regular file"
+    );
+    anyhow::ensure!(
+        input.metadata()?.len() <= limit,
+        "diagnostic input exceeds byte limit"
+    );
+    let mut hasher = Sha256::new();
+    let mut bytes = 0_u64;
+    let mut buffer = vec![0_u8; 64 * 1024];
+    loop {
+        let count = input.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        bytes = bytes
+            .checked_add(u64::try_from(count)?)
+            .ok_or_else(|| anyhow::anyhow!("diagnostic byte-size overflow"))?;
+        anyhow::ensure!(bytes <= limit, "diagnostic input exceeds byte limit");
+        hasher.update(&buffer[..count]);
+    }
+    let hash = hex::encode(hasher.finalize());
+    anyhow::ensure!(
+        hash == expected,
+        "diagnostic input SHA256 mismatch: {}",
+        path.display()
+    );
+    Ok(json!({"path":path,"sha256":hash,"byte_size":bytes}))
+}
+
+fn read_diagnostic_request(
+    path: &Path,
+    expected: &str,
+) -> anyhow::Result<(LciaDiagnosticRequest, Value)> {
+    use std::io::Read;
+    anyhow::ensure!(
+        path.is_absolute(),
+        "diagnostic request path must be absolute"
+    );
+    let input = fs::File::open(path)?;
+    anyhow::ensure!(
+        input.metadata()?.is_file(),
+        "diagnostic request must be a regular file"
+    );
+    anyhow::ensure!(
+        input.metadata()?.len() <= lcia_applicability::MAX_DIAGNOSTIC_BYTES,
+        "diagnostic request exceeds byte limit"
+    );
+    let mut bytes = Vec::new();
+    input
+        .take(lcia_applicability::MAX_DIAGNOSTIC_BYTES + 1)
+        .read_to_end(&mut bytes)?;
+    anyhow::ensure!(
+        u64::try_from(bytes.len())? <= lcia_applicability::MAX_DIAGNOSTIC_BYTES,
+        "diagnostic request exceeds byte limit"
+    );
+    let hash = hex::encode(Sha256::digest(&bytes));
+    anyhow::ensure!(hash == expected, "diagnostic request SHA256 mismatch");
+    let request: LciaDiagnosticRequest = serde_json::from_slice(&bytes)?;
+    anyhow::ensure!(
+        request.schema_version == "lcia.applicability.diagnostic-request.v1",
+        "unsupported LCIA diagnostic request schema"
+    );
+    anyhow::ensure!(
+        request.observations.len() <= 100_000 && request.artifacts.len() <= 16,
+        "diagnostic request record limit exceeded"
+    );
+    Ok((
+        request,
+        json!({"path":path,"sha256":hash,"byte_size":bytes.len()}),
+    ))
+}
+
+struct DiagnosticOutputWriter<W> {
+    inner: W,
+    bytes: u64,
+}
+impl<W: Write> Write for DiagnosticOutputWriter<W> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        let size = u64::try_from(bytes.len()).map_err(std::io::Error::other)?;
+        let next = self
+            .bytes
+            .checked_add(size)
+            .ok_or_else(|| std::io::Error::other("diagnostic output overflow"))?;
+        if next > lcia_applicability::MAX_DIAGNOSTIC_BYTES {
+            return Err(std::io::Error::other(
+                "diagnostic output exceeds byte limit",
+            ));
+        }
+        let written = self.inner.write(bytes)?;
+        self.bytes += u64::try_from(written).map_err(std::io::Error::other)?;
+        Ok(written)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+async fn diagnose_lcia_applicability(cli: &Cli) -> anyhow::Result<bool> {
+    let binary_path = std::env::current_exe()?.canonicalize()?;
+    let binary = hash_bounded_local_file(
+        &binary_path,
+        cli.diagnose_lcia_binary_sha256
+            .as_deref()
+            .expect("CLI requires binary hash"),
+        2 * 1024 * 1024 * 1024,
+    )?;
+    let request_path = cli
+        .diagnose_lcia_request
+        .as_ref()
+        .expect("diagnostic request");
+    let (request, request_binding) = read_diagnostic_request(
+        request_path,
+        cli.diagnose_lcia_request_sha256
+            .as_deref()
+            .expect("CLI requires request hash"),
+    )?;
+    let artifacts = request
+        .artifacts
+        .iter()
+        .map(|artifact| {
+            hash_bounded_local_file(&artifact.path, &artifact.sha256, 256 * 1024 * 1024)
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let method = match request.source {
+        LciaDiagnosticSource::ReviewedStaticCache { root } => {
+            anyhow::ensure!(root.is_absolute(), "static cache root must be absolute");
+            // Directory-only construction deliberately has no URL/ambient-env fallback.
+            let source = TrustedStaticCacheSource::Directory(root);
+            let bundle = load_verified_static_lcia_bundle(
+                &source,
+                &solver_worker::calculation_evidence::method_factor_source_contract_fixture(),
+            )
+            .await?;
+            MethodSelection {
+                has_lcia: true,
+                method_id: None,
+                method_version: None,
+                method_count: i64::try_from(bundle.methods.len())?,
+                factor_count: 0,
+                source_evidence: Some(bundle.source_evidence.clone()),
+                rows: vec![],
+                static_bundle: Some(bundle),
+            }
+        }
+        LciaDiagnosticSource::MethodDocuments { methods } => {
+            anyhow::ensure!(
+                !methods.is_empty() && methods.len() <= 256,
+                "diagnostic method count outside bounds"
+            );
+            anyhow::ensure!(
+                !request.observations.is_empty(),
+                "method-document diagnosis requires observations"
+            );
+            let rows = resolve_database_lcia_method_rows(
+                methods
+                    .into_iter()
+                    .map(|method| MethodRow {
+                        id: method.artifact_locator_id,
+                        version: method.method_version,
+                        json: method.document,
+                    })
+                    .collect(),
+            )?;
+            MethodSelection {
+                has_lcia: true,
+                method_id: None,
+                method_version: None,
+                method_count: i64::try_from(rows.len())?,
+                factor_count: 0,
+                source_evidence: None,
+                rows,
+                static_bundle: None,
+            }
+        }
+    };
+    let factors = load_impact_factor_sets(&method)?;
+    let biosphere_ids = request
+        .observations
+        .iter()
+        .map(|observation| observation.flow_id)
+        .collect();
+    let selection =
+        select_active_lcia_factors(&factors, &biosphere_ids, &request.observations, true);
+    let (qualified, result) = match selection {
+        Ok(selection) => {
+            let qualified = !selection.decisions.is_empty()
+                && selection.unmatched_group_count == 0
+                && selection.invalid_group_count == 0
+                && selection.unsupported_direction_group_count == 0;
+            let decisions = selection
+                .decisions
+                .into_iter()
+                .map(|(method_index, identity, decision)| {
+                    json!({"diagnostic_method_index":method_index,"flow_id":identity.flow_id,
+                    "flow_version":identity.flow_version,"decision":decision})
+                })
+                .collect::<Vec<_>>();
+            (
+                qualified,
+                json!({"status":if qualified {"selected"} else {"incomplete"},
+                "observation_groups_sha256":selection.observation_groups_sha256,
+                "selected":decisions,"unmatched_group_count":selection.unmatched_group_count,
+                "invalid_group_count":selection.invalid_group_count,
+                "unsupported_direction_group_count":selection.unsupported_direction_group_count}),
+            )
+        }
+        Err(error) => {
+            let Some(applicability) = error.downcast_ref::<ApplicabilityError>() else {
+                return Err(error);
+            };
+            (
+                false,
+                json!({"status":"unsupported","issue":applicability.issue()}),
+            )
+        }
+    };
+    // Recheck every explicitly bound input before publishing, without reinterpretation/rewrite.
+    for artifact in &request.artifacts {
+        hash_bounded_local_file(&artifact.path, &artifact.sha256, 256 * 1024 * 1024)?;
+    }
+    hash_bounded_local_file(
+        request_path,
+        cli.diagnose_lcia_request_sha256
+            .as_deref()
+            .expect("request hash"),
+        lcia_applicability::MAX_DIAGNOSTIC_BYTES,
+    )?;
+    let response = json!({"schema_version":"lcia.applicability.diagnostic.v1",
+        "policy_version":lcia_applicability::POLICY_VERSION,"binary":binary,"request":request_binding,
+        "artifacts":artifacts,"artifact_interpretation":"hash_verified_only_no_historical_axis_inference",
+        "historical_axis_qualification":"unknown","matrix_created":false,"calculation_performed":false,
+        "selection_qualified":qualified,"scope":"factor_applicability_only_not_full_lcia_scientific_qualification",
+        "method_source":method.source_evidence,
+        "factor_sources":factors.iter().map(|factor| &factor.factors.source).collect::<Vec<_>>(),
+        "selection":result});
+    let output = cli
+        .diagnose_lcia_output
+        .as_ref()
+        .expect("CLI requires output");
+    anyhow::ensure!(
+        output.is_absolute(),
+        "diagnostic output path must be absolute"
+    );
+    let parent = output
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("diagnostic output parent missing"))?;
+    let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
+    let mut writer = DiagnosticOutputWriter {
+        inner: &mut temporary,
+        bytes: 0,
+    };
+    serde_json::to_writer(&mut writer, &response)?;
+    writer.write_all(b"\n")?;
+    writer.flush()?;
+    temporary.persist_noclobber(output)?;
+    println!(
+        "{}",
+        json!({"schema_version":"lcia.applicability.diagnostic-receipt.v1",
+        "selection_qualified":qualified,"output":output,"policy_version":lcia_applicability::POLICY_VERSION})
+    );
+    Ok(qualified)
+}
+
 fn snapshot_builder_blockage(error: &anyhow::Error) -> Option<(String, Vec<Value>)> {
+    if let Some(error) = error.downcast_ref::<ApplicabilityError>() {
+        return Some((error.code.to_owned(), vec![error.issue()]));
+    }
     if let Some(SnapshotSourceClosureError::Blocked { code, issues }) =
         error.downcast_ref::<SnapshotSourceClosureError>()
     {
@@ -1525,6 +1864,13 @@ async fn replay_lcia_evidence(cli: &Cli) -> anyhow::Result<()> {
     )?;
     let index: SnapshotIndexDocument = serde_json::from_reader(fs::File::open(index_path)?)?;
     anyhow::ensure!(index.version == 1, "unsupported snapshot index version");
+    anyhow::ensure!(
+        index
+            .lcia_applicability
+            .as_ref()
+            .is_some_and(|evidence| evidence.policy_version == lcia_applicability::POLICY_VERSION),
+        "lcia_replay_applicability_policy_missing: retain historical evidence; use read-only applicability diagnosis instead"
+    );
     let evidence = index
         .calculation_evidence
         .as_ref()
@@ -1715,11 +2061,19 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
     )
     .await?;
     build_timing.resolve_method_identity_sec = method_started.elapsed().as_secs_f64();
+    let impact_factor_sets = load_impact_factor_sets(&method)?;
+    for impact in &impact_factor_sets {
+        impact.factors.ensure_source_usable()?;
+    }
+
     let artifact_expires_in_seconds = positive_seconds(cli.artifact_expires_in_seconds);
     let reuse_max_age_seconds = positive_seconds(cli.reuse_max_age_seconds);
     let mut build_config = SnapshotBuildConfig {
         process_states: process_states_label.clone(),
         numerical_policy_version: Some(solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned()),
+        lcia_applicability_policy_version: Some(
+            solver_worker::lcia_applicability::POLICY_VERSION.to_owned(),
+        ),
         include_user_id: cli.include_user_id,
         data_scope: versioned_scope
             .as_ref()
@@ -2118,7 +2472,6 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
     }
 
     let factor_map_started = Instant::now();
-    let impact_factor_sets = load_impact_factor_sets(&method)?;
     build_timing.load_method_factors_sec = factor_map_started.elapsed().as_secs_f64();
 
     let snapshot_id = requested_snapshot_id.unwrap_or_else(Uuid::new_v4);
@@ -3583,6 +3936,7 @@ fn reusable_snapshot_policy_matches(
 ) -> bool {
     decoded.config.is_numerical_policy_current()
         && decoded.config.is_allocation_semantics_current()
+        && decoded.config.is_lcia_applicability_policy_current()
         && binding_contract_is_current(candidate, decoded)
 }
 
@@ -3675,6 +4029,12 @@ fn reviewed_lcia_artifact_locator(
 fn resolve_database_lcia_method_row(row: MethodRow) -> anyhow::Result<ResolvedLciaMethodRow> {
     let method_id =
         source_dataset_document_id(CompiledReleaseSourceDatasetType::LciaMethod, &row.json)?;
+    if let Some(version) = row.json.pointer(
+        "/LCIAMethodDataSet/administrativeInformation/publicationAndOwnership/common:dataSetVersion",
+    ) {
+        anyhow::ensure!(version.as_str() == Some(row.version.as_str()),
+            "database LCIA method version differs from its source document");
+    }
     if method_id != row.id && !reviewed_lcia_identity_matches(method_id, &row.version, row.id) {
         return Err(anyhow::anyhow!(
             "database LCIA method identity alias is not reviewed: method={method_id}@{} locator={}",
@@ -3975,37 +4335,9 @@ fn load_impact_factor_sets(method: &MethodSelection) -> anyhow::Result<Vec<Impac
     if !method.has_lcia {
         return Ok(Vec::new());
     }
+    let mut out = Vec::new();
     if let Some(bundle) = &method.static_bundle {
-        let mut out = Vec::with_capacity(bundle.methods.len());
         for source_method in &bundle.methods {
-            let mut factor_map = HashMap::new();
-            let mut directional_factor_map = HashMap::new();
-            for factor in bundle
-                .factors_by_method
-                .get(&source_method.method_id)
-                .into_iter()
-                .flatten()
-            {
-                let direction = match factor.direction {
-                    StaticLciaDirection::Input => ExchangeDirection::Input,
-                    StaticLciaDirection::Output => ExchangeDirection::Output,
-                };
-                accumulate_finite_factor(
-                    &mut directional_factor_map,
-                    (factor.flow_id, direction),
-                    factor.value,
-                    source_method.method_id,
-                )?;
-                if factor.value != 0.0 {
-                    accumulate_finite_factor(
-                        &mut factor_map,
-                        factor.flow_id,
-                        factor.value,
-                        source_method.method_id,
-                    )?;
-                }
-            }
-            factor_map.retain(|_, value| *value != 0.0);
             out.push(ImpactFactorSet {
                 impact_id: source_method.method_id,
                 method_version: source_method.method_version.clone(),
@@ -4013,91 +4345,38 @@ fn load_impact_factor_sets(method: &MethodSelection) -> anyhow::Result<Vec<Impac
                 impact_key: format!("method:{}", source_method.method_id),
                 impact_name: source_method.name.clone(),
                 unit: source_method.unit.clone(),
-                factors_by_flow: factor_map,
-                factors_by_flow_direction: directional_factor_map,
+                factors: MethodFactors::from_static_bundle(bundle, source_method.method_id)?,
             });
         }
-        out.sort_unstable_by_key(|impact| impact.impact_id);
-        return Ok(out);
-    }
-    if method.rows.is_empty() {
-        return Err(anyhow::anyhow!("no lciamethods found for selected scope"));
-    }
-
-    let mut out = Vec::with_capacity(method.rows.len());
-    for row in &method.rows {
-        let identity = &row.identity;
-        let mut factor_map: HashMap<Uuid, f64> = HashMap::new();
-        let mut directional_factor_map: HashMap<(Uuid, ExchangeDirection), f64> = HashMap::new();
-        for factor in method_factor_items(&row.json) {
-            let Some(flow_id) = parse_uuid_at(factor, &["referenceToFlowDataSet", "@refObjectId"])
-            else {
-                continue;
-            };
-            let Some(value) = parse_number(
-                factor
-                    .get("meanValue")
-                    .or_else(|| factor.get("meanAmount"))
-                    .or_else(|| factor.get("resultingAmount")),
-            ) else {
-                continue;
-            };
-            if let Some(direction) =
-                parse_exchange_direction(factor.get("exchangeDirection").and_then(Value::as_str))
-            {
-                accumulate_finite_factor(
-                    &mut directional_factor_map,
-                    (flow_id, direction),
-                    value,
+    } else {
+        anyhow::ensure!(
+            !method.rows.is_empty(),
+            "no lciamethods found for selected scope"
+        );
+        for row in &method.rows {
+            let identity = &row.identity;
+            out.push(ImpactFactorSet {
+                impact_id: identity.method_id,
+                method_version: identity.method_version.clone(),
+                artifact_locator_id: identity.artifact_locator_id,
+                impact_key: format!("method:{}", identity.method_id),
+                impact_name: lcia_method_metadata::name(&row.json)
+                    .unwrap_or_else(|| format!("LCIA Method {}", identity.method_id)),
+                unit: lcia_method_metadata::result_unit(&row.json)
+                    .unwrap_or_else(|| "unknown".to_owned()),
+                factors: MethodFactors::from_method_document(
                     identity.method_id,
-                )?;
-            }
-            if value.abs() <= f64::EPSILON {
-                continue;
-            }
-            accumulate_finite_factor(&mut factor_map, flow_id, value, identity.method_id)?;
+                    &identity.method_version,
+                    identity.artifact_locator_id,
+                    &row.json,
+                )?,
+            });
         }
-        factor_map.retain(|_, value| value.abs() > f64::EPSILON);
-
-        out.push(ImpactFactorSet {
-            impact_id: identity.method_id,
-            method_version: identity.method_version.clone(),
-            artifact_locator_id: identity.artifact_locator_id,
-            impact_key: format!("method:{}", identity.method_id),
-            impact_name: lcia_method_metadata::name(&row.json)
-                .unwrap_or_else(|| format!("LCIA Method {}", identity.method_id)),
-            unit: lcia_method_metadata::result_unit(&row.json)
-                .unwrap_or_else(|| "unknown".to_owned()),
-            factors_by_flow: factor_map,
-            factors_by_flow_direction: directional_factor_map,
-        });
     }
-    out.sort_unstable_by_key(|impact| impact.impact_id);
+    out.sort_unstable_by(|a, b| {
+        (a.impact_id, &a.method_version).cmp(&(b.impact_id, &b.method_version))
+    });
     Ok(out)
-}
-
-fn accumulate_finite_factor<K>(
-    factors: &mut HashMap<K, f64>,
-    key: K,
-    value: f64,
-    method_id: Uuid,
-) -> anyhow::Result<()>
-where
-    K: Eq + std::hash::Hash,
-{
-    if !value.is_finite() {
-        return Err(anyhow::anyhow!(
-            "LCIA factor for method {method_id} is non-finite"
-        ));
-    }
-    let total = factors.get(&key).copied().unwrap_or_default() + value;
-    if !total.is_finite() {
-        return Err(anyhow::anyhow!(
-            "LCIA factor aggregation overflow for method {method_id}"
-        ));
-    }
-    factors.insert(key, total);
-    Ok(())
 }
 
 fn retain_sparse_value(value: f64, preserve_sub_epsilon_values: bool) -> bool {
@@ -4722,6 +5001,7 @@ fn parse_process_chunk(
             allocation_fraction,
             allocation_target_internal_id: reference_internal_id.clone(),
             location: parse_exchange_location(ex),
+            lcia_location: FactorLocation::from_source(ex.get("location")),
         });
         local_flow_ids.insert(flow_id);
     }
@@ -5322,7 +5602,7 @@ async fn compile_scope_graph(
         &biosphere_flow_ids,
         &lcia_exchange_observations,
         directional_lcia,
-    );
+    )?;
     let (source_datasets, source_reference_provenance) = build_frozen_source_datasets(
         pool,
         &processes,
@@ -5391,6 +5671,7 @@ fn lcia_exchange_observation_for_attributed_exchange(
     Some(LciaExchangeObservation {
         flow_id: exchange.flow_id,
         flow_version: exchange.flow_version.clone(),
+        location: exchange.lcia_location.clone(),
         direction: exchange.direction,
         direction_label: exchange.direction_label.clone(),
         exchange_id: exchange.exchange_id.clone(),
@@ -5563,49 +5844,104 @@ fn select_active_lcia_factors(
     impact_factor_sets: &[ImpactFactorSet],
     biosphere_flow_ids: &BTreeSet<Uuid>,
     observations: &[LciaExchangeObservation],
-    directional_lcia: bool,
-) -> ActiveLciaFactorSelection {
-    let direction_by_flow = if directional_lcia {
-        unique_supported_direction_by_flow(observations)
-    } else {
-        HashMap::new()
-    };
+    _directional_lcia: bool,
+) -> anyhow::Result<ActiveLciaFactorSelection> {
     let mut selection = ActiveLciaFactorSelection {
-        factors_by_impact: Vec::with_capacity(impact_factor_sets.len()),
-        active_flow_ids: BTreeSet::new(),
-        direction_by_flow,
+        direction_by_flow: unique_supported_direction_by_flow(observations),
+        observation_groups_sha256: canonical_json_sha256(&serde_json::to_value(observations)?)?,
+        ..ActiveLciaFactorSelection::default()
     };
+    if impact_factor_sets.is_empty() {
+        return Ok(selection);
+    }
     for impact in impact_factor_sets {
+        impact.factors.ensure_source_usable()?;
+    }
+    let mut evidence_bytes = 0_u64;
+    let mut locations = BTreeMap::<FlowLinkIdentity, BTreeSet<FactorLocation>>::new();
+    let mut groups = BTreeMap::new();
+    for observation in observations {
+        if !biosphere_flow_ids.contains(&observation.flow_id) {
+            continue;
+        }
+        let identity =
+            flow_link_identity_from_parts(observation.flow_id, &observation.flow_version);
+        if observation
+            .amount
+            .is_some_and(|value| value.is_finite() && value != 0.0)
+        {
+            locations
+                .entry(identity.clone())
+                .or_default()
+                .insert(observation.location.clone());
+        }
+        groups
+            .entry((
+                identity,
+                observation.direction.map(ExchangeDirection::as_str),
+                observation.location.clone(),
+                observation.amount.is_some_and(f64::is_finite),
+            ))
+            .or_insert(observation);
+    }
+    for (identity, values) in locations {
+        if values.len() > 1 {
+            return Err(ApplicabilityError::new("lcia_mixed_location_axis_unsupported",
+                "the existing Flow/version axis cannot distinguish multiple exchange locations",
+                json!({"flow_id":identity.flow_id,"flow_version":identity.flow_version,"locations":values})).into());
+        }
+    }
+    for (impact_index, impact) in impact_factor_sets.iter().enumerate() {
         let mut active = BTreeMap::new();
-        if directional_lcia {
-            for (flow_id, direction) in &selection.direction_by_flow {
-                let Some(direction) = direction else {
-                    continue;
-                };
-                let Some(value) = impact
-                    .factors_by_flow_direction
-                    .get(&(*flow_id, *direction))
-                else {
-                    continue;
-                };
-                if retain_sparse_value(*value, true) {
-                    active.insert(*flow_id, *value);
-                }
+        for observation in groups.values() {
+            if selection.direction_by_flow.get(&observation.flow_id) == Some(&None) {
+                selection.unsupported_direction_group_count += 1;
+                continue;
             }
-        } else {
-            for flow_id in biosphere_flow_ids {
-                let Some(value) = impact.factors_by_flow.get(flow_id) else {
-                    continue;
-                };
-                if value.abs() > f64::EPSILON {
-                    active.insert(*flow_id, *value);
+            let decision = impact.factors.select(observation);
+            match decision.status {
+                DecisionStatus::Selected => {
+                    let identity = flow_link_identity_from_parts(
+                        observation.flow_id,
+                        &observation.flow_version,
+                    );
+                    active.insert(
+                        identity.clone(),
+                        decision.selected.as_ref().expect("selected record").value,
+                    );
+                    anyhow::ensure!(
+                        selection.decisions.len() < lcia_applicability::MAX_SELECTION_RECORDS,
+                        "lcia_applicability_evidence_limit_exceeded"
+                    );
+                    evidence_bytes = evidence_bytes
+                        .checked_add(u64::try_from(serde_json::to_vec(&decision)?.len())?)
+                        .ok_or_else(|| {
+                            anyhow::anyhow!("lcia_applicability_evidence_size_overflow")
+                        })?;
+                    anyhow::ensure!(
+                        evidence_bytes <= lcia_applicability::MAX_DIAGNOSTIC_BYTES,
+                        "lcia_applicability_evidence_size_limit_exceeded"
+                    );
+                    selection.decisions.push((impact_index, identity, decision));
+                }
+                DecisionStatus::Unmatched => selection.unmatched_group_count += 1,
+                DecisionStatus::Invalid => selection.invalid_group_count += 1,
+                DecisionStatus::Unsupported => {
+                    return Err(ApplicabilityError::new(
+                        "lcia_factor_applicability_unsupported",
+                        decision.reason.clone(),
+                        serde_json::to_value(&decision)?,
+                    )
+                    .into());
                 }
             }
         }
-        selection.active_flow_ids.extend(active.keys().copied());
+        selection
+            .active_flow_ids
+            .extend(active.keys().map(|identity| identity.flow_id));
         selection.factors_by_impact.push(active);
     }
-    selection
+    Ok(selection)
 }
 
 fn assemble_sparse_payload(
@@ -5630,7 +5966,7 @@ fn assemble_sparse_payload(
             .collect(),
         lcia_exchange_observations,
         directional_lcia,
-    );
+    )?;
     assemble_sparse_payload_with_selection(
         snapshot_id,
         method,
@@ -5664,13 +6000,15 @@ fn assemble_sparse_payload_with_selection(
         .map_err(|_| anyhow::anyhow!("process overflow"))?;
     let flow_count =
         i32::try_from(compiled_graph.flows.len()).map_err(|_| anyhow::anyhow!("flow overflow"))?;
-    let mut flow_indices_by_id = HashMap::<Uuid, Vec<i32>>::new();
+    let mut flow_indices_by_identity = HashMap::<FlowLinkIdentity, i32>::new();
     for flow in &compiled_graph.flows {
         if flow.space == CompiledFlowSpace::Biosphere {
-            flow_indices_by_id
-                .entry(flow.flow_id)
-                .or_default()
-                .push(flow.flow_idx);
+            anyhow::ensure!(
+                flow_indices_by_identity
+                    .insert(flow_link_identity_for_compiled_flow(flow), flow.flow_idx)
+                    .is_none(),
+                "duplicate exact biosphere Flow axis"
+            );
         }
     }
 
@@ -5756,7 +6094,7 @@ fn assemble_sparse_payload_with_selection(
     let direction_by_flow = &active_lcia_factors.direction_by_flow;
     let mut characterization_factors = Vec::new();
     if has_lcia {
-        for (impact_idx, impact) in impact_factor_sets.iter().enumerate() {
+        for (impact_idx, _) in impact_factor_sets.iter().enumerate() {
             let impact_row =
                 i32::try_from(impact_idx).map_err(|_| anyhow::anyhow!("impact idx overflow"))?;
             let mut c_map = HashMap::<i32, f64>::new();
@@ -5764,17 +6102,14 @@ fn assemble_sparse_payload_with_selection(
                 .factors_by_impact
                 .get(impact_idx)
                 .ok_or_else(|| anyhow::anyhow!("active LCIA factor axis omitted impact index"))?;
-            for (flow_id, cf_value) in factors {
-                if let Some(flow_indices) = flow_indices_by_id.get(flow_id) {
-                    for flow_idx in flow_indices {
-                        accumulate_finite_factor(
-                            &mut c_map,
-                            *flow_idx,
-                            *cf_value,
-                            impact.impact_id,
-                        )?;
-                    }
-                }
+            for (identity, cf_value) in factors {
+                let flow_idx = flow_indices_by_identity
+                    .get(identity)
+                    .ok_or_else(|| anyhow::anyhow!("selected factor has no exact Flow axis"))?;
+                anyhow::ensure!(
+                    c_map.insert(*flow_idx, *cf_value).is_none(),
+                    "multiple selected factors for one C entry"
+                );
             }
             c_map.retain(|_, value| retain_sparse_value(*value, directional_lcia));
             characterization_factors.reserve(c_map.len());
@@ -5938,6 +6273,38 @@ fn assemble_sparse_payload_with_selection(
         process_map,
         impact_map,
         calculation_evidence: None,
+        lcia_applicability: has_lcia
+            .then(|| -> anyhow::Result<_> {
+                Ok(ApplicabilityEvidence {
+                    schema_version: lcia_applicability::EVIDENCE_SCHEMA_VERSION.to_owned(),
+                    policy_version: lcia_applicability::POLICY_VERSION.to_owned(),
+                    sources: impact_factor_sets
+                        .iter()
+                        .map(|impact| impact.factors.source.clone())
+                        .collect(),
+                    observation_groups_sha256: active_lcia_factors
+                        .observation_groups_sha256
+                        .clone(),
+                    selected: active_lcia_factors
+                        .decisions
+                        .iter()
+                        .map(|(impact_index, identity, decision)| {
+                            Ok(SelectionRecord {
+                                impact_index: *impact_index,
+                                flow_index: *flow_indices_by_identity
+                                    .get(identity)
+                                    .ok_or_else(|| anyhow::anyhow!("missing selected Flow axis"))?,
+                                decision: decision.clone(),
+                            })
+                        })
+                        .collect::<anyhow::Result<Vec<_>>>()?,
+                    unmatched_group_count: active_lcia_factors.unmatched_group_count,
+                    invalid_group_count: active_lcia_factors.invalid_group_count,
+                    unsupported_direction_group_count: active_lcia_factors
+                        .unsupported_direction_group_count,
+                })
+            })
+            .transpose()?,
     };
     let readiness = verify_matrix_readiness(&MatrixReadinessInput {
         schema_version: "matrix_readiness_input.v2".to_owned(),
@@ -6009,21 +6376,24 @@ fn lcia_gap_reason(
     observation: &LciaExchangeObservation,
     method: &ImpactFactorSet,
     direction_by_flow: &HashMap<Uuid, Option<ExchangeDirection>>,
-) -> Option<&'static str> {
+) -> anyhow::Result<Option<&'static str>> {
     if observation.direction.is_none() {
-        Some("unsupported_exchange_direction")
-    } else if direction_by_flow.get(&observation.flow_id) == Some(&None) {
-        Some("ambiguous_elementary_flow_direction_axis")
-    } else if observation.amount.is_none_or(|value| !value.is_finite()) {
-        Some("invalid_exchange_amount")
-    } else if observation.direction.is_some_and(|direction| {
-        method
-            .factors_by_flow_direction
-            .contains_key(&(observation.flow_id, direction))
-    }) {
-        None
-    } else {
-        Some("no_lcia_factor_for_flow_direction")
+        return Ok(Some("unsupported_exchange_direction"));
+    }
+    if direction_by_flow.get(&observation.flow_id) == Some(&None) {
+        return Ok(Some("ambiguous_elementary_flow_direction_axis"));
+    }
+    let decision = method.factors.select(observation);
+    match decision.status {
+        DecisionStatus::Selected => Ok(None),
+        DecisionStatus::Invalid => Ok(Some("invalid_exchange_amount")),
+        DecisionStatus::Unmatched => Ok(Some("no_lcia_factor_for_exact_applicability")),
+        DecisionStatus::Unsupported => Err(ApplicabilityError::new(
+            "lcia_factor_applicability_unsupported",
+            decision.reason.clone(),
+            serde_json::to_value(&decision)?,
+        )
+        .into()),
     }
 }
 
@@ -6032,12 +6402,14 @@ fn build_lcia_factor_coverage(
     impact_factor_sets: &[ImpactFactorSet],
     direction_by_flow: &HashMap<Uuid, Option<ExchangeDirection>>,
 ) -> anyhow::Result<LciaFactorCoverageBuild> {
-    // Matching depends on a unique flow/direction and amount validity, never exchange identity.
+    // Group only identical applicability inputs; exchange identity does not alter selection.
     let mut groups = HashMap::new();
     for observation in observations {
         let key = (
             observation.flow_id,
+            &observation.flow_version,
             observation.direction,
+            &observation.location,
             observation.amount.is_some_and(f64::is_finite),
         );
         let entry = groups.entry(key).or_insert((observation, 0_u64));
@@ -6053,10 +6425,10 @@ fn build_lcia_factor_coverage(
     for method in methods {
         let mut method_counts = LciaFactorCoverageCounts::default();
         for (observation, multiplicity) in groups.values() {
-            let count = match lcia_gap_reason(observation, method, direction_by_flow) {
+            let count = match lcia_gap_reason(observation, method, direction_by_flow)? {
                 None => &mut method_counts.matched,
                 Some("invalid_exchange_amount") => &mut method_counts.invalid,
-                Some("no_lcia_factor_for_flow_direction") => &mut method_counts.unmatched,
+                Some("no_lcia_factor_for_exact_applicability") => &mut method_counts.unmatched,
                 Some(_) => &mut method_counts.unsupported_direction,
             };
             *count = count
@@ -6115,7 +6487,7 @@ fn visit_lcia_gaps(
     let mut count = 0;
     for method in methods {
         for observation in &sorted {
-            if let Some(reason) = lcia_gap_reason(observation, method, &directions) {
+            if let Some(reason) = lcia_gap_reason(observation, method, &directions)? {
                 visit(LciaUncharacterizedRecord {
                     method_id: method.impact_id,
                     method_version: method.method_version.clone(),
@@ -10251,6 +10623,10 @@ fn snapshot_process_filter(
             NUMERICAL_POLICY_VERSION_FIELD.to_owned(),
             Value::String(solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned()),
         );
+        object.insert(
+            "lcia_applicability_policy_version".to_owned(),
+            Value::String(lcia_applicability::POLICY_VERSION.to_owned()),
+        );
     }
 
     process_filter
@@ -11231,17 +11607,16 @@ mod tests {
         ResolvedRootRow, ReuseCandidate, SnapshotBuildConfig, SnapshotSelectionMode,
         SourceDatasetReadIdentity, SourceDatasetReference, SourceSnapshotSummary,
         VERSIONED_LIFECYCLE_MODEL_LINEAGE_SQL, ValidatedPublicOwnerDraftScope,
-        accumulate_finite_factor, add_technosphere_edge, assemble_sparse_payload,
-        attach_artifact_lifecycle, biosphere_gross_value, build_compiled_release_evidence,
-        build_lcia_factor_coverage, build_review_submit_overlay_graph,
-        candidate_count_bucket_label, collect_lcia_factor_flow_references,
-        compute_review_submit_overlay_source_hash, compute_scope_hash,
-        compute_source_fingerprint_from_summary, ensure_numerical_process_rows_authorized,
-        ensure_resolved_root_is_eligible, exact_scope_closure_method_axis,
-        flow_reference_requests_from_source_references, geo_score, insert_compiled_source_dataset,
-        load_impact_factor_sets, location_granularity_label, matrix_readiness_policy,
-        no_balancing_reference_failure_reason, normalize_request_roots, parse_number,
-        parse_process_annual_supply_or_production_volume, parse_process_states,
+        add_technosphere_edge, assemble_sparse_payload, attach_artifact_lifecycle,
+        biosphere_gross_value, build_compiled_release_evidence, build_lcia_factor_coverage,
+        build_review_submit_overlay_graph, candidate_count_bucket_label,
+        collect_lcia_factor_flow_references, compute_review_submit_overlay_source_hash,
+        compute_scope_hash, compute_source_fingerprint_from_summary,
+        ensure_numerical_process_rows_authorized, ensure_resolved_root_is_eligible,
+        exact_scope_closure_method_axis, flow_reference_requests_from_source_references, geo_score,
+        insert_compiled_source_dataset, load_impact_factor_sets, location_granularity_label,
+        matrix_readiness_policy, no_balancing_reference_failure_reason, normalize_request_roots,
+        parse_number, parse_process_annual_supply_or_production_volume, parse_process_states,
         parse_provider_rule_list, parse_scope_closure_snapshot_args,
         plan_source_support_read_batches, resolve_allocation_fraction,
         resolve_builder_process_states, resolve_database_lcia_method_row,
@@ -11268,6 +11643,66 @@ mod tests {
     use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
     use std::io::Write;
     use uuid::Uuid;
+
+    fn synthetic_method_factors(
+        method_id: Uuid,
+        records: &[(Uuid, &str, ExchangeDirection, &str, f64)],
+    ) -> solver_worker::lcia_applicability::MethodFactors {
+        let factors = records.iter().map(|(flow, version, direction, location, value)| json!({
+            "referenceToFlowDataSet": {"@refObjectId": flow, "@version": version},
+            "exchangeDirection": direction.as_str(), "location": location, "meanValue": value,
+        })).collect::<Vec<_>>();
+        solver_worker::lcia_applicability::MethodFactors::from_method_document(
+            method_id,
+            "01.00.000",
+            method_id,
+            &json!({"LCIAMethodDataSet": {
+                "LCIAMethodInformation": {"dataSetInformation": {"common:UUID": method_id}},
+                "characterisationFactors": {"factor": factors},
+            }}),
+        )
+        .expect("complete synthetic factor source")
+    }
+
+    fn test_method_factors(
+        method_id: Uuid,
+        records: &[((Uuid, ExchangeDirection), f64)],
+    ) -> solver_worker::lcia_applicability::MethodFactors {
+        let records = records
+            .iter()
+            .map(|((flow, direction), value)| (*flow, "01.00.000", *direction, "test", *value))
+            .collect::<Vec<_>>();
+        synthetic_method_factors(method_id, &records)
+    }
+
+    fn synthetic_lcia_observation(
+        flow_id: Uuid,
+        version: &str,
+        location: &str,
+    ) -> LciaExchangeObservation {
+        LciaExchangeObservation {
+            flow_id,
+            flow_version: version.to_owned(),
+            direction: Some(ExchangeDirection::Output),
+            direction_label: "Output".to_owned(),
+            exchange_id: "synthetic-exchange".to_owned(),
+            amount: Some(1.0),
+            location: solver_worker::lcia_applicability::FactorLocation::Code(location.to_owned()),
+        }
+    }
+
+    fn synthetic_impact(records: &[(Uuid, &str, ExchangeDirection, &str, f64)]) -> ImpactFactorSet {
+        let factors = synthetic_method_factors(Uuid::from_u128(339_000), records);
+        ImpactFactorSet {
+            impact_id: factors.source.method_id,
+            method_version: factors.source.method_version.clone(),
+            artifact_locator_id: factors.source.artifact_locator_id,
+            impact_key: "synthetic-impact".to_owned(),
+            impact_name: "Synthetic impact".to_owned(),
+            unit: "kg".to_owned(),
+            factors,
+        }
+    }
 
     #[test]
     fn scope_closure_discovery_contains_only_consumed_readiness_fields() {
@@ -11574,6 +12009,9 @@ mod tests {
     fn test_snapshot_build_config(allocation_semantics_version: &str) -> SnapshotBuildConfig {
         SnapshotBuildConfig {
             process_states: "100".to_owned(),
+            lcia_applicability_policy_version: Some(
+                solver_worker::lcia_applicability::POLICY_VERSION.to_owned(),
+            ),
             numerical_policy_version: Some(
                 solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned(),
             ),
@@ -11872,6 +12310,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "dependent-reference".to_owned(),
             location: Some("GLO".to_owned()),
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         let compile_reference = |direction: ExchangeDirection, raw_amount: f64| {
@@ -11893,6 +12334,9 @@ mod tests {
                 allocation_fraction: 1.0,
                 allocation_target_internal_id: "reference".to_owned(),
                 location: Some("GLO".to_owned()),
+                lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                    "test".to_owned(),
+                ),
             };
             let identity = super::flow_link_identity(&reference);
             let mut ports = HashMap::from([(
@@ -12031,6 +12475,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: Some("GLO".to_owned()),
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
         let residual = ParsedExchange {
             process_idx: 0,
@@ -12048,6 +12495,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: Some("GLO".to_owned()),
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
         let identity = super::flow_link_identity(&reference);
         let ports = HashMap::from([(
@@ -12219,6 +12669,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "1".to_owned(),
             location: None,
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
         let mut selected = super::ResolvedFlowMetadata::default();
         selected
@@ -12274,6 +12727,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: None,
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
         let requests = super::collect_exchange_flow_reference_requests(&[
             exchange(shared_flow_id, "01.00.000", "historical"),
@@ -12777,11 +13233,10 @@ mod tests {
             impact_key: format!("method:{method_id}"),
             impact_name: "Tiny factor method".to_owned(),
             unit: "kg".to_owned(),
-            factors_by_flow: HashMap::from([(flow_id, tiny_factor)]),
-            factors_by_flow_direction: HashMap::from([(
-                (flow_id, ExchangeDirection::Output),
-                tiny_factor,
-            )]),
+            factors: test_method_factors(
+                method_id,
+                &[((flow_id, ExchangeDirection::Output), tiny_factor)],
+            ),
         }];
         let observations = vec![
             LciaExchangeObservation {
@@ -12791,6 +13246,9 @@ mod tests {
                 direction_label: "Output".to_owned(),
                 exchange_id: "tiny-exchange".to_owned(),
                 amount: Some(tiny_exchange),
+                location: solver_worker::lcia_applicability::FactorLocation::Code(
+                    "test".to_owned(),
+                ),
             },
             LciaExchangeObservation {
                 flow_id,
@@ -12799,6 +13257,9 @@ mod tests {
                 direction_label: "Output".to_owned(),
                 exchange_id: "nonfinite-exchange".to_owned(),
                 amount: Some(f64::INFINITY),
+                location: solver_worker::lcia_applicability::FactorLocation::Code(
+                    "test".to_owned(),
+                ),
             },
         ];
         let method = MethodSelection {
@@ -12906,10 +13367,15 @@ mod tests {
             method_version: "01.00.000".to_owned(),
             artifact_locator_id: method_id,
             impact_key: format!("method:{method_id}"),
-            impact_name: "version-independent factor".to_owned(),
+            impact_name: "version-exact factors".to_owned(),
             unit: "kg".to_owned(),
-            factors_by_flow: HashMap::from([(flow_id, 3.0)]),
-            factors_by_flow_direction: HashMap::from([((flow_id, ExchangeDirection::Output), 3.0)]),
+            factors: synthetic_method_factors(
+                method_id,
+                &[
+                    (flow_id, "01.00.000", ExchangeDirection::Output, "test", 3.0),
+                    (flow_id, "01.00.002", ExchangeDirection::Output, "test", 7.0),
+                ],
+            ),
         }];
         let observations = ["01.00.000", "01.00.002"]
             .into_iter()
@@ -12920,6 +13386,9 @@ mod tests {
                 direction_label: "Output".to_owned(),
                 exchange_id: version.to_owned(),
                 amount: Some(1.0),
+                location: solver_worker::lcia_applicability::FactorLocation::Code(
+                    "test".to_owned(),
+                ),
             })
             .collect::<Vec<_>>();
         let method = MethodSelection {
@@ -12950,6 +13419,14 @@ mod tests {
         assert_eq!(built.data.flow_count, 2);
         assert_eq!(built.data.biosphere_entries.len(), 2);
         assert_eq!(built.data.characterization_factors.len(), 2);
+        let values = built
+            .data
+            .characterization_factors
+            .iter()
+            .map(|factor| (factor.col, factor.value))
+            .collect::<BTreeMap<_, _>>();
+        assert_close(values[&0], 3.0);
+        assert_close(values[&1], 7.0);
         assert_eq!(built.compiled_graph.flows[0].flow_version, "01.00.000");
         assert_eq!(built.compiled_graph.flows[1].flow_version, "01.00.002");
     }
@@ -13010,6 +13487,30 @@ mod tests {
         let decoded =
             super::decode_snapshot_artifact(&encoded.bytes).expect("decode fresh ordinary");
         assert!(decoded.config.scope_closure_binding.is_none());
+        assert!(reusable_snapshot_policy_matches(
+            &candidate(artifact_format),
+            &decoded
+        ));
+
+        for policy in [None, Some("lcia.applicability.legacy.v0")] {
+            let mut config = fresh_ordinary.clone();
+            config.has_lcia = true;
+            config.lcia_applicability_policy_version = policy.map(str::to_owned);
+            let encoded = encode(&config);
+            let decoded = super::decode_snapshot_artifact(&encoded.bytes)
+                .expect("historical applicability evidence remains decodable");
+            assert!(!reusable_snapshot_policy_matches(
+                &candidate(artifact_format),
+                &decoded
+            ));
+        }
+        let mut current_lcia = fresh_ordinary.clone();
+        current_lcia.has_lcia = true;
+        current_lcia.lcia_applicability_policy_version =
+            Some(solver_worker::lcia_applicability::POLICY_VERSION.to_owned());
+        let encoded = encode(&current_lcia);
+        let decoded =
+            super::decode_snapshot_artifact(&encoded.bytes).expect("current applicability");
         assert!(reusable_snapshot_policy_matches(
             &candidate(artifact_format),
             &decoded
@@ -14968,6 +15469,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: None,
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         let resolution = resolve_multi_provider(
@@ -15020,6 +15524,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: None,
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         let resolution = resolve_multi_provider(
@@ -15065,6 +15572,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: None,
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         let resolution = resolve_multi_provider(
@@ -15112,6 +15622,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: Some("GLO".to_owned()),
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         let resolution = resolve_multi_provider(
@@ -15157,6 +15670,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: None,
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         let resolution = resolve_multi_provider(
@@ -15201,6 +15717,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: Some("CN".to_owned()),
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         let resolution = resolve_multi_provider(
@@ -15248,6 +15767,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: Some("not-a-location".to_owned()),
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         let resolution = resolve_multi_provider(
@@ -15931,6 +16453,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: None,
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         let resolution = resolve_multi_provider(
@@ -16007,6 +16532,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: None,
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         let resolution = resolve_multi_provider(
@@ -16077,6 +16605,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: None,
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         let decision = resolve_multi_provider(
@@ -16149,6 +16680,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: None,
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         let decision = resolve_multi_provider(
@@ -16218,6 +16752,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "reference".to_owned(),
             location: None,
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         let decision = resolve_multi_provider(
@@ -16518,6 +17055,9 @@ mod tests {
             allocation_fraction: 1.0,
             allocation_target_internal_id: "1".to_owned(),
             location: None,
+            lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                "test".to_owned(),
+            ),
         };
 
         for space in [
@@ -16634,170 +17174,65 @@ mod tests {
     #[ignore = "requires LCIA_TEST_STATIC_CACHE_DIR pointing to the reviewed static-cache root"]
     async fn replay_saved_snapshot_with_real_method_bundle() {
         let cache_root = std::env::var("LCIA_TEST_STATIC_CACHE_DIR").expect("static cache root");
-        let source =
-            super::TrustedStaticCacheSource::new(Some(cache_root.clone().into()), None).unwrap();
+        let source = super::TrustedStaticCacheSource::new(Some(cache_root.into()), None).unwrap();
         let bundle = super::load_verified_static_lcia_bundle(
             &source,
             &solver_worker::calculation_evidence::method_factor_source_contract_fixture(),
         )
         .await
         .unwrap();
-        let method = MethodSelection {
-            has_lcia: true,
-            method_id: None,
-            method_version: None,
-            method_count: 25,
-            factor_count: 0,
-            source_evidence: Some(bundle.source_evidence.clone()),
-            rows: vec![],
-            static_bundle: Some(bundle),
-        };
-        let factors = super::load_impact_factor_sets(&method).unwrap();
-        let observations = vec![
-            LciaExchangeObservation {
-                flow_id: Uuid::nil(),
-                flow_version: "01.00.000".to_owned(),
-                direction: Some(ExchangeDirection::Output),
-                direction_label: "Output".to_owned(),
-                exchange_id: "process:version:0".to_owned(),
-                amount: Some(1.0),
-            },
-            LciaExchangeObservation {
-                flow_id: Uuid::from_u128(3),
-                flow_version: "01.00.000".to_owned(),
-                direction: None,
-                direction_label: "unknown".to_owned(),
-                exchange_id: "process:version:1".to_owned(),
-                amount: None,
-            },
-        ];
-        let coverage = build_lcia_factor_coverage(
-            &observations,
-            &factors,
-            &unique_supported_direction_by_flow(&observations),
-        )
-        .unwrap();
-        assert_eq!(coverage.record_count, 50);
-        let snapshot_id = Uuid::new_v4();
-        let source_link = super::SnapshotLinkedArtifact {
-            format: "snapshot-source-closure-json-zstd:v1".to_owned(),
-            object_url: "s3://test/source.json.zst".to_owned(),
-            sha256: "a".repeat(64),
-            byte_size: 1,
-            content_type: "application/zstd".to_owned(),
-        };
-        let release = CompiledReleaseEvidence {
-            processes: vec![],
-            inventory_exchanges: vec![],
-            technosphere_edges: vec![],
-            biosphere_edges: vec![],
-            source_datasets: vec![],
-            source_reference_provenance: None,
-        };
-        let encoded = super::encode_snapshot_release_evidence_with_lcia_inputs(
-            snapshot_id,
-            &release,
-            &source_link,
-            Some(&observations),
-        )
-        .unwrap();
-        let source = method.source_evidence.unwrap();
-        let evidence = solver_worker::calculation_evidence::LcaCalculationEvidence {
-            schema_version: super::CALCULATION_EVIDENCE_SCHEMA_VERSION.to_owned(),
-            scope_manifest_sha256: "b".repeat(64),
-            lcia_factor_coverage: solver_worker::calculation_evidence::LciaFactorCoverageEvidence {
-                schema_version: super::REPLAY_COVERAGE_SCHEMA_VERSION.to_owned(),
-                source_snapshot_sha256: source.source_snapshot_sha256.clone(),
-                method_manifest_sha256: source.method_manifest_sha256.clone(),
-                factor_manifest_sha256: source.factor_manifest_sha256.clone(),
-                method_identity_manifest_sha256: source.method_identity_manifest_sha256.clone(),
-                count_unit: "exchange_method_pair".to_owned(),
-                key_dimensions: ["method_id", "method_version", "flow_uuid", "direction"]
-                    .into_iter()
-                    .map(str::to_owned)
-                    .collect(),
-                coverage_status: "incomplete_coverage".to_owned(),
-                missing_factor_semantics: super::MISSING_FACTOR_SEMANTICS.to_owned(),
-                counts: coverage.counts,
-                by_method: coverage.by_method,
-                uncharacterized_evidence: Some(
-                    solver_worker::calculation_evidence::LciaUncharacterizedEvidenceArtifact {
-                        artifact_url: "s3://test/release.json.zst".to_owned(),
-                        artifact_format: super::REPLAY_ARTIFACT_FORMAT.to_owned(),
-                        artifact_sha256: encoded.sha256.clone(),
-                        record_count: 50,
-                    },
-                ),
-            },
-            lcia_method_factor_source: source,
-        };
-        let mut index = super::SnapshotIndexDocument {
+        for method in &bundle.methods {
+            let factors = solver_worker::lcia_applicability::MethodFactors::from_static_bundle(
+                &bundle,
+                method.method_id,
+            )
+            .expect("verified historical index");
+            assert_eq!(
+                factors.ensure_source_usable().unwrap_err().code,
+                "lcia_applicability_source_incomplete"
+            );
+        }
+        let index = super::SnapshotIndexDocument {
+            lcia_applicability: None,
             version: 1,
-            snapshot_id,
-            process_count: 1,
-            impact_count: 25,
+            snapshot_id: Uuid::new_v4(),
+            process_count: 0,
+            impact_count: 0,
             process_map: vec![],
             impact_map: vec![],
-            calculation_evidence: Some(evidence),
+            calculation_evidence: None,
         };
         let directory = tempfile::tempdir().unwrap();
-        let index_path = directory.path().join("index.json");
+        let index_path = directory.path().join("historical-index.json");
+        let artifact_path = directory.path().join("historical-artifact.json");
         let output = directory.path().join("gaps.jsonl");
-        let bytes = serde_json::to_vec(&index).unwrap();
-        std::fs::write(&index_path, &bytes).unwrap();
-        let args = vec![
+        let index_bytes = serde_json::to_vec(&index).unwrap();
+        let artifact_bytes = b"retained historical evidence";
+        std::fs::write(&index_path, &index_bytes).unwrap();
+        std::fs::write(&artifact_path, artifact_bytes).unwrap();
+        let cli = <super::Cli as clap::Parser>::try_parse_from([
             "snapshot_builder".to_owned(),
             "--replay-lcia-index".to_owned(),
             index_path.display().to_string(),
             "--replay-index-sha256".to_owned(),
-            super::sha256_bytes(&bytes),
+            super::sha256_bytes(&index_bytes),
             "--replay-lcia-artifact".to_owned(),
-            encoded.path().display().to_string(),
+            artifact_path.display().to_string(),
             "--replay-lcia-output".to_owned(),
             output.display().to_string(),
-            "--method-id".to_owned(),
-            factors[0].impact_id.to_string(),
-            "--lcia-static-cache-dir".to_owned(),
-            cache_root,
-        ];
-        let mut cli = <super::Cli as clap::Parser>::try_parse_from(args).unwrap();
-        super::replay_lcia_evidence(&cli).await.unwrap();
-        let original = std::fs::read_to_string(&output).unwrap();
-        assert_eq!(original.lines().count(), 2);
-        assert!(original.contains("unsupported_exchange_direction"));
-        assert!(original.contains("no_lcia_factor_for_flow_direction"));
-        assert!(super::replay_lcia_evidence(&cli).await.is_err());
-        assert_eq!(std::fs::read_to_string(&output).unwrap(), original);
-        cli.replay_lcia_output = Some(directory.path().join("tampered.jsonl"));
-        cli.replay_index_sha256 = Some("0".repeat(64));
-        assert!(super::replay_lcia_evidence(&cli).await.is_err());
-        assert!(!cli.replay_lcia_output.as_ref().unwrap().exists());
-        // Even a trusted, newly hashed index cannot claim counts inconsistent with saved inputs.
-        let counts = &mut index
-            .calculation_evidence
-            .as_mut()
-            .unwrap()
-            .lcia_factor_coverage;
-        counts.counts.unmatched -= 1;
-        counts.counts.matched += 1;
-        counts.by_method[0].counts.unmatched -= 1;
-        counts.by_method[0].counts.matched += 1;
-        counts
-            .uncharacterized_evidence
-            .as_mut()
-            .unwrap()
-            .record_count -= 1;
-        let bytes = serde_json::to_vec(&index).unwrap();
-        std::fs::write(&index_path, &bytes).unwrap();
-        cli.replay_index_sha256 = Some(super::sha256_bytes(&bytes));
+            "--replay-all-methods".to_owned(),
+        ])
+        .unwrap();
         assert!(
             super::replay_lcia_evidence(&cli)
                 .await
                 .unwrap_err()
                 .to_string()
-                .contains("replayed coverage differs")
+                .contains("lcia_replay_applicability_policy_missing")
         );
-        assert!(!cli.replay_lcia_output.as_ref().unwrap().exists());
+        assert_eq!(std::fs::read(index_path).unwrap(), index_bytes);
+        assert_eq!(std::fs::read(artifact_path).unwrap(), artifact_bytes);
+        assert!(!output.exists());
     }
 
     #[test]
@@ -16810,7 +17245,10 @@ mod tests {
                 direction: Some(ExchangeDirection::Output),
                 direction_label: "Output".to_owned(),
                 exchange_id: "process:version:0".to_owned(),
-                amount: Some(1.0)
+                amount: Some(1.0),
+                location: solver_worker::lcia_applicability::FactorLocation::Code(
+                    "test".to_owned()
+                ),
             };
             20_000
         ];
@@ -16833,12 +17271,10 @@ mod tests {
                 impact_key: String::new(),
                 impact_name: String::new(),
                 unit: String::new(),
-                factors_by_flow: HashMap::new(),
-                // Explicit zero is still an existing factor, unlike an absent key.
-                factors_by_flow_direction: HashMap::from([(
-                    (flow, ExchangeDirection::Output),
-                    0.0,
-                )]),
+                factors: test_method_factors(
+                    Uuid::from_u128(id),
+                    &[((flow, ExchangeDirection::Output), 0.0)],
+                ),
             })
             .collect::<Vec<_>>();
         let saved = serde_json::to_vec(&observations).unwrap();
@@ -16868,14 +17304,16 @@ mod tests {
     fn factor_coverage_matches_flow_and_direction_and_surfaces_gaps() {
         let flow_id = Uuid::new_v4();
         let factors = vec![ImpactFactorSet {
-            impact_id: Uuid::new_v4(),
+            impact_id: Uuid::from_u128(339_000),
             method_version: "01.00.000".to_owned(),
-            artifact_locator_id: Uuid::new_v4(),
+            artifact_locator_id: Uuid::from_u128(339_000),
             impact_key: "method:test".to_owned(),
             impact_name: "Test".to_owned(),
             unit: "kg".to_owned(),
-            factors_by_flow: HashMap::from([(flow_id, 1.0)]),
-            factors_by_flow_direction: HashMap::from([((flow_id, ExchangeDirection::Output), 1.0)]),
+            factors: test_method_factors(
+                Uuid::from_u128(339_000),
+                &[((flow_id, ExchangeDirection::Output), 1.0)],
+            ),
         }];
         let observations = vec![LciaExchangeObservation {
             flow_id,
@@ -16884,6 +17322,7 @@ mod tests {
             direction_label: "Input".to_owned(),
             exchange_id: "exchange-1".to_owned(),
             amount: Some(2.0),
+            location: solver_worker::lcia_applicability::FactorLocation::Code("test".to_owned()),
         }];
         let directions = unique_supported_direction_by_flow(&observations);
         let coverage =
@@ -16896,7 +17335,7 @@ mod tests {
             Ok(())
         })
         .expect("replay");
-        assert_eq!(records[0].reason, "no_lcia_factor_for_flow_direction");
+        assert_eq!(records[0].reason, "no_lcia_factor_for_exact_applicability");
 
         let mut ambiguous = observations;
         ambiguous.push(LciaExchangeObservation {
@@ -16906,6 +17345,7 @@ mod tests {
             direction_label: "Output".to_owned(),
             exchange_id: "exchange-2".to_owned(),
             amount: Some(1.0),
+            location: solver_worker::lcia_applicability::FactorLocation::Code("test".to_owned()),
         });
         let directions = unique_supported_direction_by_flow(&ambiguous);
         let coverage = build_lcia_factor_coverage(&ambiguous, &factors, &directions)
@@ -16939,6 +17379,9 @@ mod tests {
                 allocation_fraction: if amount == Some(0.0) { 0.0 } else { 1.0 },
                 allocation_target_internal_id: "1".to_owned(),
                 location: None,
+                lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                    "test".to_owned(),
+                ),
             };
         let exchanges = [
             parsed_exchange(ExchangeDirection::Input, Some(2.0), "nonzero-input"),
@@ -16969,14 +17412,16 @@ mod tests {
         );
 
         let factors = vec![ImpactFactorSet {
-            impact_id: Uuid::new_v4(),
+            impact_id: Uuid::from_u128(339_000),
             method_version: "01.00.000".to_owned(),
-            artifact_locator_id: Uuid::new_v4(),
+            artifact_locator_id: Uuid::from_u128(339_000),
             impact_key: "method:input".to_owned(),
             impact_name: "Input direction".to_owned(),
             unit: "kg".to_owned(),
-            factors_by_flow: HashMap::from([(flow_id, 1.0)]),
-            factors_by_flow_direction: HashMap::from([((flow_id, ExchangeDirection::Input), 1.0)]),
+            factors: test_method_factors(
+                Uuid::from_u128(339_000),
+                &[((flow_id, ExchangeDirection::Input), 1.0)],
+            ),
         }];
         let coverage =
             build_lcia_factor_coverage(&observations, &factors, &directions).expect("coverage");
@@ -17011,11 +17456,10 @@ mod tests {
                 impact_key: "method:b".to_owned(),
                 impact_name: "B".to_owned(),
                 unit: "kg".to_owned(),
-                factors_by_flow: HashMap::from([(flow_b, 2.0)]),
-                factors_by_flow_direction: HashMap::from([(
-                    (flow_b, ExchangeDirection::Output),
-                    2.0,
-                )]),
+                factors: test_method_factors(
+                    method_b,
+                    &[((flow_b, ExchangeDirection::Output), 2.0)],
+                ),
             },
             ImpactFactorSet {
                 impact_id: method_a,
@@ -17024,11 +17468,10 @@ mod tests {
                 impact_key: "method:a".to_owned(),
                 impact_name: "A".to_owned(),
                 unit: "kg".to_owned(),
-                factors_by_flow: HashMap::from([(flow_a, 1.0)]),
-                factors_by_flow_direction: HashMap::from([(
-                    (flow_a, ExchangeDirection::Output),
-                    1.0,
-                )]),
+                factors: test_method_factors(
+                    method_a,
+                    &[((flow_a, ExchangeDirection::Output), 1.0)],
+                ),
             },
         ];
         let observations = [flow_b, flow_a]
@@ -17040,6 +17483,9 @@ mod tests {
                 direction_label: "Output".to_owned(),
                 exchange_id: format!("exchange-{flow_id}"),
                 amount: Some(1.0),
+                location: solver_worker::lcia_applicability::FactorLocation::Code(
+                    "test".to_owned(),
+                ),
             })
             .collect::<Vec<_>>();
         let directions = unique_supported_direction_by_flow(&observations);
@@ -17681,13 +18127,106 @@ mod tests {
     }
 
     #[test]
-    fn factor_aggregation_rejects_finite_inputs_that_overflow() {
-        let method_id = Uuid::new_v4();
-        let mut factors = HashMap::new();
-        accumulate_finite_factor(&mut factors, Uuid::nil(), f64::MAX, method_id)
-            .expect("first finite factor");
-        assert!(accumulate_finite_factor(&mut factors, Uuid::nil(), f64::MAX, method_id).is_err());
-        assert!(factors[&Uuid::nil()].is_finite());
+    fn duplicate_exact_factors_are_rejected_instead_of_summed() {
+        let flow = Uuid::new_v4();
+        for value in [4.0, f64::MAX] {
+            let record = (flow, "01.00.000", ExchangeDirection::Output, "test", value);
+            let impact = synthetic_impact(&[record, record]);
+            let error = select_active_lcia_factors(
+                &[impact],
+                &BTreeSet::from([flow]),
+                &[synthetic_lcia_observation(flow, "01.00.000", "test")],
+                true,
+            )
+            .expect_err("identical applicability records remain ambiguous");
+            assert!(
+                error
+                    .to_string()
+                    .contains("lcia_factor_applicability_ambiguous")
+            );
+        }
+    }
+
+    #[test]
+    fn one_flow_version_axis_rejects_two_locations_even_with_equal_factors() {
+        let flow = Uuid::new_v4();
+        for second_value in [4.0, 11.0] {
+            let impact = synthetic_impact(&[
+                (flow, "01.00.000", ExchangeDirection::Output, "A", 4.0),
+                (
+                    flow,
+                    "01.00.000",
+                    ExchangeDirection::Output,
+                    "B",
+                    second_value,
+                ),
+            ]);
+            let observations = [
+                synthetic_lcia_observation(flow, "01.00.000", "A"),
+                synthetic_lcia_observation(flow, "01.00.000", "B"),
+            ];
+            let error =
+                select_active_lcia_factors(&[impact], &BTreeSet::from([flow]), &observations, true)
+                    .expect_err("the existing axis cannot retain two locations");
+            assert!(
+                error
+                    .to_string()
+                    .contains("lcia_mixed_location_axis_unsupported")
+            );
+        }
+    }
+
+    #[test]
+    fn factor_from_another_flow_revision_cannot_characterize_the_axis() {
+        let flow = Uuid::new_v4();
+        let impact =
+            synthetic_impact(&[(flow, "01.00.000", ExchangeDirection::Output, "test", 4.0)]);
+        let error = select_active_lcia_factors(
+            &[impact],
+            &BTreeSet::from([flow]),
+            &[synthetic_lcia_observation(flow, "01.00.002", "test")],
+            true,
+        )
+        .expect_err("UUID alone cannot authorize a different revision");
+        assert!(
+            error
+                .to_string()
+                .contains("lcia_factor_flow_version_mismatch")
+        );
+    }
+
+    #[test]
+    fn negative_inventory_amount_preserves_declared_direction_and_factor_sign() {
+        let flow = Uuid::new_v4();
+        let mut observation = synthetic_lcia_observation(flow, "01.00.000", "test");
+        observation.direction = Some(ExchangeDirection::Input);
+        observation.direction_label = "Input".to_owned();
+        observation.amount = Some(-2.0);
+        for factor in [-3.0, 0.0] {
+            let impact = synthetic_impact(&[
+                (flow, "01.00.000", ExchangeDirection::Input, "test", factor),
+                (flow, "01.00.000", ExchangeDirection::Output, "test", 11.0),
+            ]);
+            let selection = select_active_lcia_factors(
+                &[impact],
+                &BTreeSet::from([flow]),
+                std::slice::from_ref(&observation),
+                true,
+            )
+            .expect("negative amounts retain declared-direction applicability");
+            let identity = super::flow_link_identity_from_parts(flow, "01.00.000");
+            assert_close(selection.factors_by_impact[0][&identity], factor);
+            assert_eq!(
+                selection.decisions[0]
+                    .2
+                    .selected
+                    .as_ref()
+                    .unwrap()
+                    .direction,
+                ExchangeDirection::Input
+            );
+            assert_close(biosphere_gross_value(observation.amount.unwrap()), -2.0);
+        }
     }
 
     #[test]
@@ -17695,17 +18234,19 @@ mod tests {
         let active_flow = Uuid::new_v4();
         let unrelated_flow = Uuid::new_v4();
         let impact = ImpactFactorSet {
-            impact_id: Uuid::new_v4(),
+            impact_id: Uuid::from_u128(339_000),
             method_version: "01.00.000".to_owned(),
-            artifact_locator_id: Uuid::new_v4(),
+            artifact_locator_id: Uuid::from_u128(339_000),
             impact_key: "impact".to_owned(),
             impact_name: "Impact".to_owned(),
             unit: "kg".to_owned(),
-            factors_by_flow: HashMap::from([(active_flow, 2.0), (unrelated_flow, 99.0)]),
-            factors_by_flow_direction: HashMap::from([
-                ((active_flow, ExchangeDirection::Output), 2.0),
-                ((unrelated_flow, ExchangeDirection::Output), 99.0),
-            ]),
+            factors: test_method_factors(
+                Uuid::from_u128(339_000),
+                &[
+                    ((active_flow, ExchangeDirection::Output), 2.0),
+                    ((unrelated_flow, ExchangeDirection::Output), 99.0),
+                ],
+            ),
         };
         let observations = vec![LciaExchangeObservation {
             flow_id: active_flow,
@@ -17714,6 +18255,7 @@ mod tests {
             direction_label: "output".to_owned(),
             exchange_id: "1".to_owned(),
             amount: Some(1.0),
+            location: solver_worker::lcia_applicability::FactorLocation::Code("test".to_owned()),
         }];
 
         for directional in [false, true] {
@@ -17722,10 +18264,15 @@ mod tests {
                 &BTreeSet::from([active_flow]),
                 &observations,
                 directional,
-            );
+            )
+            .expect("exact applicability selection");
             assert_eq!(selected.active_flow_ids, BTreeSet::from([active_flow]));
             assert_eq!(selected.factors_by_impact[0].len(), 1);
-            assert_close(selected.factors_by_impact[0][&active_flow], 2.0);
+            assert_close(
+                selected.factors_by_impact[0]
+                    [&super::flow_link_identity_from_parts(active_flow, "01.00.000")],
+                2.0,
+            );
         }
     }
 
@@ -18192,6 +18739,59 @@ mod tests {
     }
 
     #[test]
+    fn regional_lcia_alternatives_are_never_added() {
+        let method_id = Uuid::from_u128(339);
+        let flow_id = Uuid::from_u128(340);
+        let rows = resolve_database_lcia_method_rows(vec![super::MethodRow {
+            id: method_id,
+            version: "01.00.000".to_owned(),
+            json: json!({"LCIAMethodDataSet": {
+                "LCIAMethodInformation": {"dataSetInformation": {"common:UUID": method_id}},
+                "characterisationFactors": {"factor": [
+                    {"referenceToFlowDataSet": {"@refObjectId": flow_id, "@version": "01.00.000"},
+                     "exchangeDirection": "Output", "location": "A", "meanValue": 4.0},
+                    {"referenceToFlowDataSet": {"@refObjectId": flow_id, "@version": "01.00.000"},
+                     "exchangeDirection": "Output", "location": "B", "meanValue": 11.0}
+                ]}
+            }}),
+        }])
+        .expect("synthetic method identity");
+        let factors = load_impact_factor_sets(&MethodSelection {
+            has_lcia: true,
+            method_id: None,
+            method_version: None,
+            method_count: 1,
+            factor_count: 2,
+            source_evidence: None,
+            rows,
+            static_bundle: None,
+        })
+        .expect("load synthetic source");
+        for (location, expected) in [("A", 4.0), ("B", 11.0)] {
+            let observation = synthetic_lcia_observation(flow_id, "01.00.000", location);
+            let selected = select_active_lcia_factors(
+                &factors,
+                &BTreeSet::from([flow_id]),
+                &[observation],
+                true,
+            )
+            .expect("exact regional alternative");
+            let identity = super::flow_link_identity_from_parts(flow_id, "01.00.000");
+            assert_close(selected.factors_by_impact[0][&identity], expected);
+            assert_ne!(
+                selected.factors_by_impact[0][&identity].to_bits(),
+                15.0_f64.to_bits()
+            );
+            assert_eq!(selected.decisions.len(), 1);
+            assert_eq!(selected.decisions[0].2.rejected.len(), 1);
+            assert_eq!(
+                selected.decisions[0].2.rejected[0].reason,
+                "location_mismatch"
+            );
+        }
+    }
+
+    #[test]
     fn canonical_lcia_metadata_survives_database_loading_and_snapshot_axis() {
         let method_id = Uuid::new_v4();
         let flow_id = Uuid::new_v4();
@@ -18222,8 +18822,9 @@ mod tests {
                     },
                     "characterisationFactors": {
                         "factor": [{
-                            "referenceToFlowDataSet": {"@refObjectId": flow_id.to_string()},
+                            "referenceToFlowDataSet": {"@refObjectId": flow_id.to_string(), "@version": "01.00.000"},
                             "exchangeDirection": "Output",
+                            "location": "test",
                             "meanValue": "2.5"
                         }]
                     }
@@ -18242,13 +18843,10 @@ mod tests {
             static_bundle: None,
         };
         let impacts = load_impact_factor_sets(&method).expect("load method");
-        assert_eq!(impacts[0].factors_by_flow.get(&flow_id), Some(&2.5));
-        assert_eq!(
-            impacts[0]
-                .factors_by_flow_direction
-                .get(&(flow_id, ExchangeDirection::Output)),
-            Some(&2.5)
-        );
+        assert_eq!(impacts[0].factors.records.len(), 1);
+        assert_eq!(impacts[0].factors.records[0].flow_id, flow_id);
+        assert_eq!(impacts[0].factors.records[0].flow_version, "01.00.000");
+        assert_close(impacts[0].factors.records[0].value, 2.5);
         let axis = super::build_snapshot_impact_map(Uuid::new_v4(), &method, &impacts)
             .expect("snapshot impact axis");
         assert_eq!(axis[0].impact_id, method_id);
@@ -18269,7 +18867,8 @@ mod tests {
                     "dataSetInformation": {
                         "common:UUID": method_id.to_string()
                     }
-                }
+                },
+                "characterisationFactors": {"factor": []}
             }
         });
 
@@ -18401,6 +19000,9 @@ mod tests {
                 allocation_fraction: 1.0,
                 allocation_target_internal_id: "0".to_owned(),
                 location: None,
+                lcia_location: solver_worker::lcia_applicability::FactorLocation::Code(
+                    "test".to_owned(),
+                ),
             };
         let exchanges = vec![
             exchange(product_flow_id, "0", "01.01.001", true),

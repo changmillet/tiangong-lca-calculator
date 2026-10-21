@@ -904,6 +904,13 @@ fn ensure_numerical_snapshot_policy(
             crate::NUMERICAL_SNAPSHOT_POLICY_VERSION
         ));
     }
+    if !config.is_lcia_applicability_policy_current() {
+        return Err(anyhow::anyhow!(
+            "snapshot_lcia_applicability_policy_version_mismatch: snapshot {snapshot_id} declares LCIA applicability policy {:?} instead of {}; rebuild under current LCIA applicability semantics",
+            config.lcia_applicability_policy_version,
+            crate::lcia_applicability::POLICY_VERSION
+        ));
+    }
     let Some(binding) = config.scope_closure_binding.as_ref() else {
         // Not closure-bound: the global policy marker above is its numerical evidence.
         return Ok(());
@@ -6292,6 +6299,7 @@ mod tests {
             SnapshotBuildConfig {
                 process_states: crate::numerical_process_states_arg(),
                 numerical_policy_version: policy.map(str::to_owned),
+                lcia_applicability_policy_version: None,
                 include_user_id: None,
                 data_scope: None,
                 scope_manifest_sha256: None,
@@ -6345,6 +6353,51 @@ mod tests {
             closure_bundle_hash: "c".repeat(64),
         };
         let current_policy = crate::NUMERICAL_SNAPSHOT_POLICY_VERSION;
+
+        for binding in [None, Some(&binding)] {
+            let mut lcia_config = config(
+                Some(current_policy),
+                binding,
+                binding.map(|binding| {
+                    scope_closure_snapshot_build_contract_hash(
+                        binding,
+                        snapshot_id,
+                        SNAPSHOT_ARTIFACT_FORMAT,
+                    )
+                }),
+            );
+            lcia_config.has_lcia = true;
+            for applicability in [None, Some("lcia.applicability.legacy.v0")] {
+                lcia_config.lcia_applicability_policy_version = applicability.map(str::to_owned);
+                let error = ensure_numerical_snapshot_policy(
+                    &lcia_config,
+                    snapshot_id,
+                    SNAPSHOT_ARTIFACT_FORMAT,
+                )
+                .expect_err("LCIA snapshots require current applicability evidence");
+                assert!(
+                    error
+                        .to_string()
+                        .contains("snapshot_lcia_applicability_policy_version_mismatch"),
+                    "{error}"
+                );
+
+                lcia_config.has_lcia = false;
+                assert!(lcia_config.is_lcia_applicability_policy_current());
+                ensure_numerical_snapshot_policy(
+                    &lcia_config,
+                    snapshot_id,
+                    SNAPSHOT_ARTIFACT_FORMAT,
+                )
+                .expect("inventory-only snapshots do not require LCIA applicability evidence");
+                lcia_config.has_lcia = true;
+            }
+            lcia_config.lcia_applicability_policy_version =
+                Some(crate::lcia_applicability::POLICY_VERSION.to_owned());
+            assert!(lcia_config.is_lcia_applicability_policy_current());
+            ensure_numerical_snapshot_policy(&lcia_config, snapshot_id, SNAPSHOT_ARTIFACT_FORMAT)
+                .expect("current LCIA applicability evidence admits new compute");
+        }
 
         // Fresh ordinary global/subset snapshot: admitted for new compute.
         ensure_numerical_snapshot_policy(
