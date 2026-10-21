@@ -68,6 +68,9 @@ pub struct SnapshotBuildConfig {
     /// remain decodable for history, but cannot authorize a new LCIA calculation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lcia_applicability_policy_version: Option<String>,
+    /// Operator-pinned reviewed proof set, when the source selection used one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lcia_applicability_proof_set_sha256: Option<String>,
     /// Optional `user_id` inclusion in process selection.
     #[serde(default)]
     pub include_user_id: Option<Uuid>,
@@ -155,6 +158,10 @@ pub struct SnapshotBuildConfig {
 }
 
 impl SnapshotBuildConfig {
+    #[must_use]
+    pub fn is_lcia_proof_pin_current(&self, configured_pin: Option<&str>) -> bool {
+        !self.has_lcia || self.lcia_applicability_proof_set_sha256.as_deref() == configured_pin
+    }
     /// Inventory-only snapshots do not require LCIA applicability evidence.
     #[must_use]
     pub fn is_lcia_applicability_policy_current(&self) -> bool {
@@ -1114,6 +1121,7 @@ mod tests {
             process_states: crate::default_snapshot_process_states_arg(),
             numerical_policy_version: Some(crate::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned()),
             lcia_applicability_policy_version: None,
+            lcia_applicability_proof_set_sha256: None,
             include_user_id: None,
             data_scope: None,
             scope_manifest_sha256: None,

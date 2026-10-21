@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -69,11 +69,31 @@ pub fn classify_source_document(
     classify_source_document_with_lcia_flow_axis(source, purpose, None)
 }
 
-#[allow(clippy::too_many_lines)]
 pub fn classify_source_document_with_lcia_flow_axis(
     source: &CompiledReleaseSourceDataset,
     purpose: ArtifactPurpose,
     active_lcia_flow_ids: Option<&BTreeSet<Uuid>>,
+) -> Result<SourceClosureClassification, SnapshotSourceClosureError> {
+    classify_source_document_with_lcia_axis(source, purpose, active_lcia_flow_ids, None)
+}
+
+/// Restricts numerical CF Flow support to the exact selected UUID/version pairs. Other source
+/// references retain their existing role/purpose handling, and malformed active references keep
+/// their extraction issues rather than becoming successfully certified exclusions.
+pub fn classify_source_document_with_lcia_flow_versions(
+    source: &CompiledReleaseSourceDataset,
+    purpose: ArtifactPurpose,
+    active_lcia_flow_versions: Option<&BTreeSet<(Uuid, String)>>,
+) -> Result<SourceClosureClassification, SnapshotSourceClosureError> {
+    classify_source_document_with_lcia_axis(source, purpose, None, active_lcia_flow_versions)
+}
+
+#[allow(clippy::too_many_lines)]
+fn classify_source_document_with_lcia_axis(
+    source: &CompiledReleaseSourceDataset,
+    purpose: ArtifactPurpose,
+    active_lcia_flow_ids: Option<&BTreeSet<Uuid>>,
+    active_lcia_flow_versions: Option<&BTreeSet<(Uuid, String)>>,
 ) -> Result<SourceClosureClassification, SnapshotSourceClosureError> {
     let source_category = dataset_category(source.dataset_type);
     let source_identity = format!(
@@ -84,6 +104,29 @@ pub fn classify_source_document_with_lcia_flow_axis(
     );
     let extraction =
         extract_scope_closure_references(&source_identity, source_category, &source.document);
+    // Invalid-version issues do not themselves carry the UUID. Index only paths which actually
+    // have issues, before consuming edges, so their active UUID remains available for admission.
+    let issue_flow_activity = if let Some(active) = active_lcia_flow_versions {
+        let issue_paths = extraction
+            .issues
+            .iter()
+            .filter(|issue| is_lcia_factor_flow_reference(source.dataset_type, &issue.json_path))
+            .map(|issue| issue.json_path.as_str())
+            .collect::<BTreeSet<_>>();
+        extraction
+            .edges
+            .iter()
+            .filter(|edge| issue_paths.contains(edge.json_path.as_str()))
+            .map(|edge| {
+                (
+                    edge.json_path.clone(),
+                    lcia_uuid_is_active(&edge.target_uuid, active),
+                )
+            })
+            .collect::<BTreeMap<_, _>>()
+    } else {
+        BTreeMap::new()
+    };
     let mut references = Vec::with_capacity(extraction.edges.len());
     for edge in extraction.edges {
         if !lcia_factor_reference_is_active(
@@ -92,6 +135,19 @@ pub fn classify_source_document_with_lcia_flow_axis(
             edge.target_uuid.as_str(),
             active_lcia_flow_ids,
         ) {
+            continue;
+        }
+        if let Some(active) = active_lcia_flow_versions
+            && edge.target_category == "flows"
+            && is_lcia_factor_flow_reference(source.dataset_type, &edge.json_path)
+            && !Uuid::parse_str(&edge.target_uuid).is_ok_and(|id| {
+                edge.requested_version_state == "explicit"
+                    && edge
+                        .requested_version
+                        .as_ref()
+                        .is_some_and(|version| active.contains(&(id, version.clone())))
+            })
+        {
             continue;
         }
         let classified = classify_reference(&edge, purpose).map_err(|error| {
@@ -132,6 +188,21 @@ pub fn classify_source_document_with_lcia_flow_axis(
                 active_lcia_flow_ids,
             ) {
                 return None;
+            }
+            if let Some(active) = active_lcia_flow_versions
+                && is_lcia_factor_flow_reference(source.dataset_type, &issue.json_path)
+            {
+                let active_uuid = issue
+                    .details
+                    .get("raw_ref_object_id")
+                    .and_then(Value::as_str)
+                    .map(|id| lcia_uuid_is_active(id, active))
+                    .or_else(|| issue_flow_activity.get(&issue.json_path).copied());
+                // If extraction cannot identify the malformed reference, there is no evidence
+                // authorizing its exclusion. Keep the issue conservatively.
+                if active_uuid == Some(false) {
+                    return None;
+                }
             }
             let role = classify_malformed_reference_role(
                 issue.source_category.as_str(),
@@ -187,6 +258,32 @@ pub fn classify_source_document_with_lcia_flow_axis(
     Ok(SourceClosureClassification {
         references,
         extraction_issues,
+    })
+}
+
+fn is_lcia_factor_flow_reference(
+    source_type: CompiledReleaseSourceDatasetType,
+    json_path: &str,
+) -> bool {
+    let path = json_path.to_ascii_lowercase();
+    let reference_name = path
+        .rsplit('.')
+        .next()
+        .unwrap_or_default()
+        .split('[')
+        .next()
+        .unwrap_or_default();
+    source_type == CompiledReleaseSourceDatasetType::LciaMethod
+        && (path.contains("characterisationfactors") || path.contains("characterizationfactors"))
+        && reference_name == "referencetoflowdataset"
+}
+
+fn lcia_uuid_is_active(target_uuid: &str, active: &BTreeSet<(Uuid, String)>) -> bool {
+    Uuid::parse_str(target_uuid).is_ok_and(|id| {
+        active
+            .range((id, String::new())..)
+            .next()
+            .is_some_and(|(flow_id, _)| *flow_id == id)
     })
 }
 
@@ -486,6 +583,137 @@ mod tests {
         assert_eq!(
             classified.references[0].target_uuid,
             active_flow.to_string()
+        );
+    }
+
+    #[test]
+    fn numerical_factor_support_does_not_follow_an_unselected_revision_of_the_same_uuid() {
+        let flow = Uuid::new_v4();
+        let factor_source = Uuid::new_v4();
+        let document = json!({"LCIAMethodDataSet":{"characterisationFactors":{"factor":[
+            {"referenceToFlowDataSet":{"@type":"flow data set","@refObjectId":flow,"@version":"01.00.000"},
+                "meanValue":"4","location":"A"},
+            {"referenceToFlowDataSet":{"@type":"flow data set","@refObjectId":flow,"@version":"02.00.000"},
+                "meanValue":"11","location":"B",
+                "referencesToDataSource":{"referenceToDataSource":{
+                    "@type":"source data set","@refObjectId":factor_source,"@version":"01.00.000"}}}
+        ]}}});
+        let input = source(
+            CompiledReleaseSourceDatasetType::LciaMethod,
+            document.clone(),
+        );
+        let before = crate::calculation_evidence::canonical_json_sha256(&input.document).unwrap();
+        let classified = classify_source_document_with_lcia_flow_versions(
+            &input,
+            ArtifactPurpose::CalculationBundle,
+            Some(&BTreeSet::from([(flow, "01.00.000".to_owned())])),
+        )
+        .unwrap();
+        assert!(classified.extraction_issues.is_empty());
+        let flow_references = classified
+            .references
+            .iter()
+            .filter(|reference| reference.target_type == CompiledReleaseSourceDatasetType::Flow)
+            .collect::<Vec<_>>();
+        assert_eq!(flow_references.len(), 1);
+        assert_eq!(flow_references[0].target_uuid, flow.to_string());
+        assert_eq!(
+            flow_references[0].requested_version.as_deref(),
+            Some("01.00.000")
+        );
+        assert!(
+            classified
+                .references
+                .iter()
+                .any(
+                    |reference| reference.target_type == CompiledReleaseSourceDatasetType::Source
+                        && reference.target_uuid == factor_source.to_string()
+                ),
+            "non-Flow source references retain their existing source policy"
+        );
+        assert_eq!(input.document, document);
+        assert_eq!(
+            crate::calculation_evidence::canonical_json_sha256(&input.document).unwrap(),
+            before
+        );
+
+        let legacy = classify_source_document_with_lcia_flow_axis(
+            &input,
+            ArtifactPurpose::CalculationBundle,
+            Some(&BTreeSet::from([flow])),
+        )
+        .unwrap();
+        assert_eq!(
+            legacy
+                .references
+                .iter()
+                .filter(|reference| reference.target_type == CompiledReleaseSourceDatasetType::Flow)
+                .count(),
+            2,
+            "the UUID-only compatibility API keeps its established behavior"
+        );
+    }
+
+    #[test]
+    fn malformed_versions_for_active_factor_uuids_remain_blocking_evidence() {
+        let active = Uuid::new_v4();
+        let inactive = Uuid::new_v4();
+        let input = source(
+            CompiledReleaseSourceDatasetType::LciaMethod,
+            json!({
+                "LCIAMethodDataSet":{"characterisationFactors":{"factor":[
+                    {"referenceToFlowDataSet":{"@type":"flow data set","@refObjectId":active,"@version":"01.00.000"}},
+                    {"referenceToFlowDataSet":{"@type":"flow data set","@refObjectId":active,"@version":"malformed"}},
+                    {"referenceToFlowDataSet":{"@type":"flow data set","@refObjectId":inactive,"@version":"malformed"}}
+                ]}}
+            }),
+        );
+        let classified = classify_source_document_with_lcia_flow_versions(
+            &input,
+            ArtifactPurpose::CalculationBundle,
+            Some(&BTreeSet::from([(active, "01.00.000".to_owned())])),
+        )
+        .unwrap();
+        assert_eq!(classified.references.len(), 1);
+        assert_eq!(
+            classified.references[0].requested_version.as_deref(),
+            Some("01.00.000")
+        );
+        assert_eq!(classified.extraction_issues.len(), 1);
+        assert_eq!(
+            classified.extraction_issues[0]["extractionIssueCode"],
+            "reference_version_invalid"
+        );
+        assert!(
+            classified.extraction_issues[0]["jsonPath"]
+                .as_str()
+                .unwrap()
+                .contains("factor[1]")
+        );
+    }
+
+    #[test]
+    fn unidentified_malformed_factor_references_are_not_silently_certified() {
+        let active = Uuid::new_v4();
+        let input = source(
+            CompiledReleaseSourceDatasetType::LciaMethod,
+            json!({
+                "LCIAMethodDataSet":{"characterisationFactors":{"factor":{
+                    "referenceToFlowDataSet":{"@refObjectId":active,"@version":"01.00.000"}
+                }}}
+            }),
+        );
+        let classified = classify_source_document_with_lcia_flow_versions(
+            &input,
+            ArtifactPurpose::CalculationBundle,
+            Some(&BTreeSet::from([(active, "01.00.000".to_owned())])),
+        )
+        .unwrap();
+        assert!(classified.references.is_empty());
+        assert_eq!(classified.extraction_issues.len(), 1);
+        assert_eq!(
+            classified.extraction_issues[0]["extractionIssueCode"],
+            "reference_type_unresolved"
         );
     }
 

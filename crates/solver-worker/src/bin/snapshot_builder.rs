@@ -59,7 +59,9 @@ use solver_worker::lcia_applicability::{
     self, ApplicabilityError, ApplicabilityEvidence, DecisionStatus, FactorDecision,
     FactorLocation, MethodFactors, SelectionRecord,
 };
+use solver_worker::lcia_applicability_proof::{ProofSource, TrustedProofSet};
 use solver_worker::lcia_method_metadata;
+use solver_worker::lcia_source_xml::{self, InspectedIlcdMethod};
 use solver_worker::local_reports::{
     DEFAULT_LOCAL_SNAPSHOT_REPORT_MAX_FILES, DEFAULT_LOCAL_SNAPSHOT_REPORT_MIN_FREE_BYTES,
     DEFAULT_LOCAL_SNAPSHOT_REPORT_RETENTION_DAYS, LocalReportWriteOutcome, LocalSnapshotReportMode,
@@ -98,9 +100,8 @@ use solver_worker::snapshot_index::{
     SnapshotImpactMapEntry, SnapshotIndexDocument, SnapshotProcessMapEntry,
 };
 use solver_worker::snapshot_source_closure::{
-    ClassifiedSourceReference, SnapshotSourceClosureError, SourceClosureLimits,
-    classify_source_document_with_lcia_flow_axis, parse_target_uuid, provenance_summary,
-    source_dependency_issue, validate_resource_limits,
+    ClassifiedSourceReference, SnapshotSourceClosureError, SourceClosureLimits, parse_target_uuid,
+    provenance_summary, source_dependency_issue, validate_resource_limits,
 };
 use solver_worker::source_reference_policy::{ArtifactPurpose, SourceReferenceAction};
 use solver_worker::static_lcia_cache::{
@@ -192,6 +193,11 @@ fn matrix_readiness_policy(
 #[derive(Debug, Clone, Parser)]
 #[command(name = "snapshot-builder")]
 struct Cli {
+    /// Operator-selected reviewed proof file. Ordinary job payloads cannot set this trust pin.
+    #[arg(long, requires = "lcia_applicability_proof_set_sha256")]
+    lcia_applicability_proof_set: Option<PathBuf>,
+    #[arg(long, requires = "lcia_applicability_proof_set")]
+    lcia_applicability_proof_set_sha256: Option<String>,
     /// Hash-bound, local-only applicability diagnosis. Does not connect to DB/Storage or solve.
     #[arg(long, requires_all = ["diagnose_lcia_request_sha256", "diagnose_lcia_output", "diagnose_lcia_binary_sha256"], conflicts_with_all = ["replay_lcia_index", "database_url", "conn", "lcia_static_cache_base_url", "lcia_static_cache_dir", "method_id", "method_version", "snapshot_id"])]
     diagnose_lcia_request: Option<PathBuf>,
@@ -1050,6 +1056,7 @@ struct ActiveLciaFactorSelection {
     invalid_group_count: u64,
     unsupported_direction_group_count: u64,
     active_flow_ids: BTreeSet<Uuid>,
+    active_flow_versions: BTreeSet<(Uuid, String)>,
     direction_by_flow: HashMap<Uuid, Option<ExchangeDirection>>,
 }
 
@@ -1466,12 +1473,7 @@ fn scope_closure_boundary_policy(
 async fn main() -> anyhow::Result<ExitCode> {
     let cli = Cli::parse();
     if cli.diagnose_lcia_request.is_some() {
-        let qualified = diagnose_lcia_applicability(&cli).await?;
-        return Ok(if qualified {
-            ExitCode::SUCCESS
-        } else {
-            ExitCode::from(2)
-        });
+        return Ok(ExitCode::from(diagnose_lcia_applicability(&cli).await?));
     }
     if cli.replay_lcia_index.is_some() {
         replay_lcia_evidence(&cli).await?;
@@ -1509,6 +1511,8 @@ async fn main() -> anyhow::Result<ExitCode> {
 #[serde(deny_unknown_fields)]
 struct LciaDiagnosticRequest {
     schema_version: String,
+    #[serde(default)]
+    operation: LciaDiagnosticOperation,
     source: LciaDiagnosticSource,
     #[serde(default)]
     observations: Vec<LciaExchangeObservation>,
@@ -1516,11 +1520,29 @@ struct LciaDiagnosticRequest {
     artifacts: Vec<LciaDiagnosticArtifact>,
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum LciaDiagnosticOperation {
+    Inspect,
+    #[default]
+    Select,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum LciaDiagnosticSource {
     ReviewedStaticCache { root: PathBuf },
     MethodDocuments { methods: Vec<LciaDiagnosticMethod> },
+    IlcdXml { methods: Vec<NativeMethodReference> },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NativeMethodReference {
+    path: PathBuf,
+    sha256: String,
+    #[serde(default)]
+    artifact_locator_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1580,6 +1602,68 @@ fn hash_bounded_local_file(path: &Path, expected: &str, limit: u64) -> anyhow::R
     Ok(json!({"path":path,"sha256":hash,"byte_size":bytes}))
 }
 
+// Nested source documents are untyped JSON. Reject duplicate keys before constructing Value,
+// otherwise a later empty comment could silently replace an applicability condition.
+struct UniqueDiagnosticJson(Value);
+impl<'de> Deserialize<'de> for UniqueDiagnosticJson {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visitor;
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = UniqueDiagnosticJson;
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("JSON with unique object fields")
+            }
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> Result<Self::Value, A::Error> {
+                let mut values = Map::new();
+                while let Some(key) = map.next_key::<String>()? {
+                    if values.contains_key(&key) {
+                        return Err(serde::de::Error::custom("duplicate_json_source_field"));
+                    }
+                    values.insert(key, map.next_value::<UniqueDiagnosticJson>()?.0);
+                }
+                Ok(UniqueDiagnosticJson(Value::Object(values)))
+            }
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(
+                self,
+                mut seq: A,
+            ) -> Result<Self::Value, A::Error> {
+                let mut values = Vec::new();
+                while let Some(value) = seq.next_element::<UniqueDiagnosticJson>()? {
+                    values.push(value.0);
+                }
+                Ok(UniqueDiagnosticJson(Value::Array(values)))
+            }
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+                Ok(UniqueDiagnosticJson(Value::String(value.to_owned())))
+            }
+            fn visit_string<E: serde::de::Error>(self, value: String) -> Result<Self::Value, E> {
+                Ok(UniqueDiagnosticJson(Value::String(value)))
+            }
+            fn visit_bool<E: serde::de::Error>(self, value: bool) -> Result<Self::Value, E> {
+                Ok(UniqueDiagnosticJson(Value::Bool(value)))
+            }
+            fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<Self::Value, E> {
+                Ok(UniqueDiagnosticJson(Value::Number(value.into())))
+            }
+            fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<Self::Value, E> {
+                Ok(UniqueDiagnosticJson(Value::Number(value.into())))
+            }
+            fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<Self::Value, E> {
+                serde_json::Number::from_f64(value)
+                    .map(|value| UniqueDiagnosticJson(Value::Number(value)))
+                    .ok_or_else(|| E::custom("nonfinite_json_source_number"))
+            }
+            fn visit_unit<E: serde::de::Error>(self) -> Result<Self::Value, E> {
+                Ok(UniqueDiagnosticJson(Value::Null))
+            }
+        }
+        deserializer.deserialize_any(Visitor)
+    }
+}
+
 fn read_diagnostic_request(
     path: &Path,
     expected: &str,
@@ -1608,7 +1692,8 @@ fn read_diagnostic_request(
     );
     let hash = hex::encode(Sha256::digest(&bytes));
     anyhow::ensure!(hash == expected, "diagnostic request SHA256 mismatch");
-    let request: LciaDiagnosticRequest = serde_json::from_slice(&bytes)?;
+    let unique: UniqueDiagnosticJson = serde_json::from_slice(&bytes)?;
+    let request: LciaDiagnosticRequest = serde_json::from_value(unique.0)?;
     anyhow::ensure!(
         request.schema_version == "lcia.applicability.diagnostic-request.v1",
         "unsupported LCIA diagnostic request schema"
@@ -1648,7 +1733,138 @@ impl<W: Write> Write for DiagnosticOutputWriter<W> {
     }
 }
 
-async fn diagnose_lcia_applicability(cli: &Cli) -> anyhow::Result<bool> {
+fn trusted_applicability_proofs(
+    cli: &Cli,
+    production_environment: bool,
+) -> anyhow::Result<Option<TrustedProofSet>> {
+    let pair = match (
+        &cli.lcia_applicability_proof_set,
+        &cli.lcia_applicability_proof_set_sha256,
+    ) {
+        (Some(path), Some(hash)) => Some((path.clone(), hash.clone())),
+        (None, None) if production_environment => {
+            match (
+                std::env::var_os("LCIA_APPLICABILITY_PROOF_SET"),
+                std::env::var("LCIA_APPLICABILITY_PROOF_SET_SHA256").ok(),
+            ) {
+                (Some(path), Some(hash)) => Some((PathBuf::from(path), hash)),
+                (None, None) => None,
+                _ => anyhow::bail!("lcia_proof_operator_configuration_incomplete"),
+            }
+        }
+        (None, None) => None,
+        _ => anyhow::bail!("lcia_proof_operator_configuration_incomplete"),
+    };
+    pair.map(|(path, hash)| TrustedProofSet::load(&path, &hash))
+        .transpose()
+}
+
+fn read_native_method(path: &Path, expected: &str) -> anyhow::Result<(InspectedIlcdMethod, u64)> {
+    use std::io::Read;
+    anyhow::ensure!(path.is_absolute(), "native source path must be absolute");
+    let file = fs::File::open(path)?;
+    anyhow::ensure!(
+        file.metadata()?.is_file(),
+        "native source must be a regular file"
+    );
+    anyhow::ensure!(
+        file.metadata()?.len() <= u64::try_from(lcia_source_xml::MAX_XML_BYTES)?,
+        "lcia_xml_input_size_limit"
+    );
+    let mut bytes = Vec::new();
+    file.take(u64::try_from(lcia_source_xml::MAX_XML_BYTES)? + 1)
+        .read_to_end(&mut bytes)?;
+    anyhow::ensure!(
+        bytes.len() <= lcia_source_xml::MAX_XML_BYTES,
+        "lcia_xml_input_size_limit"
+    );
+    anyhow::ensure!(
+        sha256_bytes(&bytes) == expected,
+        "lcia_xml_source_raw_hash_mismatch"
+    );
+    Ok((
+        lcia_source_xml::inspect_ilcd_method(&bytes)?,
+        u64::try_from(bytes.len())?,
+    ))
+}
+
+fn impact_from_native_method(
+    source: &InspectedIlcdMethod,
+    locator: Uuid,
+    proofs: Option<&TrustedProofSet>,
+) -> anyhow::Result<ImpactFactorSet> {
+    anyhow::ensure!(
+        locator == source.method_id
+            || reviewed_lcia_identity_matches(source.method_id, &source.method_version, locator),
+        "native LCIA method identity alias is not reviewed"
+    );
+    let mut factors = MethodFactors::from_native_source(source, locator)?;
+    if let Some(proofs) = proofs {
+        let proof = proofs.bind_location_independent(ProofSource {
+            method_id: source.method_id,
+            method_version: &source.method_version,
+            artifact_locator_id: locator,
+            source_raw_sha256: &source.raw_sha256,
+            canonical_body_sha256: &source.canonical_body_sha256,
+            ordered_factors_sha256: &source.ordered_factors_sha256,
+            projection_schema: lcia_source_xml::XML_PROJECTION_SCHEMA_VERSION,
+            projection: &source.projection,
+        })?;
+        if let Some(proof) = proof {
+            factors.apply_location_independent_proof(proof)?;
+        }
+    }
+    Ok(ImpactFactorSet {
+        impact_id: source.method_id,
+        method_version: source.method_version.clone(),
+        artifact_locator_id: locator,
+        impact_key: format!("method:{}", source.method_id),
+        impact_name: lcia_method_metadata::name(&source.method_document)
+            .unwrap_or_else(|| format!("LCIA Method {}", source.method_id)),
+        unit: lcia_method_metadata::result_unit(&source.method_document)
+            .unwrap_or_else(|| "unknown".to_owned()),
+        factors,
+    })
+}
+
+fn diagnostic_selection_result(
+    selection: anyhow::Result<ActiveLciaFactorSelection>,
+) -> anyhow::Result<(bool, Value)> {
+    match selection {
+        Ok(selection) => {
+            let qualified = !selection.decisions.is_empty()
+                && selection.unmatched_group_count == 0
+                && selection.invalid_group_count == 0
+                && selection.unsupported_direction_group_count == 0;
+            let decisions = selection
+                .decisions
+                .into_iter()
+                .map(|(method_index, identity, decision)| {
+                    json!({"diagnostic_method_index":method_index,"flow_id":identity.flow_id,
+                    "flow_version":identity.flow_version,"decision":decision})
+                })
+                .collect::<Vec<_>>();
+            Ok((
+                qualified,
+                json!({"status":if qualified {"selected"} else {"incomplete"},
+                "observation_groups_sha256":selection.observation_groups_sha256,"selected":decisions,
+                "unmatched_group_count":selection.unmatched_group_count,"invalid_group_count":selection.invalid_group_count,
+                "unsupported_direction_group_count":selection.unsupported_direction_group_count}),
+            ))
+        }
+        Err(error) => {
+            let Some(applicability) = error.downcast_ref::<ApplicabilityError>() else {
+                return Err(error);
+            };
+            Ok((
+                false,
+                json!({"status":"unsupported","issue":applicability.issue()}),
+            ))
+        }
+    }
+}
+
+async fn diagnose_lcia_applicability(cli: &Cli) -> anyhow::Result<u8> {
     let binary_path = std::env::current_exe()?.canonicalize()?;
     let binary = hash_bounded_local_file(
         &binary_path,
@@ -1674,28 +1890,44 @@ async fn diagnose_lcia_applicability(cli: &Cli) -> anyhow::Result<bool> {
             hash_bounded_local_file(&artifact.path, &artifact.sha256, 256 * 1024 * 1024)
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
-    let method = match request.source {
+    let proofs = trusted_applicability_proofs(cli, false)?;
+    anyhow::ensure!(
+        request.operation != LciaDiagnosticOperation::Inspect
+            || (request.observations.is_empty() && proofs.is_none()),
+        "inspection_only_does_not_select_observations_or_apply_proofs"
+    );
+    let mut source_inspections = Vec::new();
+    let mut native_bindings = Vec::new();
+    let mut method_source = None;
+    let mut factors = match request.source {
         LciaDiagnosticSource::ReviewedStaticCache { root } => {
+            anyhow::ensure!(
+                request.operation == LciaDiagnosticOperation::Select,
+                "inspection_requires_ilcd_xml_source"
+            );
             anyhow::ensure!(root.is_absolute(), "static cache root must be absolute");
-            // Directory-only construction deliberately has no URL/ambient-env fallback.
-            let source = TrustedStaticCacheSource::Directory(root);
             let bundle = load_verified_static_lcia_bundle(
-                &source,
+                &TrustedStaticCacheSource::Directory(root),
                 &solver_worker::calculation_evidence::method_factor_source_contract_fixture(),
             )
             .await?;
-            MethodSelection {
+            method_source = Some(bundle.source_evidence.clone());
+            load_impact_factor_sets(&MethodSelection {
                 has_lcia: true,
                 method_id: None,
                 method_version: None,
                 method_count: i64::try_from(bundle.methods.len())?,
                 factor_count: 0,
-                source_evidence: Some(bundle.source_evidence.clone()),
+                source_evidence: method_source.clone(),
                 rows: vec![],
                 static_bundle: Some(bundle),
-            }
+            })?
         }
         LciaDiagnosticSource::MethodDocuments { methods } => {
+            anyhow::ensure!(
+                request.operation == LciaDiagnosticOperation::Select,
+                "inspection_requires_ilcd_xml_source"
+            );
             anyhow::ensure!(
                 !methods.is_empty() && methods.len() <= 256,
                 "diagnostic method count outside bounds"
@@ -1714,59 +1946,96 @@ async fn diagnose_lcia_applicability(cli: &Cli) -> anyhow::Result<bool> {
                     })
                     .collect(),
             )?;
-            MethodSelection {
-                has_lcia: true,
-                method_id: None,
-                method_version: None,
-                method_count: i64::try_from(rows.len())?,
-                factor_count: 0,
-                source_evidence: None,
-                rows,
-                static_bundle: None,
+            load_impact_factor_sets_with_proofs(
+                &MethodSelection {
+                    has_lcia: true,
+                    method_id: None,
+                    method_version: None,
+                    method_count: i64::try_from(rows.len())?,
+                    factor_count: 0,
+                    source_evidence: None,
+                    rows,
+                    static_bundle: None,
+                },
+                proofs.as_ref(),
+            )?
+        }
+        LciaDiagnosticSource::IlcdXml { methods } => {
+            anyhow::ensure!(
+                !methods.is_empty() && methods.len() <= 256,
+                "diagnostic method count outside bounds"
+            );
+            let mut impacts = Vec::new();
+            let mut bytes = 0_u64;
+            let mut identities = BTreeSet::new();
+            for reference in methods {
+                let (source, size) = read_native_method(&reference.path, &reference.sha256)?;
+                bytes = bytes
+                    .checked_add(size)
+                    .ok_or_else(|| anyhow::anyhow!("native source byte count overflow"))?;
+                anyhow::ensure!(
+                    bytes <= lcia_applicability::MAX_DIAGNOSTIC_BYTES,
+                    "native_source_set_size_limit"
+                );
+                let locator = reference.artifact_locator_id.unwrap_or(source.method_id);
+                anyhow::ensure!(
+                    identities.insert((source.method_id, source.method_version.clone())),
+                    "duplicate native method source"
+                );
+                anyhow::ensure!(
+                    locator == source.method_id
+                        || reviewed_lcia_identity_matches(
+                            source.method_id,
+                            &source.method_version,
+                            locator
+                        ),
+                    "native LCIA method identity alias is not reviewed"
+                );
+                source_inspections.push(json!({"method_id":source.method_id,"method_version":source.method_version,
+                    "artifact_locator_id":locator,"path":reference.path,"raw_sha256":source.raw_sha256,"byte_size":size,
+                    "projection_schema":lcia_source_xml::XML_PROJECTION_SCHEMA_VERSION,
+                    "canonicalization":lcia_source_xml::XML_CANONICALIZATION,
+                    "canonical_body_sha256":source.canonical_body_sha256,"ordered_factors_sha256":source.ordered_factors_sha256,
+                    "factor_count":source.ordered_factors.len(),"metadata_index":source.metadata_index,
+                    "factor_records_exported":false,"scientific_applicability_inferred":false}));
+                if request.operation == LciaDiagnosticOperation::Select {
+                    impacts.push(impact_from_native_method(
+                        &source,
+                        locator,
+                        proofs.as_ref(),
+                    )?);
+                }
+                native_bindings.push(reference);
             }
+            impacts
         }
     };
-    let factors = load_impact_factor_sets(&method)?;
-    let biosphere_ids = request
-        .observations
-        .iter()
-        .map(|observation| observation.flow_id)
-        .collect();
-    let selection =
-        select_active_lcia_factors(&factors, &biosphere_ids, &request.observations, true);
-    let (qualified, result) = match selection {
-        Ok(selection) => {
-            let qualified = !selection.decisions.is_empty()
-                && selection.unmatched_group_count == 0
-                && selection.invalid_group_count == 0
-                && selection.unsupported_direction_group_count == 0;
-            let decisions = selection
-                .decisions
-                .into_iter()
-                .map(|(method_index, identity, decision)| {
-                    json!({"diagnostic_method_index":method_index,"flow_id":identity.flow_id,
-                    "flow_version":identity.flow_version,"decision":decision})
-                })
-                .collect::<Vec<_>>();
-            (
-                qualified,
-                json!({"status":if qualified {"selected"} else {"incomplete"},
-                "observation_groups_sha256":selection.observation_groups_sha256,
-                "selected":decisions,"unmatched_group_count":selection.unmatched_group_count,
-                "invalid_group_count":selection.invalid_group_count,
-                "unsupported_direction_group_count":selection.unsupported_direction_group_count}),
-            )
-        }
-        Err(error) => {
-            let Some(applicability) = error.downcast_ref::<ApplicabilityError>() else {
-                return Err(error);
-            };
-            (
-                false,
-                json!({"status":"unsupported","issue":applicability.issue()}),
-            )
-        }
+    factors.sort_by(|a, b| (a.impact_id, &a.method_version).cmp(&(b.impact_id, &b.method_version)));
+    let (qualified, result) = if request.operation == LciaDiagnosticOperation::Inspect {
+        (
+            false,
+            json!({"status":"not_requested","reason":"source_inspection_precedes_scientific_proof_issuance"}),
+        )
+    } else {
+        let biosphere_ids = request
+            .observations
+            .iter()
+            .map(|observation| observation.flow_id)
+            .collect();
+        diagnostic_selection_result(select_active_lcia_factors(
+            &factors,
+            &biosphere_ids,
+            &request.observations,
+            true,
+        ))?
     };
+    for reference in &native_bindings {
+        hash_bounded_local_file(
+            &reference.path,
+            &reference.sha256,
+            lcia_applicability::MAX_DIAGNOSTIC_BYTES,
+        )?;
+    }
     // Recheck every explicitly bound input before publishing, without reinterpretation/rewrite.
     for artifact in &request.artifacts {
         hash_bounded_local_file(&artifact.path, &artifact.sha256, 256 * 1024 * 1024)?;
@@ -1783,7 +2052,9 @@ async fn diagnose_lcia_applicability(cli: &Cli) -> anyhow::Result<bool> {
         "artifacts":artifacts,"artifact_interpretation":"hash_verified_only_no_historical_axis_inference",
         "historical_axis_qualification":"unknown","matrix_created":false,"calculation_performed":false,
         "selection_qualified":qualified,"scope":"factor_applicability_only_not_full_lcia_scientific_qualification",
-        "method_source":method.source_evidence,
+        "operation":request.operation,"source_inspections":source_inspections,
+        "proof_set_sha256":proofs.as_ref().map(TrustedProofSet::raw_sha256),
+        "method_source":method_source,
         "factor_sources":factors.iter().map(|factor| &factor.factors.source).collect::<Vec<_>>(),
         "selection":result});
     let output = cli
@@ -1809,9 +2080,15 @@ async fn diagnose_lcia_applicability(cli: &Cli) -> anyhow::Result<bool> {
     println!(
         "{}",
         json!({"schema_version":"lcia.applicability.diagnostic-receipt.v1",
-        "selection_qualified":qualified,"output":output,"policy_version":lcia_applicability::POLICY_VERSION})
+        "operation":request.operation,"selection_qualified":qualified,"output":output,"policy_version":lcia_applicability::POLICY_VERSION})
     );
-    Ok(qualified)
+    Ok(
+        if qualified || request.operation == LciaDiagnosticOperation::Inspect {
+            0
+        } else {
+            2
+        },
+    )
 }
 
 fn snapshot_builder_blockage(error: &anyhow::Error) -> Option<(String, Vec<Value>)> {
@@ -2061,7 +2338,13 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
     )
     .await?;
     build_timing.resolve_method_identity_sec = method_started.elapsed().as_secs_f64();
-    let impact_factor_sets = load_impact_factor_sets(&method)?;
+    let applicability_proofs = if method.has_lcia {
+        trusted_applicability_proofs(&cli, true)?
+    } else {
+        None
+    };
+    let impact_factor_sets =
+        load_impact_factor_sets_with_proofs(&method, applicability_proofs.as_ref())?;
     for impact in &impact_factor_sets {
         impact.factors.ensure_source_usable()?;
     }
@@ -2074,6 +2357,9 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
         lcia_applicability_policy_version: Some(
             solver_worker::lcia_applicability::POLICY_VERSION.to_owned(),
         ),
+        lcia_applicability_proof_set_sha256: applicability_proofs
+            .as_ref()
+            .map(|proofs| proofs.raw_sha256().to_owned()),
         include_user_id: cli.include_user_id,
         data_scope: versioned_scope
             .as_ref()
@@ -3937,6 +4223,11 @@ fn reusable_snapshot_policy_matches(
     decoded.config.is_numerical_policy_current()
         && decoded.config.is_allocation_semantics_current()
         && decoded.config.is_lcia_applicability_policy_current()
+        && decoded.config.is_lcia_proof_pin_current(
+            std::env::var("LCIA_APPLICABILITY_PROOF_SET_SHA256")
+                .ok()
+                .as_deref(),
+        )
         && binding_contract_is_current(candidate, decoded)
 }
 
@@ -4332,6 +4623,13 @@ fn exact_scope_closure_method_axis(
 }
 
 fn load_impact_factor_sets(method: &MethodSelection) -> anyhow::Result<Vec<ImpactFactorSet>> {
+    load_impact_factor_sets_with_proofs(method, None)
+}
+
+fn load_impact_factor_sets_with_proofs(
+    method: &MethodSelection,
+    proofs: Option<&TrustedProofSet>,
+) -> anyhow::Result<Vec<ImpactFactorSet>> {
     if !method.has_lcia {
         return Ok(Vec::new());
     }
@@ -4355,6 +4653,26 @@ fn load_impact_factor_sets(method: &MethodSelection) -> anyhow::Result<Vec<Impac
         );
         for row in &method.rows {
             let identity = &row.identity;
+            if let Some(proofs) = proofs
+                && let Some((path, hash)) = proofs.source_for_method(
+                    identity.method_id,
+                    &identity.method_version,
+                    identity.artifact_locator_id,
+                )?
+            {
+                let (native, _) = read_native_method(&path, &hash)?;
+                anyhow::ensure!(
+                    canonical_json_sha256(&native.method_document)?
+                        == canonical_json_sha256(&row.json)?,
+                    "lcia_native_source_differs_from_selected_method_document"
+                );
+                out.push(impact_from_native_method(
+                    &native,
+                    identity.artifact_locator_id,
+                    Some(proofs),
+                )?);
+                continue;
+            }
             out.push(ImpactFactorSet {
                 impact_id: identity.method_id,
                 method_version: identity.method_version.clone(),
@@ -5608,7 +5926,7 @@ async fn compile_scope_graph(
         &processes,
         &flow_meta.by_identity,
         impact_factor_sets,
-        &active_lcia_factors.active_flow_ids,
+        &active_lcia_factors.active_flow_versions,
         versioned_scope,
         artifact_purpose,
     )
@@ -5884,15 +6202,18 @@ fn select_active_lcia_factors(
             ))
             .or_insert(observation);
     }
-    for (identity, values) in locations {
-        if values.len() > 1 {
-            return Err(ApplicabilityError::new("lcia_mixed_location_axis_unsupported",
-                "the existing Flow/version axis cannot distinguish multiple exchange locations",
-                json!({"flow_id":identity.flow_id,"flow_version":identity.flow_version,"locations":values})).into());
-        }
-    }
     for (impact_index, impact) in impact_factor_sets.iter().enumerate() {
+        if !impact.factors.is_location_independent() {
+            for (identity, values) in &locations {
+                if values.len() > 1 {
+                    return Err(ApplicabilityError::new("lcia_mixed_location_axis_unsupported",
+                        "this method has no validated location-independent proof for the shared Flow/version axis",
+                        json!({"method_id":impact.impact_id,"flow_id":identity.flow_id,"flow_version":identity.flow_version,"locations":values})).into());
+                }
+            }
+        }
         let mut active = BTreeMap::new();
+        let mut selected_records = BTreeMap::new();
         for observation in groups.values() {
             if selection.direction_by_flow.get(&observation.flow_id) == Some(&None) {
                 selection.unsupported_direction_group_count += 1;
@@ -5905,10 +6226,17 @@ fn select_active_lcia_factors(
                         observation.flow_id,
                         &observation.flow_version,
                     );
-                    active.insert(
-                        identity.clone(),
-                        decision.selected.as_ref().expect("selected record").value,
-                    );
+                    let factor = decision.selected.as_ref().expect("selected record");
+                    let record_identity = (factor.record_index, factor.record_sha256.clone());
+                    if let Some(previous) =
+                        selected_records.insert(identity.clone(), record_identity.clone())
+                    {
+                        anyhow::ensure!(
+                            impact.factors.is_location_independent() && previous == record_identity,
+                            "lcia_multiple_selected_records_for_one_axis"
+                        );
+                    }
+                    active.insert(identity.clone(), factor.value);
                     anyhow::ensure!(
                         selection.decisions.len() < lcia_applicability::MAX_SELECTION_RECORDS,
                         "lcia_applicability_evidence_limit_exceeded"
@@ -5936,9 +6264,14 @@ fn select_active_lcia_factors(
                 }
             }
         }
-        selection
-            .active_flow_ids
-            .extend(active.keys().map(|identity| identity.flow_id));
+        for (identity, value) in &active {
+            if *value != 0.0 {
+                selection.active_flow_ids.insert(identity.flow_id);
+                selection
+                    .active_flow_versions
+                    .insert((identity.flow_id, identity.flow_version.clone()));
+            }
+        }
         selection.factors_by_impact.push(active);
     }
     Ok(selection)
@@ -9537,7 +9870,7 @@ async fn build_frozen_source_datasets(
     processes: &[ProcessRow],
     flows: &HashMap<FlowLinkIdentity, FlowRow>,
     impact_factor_sets: &[ImpactFactorSet],
-    active_lcia_flow_ids: &BTreeSet<Uuid>,
+    active_lcia_flow_versions: &BTreeSet<(Uuid, String)>,
     versioned_scope: Option<&ValidatedPublicOwnerDraftScope>,
     artifact_purpose: ArtifactPurpose,
 ) -> anyhow::Result<(
@@ -9625,7 +9958,9 @@ async fn build_frozen_source_datasets(
     }
     lcia_factor_flow_references.retain(|reference| {
         reference.dataset_type != CompiledReleaseSourceDatasetType::Flow
-            || active_lcia_flow_ids.contains(&reference.id)
+            || reference.version.as_ref().is_some_and(|version| {
+                active_lcia_flow_versions.contains(&(reference.id, version.clone()))
+            })
     });
     let lcia_flow_requests =
         flow_reference_requests_from_source_references(&lcia_factor_flow_references);
@@ -9701,10 +10036,10 @@ async fn build_frozen_source_datasets(
                 }
                 continue;
             }
-            let classification = classify_source_document_with_lcia_flow_axis(
+            let classification = solver_worker::snapshot_source_closure::classify_source_document_with_lcia_flow_versions(
                 dataset,
                 artifact_purpose,
-                Some(active_lcia_flow_ids),
+                Some(active_lcia_flow_versions),
             )?;
             preflight_issues.extend(classification.extraction_issues);
             for reference in classification.references {
@@ -11704,6 +12039,352 @@ mod tests {
         }
     }
 
+    struct SyntheticNonspatialFixture {
+        directory: tempfile::TempDir,
+        native: solver_worker::lcia_source_xml::InspectedIlcdMethod,
+        method: MethodSelection,
+        proofs: solver_worker::lcia_applicability_proof::TrustedProofSet,
+        pin: String,
+    }
+
+    fn synthetic_nonspatial_fixture() -> SyntheticNonspatialFixture {
+        let method_id = Uuid::from_u128(339_339);
+        let flow_id = Uuid::from_u128(339_340);
+        let xml = format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?><LCIAMethodDataSet xmlns="http://lca.jrc.it/ILCD/LCIAMethod" xmlns:c="http://lca.jrc.it/ILCD/Common"><LCIAMethodInformation><dataSetInformation><c:UUID>{method_id}</c:UUID><c:name xml:lang="en">Synthetic nonspatial method</c:name></dataSetInformation></LCIAMethodInformation><administrativeInformation><c:commissionerAndGoal><c:intendedApplications xml:lang="en">Synthetic reviewed model scope; no real scientific authorization</c:intendedApplications></c:commissionerAndGoal><publicationAndOwnership><c:dataSetVersion>01.00.000</c:dataSetVersion></publicationAndOwnership></administrativeInformation><characterisationFactors><factor><referenceToFlowDataSet refObjectId="{flow_id}" version="01.00.000"/><exchangeDirection>Output</exchangeDirection><location/><meanValue>4.0</meanValue><generalComment/></factor></characterisationFactors></LCIAMethodDataSet>"#
+        );
+        let native = solver_worker::lcia_source_xml::inspect_ilcd_method(xml.as_bytes())
+            .expect("complete synthetic native source");
+        let directory = tempfile::tempdir().unwrap();
+        let source_path = directory.path().join("synthetic-source.xml");
+        std::fs::write(&source_path, xml.as_bytes()).unwrap();
+        let basis = native
+            .metadata_index
+            .iter()
+            .find(|entry| entry.xml_path.ends_with("}intendedApplications"))
+            .expect("basis addresses actual retained source metadata");
+        let proof_document = json!({
+            "schema_version":"lcia.applicability-proof-set.v1", "records":[{
+                "method_id":native.method_id,"method_version":native.method_version,
+                "artifact_locator_id":native.method_id,"decision":"location_independent",
+                "source_xml_path":source_path,"source_raw_sha256":native.raw_sha256,
+                "canonical_body_sha256":native.canonical_body_sha256,
+                "ordered_factors_sha256":native.ordered_factors_sha256,
+                "projection_schema":solver_worker::lcia_source_xml::XML_PROJECTION_SCHEMA_VERSION,
+                "basis":[{"pointer":basis.pointer,"value_sha256":basis.sha256}],
+                "review_reference":{"decision_id":"synthetic-engineering-review-only",
+                    "sha256":super::sha256_bytes(b"synthetic review; no production proof")}
+            }]
+        });
+        let proof_path = directory.path().join("synthetic-proof.json");
+        let proof_bytes = serde_json::to_vec(&proof_document).unwrap();
+        let pin = super::sha256_bytes(&proof_bytes);
+        std::fs::write(&proof_path, &proof_bytes).unwrap();
+        let proofs =
+            solver_worker::lcia_applicability_proof::TrustedProofSet::load(&proof_path, &pin)
+                .expect("explicit synthetic operator pin");
+        let rows = resolve_database_lcia_method_rows(vec![super::MethodRow {
+            id: native.method_id,
+            version: native.method_version.clone(),
+            json: native.method_document.clone(),
+        }])
+        .expect("already-selected synthetic DB method");
+        let method = MethodSelection {
+            has_lcia: true,
+            method_id: None,
+            method_version: None,
+            method_count: 1,
+            factor_count: 1,
+            source_evidence: None,
+            rows,
+            static_bundle: None,
+        };
+        SyntheticNonspatialFixture {
+            directory,
+            native,
+            method,
+            proofs,
+            pin,
+        }
+    }
+
+    fn synthetic_nonspatial_graph(flow_id: Uuid) -> CompiledGraph {
+        let mut graph = super::empty_compiled_graph();
+        graph.processes.push(CompiledProcess {
+            process_idx: 0,
+            process_id: Uuid::from_u128(339_341),
+            process_version: "01.00.000".to_owned(),
+            process_name: None,
+            model_id: None,
+            model_version: None,
+            location: None,
+            reference_year: None,
+            annual_supply_or_production_volume: None,
+            partition: ScopeProcessPartition::Public,
+        });
+        graph.flows.push(CompiledFlow {
+            flow_idx: 0,
+            flow_id,
+            flow_version: "01.00.000".to_owned(),
+            kind: CompiledFlowKind::Elementary,
+            space: CompiledFlowSpace::Biosphere,
+            source_type: solver_worker::compiled_graph::CompiledSourceFlowType::Elementary,
+        });
+        graph.biosphere_edges.push(CompiledBiosphereEdge {
+            process_idx: 0,
+            flow_idx: 0,
+            amount: 3.0,
+            process_partition: ScopeProcessPartition::Public,
+        });
+        graph
+    }
+
+    #[test]
+    fn native_nonspatial_proof_cannot_replace_the_selected_database_method() {
+        let fixture = synthetic_nonspatial_fixture();
+        let source_path = fixture.directory.path().join("synthetic-source.xml");
+        let source_bytes = std::fs::read(&source_path).unwrap();
+        let factors =
+            super::load_impact_factor_sets_with_proofs(&fixture.method, Some(&fixture.proofs))
+                .expect("exact selected source may attach its proof");
+        assert!(factors[0].factors.is_location_independent());
+        assert_eq!(factors[0].factors.source.source_kind, "primary_ilcd_xml");
+        assert_eq!(
+            factors[0]
+                .factors
+                .source
+                .nonspatial_proof
+                .as_ref()
+                .unwrap()
+                .proof_set_sha256,
+            fixture.pin
+        );
+        assert_eq!(fixture.method.rows[0].json, fixture.native.method_document);
+        for (pointer, replacement) in [
+            (
+                "/LCIAMethodDataSet/characterisationFactors/factor/0/meanValue",
+                json!("11.0"),
+            ),
+            (
+                "/LCIAMethodDataSet/administrativeInformation/common:commissionerAndGoal/common:intendedApplications/#text",
+                json!("changed source metadata"),
+            ),
+        ] {
+            let mut changed = fixture.method.clone();
+            *changed.rows[0]
+                .json
+                .pointer_mut(pointer)
+                .expect("actual adapter field") = replacement;
+            let retained = changed.rows[0].json.clone();
+            let error = super::load_impact_factor_sets_with_proofs(&changed, Some(&fixture.proofs))
+                .expect_err("the proof cannot silently override selected source content");
+            assert!(
+                error
+                    .to_string()
+                    .contains("lcia_native_source_differs_from_selected_method_document"),
+                "{error}"
+            );
+            assert_eq!(changed.rows[0].json, retained);
+        }
+        assert_eq!(std::fs::read(source_path).unwrap(), source_bytes);
+    }
+
+    #[test]
+    fn native_proof_does_not_promote_a_lossy_static_factor_source() {
+        use solver_worker::{
+            calculation_evidence::LcaMethodFactorSourceSnapshot,
+            static_lcia_cache::{StaticLciaMethod, VerifiedStaticLciaBundle},
+        };
+        let fixture = synthetic_nonspatial_fixture();
+        let source_evidence = LcaMethodFactorSourceSnapshot {
+            schema_version: "lca.method_factor_source.snapshot.v2".to_owned(),
+            source_kind: "static_cache_bundle".to_owned(),
+            bundle_manifest_path: "synthetic/cache_manifest.json".to_owned(),
+            bundle_manifest_sha256: "a".repeat(64),
+            bundle_version: "synthetic".to_owned(),
+            source_snapshot_sha256: "b".repeat(64),
+            method_manifest_sha256: "c".repeat(64),
+            factor_manifest_sha256: "d".repeat(64),
+            method_identity_manifest_sha256: "e".repeat(64),
+            method_count: 1,
+        };
+        // Synthetic in-memory legacy index: this branch must remain nonselectable even when the
+        // operator proof names the same identity and an available complete XML source.
+        let bundle = VerifiedStaticLciaBundle {
+            source_evidence: source_evidence.clone(),
+            methods: vec![StaticLciaMethod {
+                method_id: fixture.native.method_id,
+                method_version: fixture.native.method_version.clone(),
+                artifact_locator_id: fixture.native.method_id,
+                artifact_filename: "synthetic.json.gz".to_owned(),
+                name: "Synthetic legacy index".to_owned(),
+                unit: "kg".to_owned(),
+            }],
+            factors_by_method: BTreeMap::from([(fixture.native.method_id, vec![])]),
+        };
+        let mut method = fixture.method.clone();
+        method.rows.clear();
+        method.source_evidence = Some(source_evidence);
+        method.static_bundle = Some(bundle);
+        let factors =
+            super::load_impact_factor_sets_with_proofs(&method, Some(&fixture.proofs)).unwrap();
+        assert!(!factors[0].factors.is_location_independent());
+        assert!(factors[0].factors.source.nonspatial_proof.is_none());
+        assert_eq!(
+            factors[0].factors.ensure_source_usable().unwrap_err().code,
+            "lcia_applicability_source_incomplete"
+        );
+        let observation = synthetic_lcia_observation(Uuid::from_u128(339_340), "01.00.000", "A");
+        let error = select_active_lcia_factors(
+            &factors,
+            &BTreeSet::from([observation.flow_id]),
+            &[observation],
+            true,
+        )
+        .expect_err("complete XML is not a replacement for a selected lossy index");
+        assert!(
+            error
+                .to_string()
+                .contains("lcia_applicability_source_incomplete")
+        );
+    }
+
+    #[test]
+    fn source_bound_nonspatial_locations_share_one_c_coefficient_and_retain_both_contexts() {
+        let fixture = synthetic_nonspatial_fixture();
+        let flow_id = Uuid::from_u128(339_340);
+        let factors =
+            super::load_impact_factor_sets_with_proofs(&fixture.method, Some(&fixture.proofs))
+                .unwrap();
+        let mut observations = vec![
+            synthetic_lcia_observation(flow_id, "01.00.000", "A"),
+            synthetic_lcia_observation(flow_id, "01.00.000", "B"),
+        ];
+        observations[1].amount = Some(2.0);
+        observations[1].exchange_id = "synthetic-exchange-B".to_owned();
+        let mut config = test_snapshot_build_config("tidas-reference-allocation-v5");
+        config.has_lcia = true;
+        config.lcia_applicability_proof_set_sha256 = Some(fixture.pin.clone());
+        let built = assemble_sparse_payload(
+            Uuid::new_v4(),
+            &fixture.method,
+            &config,
+            &synthetic_nonspatial_graph(flow_id),
+            0.999_999,
+            1e-12,
+            true,
+            &factors,
+            &observations,
+            true,
+        )
+        .expect("reviewed nonspatial source permits the existing shared axis");
+        assert_eq!(built.data.flow_count, 1);
+        assert_eq!(built.data.characterization_factors.len(), 1);
+        assert_close(built.data.characterization_factors[0].value, 4.0);
+        assert_close(built.data.biosphere_entries[0].value, 3.0);
+        let evidence = built
+            .snapshot_index
+            .lcia_applicability
+            .expect("selection evidence");
+        assert_eq!(evidence.selected.len(), 2);
+        let locations = evidence
+            .selected
+            .iter()
+            .map(|selection| selection.decision.location.clone())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            locations,
+            BTreeSet::from([
+                solver_worker::lcia_applicability::FactorLocation::Code("A".to_owned()),
+                solver_worker::lcia_applicability::FactorLocation::Code("B".to_owned()),
+            ])
+        );
+        let first = evidence.selected[0].decision.selected.as_ref().unwrap();
+        for selection in &evidence.selected {
+            assert_eq!(selection.flow_index, 0);
+            assert_eq!(
+                selection.decision.reason,
+                "reviewed_location_independent_source"
+            );
+            let record = selection.decision.selected.as_ref().unwrap();
+            assert_eq!(record.record_index, first.record_index);
+            assert_eq!(record.record_sha256, first.record_sha256);
+            assert_eq!(
+                record.location,
+                solver_worker::lcia_applicability::FactorLocation::Blank
+            );
+            let receipt = selection.decision.source.nonspatial_proof.as_ref().unwrap();
+            assert_eq!(receipt.proof_set_sha256, fixture.pin);
+            assert_eq!(receipt.source_raw_sha256, fixture.native.raw_sha256);
+        }
+        assert_eq!(built.lcia_factor_coverage.unwrap().counts.matched, 2);
+    }
+
+    #[test]
+    fn source_bound_proof_pin_is_a_build_identity_and_reuse_requirement() {
+        let fixture = synthetic_nonspatial_fixture();
+        let summary = SourceSnapshotSummary {
+            process_count: 1,
+            process_max_modified_at_utc: "none".to_owned(),
+            lifecyclemodel_count: 0,
+            lifecyclemodel_max_modified_at_utc: "none".to_owned(),
+            lifecyclemodel_payload_sha256: "none".to_owned(),
+            flow_count: 1,
+            flow_max_modified_at_utc: "none".to_owned(),
+            lciamethod_count: 1,
+            lciamethod_max_modified_at_utc: "none".to_owned(),
+        };
+        let mut current = test_snapshot_build_config("tidas-reference-allocation-v5");
+        current.has_lcia = true;
+        current.lcia_applicability_proof_set_sha256 = Some(fixture.pin.clone());
+        let current_hash = compute_source_fingerprint_from_summary(&summary, &current).unwrap();
+        assert!(current.is_lcia_proof_pin_current(Some(&fixture.pin)));
+        assert!(!current.is_lcia_proof_pin_current(None));
+        assert!(!current.is_lcia_proof_pin_current(Some(&"f".repeat(64))));
+        let snapshot_id = Uuid::new_v4();
+        let flow_id = Uuid::from_u128(339_340);
+        let factors =
+            super::load_impact_factor_sets_with_proofs(&fixture.method, Some(&fixture.proofs))
+                .unwrap();
+        let observations = [synthetic_lcia_observation(flow_id, "01.00.000", "A")];
+        let built = assemble_sparse_payload(
+            snapshot_id,
+            &fixture.method,
+            &current,
+            &synthetic_nonspatial_graph(flow_id),
+            0.999_999,
+            1e-12,
+            true,
+            &factors,
+            &observations,
+            true,
+        )
+        .unwrap();
+        for pin in [None, Some("f".repeat(64))] {
+            let mut historical = current.clone();
+            historical.lcia_applicability_proof_set_sha256 = pin;
+            assert!(!historical.is_lcia_proof_pin_current(Some(&fixture.pin)));
+            assert_ne!(
+                compute_source_fingerprint_from_summary(&summary, &historical).unwrap(),
+                current_hash
+            );
+            let encoded = solver_worker::snapshot_artifacts::encode_snapshot_artifact(
+                snapshot_id,
+                historical.clone(),
+                built.coverage.clone(),
+                &built.data,
+            )
+            .unwrap();
+            let decoded = super::decode_snapshot_artifact(&encoded.bytes)
+                .expect("old proof pins stay history-readable");
+            assert_eq!(decoded.config, historical);
+            assert!(!decoded.config.is_lcia_proof_pin_current(Some(&fixture.pin)));
+        }
+        let mut inventory_only = current;
+        inventory_only.has_lcia = false;
+        assert!(inventory_only.is_lcia_proof_pin_current(None));
+    }
+
     #[test]
     fn scope_closure_discovery_contains_only_consumed_readiness_fields() {
         let blocker = ReadinessFinding {
@@ -12012,6 +12693,7 @@ mod tests {
             lcia_applicability_policy_version: Some(
                 solver_worker::lcia_applicability::POLICY_VERSION.to_owned(),
             ),
+            lcia_applicability_proof_set_sha256: None,
             numerical_policy_version: Some(
                 solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned(),
             ),

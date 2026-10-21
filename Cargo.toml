@@ -27,6 +27,7 @@ hmac = "0.12"
 libc = "0.2"
 parquet = { version = "59.2.0", default-features = false, features = ["arrow", "zstd"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+quick-xml = { version = "0.42.0", default-features = false }
 rayon = "1"
 sha2 = "0.10"
 clap = { version = "4", features = ["derive", "env"] }

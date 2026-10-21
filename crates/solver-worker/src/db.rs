@@ -911,6 +911,19 @@ fn ensure_numerical_snapshot_policy(
             crate::lcia_applicability::POLICY_VERSION
         ));
     }
+    let proof_pin = std::env::var("LCIA_APPLICABILITY_PROOF_SET_SHA256").ok();
+    if !config.is_lcia_proof_pin_current(proof_pin.as_deref()) {
+        return Err(anyhow::anyhow!(
+            "snapshot_lcia_applicability_proof_pin_mismatch: current operator proof configuration differs from snapshot {snapshot_id}"
+        ));
+    }
+    if config.has_lcia
+        && let Some(pin) = proof_pin
+    {
+        let path = std::env::var_os("LCIA_APPLICABILITY_PROOF_SET")
+            .ok_or_else(|| anyhow::anyhow!("lcia_proof_operator_configuration_incomplete"))?;
+        crate::lcia_applicability_proof::TrustedProofSet::load(std::path::Path::new(&path), &pin)?;
+    }
     let Some(binding) = config.scope_closure_binding.as_ref() else {
         // Not closure-bound: the global policy marker above is its numerical evidence.
         return Ok(());
@@ -1939,15 +1952,34 @@ pub async fn ensure_prepared(
     snapshot_id: Uuid,
     print_level: f64,
 ) -> anyhow::Result<()> {
-    if state
-        .solver
+    ensure_prepared_with_admission(&state.solver, snapshot_id, print_level, || {
+        fetch_snapshot_sparse_data(state, snapshot_id)
+    })
+    .await
+}
+
+async fn ensure_prepared_with_admission<F, Fut>(
+    solver: &SolverService,
+    snapshot_id: Uuid,
+    print_level: f64,
+    fetch_admitted_data: F,
+) -> anyhow::Result<()>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = anyhow::Result<ModelSparseData>>,
+{
+    // A warm numerical cache is not a proof-authority cache. Revalidate the immutable artifact
+    // and current operator pin on every execution; retain only the expensive factorization.
+    let data = fetch_admitted_data().await?;
+    anyhow::ensure!(
+        data.model_version == snapshot_id,
+        "admitted snapshot identity mismatch"
+    );
+    if solver
         .factorization_status(snapshot_id, NumericOptions { print_level })
         .is_none()
     {
-        let data = fetch_snapshot_sparse_data(state, snapshot_id).await?;
-        let _ = state
-            .solver
-            .prepare(&data, NumericOptions { print_level })?;
+        let _ = solver.prepare(&data, NumericOptions { print_level })?;
     }
     Ok(())
 }
@@ -5588,6 +5620,55 @@ mod tests {
         panic!("subprocess {pid} remained alive");
     }
 
+    #[tokio::test]
+    async fn warm_factorization_revalidates_the_current_proof_before_new_execution() {
+        use solver_core::{ModelSparseData, NumericOptions, SolverService, SparseTriplet};
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("synthetic-proof.json");
+        let bytes = br#"{"schema_version":"lcia.applicability-proof-set.v1","records":[]}"#;
+        std::fs::write(&path, bytes).unwrap();
+        let pin = crate::calculation_evidence::sha256_bytes(bytes);
+        let snapshot_id = uuid::Uuid::from_u128(339_999);
+        let data = ModelSparseData {
+            model_version: snapshot_id,
+            process_count: 1,
+            flow_count: 1,
+            impact_count: 1,
+            technosphere_entries: vec![],
+            biosphere_entries: vec![SparseTriplet {
+                row: 0,
+                col: 0,
+                value: 1.0,
+            }],
+            characterization_factors: vec![SparseTriplet {
+                row: 0,
+                col: 0,
+                value: 1.0,
+            }],
+        };
+        let service = SolverService::new();
+        let fetches = std::cell::Cell::new(0);
+        let fetch = || async {
+            fetches.set(fetches.get() + 1);
+            crate::lcia_applicability_proof::TrustedProofSet::load(&path, &pin)?;
+            Ok(data.clone())
+        };
+        super::ensure_prepared_with_admission(&service, snapshot_id, 0.0, fetch)
+            .await
+            .unwrap();
+        assert!(
+            service
+                .factorization_status(snapshot_id, NumericOptions::default())
+                .is_some()
+        );
+        std::fs::write(&path, b"changed proof without a new trusted pin").unwrap();
+        let error = super::ensure_prepared_with_admission(&service, snapshot_id, 0.0, fetch)
+            .await
+            .expect_err("a warm factorization must not bypass changed proof authority");
+        assert!(error.to_string().contains("lcia_proof_set_pin_mismatch"));
+        assert_eq!(fetches.get(), 2);
+    }
+
     #[test]
     fn worker_jobs_backend_never_writes_legacy_lca_jobs() {
         assert!(!JobLifecycleBackend::WorkerJobs.writes_legacy_lca_jobs());
@@ -6300,6 +6381,7 @@ mod tests {
                 process_states: crate::numerical_process_states_arg(),
                 numerical_policy_version: policy.map(str::to_owned),
                 lcia_applicability_policy_version: None,
+                lcia_applicability_proof_set_sha256: None,
                 include_user_id: None,
                 data_scope: None,
                 scope_manifest_sha256: None,

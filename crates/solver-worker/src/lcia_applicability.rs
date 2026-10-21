@@ -1,10 +1,11 @@
 //! Source-bound LCIA factor selection. Compilation and offline diagnosis use the same policy.
 //!
-//! This policy supports literal, nonempty location tokens only. Missing, blank and omitted
-//! applicability are distinct evidence states, not defaults. No geography or version fallback
-//! is inferred. The existing one-direction-per-Elementary-Flow constraint remains with callers.
+//! This policy supports literal location tokens and explicitly pinned, source-bound reviewed
+//! location-independent claims. Missing, blank and omitted applicability remain distinct.
+//! No geography or version fallback is inferred. The existing one-direction-per-Elementary-Flow
+//! constraint remains with callers.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -13,9 +14,13 @@ use uuid::Uuid;
 use crate::calculation_evidence::{
     LciaExchangeDirection, LciaExchangeObservation, canonical_json_sha256,
 };
+use crate::lcia_applicability_proof::{ProofReceipt, ValidatedNonspatialProof};
+use crate::lcia_source_xml::{
+    InspectedIlcdMethod, XML_CANONICALIZATION, XML_PROJECTION_SCHEMA_VERSION,
+};
 use crate::static_lcia_cache::VerifiedStaticLciaBundle;
 
-pub const POLICY_VERSION: &str = "lcia.applicability.exact.v1";
+pub const POLICY_VERSION: &str = "lcia.applicability.source-bound.v1";
 pub const EVIDENCE_SCHEMA_VERSION: &str = "lcia.applicability.evidence.v1";
 pub const MAX_DIAGNOSTIC_BYTES: u64 = 64 * 1024 * 1024;
 pub const MAX_SELECTION_RECORDS: usize = 100_000;
@@ -98,6 +103,16 @@ pub struct FactorRecord {
     /// Source qualifiers are retained verbatim; their presence never grants applicability.
     pub qualifiers: Value,
     pub unsupported_qualifiers: bool,
+    pub unresolved_qualifier_fields: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NativeSourceReceipt {
+    pub raw_sha256: String,
+    pub canonical_body_sha256: String,
+    pub ordered_factors_sha256: String,
+    pub projection_schema: String,
+    pub canonicalization: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -109,6 +124,10 @@ pub struct FactorSource {
     pub source_kind: String,
     pub factor_count: usize,
     pub applicability_complete: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_source: Option<NativeSourceReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nonspatial_proof: Option<ProofReceipt>,
 }
 
 #[derive(Debug, Clone)]
@@ -116,6 +135,7 @@ pub struct MethodFactors {
     pub source: FactorSource,
     pub records: Vec<FactorRecord>,
     by_flow: BTreeMap<Uuid, Vec<usize>>,
+    nonspatial_proof: Option<ValidatedNonspatialProof>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -147,6 +167,22 @@ pub struct FactorDecision {
     pub rejected: Vec<RejectedFactor>,
 }
 
+// An empty comment carries no condition. Language/uncertainty metadata remain preserved;
+// nonempty comments and unclassified extension fields require explicit applicability review.
+fn empty_comment(value: &Value) -> bool {
+    match value {
+        Value::String(text) => text.trim().is_empty(),
+        Value::Array(items) => items.iter().all(empty_comment),
+        Value::Object(fields) => {
+            fields
+                .keys()
+                .all(|key| matches!(key.as_str(), "@xml:lang" | "#text"))
+                && fields.get("#text").is_none_or(empty_comment)
+        }
+        _ => false,
+    }
+}
+
 fn parse_method_factor(
     method_id: Uuid,
     method_version: &str,
@@ -168,6 +204,11 @@ fn parse_method_factor(
         .and_then(Value::as_str)
         .and_then(|value| Uuid::parse_str(value).ok())
         .ok_or_else(|| invalid("flow_id"))?;
+    if let Some(reference_type) = item.pointer("/referenceToFlowDataSet/@type")
+        && reference_type.as_str() != Some("flow data set")
+    {
+        return Err(invalid("flow_reference_type").into());
+    }
     let flow_version = item
         .pointer("/referenceToFlowDataSet/@version")
         .and_then(Value::as_str)
@@ -211,18 +252,23 @@ fn parse_method_factor(
         })
         .map(|(key, value)| (key.clone(), value.clone()))
         .collect::<serde_json::Map<_, _>>();
-    let unsupported_qualifiers = qualifiers.keys().any(|key| {
-        !matches!(
-            key.as_str(),
-            "minimumValue"
-                | "maximumValue"
-                | "uncertaintyDistributionType"
-                | "relativeStandardDeviation95In"
-                | "dataDerivationTypeStatus"
-                | "deviatingRecommendation"
-                | "referencesToDataSource"
-        )
-    });
+    let unresolved_qualifier_fields = qualifiers
+        .iter()
+        .filter(|(key, value)| {
+            !(matches!(
+                key.as_str(),
+                "minimumValue"
+                    | "maximumValue"
+                    | "uncertaintyDistributionType"
+                    | "relativeStandardDeviation95In"
+                    | "dataDerivationTypeStatus"
+                    | "deviatingRecommendation"
+                    | "referencesToDataSource"
+            ) || key.as_str() == "generalComment" && empty_comment(value))
+        })
+        .map(|(key, _)| key.clone())
+        .collect::<Vec<_>>();
+    let unsupported_qualifiers = !unresolved_qualifier_fields.is_empty();
     let record_locator = if is_array {
         format!("/LCIAMethodDataSet/characterisationFactors/factor/{record_index}")
     } else {
@@ -239,6 +285,7 @@ fn parse_method_factor(
         value,
         qualifiers: Value::Object(qualifiers),
         unsupported_qualifiers,
+        unresolved_qualifier_fields,
     })
 }
 
@@ -287,9 +334,102 @@ impl MethodFactors {
                 source_kind: "complete_method_document".to_owned(),
                 factor_count: records.len(),
                 applicability_complete: true,
+                native_source: None,
+                nonspatial_proof: None,
             },
             records,
         ))
+    }
+
+    /// Read-only native projection and adapter originate from the same bounded XML reader.
+    pub fn from_native_source(
+        source: &InspectedIlcdMethod,
+        artifact_locator_id: Uuid,
+    ) -> anyhow::Result<Self> {
+        let mut factors = Self::from_method_document(
+            source.method_id,
+            &source.method_version,
+            artifact_locator_id,
+            &source.method_document,
+        )?;
+        anyhow::ensure!(
+            factors.records.len() == source.ordered_factors.len(),
+            "lcia_native_factor_cardinality_mismatch"
+        );
+        for (record, original) in factors.records.iter_mut().zip(&source.ordered_factors) {
+            record.record_sha256 = canonical_json_sha256(original)?;
+            record.record_locator = format!("ordered_factors/{}", record.record_index);
+        }
+        "primary_ilcd_xml".clone_into(&mut factors.source.source_kind);
+        factors
+            .source
+            .source_sha256
+            .clone_from(&source.canonical_body_sha256);
+        factors.source.native_source = Some(NativeSourceReceipt {
+            raw_sha256: source.raw_sha256.clone(),
+            canonical_body_sha256: source.canonical_body_sha256.clone(),
+            ordered_factors_sha256: source.ordered_factors_sha256.clone(),
+            projection_schema: XML_PROJECTION_SCHEMA_VERSION.to_owned(),
+            canonicalization: XML_CANONICALIZATION.to_owned(),
+        });
+        Ok(factors)
+    }
+
+    pub fn apply_location_independent_proof(
+        &mut self,
+        proof: ValidatedNonspatialProof,
+    ) -> anyhow::Result<()> {
+        self.ensure_source_usable()?;
+        let receipt = proof.receipt();
+        let native =
+            self.source.native_source.as_ref().ok_or_else(|| {
+                anyhow::anyhow!("lcia_nonspatial_requires_complete_native_source")
+            })?;
+        anyhow::ensure!(
+            receipt.method_id == self.source.method_id
+                && receipt.method_version == self.source.method_version
+                && receipt.artifact_locator_id == self.source.artifact_locator_id
+                && receipt.source_raw_sha256 == native.raw_sha256
+                && receipt.canonical_body_sha256 == native.canonical_body_sha256
+                && receipt.ordered_factors_sha256 == native.ordered_factors_sha256
+                && receipt.projection_schema == native.projection_schema,
+            "lcia_nonspatial_proof_source_mismatch"
+        );
+        let mut keys = BTreeSet::new();
+        for factor in &self.records {
+            let reason = if !matches!(
+                factor.location,
+                FactorLocation::Missing | FactorLocation::Blank
+            ) {
+                Some("named or unknown factor location contradicts the location-independent proof")
+            } else if factor.unsupported_qualifiers {
+                Some("factor-specific conditions or unclassified fields require review")
+            } else if !keys.insert((
+                factor.flow_id,
+                &factor.flow_version,
+                factor.direction.as_str(),
+            )) {
+                Some("multiple factors remain for the same exact Flow/version/direction")
+            } else {
+                None
+            };
+            if let Some(reason) = reason {
+                return Err(ApplicabilityError::new(
+                    "lcia_nonspatial_source_conflict",
+                    reason,
+                    json!({"source":self.source,"factor":factor}),
+                )
+                .into());
+            }
+        }
+        self.source.nonspatial_proof = Some(receipt);
+        self.nonspatial_proof = Some(proof);
+        Ok(())
+    }
+
+    #[must_use]
+    pub fn is_location_independent(&self) -> bool {
+        self.nonspatial_proof.is_some()
     }
 
     pub fn from_static_bundle(
@@ -313,6 +453,8 @@ impl MethodFactors {
                 source_kind: "legacy_static_index".to_owned(),
                 factor_count,
                 applicability_complete: false,
+                native_source: None,
+                nonspatial_proof: None,
             },
             Vec::new(),
         ))
@@ -327,6 +469,7 @@ impl MethodFactors {
             source,
             records,
             by_flow,
+            nonspatial_proof: None,
         }
     }
 
@@ -367,7 +510,9 @@ impl MethodFactors {
                 DecisionStatus::Unmatched,
                 "no_lcia_factor_for_flow_direction",
             ))
-        } else if !observation.location.is_exact_token() {
+        } else if observation.location == FactorLocation::Invalid {
+            Some((unsupported, "lcia_exchange_location_invalid"))
+        } else if !self.is_location_independent() && !observation.location.is_exact_token() {
             Some((unsupported, "lcia_exchange_location_semantics_unresolved"))
         } else {
             None
@@ -406,6 +551,9 @@ impl MethodFactors {
                 exact_version = true;
                 if Some(factor.direction) != observation.direction {
                     "direction_mismatch"
+                } else if self.is_location_independent() {
+                    exact.push(factor);
+                    continue;
                 } else if !factor.location.is_exact_token() {
                     unresolved_location = true;
                     "factor_location_semantics_unresolved"
@@ -426,7 +574,12 @@ impl MethodFactors {
         match exact.as_slice() {
             [factor] if !factor.unsupported_qualifiers => {
                 decision.status = DecisionStatus::Selected;
-                "exact_source_location_token".clone_into(&mut decision.reason);
+                (if self.is_location_independent() {
+                    "reviewed_location_independent_source"
+                } else {
+                    "exact_source_location_token"
+                })
+                .clone_into(&mut decision.reason);
                 decision.selected = Some((*factor).clone());
             }
             [] => {

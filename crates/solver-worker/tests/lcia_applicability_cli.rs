@@ -289,3 +289,20 @@ fn diagnostic_cli_rejects_connection_and_other_mode_flags() {
         assert!(!fixture.output_path.exists());
     }
 }
+
+#[test]
+fn duplicate_nested_source_keys_cannot_hide_a_factor_condition() {
+    let fixture = Fixture::new(request());
+    let original = fs::read_to_string(&fixture.request_path).unwrap();
+    let duplicate = original.replacen(
+        "\"meanValue\":\"4.0\"",
+        "\"meanValue\":\"4.0\",\"generalComment\":\"urban only\",\"generalComment\":\"\"",
+        1,
+    );
+    assert_ne!(original, duplicate);
+    fs::write(&fixture.request_path, duplicate).unwrap();
+    let output = execute(&mut fixture.command());
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("duplicate_json_source_field"));
+    assert!(!fixture.output_path.exists());
+}
