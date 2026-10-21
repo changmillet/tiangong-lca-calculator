@@ -1,8 +1,8 @@
 version: 1
 layout: repo
 lastReviewedAt: "2026-10-21"
-lastReviewedCommit: "4616ff77e871585a56c25ad39cefd66278cd4706"
-lastReviewedNote: "Reviewed against Worker #339 source commit 4616ff7: applicability admission does not change provider/allocation theory, review-quality transport, TIDAS validation ownership or governance routing. No substantive contract change required."
+lastReviewedCommit: "d7603426f36a0554fdbe1e0b0c9bb90c345440a9"
+lastReviewedNote: "Reviewed Worker #339 source d760342: exact loaded factor-source hashes participate in ordinary fingerprints and reusable indices compare complete source receipts before scope-specific shortcuts. Selection/proof semantics, inventory-only exemption, source ownership and deployment boundaries remain unchanged."
 
 # Keep deterministic governance facts here.
 # AGENTS.md remains the repo contract entrypoint.

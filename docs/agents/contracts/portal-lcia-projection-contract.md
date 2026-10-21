@@ -26,8 +26,8 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
 lastReviewedAt: 2026-10-21
-lastReviewedCommit: 4616ff77e871585a56c25ad39cefd66278cd4706
-lastReviewedNote: "Reviewed Worker #339 exact Flow/version/location selection, source-bound nonspatial proof, native read-only inspection, current snapshot admission and legacy refusal against source commit 4616ff7. Original-data qualification and deployment remain separate."
+lastReviewedCommit: d7603426f36a0554fdbe1e0b0c9bb90c345440a9
+lastReviewedNote: "Reviewed Worker #339 source d760342: exact loaded factor-source hashes participate in ordinary fingerprints and reusable indices compare complete source receipts before scope-specific shortcuts. Selection/proof semantics, inventory-only exemption, source ownership and deployment boundaries remain unchanged."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml

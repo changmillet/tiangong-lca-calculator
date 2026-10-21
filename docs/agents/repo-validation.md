@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-21
-lastReviewedCommit: 4616ff77e871585a56c25ad39cefd66278cd4706
-lastReviewedNote: "Reviewed Worker #339 exact Flow/version/location selection, source-bound nonspatial proof, native read-only inspection, current snapshot admission and legacy refusal against source commit 4616ff7. Original-data qualification and deployment remain separate."
+lastReviewedCommit: d7603426f36a0554fdbe1e0b0c9bb90c345440a9
+lastReviewedNote: "Reviewed Worker #339 source d760342: exact loaded factor-source hashes participate in ordinary fingerprints and reusable indices compare complete source receipts before scope-specific shortcuts. Selection/proof semantics, inventory-only exemption, source ownership and deployment boundaries remain unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -74,7 +74,7 @@ Treat the last two commands as non-negotiable hard gates after code changes.
 
 ### LCIA applicability and source-bound diagnosis
 
-Run `cargo test -p solver-worker --bin snapshot_builder`, `cargo test -p solver-worker --test lcia_applicability --test lcia_applicability_cli --test lcia_nonspatial_cli`, and the `lcia_source_xml`/`lcia_applicability_proof` library tests, plus the baseline above. Public CLI tests bind the actual executed binary, request and source bytes, derive synthetic proofs through public inspect, refuse output overwrite and assert no calculation or historical-axis inference. Cover exact versions/regions, equal alternatives and duplicate ambiguity, signed amounts/zero factors, empty/absent/unknown states, complete source/proof drift, XML entity/depth/size rejection, qualifiers, and a single C entry under an explicitly validated nonspatial proof. Source/proof changes must change fingerprints; old artifact reads remain separate from current reuse/replay admission.
+Run `cargo test -p solver-worker --bin snapshot_builder`, `cargo test -p solver-worker --test lcia_applicability --test lcia_applicability_cli --test lcia_nonspatial_cli`, and the `lcia_source_xml`/`lcia_applicability_proof` library tests, plus the baseline above. Public CLI tests bind the actual executed binary, request and source bytes, derive synthetic proofs through public inspect, refuse output overwrite and assert no calculation or historical-axis inference. Cover exact versions/regions, equal alternatives and duplicate ambiguity, signed amounts/zero factors, empty/absent/unknown states, complete source/proof drift, XML entity/depth/size rejection, qualifiers, and a single C entry under an explicitly validated nonspatial proof. Source/proof changes must change fingerprints; cover two loaded method bodies with identical database count/maximum-timestamp summaries and reject an old ordinary index when location or qualifier hashes differ or receipts are missing. This models a source edit between method loading and summary collection without requiring a live database race. Old artifact reads remain separate from current reuse/replay admission.
 
 Data-side qualification uses the exact immutable candidate and the original approved read-only case. A legacy-bundle refusal is an expected negative, not a usable-result claim. Real nonspatial proof issuance belongs to the original data reviewer after native inspection. Synthetic positives do not establish method-wide/family-wide science, external location-context provenance, deployed cached-result behavior or new numerical acceptance. Keep protected XML/cache assets and installed runtimes unchanged. The public input/help/proof contract is in `docs/lca-api-contract.md`.
 
