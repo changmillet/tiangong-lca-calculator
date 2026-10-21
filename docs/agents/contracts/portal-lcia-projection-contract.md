@@ -25,9 +25,9 @@ checkPaths:
   - crates/solver-worker/src/worker_jobs.rs
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-10-16
-lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
-lastReviewedNote: "Reviewed for Worker #320 phase one: independent immutable-bundle export jobs, default Parquet, bounded compressed CSV and terminal polling protection. Existing authorization, numerical, lease and production boundaries remain; validation results belong to the linked Issues and PRs."
+lastReviewedAt: 2026-10-21
+lastReviewedCommit: 4616ff77e871585a56c25ad39cefd66278cd4706
+lastReviewedNote: "Reviewed Worker #339 exact Flow/version/location selection, source-bound nonspatial proof, native read-only inspection, current snapshot admission and legacy refusal against source commit 4616ff7. Original-data qualification and deployment remain separate."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml
@@ -137,3 +137,7 @@ cargo fmt --all -- --check
 ```
 
 Focused proof must cover the fixed framing vector, decimal limits, explicit zero, source context, missing/reordered/tampered grids, 500-record/1-MiB batches, exact V3 schema gates, authoritative Worker input, response-loss replay, status/seal hash comparison, and V1/V2 non-opt-in behavior. It must also prove exact one-/two-/three-second renewal periods and pre-expiry timeout margin, repeated renewals during long work, progress-metadata preservation, a one-parallelism host's guarded production runtime during a CPU-heavy poll, clean stop/join, unfinished-work cancellation, completed-work waiting for a pending renewal failure/timeout, and queue source order that wraps the lazy V3 future before handler execution. Cross-repository completion additionally requires the matching Database migration/pgTAP contract, Release publication workflow, and an isolated non-production Worker↔Database integration run; mock-only RPC tests are not sufficient for that final gate.
+
+## LCIA applicability admission
+
+Current numerical consumers additionally require `lcia.applicability.source-bound.v1` and the matching configured proof-set hash for LCIA snapshots. The common Worker artifact gate preserves historical decoding and the no-LCIA exemption. Lossy source, unresolved regional applicability and source/proof drift block before a new numerical snapshot can authorize this consumer. The existing closure/projection schemas, hashes, staging, leases and ownership remain unchanged; this does not establish external cached-result admission. Exact source/proof/diagnostic semantics are owned by `docs/lca-api-contract.md`.

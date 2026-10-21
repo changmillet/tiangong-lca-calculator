@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-16
-lastReviewedCommit: 8a698fb5e38f787b98230329c61c4e0c1a3e541a
-lastReviewedNote: "Reviewed merge of Worker #320/PR #323 (5e191a93) with #322 dependency monitoring (8a698fb5): independent immutable-bundle export jobs, default Parquet, bounded CSV, terminal protection and bounded Cargo/pip/Actions monitoring are retained. Exact Toolkit, native/runtime/data/model, authorization, lease and production boundaries remain intact. Metadata conflict resolution only; final merged Rust gates remain required."
+lastReviewedAt: 2026-10-21
+lastReviewedCommit: 4616ff77e871585a56c25ad39cefd66278cd4706
+lastReviewedNote: "Reviewed Worker #339 exact Flow/version/location selection, source-bound nonspatial proof, native read-only inspection, current snapshot admission and legacy refusal against source commit 4616ff7. Original-data qualification and deployment remain separate."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -71,6 +71,12 @@ cargo fmt --all -- --check
 ```
 
 Treat the last two commands as non-negotiable hard gates after code changes.
+
+### LCIA applicability and source-bound diagnosis
+
+Run `cargo test -p solver-worker --bin snapshot_builder`, `cargo test -p solver-worker --test lcia_applicability --test lcia_applicability_cli --test lcia_nonspatial_cli`, and the `lcia_source_xml`/`lcia_applicability_proof` library tests, plus the baseline above. Public CLI tests bind the actual executed binary, request and source bytes, derive synthetic proofs through public inspect, refuse output overwrite and assert no calculation or historical-axis inference. Cover exact versions/regions, equal alternatives and duplicate ambiguity, signed amounts/zero factors, empty/absent/unknown states, complete source/proof drift, XML entity/depth/size rejection, qualifiers, and a single C entry under an explicitly validated nonspatial proof. Source/proof changes must change fingerprints; old artifact reads remain separate from current reuse/replay admission.
+
+Data-side qualification uses the exact immutable candidate and the original approved read-only case. A legacy-bundle refusal is an expected negative, not a usable-result claim. Real nonspatial proof issuance belongs to the original data reviewer after native inspection. Synthetic positives do not establish method-wide/family-wide science, external location-context provenance, deployed cached-result behavior or new numerical acceptance. Keep protected XML/cache assets and installed runtimes unchanged. The public input/help/proof contract is in `docs/lca-api-contract.md`.
 
 ### LCIA method metadata and existing snapshots
 

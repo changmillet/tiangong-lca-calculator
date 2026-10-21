@@ -19,9 +19,9 @@ checkPaths:
   - docs/agents/repo-validation.md
   - docs/scope-closure-contract.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: 2026-10-16
-lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
-lastReviewedNote: "Reviewed for Worker #320 phase one: independent immutable-bundle export jobs, default Parquet, bounded compressed CSV and terminal polling protection. Existing authorization, numerical, lease and production boundaries remain; validation results belong to the linked Issues and PRs."
+lastReviewedAt: 2026-10-21
+lastReviewedCommit: 4616ff77e871585a56c25ad39cefd66278cd4706
+lastReviewedNote: "Reviewed against Worker #339 source commit 4616ff7: applicability admission does not change provider/allocation theory, review-quality transport, TIDAS validation ownership or governance routing. No substantive contract change required."
 related:
   - AGENTS.md
   - .docpact/config.yaml

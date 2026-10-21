@@ -28,9 +28,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-10-12
-lastReviewedCommit: c6558afa865feaf3b34c862896f500dc77b4ae2c
-lastReviewedNote: "Reviewed Worker #318 and equivalent Duration constructors in existing lease tests for Rust 1.95 Clippy. Queue selection, heartbeat timing, lease fencing, handler and review semantics are unchanged."
+lastReviewedAt: 2026-10-21
+lastReviewedCommit: 4616ff77e871585a56c25ad39cefd66278cd4706
+lastReviewedNote: "Reviewed against Worker #339 source commit 4616ff7: applicability admission does not change provider/allocation theory, review-quality transport, TIDAS validation ownership or governance routing. No substantive contract change required."
 related:
   - AGENTS.md
   - .docpact/config.yaml

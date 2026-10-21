@@ -27,9 +27,9 @@ checkPaths:
   - docs/agents/contracts/scope-closure-external-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-owned-result.v1.schema.json
-lastReviewedAt: 2026-10-16
-lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
-lastReviewedNote: "Reviewed for Worker #320 phase one: independent immutable-bundle export jobs, default Parquet, bounded compressed CSV and terminal polling protection. Existing authorization, numerical, lease and production boundaries remain; validation results belong to the linked Issues and PRs."
+lastReviewedAt: 2026-10-21
+lastReviewedCommit: 4616ff77e871585a56c25ad39cefd66278cd4706
+lastReviewedNote: "Reviewed Worker #339 exact Flow/version/location selection, source-bound nonspatial proof, native read-only inspection, current snapshot admission and legacy refusal against source commit 4616ff7. Original-data qualification and deployment remain separate."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml
@@ -168,3 +168,7 @@ Before merge, the v3 implementation must pass the Worker baseline gates and the 
 The boundary qualification consumes the segmented-record representation owned by Worker #181 once that contract is available. The capacity harness must not duplicate or privately redefine that core chunk contract.
 
 The package fixture and generated outputs stay outside git. Qualification never deploys, restarts a server, enqueues a production task, mutates production state, or updates the root workspace submodule pointer.
+
+## LCIA applicability admission
+
+Current numerical consumers additionally require `lcia.applicability.source-bound.v1` and the matching configured proof-set hash for LCIA snapshots. The common Worker artifact gate preserves historical decoding and the no-LCIA exemption. Lossy source, unresolved regional applicability and source/proof drift block before a new numerical snapshot can authorize this consumer. The existing closure/projection schemas, hashes, staging, leases and ownership remain unchanged; this does not establish external cached-result admission. Exact source/proof/diagnostic semantics are owned by `docs/lca-api-contract.md`.

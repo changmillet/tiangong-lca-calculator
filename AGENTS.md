@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-16
-lastReviewedCommit: 8a698fb5e38f787b98230329c61c4e0c1a3e541a
-lastReviewedNote: "Reviewed merge of Worker #320/PR #323 (5e191a93) with #322 dependency monitoring (8a698fb5): independent immutable-bundle export jobs, default Parquet, bounded CSV, terminal protection and bounded Cargo/pip/Actions monitoring are retained. Exact Toolkit, native/runtime/data/model, authorization, lease and production boundaries remain intact. Metadata conflict resolution only; final merged Rust gates remain required."
+lastReviewedAt: 2026-10-21
+lastReviewedCommit: 4616ff77e871585a56c25ad39cefd66278cd4706
+lastReviewedNote: "Reviewed Worker #339 exact Flow/version/location selection, source-bound nonspatial proof, native read-only inspection, current snapshot admission and legacy refusal against source commit 4616ff7. Original-data qualification and deployment remain separate."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md
@@ -181,6 +181,7 @@ Route those tasks to:
 - a published Result Process (`120`) is never a numerical root, provider or matrix axis, is not exposed through generic product reads, references or exports, and never leaves the platform inside a product export package; its only readback is the authorization-bound Database publication receipt. Every newly built numerical snapshot records `numerical_policy_version = public-numerical-state-100-excluding-result-120:v1` in its artifact config and in the server-authored READY `process_filter`; new compute execution and reuse require that exact marker, while historical artifacts stay byte-identical and readable
 - optional Calculation Bundle exports use an independent `lca.calculation_export` job, default to Parquet, and never block calculation readiness; CSV parts are row/byte bounded and audit reuses canonical files
 - solve result persistence is S3-only; `lca_results` stores artifact metadata and diagnostics, not inline payloads
+- LCIA characterization requires `lcia.applicability.source-bound.v1`: exact source/Flow versions and applicable records, or an operator-pinned reviewed nonspatial proof bound to complete native source. Lossy legacy indices and ambiguous regional records block before matrix-readiness; inventory-only builds and historical decoding remain available. Current compute/reuse additionally verifies the configured proof pin. Source inspection, proof schema and bounded qualification are defined in `docs/lca-api-contract.md` under “LCIA applicability and local source inspection”; this does not authorize real reference-asset regeneration or deployment
 - snapshots never persist fresh `CompiledGraph` IR: ordinary numerical artifacts bind separate v2 release metadata and content-addressed v1 source closure, while Review baseline/overlay persist consumer-owned projections; Calculation Bundle sidecars load only during bundle materialization, legacy numerical payloads remain readable even when their compiler metadata schema has drifted, and compatible legacy graph/v1 evidence remains read-compatible
 - queue enqueue and protected writes must stay on service-side paths; do not move them to frontend clients or authenticated direct table writes
 - `ai-worker` is the reusable `worker_queue=ai` runtime; capabilities enter as versioned handlers, and `ai.tidas_suggestion` must bind exact TIDAS ruleset and model configuration versions without writing Process/Flow rows

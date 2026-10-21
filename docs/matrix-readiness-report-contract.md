@@ -24,9 +24,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-10-14
-lastReviewedCommit: 5d7c3cbf2d16d743791f13e86052eb42de46a2aa
-lastReviewedNote: "Reviewed Worker #320 snapshot replay and typed upload blockage. Coverage matching, provider/allocation rules and numerical matrices remain unchanged; v3 request and v2 replay evidence require coordinated consumers. Full local and historical replay proof is recorded on #320."
+lastReviewedAt: 2026-10-21
+lastReviewedCommit: 4616ff77e871585a56c25ad39cefd66278cd4706
+lastReviewedNote: "Reviewed Worker #339 exact Flow/version/location selection, source-bound nonspatial proof, native read-only inspection, current snapshot admission and legacy refusal against source commit 4616ff7. Original-data qualification and deployment remain separate."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -56,6 +56,7 @@ Provider-link 的运行时决策顺序由 `docs/provider-linking.md` 维护。�
 输入 schema version 为 `matrix_readiness_input.v2`，核心字段为：
 
 - `config`: snapshot build config；其中 `link_semantics_version`、`technosphere_boundary_policy`、`flow_identity_policy` 决定本次 closure 的显式合同。 `SnapshotBuildConfig` 现在还携带 `numerical_policy_version`（公开数值资格策略标记）与可选的 `scope_closure_binding`／`snapshot_build_contract_hash`。它们参与 snapshot 身份与复用判定，但不改变本报告的 schema、blocker、finding 或 policy 语义。
+- LCIA config 还绑定 `lcia_applicability_policy_version` 与可选 `lcia_applicability_proof_set_sha256`。适用性歧义、丢失来源或证明漂移属于构建前置阻断，在本报告生成之前拒绝；它们不新增本报告的 schema、blocker 或 policy，也不能由 `require_lcia_factors=false`、`open/cutoff` 绕过。完整输入与证明合同见 `docs/lca-api-contract.md`。
 - `coverage`: `snapshot_coverage.v3` report，同时提供中性 `residual_edges_total` / `a_balance_edges_written` 和 legacy input/provider 兼容计数。
 - `payload`: `ModelSparseData` sparse payload。
 - `compiled_graph`（可选）：fresh build 时包含以 `(Flow UUID, resolved version)` 标识的 flow axis、`reference_ports`、`balance_resolutions`、`unresolved_balances`，以及兼容的 provider decision projection。没有该字段时仍可验证 coverage/compute，但逐边解释证据会为空。

@@ -22,9 +22,9 @@ checkPaths:
   - crates/solver-worker/src/bin/snapshot_builder.rs
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-10-14
-lastReviewedCommit: 5d7c3cbf2d16d743791f13e86052eb42de46a2aa
-lastReviewedNote: "Reviewed Worker #320 snapshot replay and typed upload blockage. Coverage matching, provider/allocation rules and numerical matrices remain unchanged; v3 request and v2 replay evidence require coordinated consumers. Full local and historical replay proof is recorded on #320."
+lastReviewedAt: 2026-10-21
+lastReviewedCommit: 4616ff77e871585a56c25ad39cefd66278cd4706
+lastReviewedNote: "Reviewed against Worker #339 source commit 4616ff7: applicability admission does not change provider/allocation theory, review-quality transport, TIDAS validation ownership or governance routing. No substantive contract change required."
 related:
   - AGENTS.md
   - docs/implicit-regional-supply-mix-modeling.md
