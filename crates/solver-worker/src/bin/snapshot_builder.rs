@@ -1106,6 +1106,8 @@ struct SourceSnapshotSummary {
     flow_max_modified_at_utc: String,
     lciamethod_count: i64,
     lciamethod_max_modified_at_utc: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lcia_factor_sources_sha256: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -2517,6 +2519,7 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
         &build_config,
         versioned_scope.as_ref(),
         Some(&method),
+        &impact_factor_sets,
         &provider_lineage,
     )
     .await?;
@@ -2698,6 +2701,7 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
                     reused.snapshot_id,
                     versioned_scope.as_ref(),
                     &method,
+                    &impact_factor_sets,
                 )?;
                 let resolved_snapshot_id = reused.snapshot_id;
 
@@ -3158,6 +3162,7 @@ fn validate_reusable_snapshot_index(
     snapshot_id: Uuid,
     versioned_scope: Option<&ValidatedPublicOwnerDraftScope>,
     method: &MethodSelection,
+    impact_factor_sets: &[ImpactFactorSet],
 ) -> anyhow::Result<()> {
     let index: SnapshotIndexDocument = serde_json::from_slice(bytes)?;
     if index.snapshot_id != snapshot_id {
@@ -3165,6 +3170,21 @@ fn validate_reusable_snapshot_index(
             "reusable snapshot index id mismatch: expected={snapshot_id} actual={}",
             index.snapshot_id
         ));
+    }
+    if method.has_lcia {
+        let evidence = index.lcia_applicability.as_ref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "lcia_applicability_source_mismatch: reusable index lacks source evidence"
+            )
+        })?;
+        anyhow::ensure!(
+            evidence.schema_version == lcia_applicability::EVIDENCE_SCHEMA_VERSION
+                && evidence.policy_version == lcia_applicability::POLICY_VERSION
+                && evidence.sources.iter().eq(impact_factor_sets
+                    .iter()
+                    .map(|impact| &impact.factors.source)),
+            "lcia_applicability_source_mismatch: reusable index differs from the loaded factor sources"
+        );
     }
     let Some(scope) = versioned_scope else {
         return Ok(());
@@ -3374,6 +3394,7 @@ async fn run_review_submit_overlay_build(
         &baseline_config,
         None,
         Some(&method),
+        &[],
         &baseline_lineage,
     )
     .await?;
@@ -8348,6 +8369,7 @@ async fn compute_source_fingerprint(
     config: &SnapshotBuildConfig,
     versioned_scope: Option<&ValidatedPublicOwnerDraftScope>,
     method: Option<&MethodSelection>,
+    impact_factor_sets: &[ImpactFactorSet],
     provider_lineage: &ProviderLineageSnapshot,
 ) -> anyhow::Result<(SourceSnapshotSummary, String)> {
     let (process_count, process_max_modified_at_utc) =
@@ -8384,17 +8406,31 @@ async fn compute_source_fingerprint(
         flow_max_modified_at_utc,
         lciamethod_count,
         lciamethod_max_modified_at_utc,
+        // Hash the same loaded sources used for selection, not a later database summary alone.
+        // An edit between loading and MAX(modified_at) must not label old factors as new inputs.
+        lcia_factor_sources_sha256: config
+            .has_lcia
+            .then(|| lcia_factor_sources_sha256(impact_factor_sets))
+            .transpose()?,
     };
 
     let fingerprint = compute_source_fingerprint_from_summary(&summary, config)?;
     Ok((summary, fingerprint))
 }
 
+fn lcia_factor_sources_sha256(impact_factor_sets: &[ImpactFactorSet]) -> anyhow::Result<String> {
+    let sources = impact_factor_sets
+        .iter()
+        .map(|impact| &impact.factors.source)
+        .collect::<Vec<_>>();
+    stable_json_sha256(&serde_json::to_value(sources)?)
+}
+
 fn compute_source_fingerprint_from_summary(
     summary: &SourceSnapshotSummary,
     config: &SnapshotBuildConfig,
 ) -> anyhow::Result<String> {
-    let body = serde_json::json!({
+    let mut body = serde_json::json!({
         "schema": solver_worker::NUMERICAL_SOURCE_FINGERPRINT_SCHEMA,
         "numerical_policy_version": config.numerical_policy_version,
         "source": {
@@ -8418,6 +8454,9 @@ fn compute_source_fingerprint_from_summary(
         },
         "config": config,
     });
+    if let Some(source_hash) = &summary.lcia_factor_sources_sha256 {
+        body["source"]["lciamethods"]["factor_sources_sha256"] = json!(source_hash);
+    }
 
     let mut hasher = Sha256::new();
     hasher.update(serde_json::to_vec(&body)?);
@@ -12190,6 +12229,109 @@ mod tests {
     }
 
     #[test]
+    fn ordinary_reuse_rejects_changed_loaded_applicability_with_the_same_summary() {
+        let fixture = synthetic_nonspatial_fixture();
+        let flow_id = Uuid::from_u128(339_340);
+        let mut original = fixture.method.clone();
+        original.rows[0].json["LCIAMethodDataSet"]["characterisationFactors"]["factor"][0]["location"] =
+            json!("A");
+        let factors = super::load_impact_factor_sets_with_proofs(&original, None).unwrap();
+        let mut config = test_snapshot_build_config("tidas-reference-allocation-v5");
+        config.has_lcia = true;
+        let snapshot_id = Uuid::new_v4();
+        let built = assemble_sparse_payload(
+            snapshot_id,
+            &original,
+            &config,
+            &synthetic_nonspatial_graph(flow_id),
+            0.999_999,
+            1e-12,
+            true,
+            &factors,
+            &[synthetic_lcia_observation(flow_id, "01.00.000", "A")],
+            true,
+        )
+        .unwrap();
+        let bytes = serde_json::to_vec(&built.snapshot_index).unwrap();
+        super::validate_reusable_snapshot_index(&bytes, snapshot_id, None, &original, &factors)
+            .expect("unchanged ordinary source may reuse its own index");
+        let mut missing_evidence = serde_json::to_value(&built.snapshot_index).unwrap();
+        missing_evidence["lcia_applicability"] = serde_json::Value::Null;
+        assert!(
+            super::validate_reusable_snapshot_index(
+                &serde_json::to_vec(&missing_evidence).unwrap(),
+                snapshot_id,
+                None,
+                &original,
+                &factors,
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("lcia_applicability_source_mismatch")
+        );
+        for (field, value) in [
+            ("location", json!("B")),
+            ("generalComment", json!("only with a reviewed condition")),
+        ] {
+            let mut changed = original.clone();
+            changed.rows[0].json["LCIAMethodDataSet"]["characterisationFactors"]["factor"][0]
+                [field] = value;
+            let changed_factors =
+                super::load_impact_factor_sets_with_proofs(&changed, None).unwrap();
+            assert_ne!(
+                factors[0].factors.source.source_sha256,
+                changed_factors[0].factors.source.source_sha256
+            );
+            let error = super::validate_reusable_snapshot_index(
+                &bytes,
+                snapshot_id,
+                None,
+                &changed,
+                &changed_factors,
+            )
+            .expect_err("a changed loaded source cannot reuse the old C/index");
+            assert!(
+                error
+                    .to_string()
+                    .contains("lcia_applicability_source_mismatch"),
+                "{error}"
+            );
+        }
+    }
+
+    #[test]
+    fn loaded_factor_source_hash_changes_fingerprint_despite_unchanged_database_summary() {
+        let flow_id = Uuid::from_u128(339_340);
+        let original =
+            synthetic_impact(&[(flow_id, "01.00.000", ExchangeDirection::Output, "A", 4.0)]);
+        let changed =
+            synthetic_impact(&[(flow_id, "01.00.000", ExchangeDirection::Output, "B", 4.0)]);
+        let mut summary = SourceSnapshotSummary {
+            process_count: 1,
+            process_max_modified_at_utc: "unchanged".to_owned(),
+            lifecyclemodel_count: 0,
+            lifecyclemodel_max_modified_at_utc: "none".to_owned(),
+            lifecyclemodel_payload_sha256: "empty".to_owned(),
+            flow_count: 1,
+            flow_max_modified_at_utc: "unchanged".to_owned(),
+            lciamethod_count: 1,
+            lciamethod_max_modified_at_utc: "same-after-concurrent-edit".to_owned(),
+            lcia_factor_sources_sha256: Some(
+                super::lcia_factor_sources_sha256(&[original]).unwrap(),
+            ),
+        };
+        let mut config = test_snapshot_build_config("tidas-reference-allocation-v5");
+        config.has_lcia = true;
+        let before = compute_source_fingerprint_from_summary(&summary, &config).unwrap();
+        summary.lcia_factor_sources_sha256 =
+            Some(super::lcia_factor_sources_sha256(&[changed]).unwrap());
+        assert_ne!(
+            before,
+            compute_source_fingerprint_from_summary(&summary, &config).unwrap()
+        );
+    }
+
+    #[test]
     fn native_proof_does_not_promote_a_lossy_static_factor_source() {
         use solver_worker::{
             calculation_evidence::LcaMethodFactorSourceSnapshot,
@@ -12333,6 +12475,7 @@ mod tests {
             flow_max_modified_at_utc: "none".to_owned(),
             lciamethod_count: 1,
             lciamethod_max_modified_at_utc: "none".to_owned(),
+            lcia_factor_sources_sha256: None,
         };
         let mut current = test_snapshot_build_config("tidas-reference-allocation-v5");
         current.has_lcia = true;
@@ -12786,6 +12929,7 @@ mod tests {
             flow_max_modified_at_utc: "unchanged".to_owned(),
             lciamethod_count: 25,
             lciamethod_max_modified_at_utc: "unchanged".to_owned(),
+            lcia_factor_sources_sha256: None,
         };
         let config = test_snapshot_build_config("tidas-reference-allocation-v5");
         // The pre-fix cache contract: source rows can remain byte-identical while
@@ -12821,6 +12965,7 @@ mod tests {
             flow_max_modified_at_utc: "2026-07-15T00:00:00.000000Z".to_owned(),
             lciamethod_count: 0,
             lciamethod_max_modified_at_utc: "disabled".to_owned(),
+            lcia_factor_sources_sha256: None,
         };
         let mut config = test_snapshot_build_config("tidas-reference-allocation-v4");
         let strict_hash = compute_source_fingerprint_from_summary(&summary, &config)
@@ -12878,6 +13023,7 @@ mod tests {
             flow_max_modified_at_utc: "2026-07-15T00:00:00.000000Z".to_owned(),
             lciamethod_count: 0,
             lciamethod_max_modified_at_utc: "disabled".to_owned(),
+            lcia_factor_sources_sha256: None,
         };
         let mut config = test_snapshot_build_config("tidas-reference-allocation-v5");
         let snapshot_hash = compute_source_fingerprint_from_summary(&summary, &config)
