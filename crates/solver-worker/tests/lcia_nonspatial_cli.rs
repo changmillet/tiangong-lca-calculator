@@ -479,12 +479,7 @@ fn nonspatial_review_does_not_remove_the_existing_single_direction_constraint() 
     assert_exit(&output, 2);
     let report = read_report(&path);
     assert_eq!(report["selection_qualified"], false);
-    assert!(
-        report["selection"]["selected"]
-            .as_array()
-            .unwrap()
-            .is_empty()
-    );
+    assert_eq!(report["selection"]["selected"], json!([]));
     assert!(
         report["selection"]["unsupported_direction_group_count"]
             .as_u64()
