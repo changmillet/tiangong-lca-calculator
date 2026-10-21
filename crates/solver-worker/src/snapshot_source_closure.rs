@@ -609,7 +609,7 @@ mod tests {
             Some(&BTreeSet::from([(flow, "01.00.000".to_owned())])),
         )
         .unwrap();
-        assert!(classified.extraction_issues.is_empty());
+        assert_eq!(classified.extraction_issues, [] as [Value; 0]);
         let flow_references = classified
             .references
             .iter()
@@ -709,7 +709,7 @@ mod tests {
             Some(&BTreeSet::from([(active, "01.00.000".to_owned())])),
         )
         .unwrap();
-        assert!(classified.references.is_empty());
+        assert_eq!(classified.references, [] as [ClassifiedSourceReference; 0]);
         assert_eq!(classified.extraction_issues.len(), 1);
         assert_eq!(
             classified.extraction_issues[0]["extractionIssueCode"],
