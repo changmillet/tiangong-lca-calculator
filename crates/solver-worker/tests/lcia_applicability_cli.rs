@@ -178,9 +178,9 @@ fn actual_binary_refuses_mixed_locations_in_the_existing_flow_version_axis() {
     assert_exit(&output, 2);
     let report = fixture.report();
     assert_eq!(report["selection_qualified"], false);
-    assert_eq!(report["selection"]["status"], "unsupported");
+    assert_eq!(report["selection"]["status"], "incomplete");
     assert_eq!(
-        report["selection"]["issue"]["code"],
+        report["selection"]["lcia_availability"]["categories"][0]["reasons"][0],
         "lcia_mixed_location_axis_unsupported"
     );
     assert_eq!(report["matrix_created"], false);
@@ -205,12 +205,13 @@ fn actual_binary_refuses_wrong_flow_version_and_unknown_old_location() {
         assert_exit(&output, 2);
         let report = fixture.report();
         assert_eq!(report["selection_qualified"], false);
+        assert_eq!(report["selection"]["status"], "incomplete");
         assert_eq!(
-            report["selection"]["issue"]["code"],
-            "lcia_factor_applicability_unsupported"
+            report["selection"]["lcia_availability"]["completeness"],
+            "unavailable"
         );
         assert_eq!(
-            report["selection"]["issue"]["details"]["reason"],
+            report["selection"]["unavailable"][0]["decision"]["reason"],
             expected_reason
         );
     }

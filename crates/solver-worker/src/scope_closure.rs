@@ -63,6 +63,10 @@ const VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R4: &str =
 // readers are available. Older recorded requests remain executable unchanged.
 const VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R5: &str =
     "scope-closure-validator-scanner.v1+cutoff-readiness-r5";
+// New requests must not inherit completed scans built before category availability and the
+// shipped source-bound defaults. Database chooses this revision at coordinated rollout.
+const VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R6: &str =
+    "scope-closure-validator-scanner.v1+cutoff-readiness-r6";
 pub const TIDAS_BATCH_PROTOCOL: &str = tidas_cli::TIDAS_BATCH_PROTOCOL;
 pub const TIDAS_BATCH_PROFILE: &str = tidas_cli::TIDAS_BATCH_PROFILE;
 pub const REFERENCE_EDGE_SCHEMA_VERSION: &str = "tidas.reference-edge.v1";
@@ -104,6 +108,7 @@ fn validate_validator_scanner_fingerprint(fingerprint: &str) -> anyhow::Result<(
         || fingerprint == VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R3
         || fingerprint == VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R4
         || fingerprint == VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R5
+        || fingerprint == VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R6
     {
         return Ok(());
     }
@@ -10348,6 +10353,7 @@ mod tests {
             VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R3,
             VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R4,
             "scope-closure-validator-scanner.v1+cutoff-readiness-r5",
+            "scope-closure-validator-scanner.v1+cutoff-readiness-r6",
         ] {
             assert!(validate_validator_scanner_fingerprint(fingerprint).is_ok());
         }

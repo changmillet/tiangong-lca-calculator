@@ -173,6 +173,14 @@ pub fn analyze_contribution_path(
     data: &ModelSparseData,
     solved: &SolveResult,
 ) -> anyhow::Result<ContributionPathArtifact> {
+    if let Some(availability) = snapshot_index
+        .lcia_applicability
+        .as_ref()
+        .and_then(|e| e.availability.as_ref())
+    {
+        availability.validate_axis(&snapshot_index.impact_map)?;
+        availability.require_category_available(usize::try_from(impact_index)?)?;
+    }
     let normalized = options.normalized();
     let x = solved
         .x

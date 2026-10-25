@@ -149,3 +149,9 @@ LCA solver/snapshot 使用 `worker_jobs(worker_queue=solver)` 后，前端仍然
 - 用户无法读取他人的 job/result。
 - 普通提交审核不会进入 worker 数值任务，也不会因上游完整性或矩阵稳定性被卡住。
 - 只有 Review Admin 能运行和查看质量诊断；`findings` / `not_evaluable` / `failed` 均不禁用 Review 操作。
+
+## LCIA 类别可用性
+
+当前结果遵循 `docs/lca-api-contract.md` 的 source-bound v2 与 `lcia.category-availability.v1`。类别轴保持完整；不可用类别的值为 `null` 并携带 `status/reasons`。UI 显示不可计算及原因，不能用 `Number(null)`、缺省零或旧 Process 保存值补齐。比较、分组汇总、贡献和排名不得把未知值当成零；某类不可用不妨碍 LCI 和其他类显示。
+
+`ready` / 私有 `preview_ready` 表示已有可读结果，不代表完整 LCIA。完整发布与完整类别汇总需要 `completeness=complete`。部分 Bundle v3 的 LCIA v2 行保留 null/status/reasons；CSV/XLSX 空值表示不可用，显式数值零仍是已知结果。历史版本只按原版本读取，新计算不得复用缺少当前策略/可用性证据的缓存。配套 Platform/Edge 的实现与验收属于各自仓库。

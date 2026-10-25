@@ -1,0 +1,686 @@
+{
+  "schema_version": "lcia.supported-source-policy.v1",
+  "policy_version": "lcia.applicability.source-bound.v2",
+  "source_repository": "tiangong-lca/data",
+  "source_commit": "367642d7994e0e75188e7e241fb2a4b85ffff62f",
+  "static_bundle_manifest_sha256": "e9b4e7f9a5125bb921efbffba9a4b50711f9ea982e22b500f35211884a0479c5",
+  "static_factor_manifest_sha256": "40ffd33323c9882dbd0b0d9c99982bad1752e311062231bcf1f490ee96f92e96",
+  "record_hash_kind": "sha256-original-factor-xml-bytes.v1",
+  "numeric_binding": "lcia.source-numeric-binding.v1: UUID|exactVersion|UPPERCASEdirection|f64BitsHexLowercase16, LF records in native order",
+  "methods": [
+    {
+      "method_id": "01500b74-7ffb-463e-9bd4-72f17c2263ff",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "01500b74-7ffb-463e-9bd4-72f17c2263ff",
+      "source_path": "tiangong_lca_data/lciamethods/01500b74-7ffb-463e-9bd4-72f17c2263ff.xml",
+      "source_xml_sha256": "537c9e6a898c67e2d803991a3de9507f2ec4756bcbe5b60a211b75687a331a23",
+      "method_document_sha256": "7b8ecb1374a97640dc467844dc1127f3d9d9e13c87009a2b9830458be08d7193",
+      "numeric_binding_sha256": "9875f6bf5181723c361d6dc7db54f10bf8742364b865a7bd65aa72f25cd7f3a8",
+      "metadata_sha256": "6e0d413ee20b0836e6335ae4fa5d8cbe2007a95684deb89bbb6ffffe81683283",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "01500b74-7ffb-463e-9bd4-72f17c2263ff.json.gz",
+      "asset_sha256": "4a0584f5825f380fab4d4950647329e709db4496651a78afffabea7cba983c75",
+      "decompressed_sha256": "f58f5f005a5a10537e77c57f2367bb959464a81f78241b5ec89c5898ad1204e4",
+      "decompressed_byte_size": 54314,
+      "factor_count": 398,
+      "generic_record_count": 398,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "05316e7a-b254-4bea-9cf0-6bf33eb5c630",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "05316e7a-b254-4bea-9cf0-6bf33eb5c630",
+      "source_path": "tiangong_lca_data/lciamethods/05316e7a-b254-4bea-9cf0-6bf33eb5c630.xml",
+      "source_xml_sha256": "252fe760308a14b647ba2a32e8e056f9d8434235be9f1bf3b0d452afe4548cd4",
+      "method_document_sha256": "e03a7be639bf81dd513526892845c3084569e0361f33db650ce5354e7ca236f1",
+      "numeric_binding_sha256": "7e13dd4b4dd929eba31b076a21316dedd80ff22286470411f686eb3da67e1158",
+      "metadata_sha256": "a05577516a4d00eb4e4ca1821fc3ebb8df5c7b35ed4a907b5cf52d45dfb3aa8d",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 5,
+      "asset": "05316e7a-b254-4bea-9cf0-6bf33eb5c630.json.gz",
+      "asset_sha256": "5328397de71f48d0e3b1014e5f30f531b1e0eed4c3f69633c3d61b14c762e490",
+      "decompressed_sha256": "5b5b7524fdd597b2640e9772809a86d2f8e4087fd8736acbb5ced09f376d01de",
+      "decompressed_byte_size": 10071298,
+      "factor_count": 79349,
+      "generic_record_count": 79164,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "14af9ca7-aa1d-4832-b1d9-ab05a06dcb12",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "14af9ca7-aa1d-4832-b1d9-ab05a06dcb12",
+      "source_path": "tiangong_lca_data/lciamethods/14af9ca7-aa1d-4832-b1d9-ab05a06dcb12.xml",
+      "source_xml_sha256": "f184b2f418e69aa51df17f4741674c82ff98c486d78450097140fb6e863ffe4a",
+      "method_document_sha256": "4b7e5c514ace1bd4b4f6182acfcbff897d44dab5a2f54ad63803e3653d43ba64",
+      "numeric_binding_sha256": "953ee2ea7ee22d0ea6bb9bd152f32d39874caf190cfb84a29f797c7ddfc088ef",
+      "metadata_sha256": "56a177f09400bf60f939b4fd4003d079b7f75c5f0401305296a06a65ff5059b0",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "14af9ca7-aa1d-4832-b1d9-ab05a06dcb12.json.gz",
+      "asset_sha256": "f2e3e553e4aea37203b3e21c0c6c3165c4691206cb355f3f41353e1dea6d4847",
+      "decompressed_sha256": "16c94eb7dad7330eb91acc55890f614a0e7bcfa5878cad8576936ddbf677de26",
+      "decompressed_byte_size": 4511,
+      "factor_count": 12,
+      "generic_record_count": 12,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "2299222a-bbd8-474f-9d4f-4dd1f18aea7c",
+      "method_version": "01.01.000",
+      "artifact_locator_id": "2299222a-bbd8-474f-9d4f-4dd1f18aea7c",
+      "source_path": "tiangong_lca_data/lciamethods/2299222a-bbd8-474f-9d4f-4dd1f18aea7c.xml",
+      "source_xml_sha256": "f8f23807aa68f005c4dacae10aff931c568e8a74a4faad6717438b2d2c20dc35",
+      "method_document_sha256": "dd8ac320e5f01233e42757744cdace787f759990576c5789b4559641872f2a42",
+      "numeric_binding_sha256": "3cc8bd0106305c77037343d591bad5307c1667d82c2735e8735d70021c3f7d30",
+      "metadata_sha256": "9190d7b3abdecffbbedca1ed34ba3246ca478953bcbdf94ec889b176a3132056",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "2299222a-bbd8-474f-9d4f-4dd1f18aea7c.json.gz",
+      "asset_sha256": "2fa1dd2bfadd05c9c77b262aa22a1a6352d62dd8e41e8e946dceb60eb7803917",
+      "decompressed_sha256": "7ad4713e3e1313c1ef6e14d5da56d8d779d3562d49798852943512995a95fcd7",
+      "decompressed_byte_size": 1735616,
+      "factor_count": 13717,
+      "generic_record_count": 13717,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "503699e0-eca9-4089-8bf8-e0f49c93e578",
+      "method_version": "01.01.000",
+      "artifact_locator_id": "9ec743ea-6b00-400d-a53b-61547a3fc03c",
+      "source_path": "tiangong_lca_data/lciamethods/9ec743ea-6b00-400d-a53b-61547a3fc03c.xml",
+      "source_xml_sha256": "84203510df0a0700e385cd1b08288859bff79d0127df02edb3b26882145d33c2",
+      "method_document_sha256": "b041612136d0a39d5fe7112016213b91a820c5aa8cdf4dbf4ecd3b012245479d",
+      "numeric_binding_sha256": "bd560108749be2b8889896a93f1bb3b3502d6174a76296ddbdf16150e1501849",
+      "metadata_sha256": "9447e0c572e4b27b18fd573acc78244ee4283b1518315ee7cef945b28edb6f7c",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "9ec743ea-6b00-400d-a53b-61547a3fc03c.json.gz",
+      "asset_sha256": "74ba62202b652fb0319dbc8d5e16db901e4c44f17687fdf29107c78cf0d9ad3e",
+      "decompressed_sha256": "91ec65631b52631247c0d5d8761e2f16ee496babbafae358b20c0443bd28e3a4",
+      "decompressed_byte_size": 1685075,
+      "factor_count": 13319,
+      "generic_record_count": 13319,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+      "source_path": "tiangong_lca_data/lciamethods/6209b35f-9447-40b5-b68c-a1099e3674a0.xml",
+      "source_xml_sha256": "c0fe31d3c045ae85b64bd85a3bfa41e1f246d664e8f8d463005f37dee003a5a8",
+      "method_document_sha256": "30a6dc4daa195fe2b342ce778015dc90851104d67368e76d2edcb7709993f0d5",
+      "numeric_binding_sha256": "555f10aa25085137dec4d55444de487cccc2b80611af35b668ec3375473cb5a2",
+      "metadata_sha256": "f6c73e157e006f4f4ad903bcd3eb30a7a9edfd48f0d87f4b0a4993ec8d4cb34e",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "6209b35f-9447-40b5-b68c-a1099e3674a0.json.gz",
+      "asset_sha256": "55ef1d9331a807b5d8a5359cc543b7075634bc34dd06c42253d47ac3605b0084",
+      "decompressed_sha256": "27429d335bf96361e5de481887effa9628dd05db6ccdc0ba2a06cb239daaf8e4",
+      "decompressed_byte_size": 140364,
+      "factor_count": 1099,
+      "generic_record_count": 1099,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "706261af-a357-4cc0-a50a-f3033fcbd556",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "706261af-a357-4cc0-a50a-f3033fcbd556",
+      "source_path": "tiangong_lca_data/lciamethods/706261af-a357-4cc0-a50a-f3033fcbd556.xml",
+      "source_xml_sha256": "a3d8a39e8e0bacfe7f2877b2bf1886cb733b4124cddaf362a0a5e285311878e1",
+      "method_document_sha256": "f69bb78182b52d3143dd6098df7d15ed46c1fbd8755efe1bd12851fa2bc76784",
+      "numeric_binding_sha256": "d5aab66f4c9deed74a94bed9252703b288cd65d4cceeeed0b7940b32a8b926ab",
+      "metadata_sha256": "8f1a4158256cdc81bee0abbf18e7a491add15edb610ec254434685b965d87e80",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "706261af-a357-4cc0-a50a-f3033fcbd556.json.gz",
+      "asset_sha256": "bd0639bc9f44907f28edacdb0712365a2a5f984d50cd844bbf9eb5496449ec04",
+      "decompressed_sha256": "adf9f46eec2aac4e47d38ce1824754b52c4f81ee3e52b08b9daca333952e962b",
+      "decompressed_byte_size": 4613,
+      "factor_count": 13,
+      "generic_record_count": 13,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8",
+      "source_path": "tiangong_lca_data/lciamethods/7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8.xml",
+      "source_xml_sha256": "d932a60f1615945df21b823f19321d80427a6eadb1b3e816f40153726b39993f",
+      "method_document_sha256": "65a25c9a70e633db3893962ea77444475b63c402fb5a988e5eb7b8d5d0ef56dd",
+      "numeric_binding_sha256": "49cb389feefe036e0a722831da6a633ef7878e6c2ada99e251f8bc5976f9affd",
+      "metadata_sha256": "36935dfd0000f4145f0f9f0ea3756dfc8e210611fd978fb083b4f3a90e00d678",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 5,
+      "asset": "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8.json.gz",
+      "asset_sha256": "15939a3f724a5f1157b37b21be2571dca4f3a0b3c8bf53227c7dfbf483069411",
+      "decompressed_sha256": "2b67dd711d341bc4acda5508dafc711cd7919b88e74ffc95c7d0004ba68e8fd1",
+      "decompressed_byte_size": 5558488,
+      "factor_count": 43816,
+      "generic_record_count": 43631,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "7fce5b3a-66b8-4ce1-91e8-a925aee1f186",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "7fce5b3a-66b8-4ce1-91e8-a925aee1f186",
+      "source_path": "tiangong_lca_data/lciamethods/7fce5b3a-66b8-4ce1-91e8-a925aee1f186.xml",
+      "source_xml_sha256": "7925c8ad33f804723fee7a808d8bf98c8ecdca9b47a5d6f732e415137ac58991",
+      "method_document_sha256": "4ff2896b4da9849873ee96bf5289659aa985c6b48987dea1f8e8763bc561ce50",
+      "numeric_binding_sha256": "70341a29fd54d790956b76cc14acfe401f5ae7b9f9f78b2ee87163cf3e0bdadb",
+      "metadata_sha256": "4c89f22c6db126065f42fae7170bc8eb9d4c1fc9a583ca675786be3fd79455de",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "7fce5b3a-66b8-4ce1-91e8-a925aee1f186.json.gz",
+      "asset_sha256": "747beef514add04ddec8358a09dccda53e88fa5f9b92cb6815ca0d17ce648db6",
+      "decompressed_sha256": "96f55611eede92b7c320d24aa27abbcc485eef424260e786acda3e3ede57f0fa",
+      "decompressed_byte_size": 137223,
+      "factor_count": 1074,
+      "generic_record_count": 1074,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "8c3141e9-1f15-43b5-bff2-182e49893a46",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "8c3141e9-1f15-43b5-bff2-182e49893a46",
+      "source_path": "tiangong_lca_data/lciamethods/8c3141e9-1f15-43b5-bff2-182e49893a46.xml",
+      "source_xml_sha256": "51caa1ad49ac65822714fca432c34ec032c90101afca6cdaeccfec3ab50e10e7",
+      "method_document_sha256": "492f156d76486671f82bccc26d5f7ca49971d5c728b68ce8689d1b74ee6e247d",
+      "numeric_binding_sha256": "e2bb437897668a84b12c098d4ede0620ffffa6104ea0affe00c9d4ce7bcf51c4",
+      "metadata_sha256": "759b5625041bb23846c2a63dbd26fec34deec3ff9ce4efaf5430ee077e8cb659",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "8c3141e9-1f15-43b5-bff2-182e49893a46.json.gz",
+      "asset_sha256": "5b822e4af3618ac1142c43a58cf11dfefb3ade0c5d80644316190c84c469a89c",
+      "decompressed_sha256": "87a15a565e88dad1a61e580508f1d4e4f34df35c6f002bddab9f60f34c092c4b",
+      "decompressed_byte_size": 5009944,
+      "factor_count": 39499,
+      "generic_record_count": 39499,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85",
+      "source_path": "tiangong_lca_data/lciamethods/9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85.xml",
+      "source_xml_sha256": "fee7f45542a256f03faa73b406da8d40e7042be4c3719f24e0f0fdb55feace98",
+      "method_document_sha256": "98395bc6345af29df6e3f431d83d96f4a9bbed950b4f1c6f22b34128614a775b",
+      "numeric_binding_sha256": "4bc459440c7b384ea83c06094b20cf1643aa3f410a105f2f3e16f52fa63ad345",
+      "metadata_sha256": "6914e76a172fdeff134b69498c4d2361cf010660594e7254d1a3c89c049b4351",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 5,
+      "asset": "9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85.json.gz",
+      "asset_sha256": "9ec60f1b9aa12fe7980fc91fceabd9be34afcba28d7856b253f1572f32560e8f",
+      "decompressed_sha256": "83fdbc2de60cc290584981858eb288d0762d4c5cb9aca4806ece260dff4f222f",
+      "decompressed_byte_size": 548034,
+      "factor_count": 4317,
+      "generic_record_count": 4132,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "b2ad6110-c78d-11e6-9d9d-cec0c932ce01",
+      "method_version": "01.00.010",
+      "artifact_locator_id": "b2ad6110-c78d-11e6-9d9d-cec0c932ce01",
+      "source_path": "tiangong_lca_data/lciamethods/b2ad6110-c78d-11e6-9d9d-cec0c932ce01.xml",
+      "source_xml_sha256": "d9b4f8480a8e916e37b1403fc70e68241edbe71098e26cadc41e5f5caaa9fb93",
+      "method_document_sha256": "c9254cb5b18153fcfd98a48e52a9ac3dd32ea371b25398f6e3f71cee104dd86e",
+      "numeric_binding_sha256": "01e431e2ebc29de4a3c693dd5c9bb626e2718ae0c4c6e159e59d263396d94112",
+      "metadata_sha256": "877a9a633a13bdc2ab00d0ada5317ebc37857675d159bea24486fcfa7fe45c45",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "b2ad6110-c78d-11e6-9d9d-cec0c932ce01.json.gz",
+      "asset_sha256": "5af08895549d5392afd252148d95a90d60c4971349d2053f387a03011ffacb13",
+      "decompressed_sha256": "8896cd04e3a18dcd51c1709faa5365a49404cdad2a3afae919bdc049abf6fc0d",
+      "decompressed_byte_size": 3551,
+      "factor_count": 6,
+      "generic_record_count": 6,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "b2ad6494-c78d-11e6-9d9d-cec0c932ce01",
+      "method_version": "01.00.010",
+      "artifact_locator_id": "b2ad6494-c78d-11e6-9d9d-cec0c932ce01",
+      "source_path": "tiangong_lca_data/lciamethods/b2ad6494-c78d-11e6-9d9d-cec0c932ce01.xml",
+      "source_xml_sha256": "903dc1764187342f518c5fc00e6519cd0082cfe207569592f77adadb18568b06",
+      "method_document_sha256": "8c07a95ad865012d38d347431dec6aa863842a9520d56fb9cc74ccf6b0a5c87e",
+      "numeric_binding_sha256": "5a313694349dc6bb6967a37e02deb63233dc61c97355459e70126dfd28815d08",
+      "metadata_sha256": "0258aa62ca4bf7cbbe7dbda66878987d0cd5360ca9a90b7c8e3e98b40b208a39",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "b2ad6494-c78d-11e6-9d9d-cec0c932ce01.json.gz",
+      "asset_sha256": "77f1c63d86dd067b2bccd0f87e2eb1ac1299423aab7be00611a889aff63d79f8",
+      "decompressed_sha256": "a9416d7b3f3ea9a06a24d9b8a09a968b956cd445c1f5b66afa285f55a5ef509f",
+      "decompressed_byte_size": 8759,
+      "factor_count": 48,
+      "generic_record_count": 48,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "b2ad66ce-c78d-11e6-9d9d-cec0c932ce01",
+      "method_version": "03.00.014",
+      "artifact_locator_id": "b2ad66ce-c78d-11e6-9d9d-cec0c932ce01",
+      "source_path": "tiangong_lca_data/lciamethods/b2ad66ce-c78d-11e6-9d9d-cec0c932ce01.xml",
+      "source_xml_sha256": "f06fec854a386ecd9c2d6b2de3d735b341b9f5ac68990764a3e1fd84e91268d2",
+      "method_document_sha256": "c28f8a273a63e60cec331264dafe4ff4e45fe4e9ba7e042193c8be590ef959dd",
+      "numeric_binding_sha256": "7e30eae76d50869aae2daf7a5b09a3c15baad0318e57e4fa8dd71a38d4339ea9",
+      "metadata_sha256": "302fe992792dc26d8c873fad08093c473ddc52e30d8565d5fdecf28063a48d56",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 11,
+      "asset": "b2ad66ce-c78d-11e6-9d9d-cec0c932ce01.json.gz",
+      "asset_sha256": "e42ef242e188ee534ed2082604c5e41fd9327a911ca1f5dfadb332d2906a060f",
+      "decompressed_sha256": "ee8cfe7bc3123be3baa7b6ee332141b8e3776e1a49c8fdab0a156dbb793103ad",
+      "decompressed_byte_size": 294194,
+      "factor_count": 2310,
+      "generic_record_count": 0,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "b2ad6890-c78d-11e6-9d9d-cec0c932ce01",
+      "method_version": "01.00.010",
+      "artifact_locator_id": "b2ad6890-c78d-11e6-9d9d-cec0c932ce01",
+      "source_path": "tiangong_lca_data/lciamethods/b2ad6890-c78d-11e6-9d9d-cec0c932ce01.xml",
+      "source_xml_sha256": "94f959328235d7d68b6febea36810ab29104a14f1a1be57ae9e61c58ccb47149",
+      "method_document_sha256": "fcc88ed57a04b2b74fb6e6a3e88efa4ed6a30e7cebbaf2e9b8ca9846cf98a8be",
+      "numeric_binding_sha256": "007befa960fbc969965554ee66155fdebdf37e65ef18684d4947457424ad9a15",
+      "metadata_sha256": "37c323378cc71b75a9826877257375d274f47e010ba354af800c36edc6a4b0fe",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 171,
+      "asset": "b2ad6890-c78d-11e6-9d9d-cec0c932ce01.json.gz",
+      "asset_sha256": "e269a2084e65057584ec208442627e7409b89daf01f852fd204c9596aea6719d",
+      "decompressed_sha256": "2a12bfe77e621b8dbc5b1ce20c56abc3323244d7a0b08cd0f2f827909aa76d39",
+      "decompressed_byte_size": 4500456,
+      "factor_count": 36423,
+      "generic_record_count": 0,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "b53ec18f-7377-4ad3-86eb-cc3f4f276b2b",
+      "method_version": "01.00.010",
+      "artifact_locator_id": "b53ec18f-7377-4ad3-86eb-cc3f4f276b2b",
+      "source_path": "tiangong_lca_data/lciamethods/b53ec18f-7377-4ad3-86eb-cc3f4f276b2b.xml",
+      "source_xml_sha256": "15eff61b234c7564bbd41b6dd40ed0dc6dfc0d5c1704f89d143f3dc90e82d523",
+      "method_document_sha256": "b5e846012a8f384130b28a5d9ce6b6ffbc5be763280d91c8003da17a48fe90e6",
+      "numeric_binding_sha256": "c510994876e8d4a905d89acce7e4102ecde51df798f18c8ddd66120bfb7fb8d1",
+      "metadata_sha256": "88b9234076e9c38dc1c82a726edbbbf0c68d530358c4f72774a57f0951c67f25",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "b53ec18f-7377-4ad3-86eb-cc3f4f276b2b.json.gz",
+      "asset_sha256": "9e64d747d36669a156b11228660c584195abee87bcfa8244845df596e09a6a8c",
+      "decompressed_sha256": "bf1bf02cfcfe4cc79c47a9bb0d5ea81e363cfc4e8e764bb48cae5219741d2541",
+      "decompressed_byte_size": 9620,
+      "factor_count": 29,
+      "generic_record_count": 29,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "b5c602c6-def3-11e6-bf01-fe55135034f3",
+      "method_version": "02.00.011",
+      "artifact_locator_id": "b5c602c6-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c602c6-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "8c2168e142ac2c46d49e3f3265d1d252256f7c8cb63970f30350dcce2307f332",
+      "method_document_sha256": "f130ff5ae4ec33de4b1cfd01996b43d3d93124631f11e127c0f937c634917e7a",
+      "numeric_binding_sha256": "e2648bc46e18a8e305bb443ed1ec092b1c86beedcd9d036aff235edc77c2d5ce",
+      "metadata_sha256": "4c5a4a32c02f66192c746f60dce51498a88c6008254b5e79d2936687d14ee3cb",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 25,
+      "asset": "b5c602c6-def3-11e6-bf01-fe55135034f3.json.gz",
+      "asset_sha256": "1fead473328d541a6a7a0612dbf0d19cf0a1c6b68e898eb4dacdadaaa01795e4",
+      "decompressed_sha256": "136f69f9bf4da08ebec7400e469c6ea09ba0b8c3c5f911eab3823790dd25609c",
+      "decompressed_byte_size": 127844,
+      "factor_count": 983,
+      "generic_record_count": 58,
+      "reviewed_comment_count": 306
+    },
+    {
+      "method_id": "b5c610fe-def3-11e6-bf01-fe55135034f3",
+      "method_version": "02.01.000",
+      "artifact_locator_id": "b5c610fe-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c610fe-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "273c43df66bfd12f7884e1c3e19d23daade5af5b96bd1d7c68802d87f7755f4a",
+      "method_document_sha256": "1fb4f51ca4dae88d09049ea3bb830d61e3f1179f71f07b6a9aa9b5ffd73ab392",
+      "numeric_binding_sha256": "dbe5acee5fa5a147b5b1e1aa824adf0ad87f40a7675e19b58f9da57e35a91a03",
+      "metadata_sha256": "2a6217a8a9d65bc943c1f3234b9525d4055b47ac347288839b80002a1caeac14",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        },
+        {
+          "id": "native-lotos-euros-european-average",
+          "uri": "https://github.com/tiangong-lca/data",
+          "locator": "LCIAMethodInformation/impactModel/modelDescription and modellingAndValidation/useAdviceForDataSet",
+          "scope": "LOTOS-EUROS model averages over 14000 grid cells to define European factors"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "b5c610fe-def3-11e6-bf01-fe55135034f3.json.gz",
+      "asset_sha256": "712028ecec900f217709c6f9fa824887be34c9c934e8a0253577f9b52fd7c8b6",
+      "decompressed_sha256": "387a52dc304624c8f9feb1b2f74710ccd1c9e7d23d33c7ae96c75d93b4b27af9",
+      "decompressed_byte_size": 180671,
+      "factor_count": 1401,
+      "generic_record_count": 681,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "b5c611c6-def3-11e6-bf01-fe55135034f3",
+      "method_version": "01.04.000",
+      "artifact_locator_id": "b5c611c6-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c611c6-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "1a09e9e8533cc6f1027f260c2672ca6f8dd231618fe81939ed1fc22d5e066f8f",
+      "method_document_sha256": "29fb445facaeb1ef66101b8149dd40fec0378b5ef2672b992209fb752ef6e3a6",
+      "numeric_binding_sha256": "e271fa4b92117ef74b239b9b30246f9c9a9cbbcc68602efdff08a420fa87e4ce",
+      "metadata_sha256": "815faac502bcf7dedf15368383a0d1872846b95e358549b70285e03ce3d8a931",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        },
+        {
+          "id": "jrc-supporting-cf-2018-section-4.7",
+          "uri": "https://eplca.jrc.ec.europa.eu/permalink/TR_SupportingCF_FINAL.pdf",
+          "locator": "section 4.7, Table 9, PDF page 23",
+          "scope": "European generic factors alongside country factors; no global-coverage claim"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "b5c611c6-def3-11e6-bf01-fe55135034f3.json.gz",
+      "asset_sha256": "cfa851bcab2aa0e695d6295e2d85aae117c2319fe4acea9814bdc60cf1bdd548",
+      "decompressed_sha256": "514133ab041a3e2bece5695609ea3edfe2c50707073cec34f77b7931bb79e838",
+      "decompressed_byte_size": 123603,
+      "factor_count": 935,
+      "generic_record_count": 35,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "b5c614d2-def3-11e6-bf01-fe55135034f3",
+      "method_version": "01.02.009",
+      "artifact_locator_id": "b5c614d2-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c614d2-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "72f1187a0682e186bdedf74f60fe99a1e1dafa7469141af74dfe4ea21c296992",
+      "method_document_sha256": "34cca6105734559b121557bcebd0de9c0aeb866763ada494df85b8b9b3bc85fa",
+      "numeric_binding_sha256": "2567bb91d33beaecc2c14fd97a6c5a79a5d91013e0ffab86eedbd77b3afb99f6",
+      "metadata_sha256": "d954791ec787c278fa658e668eb8704e99b3c5b80d13c94877f4a29cea48c994",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        },
+        {
+          "id": "jrc-supporting-cf-2018-section-4.8",
+          "uri": "https://eplca.jrc.ec.europa.eu/permalink/TR_SupportingCF_FINAL.pdf",
+          "locator": "section 4.8, PDF page 24",
+          "scope": "Site-independent nitrogen-compound factors alongside country factors; European model scope retained"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "b5c614d2-def3-11e6-bf01-fe55135034f3.json.gz",
+      "asset_sha256": "42c558dc6e0b96abb2127babd6fc7d91d28184b16fe2c0c97c19c3d23f9b9907",
+      "decompressed_sha256": "1f6175bfb588caee7bca85b55774438ebe20374f21a2ce51caf0668a1855bca9",
+      "decompressed_byte_size": 79355,
+      "factor_count": 575,
+      "generic_record_count": 35,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "b5c619fa-def3-11e6-bf01-fe55135034f3",
+      "method_version": "02.00.010",
+      "artifact_locator_id": "b5c619fa-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c619fa-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "a681b4b9b2d853697e2e044719d43cb7eaa6b8e185af8b00bb277aa92e735301",
+      "method_document_sha256": "57347348355937f36074c233e9713718f6e469560d3eece8292f511b0c57a017",
+      "numeric_binding_sha256": "3e55a76c8c56001d81b1a15cac47fc810e42f860633a82aa0c7bf9e605af9e1b",
+      "metadata_sha256": "4a0107a4f5ac6c046d60600be812185e051f1909d835e20ac7cbd06a960f90a9",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        },
+        {
+          "id": "native-marine-averaged-factor-model",
+          "uri": "https://github.com/tiangong-lca/data",
+          "locator": "LCIAMethodInformation/dataSetInformation/common:generalComment and modellingAndValidation/useAdviceForDataSet",
+          "scope": "European averaged characterization factors from country-dependent assessments"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "b5c619fa-def3-11e6-bf01-fe55135034f3.json.gz",
+      "asset_sha256": "537b44e38c22ef7f84c8f99c2308dba9fda5ceb3bf7daa3d784620b1fbc205d6",
+      "decompressed_sha256": "12f6a569ef74c361ac6a1a7c4ec6bc9b888c3ba71a9248d9ee26c2a6ba91fe6a",
+      "decompressed_byte_size": 80507,
+      "factor_count": 590,
+      "generic_record_count": 50,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "b5c629d6-def3-11e6-bf01-fe55135034f3",
+      "method_version": "02.00.012",
+      "artifact_locator_id": "b5c629d6-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c629d6-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "e64477a1b282ce934a9fbeb456601589fca88c3d160289dc9680d4f1d261ead4",
+      "method_document_sha256": "c0e2ee3f022092bb3e5fa4672121daa840ef84cad642e8308b9902f82f0e70a3",
+      "numeric_binding_sha256": "9ba534612fd616bc92515449b90e6745f19ca62ecc2642dee2a469412c713d59",
+      "metadata_sha256": "ea2de1e6a624b51dfe2253d226077c61e5b31b9269bedfb657f5ddb1a9f666ae",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "b5c629d6-def3-11e6-bf01-fe55135034f3.json.gz",
+      "asset_sha256": "23b43f6db606570ecb6c82b4574e895b8a73ac9ab11216177f2aec63e542c159",
+      "decompressed_sha256": "afd03a5a735e014d7c3284ba5990eb25b7de72af3296c492f14696e6226a0ad6",
+      "decompressed_byte_size": 20587,
+      "factor_count": 124,
+      "generic_record_count": 124,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "b5c632be-def3-11e6-bf01-fe55135034f3",
+      "method_version": "01.00.011",
+      "artifact_locator_id": "b5c632be-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c632be-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "69f7a44f3e0682e11c882d77936b5f8f79951795ac775e3e99ea975e14e7c59e",
+      "method_document_sha256": "29cd77619dedec88345c6003a7ce7c966ccf44558d16c99459da80e961f2c452",
+      "numeric_binding_sha256": "c3aa39725fdcd7e3fb24cde11328b4f3d1eaa80d3c127cd70442a07a63a2cb7a",
+      "metadata_sha256": "e3e2a2c4ff55ea217adbc34a254fc687c0cad2e266a5f22781442e35849e3451",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "b5c632be-def3-11e6-bf01-fe55135034f3.json.gz",
+      "asset_sha256": "3422799bfee44d8aba0913e8b02d4b3a75d21c52f05d0112a7e4dabf47c274ae",
+      "decompressed_sha256": "e109f027c840741dbc159670b443bf68f054a93ca341d357aa3b8279a9ddac65",
+      "decompressed_byte_size": 28871,
+      "factor_count": 189,
+      "generic_record_count": 189,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "dacd48b5-4da5-49aa-aff4-cd5f5495c037",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "dacd48b5-4da5-49aa-aff4-cd5f5495c037",
+      "source_path": "tiangong_lca_data/lciamethods/dacd48b5-4da5-49aa-aff4-cd5f5495c037.xml",
+      "source_xml_sha256": "6ddbbb5a67a33caa8cbd3f6d7dc46bdce71e98830bcc73d6596a2f3b250ef26d",
+      "method_document_sha256": "65eadf44feebc4000e82a738c30fe56d3ef395fc6baf23ee80f046e36f1f76a8",
+      "numeric_binding_sha256": "065e74d883dfa7ff5f541cd7df43c4940974b67f87a704459d19aca22fb5c527",
+      "metadata_sha256": "7ea5030ac087a10803ce010996df77d79cd45c2f43e11c06555fdf63d4c306da",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 5,
+      "asset": "dacd48b5-4da5-49aa-aff4-cd5f5495c037.json.gz",
+      "asset_sha256": "f2c6cb5eaf536d29c9354a3fe96deca469965888b5ca86c7eb33189e88ff1868",
+      "decompressed_sha256": "8f7ee972df16ad0fe08955918a97c729500ecd9f1ef139326086b67e5c7c0304",
+      "decompressed_byte_size": 785424,
+      "factor_count": 6198,
+      "generic_record_count": 6013,
+      "reviewed_comment_count": 0
+    },
+    {
+      "method_id": "fd530f00-9325-424a-92ef-aaac67922fd9",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "fd530f00-9325-424a-92ef-aaac67922fd9",
+      "source_path": "tiangong_lca_data/lciamethods/fd530f00-9325-424a-92ef-aaac67922fd9.xml",
+      "source_xml_sha256": "9a5a23ee80ff03a673d5aa626db693a6a7554192495103bb553f0ef90d9b914a",
+      "method_document_sha256": "b657de7746cd0889b034250336213ba2d8d483d19deef047689ceadbb0ef87f0",
+      "numeric_binding_sha256": "525ce8af7ff287aaeaeffb79ffd2fcf9797bf31187da53bfc8bd902040b71a26",
+      "metadata_sha256": "80d739f40693956b48e9ea1bcf47b9d0ef7fdd56bff61ab7eab3e140562704c3",
+      "basis": [
+        {
+          "id": "ilcd-optional-factor-location",
+          "uri": "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html",
+          "locator": "location [0..1], used only by methods using location information",
+          "scope": "Source-specific nonregional families, preserving the method model and geography"
+        }
+      ],
+      "regional_default_unresolved_family_count": 0,
+      "asset": "fd530f00-9325-424a-92ef-aaac67922fd9.json.gz",
+      "asset_sha256": "c8399d960a50ce189e1cd42d86ae6c3a91eacee028675fc133e1a815f63f9222",
+      "decompressed_sha256": "5769e789b4004fe7f09fbdf0e21215e22e7a0db854af53632eeaf6cf01231c34",
+      "decompressed_byte_size": 9283911,
+      "factor_count": 73151,
+      "generic_record_count": 73151,
+      "reviewed_comment_count": 0
+    }
+  ]
+}

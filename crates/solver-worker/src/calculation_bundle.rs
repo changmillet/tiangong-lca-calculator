@@ -37,6 +37,7 @@ use crate::{
         CompiledReleaseSourceDataset, CompiledReleaseSourceDatasetRole,
         CompiledReleaseSourceDatasetType,
     },
+    lcia_availability::{CategoryStatus, LciaAvailability},
     portal_lcia_projection::{
         PortalImpactSource, PortalLciaShard, PortalLocalizedText, PortalProcessSource,
         PreparedPortalLciaProjection, prepare_portal_lcia_projection,
@@ -47,6 +48,7 @@ use crate::{
 };
 
 pub const CALCULATION_BUNDLE_FORMAT: &str = "tiangong.calculation-bundle.v2";
+pub const PARTIAL_CALCULATION_BUNDLE_FORMAT: &str = "tiangong.calculation-bundle.v3";
 pub const CALCULATION_BUNDLE_MANIFEST_CONTENT_TYPE: &str = "application/json";
 pub const CALCULATION_BUNDLE_CHUNK_PROCESS_COUNT: usize = 256;
 const CALCULATION_BUNDLE_GZIP_CONTENT_TYPE: &str = "application/gzip";
@@ -120,6 +122,39 @@ pub struct CalculationBundleManifest {
     pub artifacts: Vec<CalculationBundleArtifact>,
     pub calculation_evidence: Value,
     pub hashes: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lcia_availability: Option<LciaAvailability>,
+}
+
+impl CalculationBundleManifest {
+    pub fn validate_lcia_contract(&self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            matches!(
+                self.schema_version.as_str(),
+                CALCULATION_BUNDLE_FORMAT | PARTIAL_CALCULATION_BUNDLE_FORMAT
+            ),
+            "calculation_bundle_schema_unsupported"
+        );
+        match &self.lcia_availability {
+            Some(availability) => {
+                availability.validate()?;
+                anyhow::ensure!(
+                    availability.categories.len() == self.snapshot.impact_count,
+                    "calculation_bundle_availability_axis_mismatch"
+                );
+                anyhow::ensure!(
+                    (self.schema_version == PARTIAL_CALCULATION_BUNDLE_FORMAT)
+                        != availability.is_complete(),
+                    "calculation_bundle_completeness_schema_mismatch"
+                );
+            }
+            None => anyhow::ensure!(
+                self.schema_version == CALCULATION_BUNDLE_FORMAT,
+                "partial_bundle_availability_missing"
+            ),
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -257,7 +292,7 @@ pub async fn upload_built_calculation_bundle(
         )
         .await?;
     Ok(CalculationBundleArtifactRef {
-        schema_version: CALCULATION_BUNDLE_FORMAT.to_owned(),
+        schema_version: bundle.manifest.schema_version.clone(),
         calculation_id: bundle.calculation_id,
         bundle_content_hash: bundle.bundle_content_hash.clone(),
         manifest_url: uploaded.object_url,
@@ -385,7 +420,11 @@ struct OwnedInventoryRecord {
 struct LciaRecord {
     process_index: usize,
     method: GlobalReference,
-    mean_amount: f64,
+    mean_amount: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    status: Option<CategoryStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    reasons: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -644,6 +683,17 @@ impl CalculationBundleWriter {
         };
 
         let impacts = validate_impacts(&snapshot_index.impact_map)?;
+        if let Some(availability) = &config.lcia_availability {
+            availability.validate_axis(&snapshot_index.impact_map)?;
+            anyhow::ensure!(
+                snapshot_index
+                    .lcia_applicability
+                    .as_ref()
+                    .and_then(|e| e.availability.as_ref())
+                    == Some(availability),
+                "lcia_availability_snapshot_binding_mismatch"
+            );
+        }
         let calculation_evidence = snapshot_index
             .calculation_evidence
             .as_ref()
@@ -708,6 +758,9 @@ impl CalculationBundleWriter {
         &mut self,
         release_evidence: &CompiledReleaseEvidence,
     ) -> anyhow::Result<()> {
+        if let Some(availability) = &self.config.lcia_availability {
+            availability.require_complete()?;
+        }
         if self.portal_projection_axes.is_some() {
             return Err(anyhow::anyhow!(
                 "Portal LCIA projection preparation was enabled more than once"
@@ -822,8 +875,27 @@ impl CalculationBundleWriter {
             }
 
             for impact in &self.impacts {
-                let mean_amount = h[impact.index];
-                ensure_finite(mean_amount, "LCIA result")?;
+                let category = self
+                    .config
+                    .lcia_availability
+                    .as_ref()
+                    .map(|availability| availability.category(impact.index))
+                    .transpose()?;
+                let unavailable =
+                    category.is_some_and(|entry| entry.status == CategoryStatus::Unavailable);
+                let mean_amount = if unavailable {
+                    None
+                } else {
+                    Some(h[impact.index])
+                };
+                if let Some(amount) = mean_amount {
+                    ensure_finite(amount, "LCIA result")?;
+                }
+                let partial = self
+                    .config
+                    .lcia_availability
+                    .as_ref()
+                    .is_some_and(|a| !a.is_complete());
                 lcia_writer.write(&LciaRecord {
                     process_index,
                     method: GlobalReference {
@@ -831,6 +903,9 @@ impl CalculationBundleWriter {
                         version: impact.version.clone(),
                     },
                     mean_amount,
+                    status: partial.then(|| category.expect("partial category axis").status),
+                    reasons: partial
+                        .then(|| category.expect("partial category axis").reasons.clone()),
                 })?;
             }
         }
@@ -845,7 +920,16 @@ impl CalculationBundleWriter {
         );
         self.push_finished_ndjson(
             "lcia",
-            "tiangong.calculation-bundle.lcia.v1",
+            if self
+                .config
+                .lcia_availability
+                .as_ref()
+                .is_some_and(|a| !a.is_complete())
+            {
+                "tiangong.calculation-bundle.lcia.v2"
+            } else {
+                "tiangong.calculation-bundle.lcia.v1"
+            },
             lcia_path,
             first_process_index,
             last_process_index,
@@ -879,9 +963,20 @@ impl CalculationBundleWriter {
         };
         let process_count = self.processes.len();
         let impact_count = self.impacts.len();
+        let (schema_version, contract_version) = if self
+            .config
+            .lcia_availability
+            .as_ref()
+            .is_some_and(|availability| !availability.is_complete())
+        {
+            (PARTIAL_CALCULATION_BUNDLE_FORMAT, "2.0.0")
+        } else {
+            (CALCULATION_BUNDLE_FORMAT, CALCULATION_CONTRACT_VERSION)
+        };
         let mut manifest = CalculationBundleManifest {
-            schema_version: CALCULATION_BUNDLE_FORMAT.to_owned(),
-            calculation_contract_version: CALCULATION_CONTRACT_VERSION.to_owned(),
+            schema_version: schema_version.to_owned(),
+            calculation_contract_version: contract_version.to_owned(),
+            lcia_availability: self.config.lcia_availability.clone(),
             calculation_id: self.calculation_id,
             bundle_content_hash: "0".repeat(64),
             scope: CalculationBundleScope {
@@ -1702,6 +1797,20 @@ fn lcia_row(
     processes: &[ReleaseProcessRecord],
     impacts: &BTreeMap<(Uuid, String), &ReleaseImpact>,
 ) -> anyhow::Result<Vec<String>> {
+    anyhow::ensure!(
+        match record.status {
+            Some(CategoryStatus::Unavailable) =>
+                record.mean_amount.is_none()
+                    && record
+                        .reasons
+                        .as_ref()
+                        .is_some_and(|reasons| !reasons.is_empty()),
+            Some(CategoryStatus::Available) | None =>
+                record.mean_amount.is_some_and(f64::is_finite)
+                    && record.reasons.as_deref().unwrap_or_default().is_empty(),
+        },
+        "lcia_record_availability_invalid"
+    );
     let process = processes.get(record.process_index).ok_or_else(|| {
         anyhow::anyhow!("LCIA export process index is outside the certified axis")
     })?;
@@ -1720,11 +1829,21 @@ fn lcia_row(
         impact.key.clone(),
         impact.name.clone(),
         impact.unit.clone(),
-        record.mean_amount.to_string(),
+        record
+            .mean_amount
+            .map(|value| value.to_string())
+            .unwrap_or_default(),
+        if record.status == Some(CategoryStatus::Unavailable) {
+            "unavailable"
+        } else {
+            "available"
+        }
+        .to_owned(),
+        record.reasons.as_deref().unwrap_or_default().join(";"),
     ])
 }
 
-const LCIA_EXPORT_HEADERS: [&str; 12] = [
+const LCIA_EXPORT_HEADERS: [&str; 14] = [
     "process_index",
     "process_uuid",
     "process_version",
@@ -1737,6 +1856,8 @@ const LCIA_EXPORT_HEADERS: [&str; 12] = [
     "lcia_method_name",
     "result_unit",
     "mean_amount",
+    "status",
+    "reasons",
 ];
 
 const LCI_EXPORT_HEADERS: [&str; 9] = [
@@ -1951,7 +2072,7 @@ fn write_xlsx_lcia_row<W: Write>(
     write!(writer, "<row r=\"{row}\">")?;
     for (column, value) in values.iter().enumerate() {
         let reference = format!("{}{}", xlsx_column_name(column), row);
-        if column == 0 || column == values.len() - 1 {
+        if (column == 0 || column == 11) && !value.is_empty() {
             write!(writer, "<c r=\"{reference}\"><v>{value}</v></c>")?;
         } else {
             write!(
@@ -2965,6 +3086,155 @@ mod tests {
         assert!(body.contains(
             "\"path\":\"processes/11111111-1111-4111-8111-111111111111_01.00.000.json\""
         ));
+    }
+
+    // Optional cross-repository contract fixture: only synthetic test sources are exported,
+    // through the real bundle/query writers, to an explicit new directory owned by the caller.
+    fn export_partial_consumer_fixture(built: &BuiltCalculationBundle) {
+        let Some(path) = std::env::var_os("WORKER_LCIA_PARTIAL_CONSUMER_FIXTURE_DIR") else {
+            return;
+        };
+        let directory = std::path::PathBuf::from(path);
+        assert!(directory.is_absolute());
+        std::fs::create_dir(&directory).expect("consumer fixture directory must not exist");
+        for artifact in &built.artifacts {
+            let target = directory.join(&artifact.metadata.path);
+            std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+            std::fs::copy(&artifact.local_path, target).unwrap();
+        }
+        std::fs::copy(&built.manifest_path, directory.join("manifest.json")).unwrap();
+        let bundle_ref = CalculationBundleArtifactRef {
+            schema_version: built.manifest.schema_version.clone(),
+            calculation_id: built.calculation_id,
+            bundle_content_hash: built.bundle_content_hash.clone(),
+            manifest_url: "https://worker-contract.invalid/manifest.json".to_owned(),
+            manifest_sha256: built.manifest_sha256.clone(),
+            manifest_byte_size: built.manifest_byte_size,
+            artifact_count: built.artifacts.len(),
+            downloads: vec![],
+        };
+        let query = crate::artifacts::encode_solve_all_unit_query_artifact(
+            built.manifest.snapshot.id,
+            built.calculation_id,
+            &built.manifest,
+            &bundle_ref,
+        )
+        .unwrap();
+        std::fs::write(directory.join("query.json"), query.bytes).unwrap();
+        let impacts=exports::load_impacts(&built.artifacts).unwrap().into_iter().map(|impact|json!({
+            "impact_index":impact.index,"impact_id":impact.id,"impact_version":impact.version,
+            "impact_key":impact.key,"impact_name":impact.name,"unit":impact.unit
+        })).collect::<Vec<_>>();
+        let index = json!({"snapshot_id":built.manifest.snapshot.id,"process_count":built.manifest.snapshot.process_count,
+            "impact_count":built.manifest.snapshot.impact_count,"impact_map":impacts,
+            "lcia_applicability":{"schema_version":crate::lcia_applicability::EVIDENCE_SCHEMA_VERSION,
+                "policy_version":crate::lcia_applicability::POLICY_VERSION,"availability":built.manifest.lcia_availability}});
+        std::fs::write(
+            directory.join("snapshot-index.json"),
+            serde_json::to_vec_pretty(&index).unwrap(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn partial_bundle_keeps_inventory_and_explicit_unavailable_rows() {
+        use crate::lcia_availability::{CategoryAvailability, LciaAvailability};
+        let mut writer = fixture_writer_with_method_indices(&[0, 1]);
+        let availability = LciaAvailability::new(
+            "lcia.applicability.source-bound.v2".to_owned(),
+            writer
+                .impacts
+                .iter()
+                .map(|impact| CategoryAvailability {
+                    impact_index: impact.index,
+                    method_id: impact.id,
+                    method_version: impact.version.clone(),
+                    status: if impact.index == 0 {
+                        CategoryStatus::Available
+                    } else {
+                        CategoryStatus::Unavailable
+                    },
+                    reasons: if impact.index == 0 {
+                        vec![]
+                    } else {
+                        vec!["lcia_factor_location_semantics_unresolved".to_owned()]
+                    },
+                })
+                .collect(),
+        )
+        .unwrap();
+        writer.config.lcia_availability = Some(availability.clone());
+        assert!(
+            writer
+                .config
+                .lcia_availability
+                .as_ref()
+                .unwrap()
+                .require_complete()
+                .is_err()
+        );
+        writer
+            .write_result_chunk(
+                0,
+                &[SolveResult {
+                    x: Some(vec![1.0]),
+                    g: None,
+                    h: Some(vec![0.0, 0.0]),
+                    factorization_state: FactorizationState::Ready,
+                }],
+            )
+            .unwrap();
+        let built = writer.finish().unwrap();
+        export_partial_consumer_fixture(&built);
+        assert_eq!(
+            built.manifest.schema_version,
+            PARTIAL_CALCULATION_BUNDLE_FORMAT
+        );
+        assert_eq!(built.manifest.lcia_availability, Some(availability));
+        let lcia = built
+            .artifacts
+            .iter()
+            .find(|a| a.metadata.kind == "lcia")
+            .unwrap();
+        assert_eq!(
+            lcia.metadata.schema_version,
+            "tiangong.calculation-bundle.lcia.v2"
+        );
+        let mut rows = Vec::new();
+        visit_gzip_ndjson::<Value, _>(&lcia.local_path, |row| {
+            rows.push(row);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(rows[0]["meanAmount"], 0.0);
+        assert_eq!(rows[0]["reasons"], json!([]));
+        assert_eq!(rows[1]["meanAmount"], Value::Null);
+        assert_eq!(rows[1]["status"], "unavailable");
+        let inventory = built
+            .artifacts
+            .iter()
+            .find(|a| a.metadata.kind == "lci")
+            .unwrap();
+        assert!(inventory.metadata.record_count > 0);
+        let impacts = exports::load_impacts(&built.artifacts).unwrap();
+        let processes = exports::load_processes(&built.artifacts, 1).unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("partial.csv.zip");
+        write_lcia_csv_zip(
+            &path,
+            &[lcia],
+            &processes,
+            &impacts,
+            &crate::resource::CancellationToken::default(),
+        )
+        .unwrap();
+        let mut zip = zip::ZipArchive::new(File::open(path).unwrap()).unwrap();
+        let mut csv = String::new();
+        zip.by_name("lcia-results.csv")
+            .unwrap()
+            .read_to_string(&mut csv)
+            .unwrap();
+        assert!(csv.contains(",,unavailable,lcia_factor_location_semantics_unresolved"));
     }
 
     #[test]

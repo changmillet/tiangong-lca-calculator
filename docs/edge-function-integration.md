@@ -243,3 +243,9 @@ payload：
 Edge/Next 必须以 report 中 `informationalOnly=true`、`affectsReviewState=false` 和 finding `workflowBlocking=false` 为准。finding `level=error` 不是工作流 `blocked`。
 
 部署上，`review_quality_diagnostic_runner` 需要与 solver worker 相同的 DB 和 S3 环境。常驻运行时使用 `REVIEW_QUALITY_POLL_MS`、`REVIEW_QUALITY_WORKER_ID` 与 `REVIEW_QUALITY_WORKER_LEASE_SECONDS`；`--once` 仅处理一条或空转退出。
+
+## LCIA 部分结果与缓存兼容
+
+新 READY snapshot 的 `process_filter` 包含 `lcia_enabled`、`lcia_applicability_policy_version` 及 `lcia_availability`；只有明确 `lcia_enabled=false` 的 inventory-only 快照免于类别回执。Edge 对新执行/cache 命中要求当前策略，校验 snapshot index 的 `lcia_applicability.availability` 与完整 method/version 轴，再匹配 query v3 的 `lciaAvailability`。历史 v1/v2 查询格式可保留读取能力，不能替代新执行准入。
+
+部分 Bundle v3 / LCIA v2 行返回 `meanAmount:null`、状态和原因。`process_all_impacts` 保留这些行；选中的不可用类别不进入排名、比较或贡献计算。私有 package preview/read/export 可就绪，完整 Portal projection/publication 仍需 Worker 和 Database 的完整性守卫。数据库新请求选择 scanner r6 防止复用旧 completed scan；部署顺序和原始消费端验收必须覆盖配套版本。精确 wire 和科学默认范围由 `docs/lca-api-contract.md` 维护。

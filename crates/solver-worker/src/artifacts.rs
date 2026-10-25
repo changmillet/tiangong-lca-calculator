@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::calculation_bundle::{CalculationBundleArtifactRef, CalculationBundleManifest};
 use crate::contribution_path::ContributionPathArtifact;
+use crate::lcia_availability::LciaAvailability;
 
 const SCHEMA_VERSION: u8 = 1;
 const DATASET_SCHEMA_VERSION: &str = "schema_version";
@@ -24,7 +25,7 @@ pub const ARTIFACT_EXTENSION: &str = "h5";
 /// MIME type used for uploads.
 pub const ARTIFACT_CONTENT_TYPE: &str = "application/x-hdf5";
 /// Query-friendly sidecar format indexing canonical Calculation Bundle partitions.
-pub const ALL_UNIT_QUERY_ARTIFACT_FORMAT: &str = "all-unit-query:v2";
+pub const ALL_UNIT_QUERY_ARTIFACT_FORMAT: &str = "all-unit-query:v3";
 /// File extension for query sidecar artifacts.
 pub const ALL_UNIT_QUERY_ARTIFACT_EXTENSION: &str = "json";
 /// MIME type for query sidecar artifacts.
@@ -79,6 +80,26 @@ pub fn encode_solve_one_artifact(
     encode(&envelope)
 }
 
+/// Encodes a solve with immutable category availability, masking unsupported C rows.
+pub fn encode_solve_one_artifact_with_availability(
+    snapshot_id: Uuid,
+    job_id: Uuid,
+    result: &SolveResult,
+    availability: Option<&LciaAvailability>,
+) -> anyhow::Result<EncodedArtifact> {
+    let Some(availability) = availability else {
+        return encode_solve_one_artifact(snapshot_id, job_id, result);
+    };
+    let envelope = ArtifactEnvelope {
+        version: 2,
+        format: ARTIFACT_FORMAT,
+        snapshot_id,
+        job_id,
+        payload: availability.project_solve_result(result)?,
+    };
+    encode(&envelope)
+}
+
 /// Encodes batch solve result as `HDF5`.
 pub fn encode_solve_batch_artifact(
     snapshot_id: Uuid,
@@ -91,6 +112,26 @@ pub fn encode_solve_batch_artifact(
         snapshot_id,
         job_id,
         payload: result,
+    };
+    encode(&envelope)
+}
+
+/// Batch equivalent of the category-aware solve projection.
+pub fn encode_solve_batch_artifact_with_availability(
+    snapshot_id: Uuid,
+    job_id: Uuid,
+    result: &SolveBatchResult,
+    availability: Option<&LciaAvailability>,
+) -> anyhow::Result<EncodedArtifact> {
+    let Some(availability) = availability else {
+        return encode_solve_batch_artifact(snapshot_id, job_id, result);
+    };
+    let envelope = ArtifactEnvelope {
+        version: 2,
+        format: ARTIFACT_FORMAT,
+        snapshot_id,
+        job_id,
+        payload: availability.project_solve_batch_result(result)?,
     };
     encode(&envelope)
 }
@@ -117,6 +158,8 @@ struct AllUnitQueryEnvelope {
     job_id: Uuid,
     process_count: usize,
     impact_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lcia_availability: Option<LciaAvailability>,
     calculation_bundle: CalculationBundleArtifactRef,
     lcia_chunks: Vec<AllUnitQueryChunk>,
 }
@@ -128,6 +171,7 @@ pub fn encode_solve_all_unit_query_artifact(
     manifest: &CalculationBundleManifest,
     bundle_ref: &CalculationBundleArtifactRef,
 ) -> anyhow::Result<EncodedArtifact> {
+    manifest.validate_lcia_contract()?;
     if manifest.bundle_content_hash != bundle_ref.bundle_content_hash
         || manifest.calculation_id != bundle_ref.calculation_id
     {
@@ -178,13 +222,19 @@ pub fn encode_solve_all_unit_query_artifact(
         ));
     }
 
+    let (version, format) = if manifest.lcia_availability.is_some() {
+        (3, ALL_UNIT_QUERY_ARTIFACT_FORMAT)
+    } else {
+        (2, "all-unit-query:v2")
+    };
     let envelope = AllUnitQueryEnvelope {
-        version: 2,
-        format: ALL_UNIT_QUERY_ARTIFACT_FORMAT,
+        version,
+        format,
         snapshot_id,
         job_id,
         process_count: manifest.scope.process_count,
         impact_count: manifest.snapshot.impact_count,
+        lcia_availability: manifest.lcia_availability.clone(),
         calculation_bundle: bundle_ref.clone(),
         lcia_chunks,
     };
@@ -197,7 +247,7 @@ pub fn encode_solve_all_unit_query_artifact(
     Ok(EncodedArtifact {
         bytes,
         sha256: digest,
-        format: ALL_UNIT_QUERY_ARTIFACT_FORMAT,
+        format,
         content_type: ALL_UNIT_QUERY_ARTIFACT_CONTENT_TYPE,
         extension: ALL_UNIT_QUERY_ARTIFACT_EXTENSION,
     })
@@ -365,6 +415,71 @@ mod tests {
     }
 
     #[test]
+    fn category_aware_artifacts_mask_unknown_h_for_one_and_batch() {
+        use crate::lcia_availability::{CategoryAvailability, CategoryStatus, LciaAvailability};
+        let availability = LciaAvailability::new(
+            "lcia.applicability.source-bound.v2".to_owned(),
+            vec![CategoryAvailability {
+                impact_index: 0,
+                method_id: Uuid::from_u128(1),
+                method_version: "01.00.000".to_owned(),
+                status: CategoryStatus::Unavailable,
+                reasons: vec!["unresolved".to_owned()],
+            }],
+        )
+        .unwrap();
+        let result = SolveResult {
+            x: Some(vec![1.0]),
+            g: Some(vec![2.0]),
+            h: Some(vec![0.0]),
+            factorization_state: FactorizationState::Ready,
+        };
+        let encoded = super::encode_solve_one_artifact_with_availability(
+            Uuid::nil(),
+            Uuid::nil(),
+            &result,
+            Some(&availability),
+        )
+        .unwrap();
+        let file = write_and_open_hdf5(&encoded.bytes);
+        let body: serde_json::Value = serde_json::from_slice(
+            &file
+                .dataset(DATASET_ENVELOPE_JSON)
+                .unwrap()
+                .read_1d::<u8>()
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        assert_eq!(body["payload"]["h"], serde_json::json!([null]));
+        assert_eq!(body["payload"]["g"], serde_json::json!([2.0]));
+        let encoded = super::encode_solve_batch_artifact_with_availability(
+            Uuid::nil(),
+            Uuid::nil(),
+            &SolveBatchResult {
+                items: vec![result],
+            },
+            Some(&availability),
+        )
+        .unwrap();
+        let file = write_and_open_hdf5(&encoded.bytes);
+        let body: serde_json::Value = serde_json::from_slice(
+            &file
+                .dataset(DATASET_ENVELOPE_JSON)
+                .unwrap()
+                .read_1d::<u8>()
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        assert_eq!(body["payload"]["items"][0]["h"], serde_json::json!([null]));
+        assert_eq!(
+            body["payload"]["lcia_availability"]["completeness"],
+            "unavailable"
+        );
+    }
+
+    #[test]
     fn encode_solve_one_artifact_metadata_and_payload_roundtrip() {
         let solved = SolveResult {
             x: Some(vec![1.0, 2.0]),
@@ -465,8 +580,8 @@ mod tests {
     }
 
     #[test]
-    fn all_unit_query_v2_indexes_chunks_without_materializing_h_matrix() {
-        let manifest: CalculationBundleManifest = serde_json::from_value(json!({
+    fn all_unit_query_versions_bind_availability_without_materializing_h_matrix() {
+        let mut manifest: CalculationBundleManifest = serde_json::from_value(json!({
             "schemaVersion": "tiangong.calculation-bundle.v2",
             "calculationContractVersion": "1.0.0",
             "calculationId": Uuid::nil(),
@@ -517,12 +632,40 @@ mod tests {
                 .unwrap();
         let body: serde_json::Value = serde_json::from_slice(&encoded.bytes).unwrap();
 
-        assert_eq!(encoded.format, ALL_UNIT_QUERY_ARTIFACT_FORMAT);
-        assert_eq!(body["format"], ALL_UNIT_QUERY_ARTIFACT_FORMAT);
+        assert_eq!(encoded.format, "all-unit-query:v2");
+        assert_eq!(body["format"], "all-unit-query:v2");
+        assert_eq!(body["version"], 2);
+        assert!(body.get("lciaAvailability").is_none());
         assert_eq!(body["processCount"], 2);
         assert_eq!(body["impactCount"], 1);
         assert_eq!(body["lciaChunks"][0]["firstProcessIndex"], 0);
         assert!(body.get("hMatrix").is_none());
+
+        manifest.lcia_availability = Some(
+            crate::lcia_availability::LciaAvailability::new(
+                crate::lcia_applicability::POLICY_VERSION.to_owned(),
+                vec![crate::lcia_availability::CategoryAvailability {
+                    impact_index: 0,
+                    method_id: Uuid::from_u128(1),
+                    method_version: "01.00.000".to_owned(),
+                    status: crate::lcia_availability::CategoryStatus::Available,
+                    reasons: vec![],
+                }],
+            )
+            .unwrap(),
+        );
+        let encoded =
+            encode_solve_all_unit_query_artifact(Uuid::nil(), Uuid::nil(), &manifest, &bundle_ref)
+                .unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&encoded.bytes).unwrap();
+        assert_eq!(encoded.format, ALL_UNIT_QUERY_ARTIFACT_FORMAT);
+        assert_eq!(body["format"], ALL_UNIT_QUERY_ARTIFACT_FORMAT);
+        assert_eq!(body["version"], 3);
+        assert_eq!(body["lciaAvailability"]["completeness"], "complete");
+        assert_eq!(
+            body["lciaChunks"][0]["schemaVersion"],
+            "tiangong.calculation-bundle.lcia.v1"
+        );
     }
 
     #[test]

@@ -26,8 +26,8 @@ use uuid::Uuid;
 use crate::{
     artifacts::{
         EncodedArtifact, encode_contribution_path_artifact, encode_solve_all_unit_query_artifact,
-        encode_solve_all_unit_result_descriptor, encode_solve_batch_artifact,
-        encode_solve_one_artifact,
+        encode_solve_all_unit_result_descriptor, encode_solve_batch_artifact_with_availability,
+        encode_solve_one_artifact_with_availability,
     },
     calculation_bundle::{
         CALCULATION_BUNDLE_CHUNK_PROCESS_COUNT, CalculationBundleArtifactRef,
@@ -44,6 +44,7 @@ use crate::{
         APP_SOLVER_WORKER, APP_SOLVER_WORKER_QUEUE, WorkerDbPoolOptions, sql_string_literal,
     },
     graph_types::RequestRootProcess,
+    lcia_availability::LciaAvailability,
     portal_lcia_projection::{
         BoundPortalLciaProjection, PORTAL_LCIA_PROJECTION_CONTRACT_VERSION,
         PortalProjectionSourceBinding, PreparedPortalLciaProjection,
@@ -911,6 +912,17 @@ fn ensure_numerical_snapshot_policy(
             crate::lcia_applicability::POLICY_VERSION
         ));
     }
+    if config.has_lcia {
+        let availability = config
+            .lcia_availability
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("snapshot_lcia_availability_missing"))?;
+        availability.validate()?;
+        anyhow::ensure!(
+            availability.policy_version == crate::lcia_applicability::POLICY_VERSION,
+            "snapshot_lcia_availability_policy_mismatch"
+        );
+    }
     let proof_pin = std::env::var("LCIA_APPLICABILITY_PROOF_SET_SHA256").ok();
     if !config.is_lcia_proof_pin_current(proof_pin.as_deref()) {
         return Err(anyhow::anyhow!(
@@ -1250,7 +1262,7 @@ async fn handle_job_payload_with_worker_lease(
                 calculation_evidence_binding.as_ref(),
             )
             .await?;
-            ensure_prepared(state, snapshot_id, level).await?;
+            let availability = ensure_prepared_with_availability(state, snapshot_id, level).await?;
             let timed = state.solver.solve_one_timed(
                 snapshot_id,
                 NumericOptions { print_level: level },
@@ -1266,6 +1278,7 @@ async fn handle_job_payload_with_worker_lease(
                 &solved,
                 &timed.timing,
                 calculation_evidence.clone(),
+                availability,
             )
             .await?;
             let completed_diag = merge_job_status_update_timing(
@@ -1329,7 +1342,7 @@ async fn handle_job_payload_with_worker_lease(
                 calculation_evidence_binding.as_ref(),
             )
             .await?;
-            ensure_prepared(state, snapshot_id, level).await?;
+            let availability = ensure_prepared_with_availability(state, snapshot_id, level).await?;
             let solved = state.solver.solve_batch(
                 snapshot_id,
                 NumericOptions { print_level: level },
@@ -1345,6 +1358,7 @@ async fn handle_job_payload_with_worker_lease(
                 "solve_batch",
                 calculation_evidence.clone(),
                 None,
+                availability,
             )
             .await?;
             let completed_diag = merge_job_status_update_timing(
@@ -1537,7 +1551,7 @@ async fn handle_job_payload_with_worker_lease(
                 calculation_evidence_binding.as_ref(),
             )
             .await?;
-            ensure_prepared(state, snapshot_id, level).await?;
+            let availability = ensure_prepared_with_availability(state, snapshot_id, level).await?;
             let snapshot_data = fetch_snapshot_sparse_data(state, snapshot_id).await?;
             let snapshot_index = fetch_snapshot_index_document(state, snapshot_id).await?;
             let process_count = usize::try_from(snapshot_data.process_count)
@@ -1590,6 +1604,7 @@ async fn handle_job_payload_with_worker_lease(
                 snapshot_id,
                 &analysis,
                 calculation_evidence.clone(),
+                availability,
             )
             .await?;
             let completed_diag = merge_job_status_update_timing(
@@ -1952,10 +1967,40 @@ pub async fn ensure_prepared(
     snapshot_id: Uuid,
     print_level: f64,
 ) -> anyhow::Result<()> {
-    ensure_prepared_with_admission(&state.solver, snapshot_id, print_level, || {
-        fetch_snapshot_sparse_data(state, snapshot_id)
+    ensure_prepared_with_availability(state, snapshot_id, print_level)
+        .await
+        .map(|_| ())
+}
+
+/// Returns the immutable category receipt from the same artifact admission used for preparation.
+pub(crate) async fn ensure_prepared_with_availability(
+    state: &AppState,
+    snapshot_id: Uuid,
+    print_level: f64,
+) -> anyhow::Result<Option<LciaAvailability>> {
+    let meta = fetch_snapshot_artifact_meta(&state.pool, snapshot_id)
+        .await?
+        .ok_or_else(|| retired_snapshot_fallback_error(snapshot_id, None))?;
+    let decoded = fetch_decoded_snapshot_artifact_from_meta(state, snapshot_id, &meta).await?;
+    ensure_numerical_snapshot_policy(&decoded.config, snapshot_id, &meta.artifact_format)?;
+    let availability = decoded.config.lcia_availability;
+    if let Some(value) = &availability {
+        let index = fetch_snapshot_index_document(state, snapshot_id).await?;
+        value.validate_axis(&index.impact_map)?;
+        anyhow::ensure!(
+            index
+                .lcia_applicability
+                .as_ref()
+                .and_then(|e| e.availability.as_ref())
+                == Some(value),
+            "lcia_availability_snapshot_binding_mismatch"
+        );
+    }
+    ensure_prepared_with_admission(&state.solver, snapshot_id, print_level, || async {
+        Ok(decoded.payload)
     })
-    .await
+    .await?;
+    Ok(availability)
 }
 
 async fn ensure_prepared_with_admission<F, Fut>(
@@ -1991,10 +2036,16 @@ async fn persist_solve_one_result(
     solved: &SolveResult,
     timing: &SolveComputationTiming,
     calculation_evidence: Option<LcaCalculationEvidence>,
+    availability: Option<LciaAvailability>,
 ) -> anyhow::Result<Value> {
     let timing_json = serde_json::to_value(timing)?;
     let encode_started = Instant::now();
-    let encoded = encode_solve_one_artifact(snapshot_id, job_id, solved)?;
+    let encoded = encode_solve_one_artifact_with_availability(
+        snapshot_id,
+        job_id,
+        solved,
+        availability.as_ref(),
+    )?;
     let encode_artifact_sec = encode_started.elapsed().as_secs_f64();
 
     persist_result_artifact(
@@ -2008,11 +2059,13 @@ async fn persist_solve_one_result(
             encode_artifact_sec,
             calculation_evidence,
             calculation_bundle: None,
+            lcia_availability: availability,
         },
     )
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn persist_solve_batch_result(
     state: &AppState,
     job_id: Uuid,
@@ -2021,9 +2074,15 @@ async fn persist_solve_batch_result(
     suffix: &'static str,
     calculation_evidence: Option<LcaCalculationEvidence>,
     calculation_bundle: Option<CalculationBundleArtifactRef>,
+    availability: Option<LciaAvailability>,
 ) -> anyhow::Result<Value> {
     let encode_started = Instant::now();
-    let encoded = encode_solve_batch_artifact(snapshot_id, job_id, solved)?;
+    let encoded = encode_solve_batch_artifact_with_availability(
+        snapshot_id,
+        job_id,
+        solved,
+        availability.as_ref(),
+    )?;
     let encode_artifact_sec = encode_started.elapsed().as_secs_f64();
 
     persist_result_artifact(
@@ -2037,6 +2096,7 @@ async fn persist_solve_batch_result(
             encode_artifact_sec,
             calculation_evidence,
             calculation_bundle,
+            lcia_availability: availability,
         },
     )
     .await
@@ -2070,6 +2130,12 @@ async fn solve_all_unit_with_calculation_bundle(
             "snapshot process count drift while building Calculation Bundle"
         ));
     }
+    let prepare_portal_projection = prepare_portal_projection
+        && decoded
+            .config
+            .lcia_availability
+            .as_ref()
+            .is_some_and(LciaAvailability::is_complete);
     let mut bundle_writer = CalculationBundleWriter::new(
         job_id,
         snapshot_id,
@@ -2121,6 +2187,7 @@ async fn solve_all_unit_with_calculation_bundle(
         query_artifact_meta,
         impact_map: snapshot_index.impact_map,
         portal_lcia_projection: built.portal_lcia_projection.take(),
+        lcia_availability: built.manifest.lcia_availability.clone(),
     })
 }
 
@@ -2186,6 +2253,7 @@ async fn persist_solve_all_unit_result(
             encode_artifact_sec,
             calculation_evidence,
             calculation_bundle: Some(artifacts.calculation_bundle.clone()),
+            lcia_availability: artifacts.lcia_availability.clone(),
         },
     )
     .await
@@ -2197,6 +2265,7 @@ async fn persist_contribution_path_result(
     snapshot_id: Uuid,
     analysis: &ContributionPathArtifact,
     calculation_evidence: Option<LcaCalculationEvidence>,
+    availability: Option<LciaAvailability>,
 ) -> anyhow::Result<Value> {
     let encoded = encode_contribution_path_artifact(analysis)?;
     persist_result_artifact(
@@ -2210,6 +2279,7 @@ async fn persist_contribution_path_result(
             encode_artifact_sec: 0.0,
             calculation_evidence,
             calculation_bundle: None,
+            lcia_availability: availability,
         },
     )
     .await
@@ -2270,6 +2340,7 @@ struct PersistArtifactInput {
     encode_artifact_sec: f64,
     calculation_evidence: Option<LcaCalculationEvidence>,
     calculation_bundle: Option<CalculationBundleArtifactRef>,
+    lcia_availability: Option<LciaAvailability>,
 }
 
 struct ArtifactMeta {
@@ -2292,6 +2363,7 @@ struct SolvedAllUnitArtifacts {
     query_artifact_meta: QueryArtifactMeta,
     impact_map: Vec<crate::snapshot_index::SnapshotImpactMapEntry>,
     portal_lcia_projection: Option<PreparedPortalLciaProjection>,
+    lcia_availability: Option<LciaAvailability>,
 }
 
 #[derive(Debug, Clone)]
@@ -2331,6 +2403,25 @@ struct PortalPackageReadyReceiptData {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PartialPackageReadyReceipt {
+    ok: bool,
+    reused: bool,
+    data: PartialPackageReadyReceiptData,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PartialPackageReadyReceiptData {
+    package_id: Uuid,
+    package_version: String,
+    status: String,
+    build_worker_job_id: Uuid,
+    included_input_count: i32,
+    lcia_availability: LciaAvailability,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct PortalPackageReadyProjectionReceipt {
     projection_id: Uuid,
@@ -2353,6 +2444,7 @@ struct LciaResultPackageArtifacts {
     calculation_bundle: CalculationBundleArtifactRef,
     impact_map: Vec<crate::snapshot_index::SnapshotImpactMapEntry>,
     portal_lcia_projection: Option<PreparedPortalLciaProjection>,
+    lcia_availability: Option<LciaAvailability>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -2505,6 +2597,7 @@ struct PersistTimingContext {
     upload_artifact_sec: f64,
     calculation_evidence: Option<LcaCalculationEvidence>,
     calculation_bundle: Option<CalculationBundleArtifactRef>,
+    lcia_availability: Option<LciaAvailability>,
 }
 
 pub(crate) async fn run_review_quality_diagnostic_snapshot_builder(
@@ -2665,7 +2758,7 @@ pub(crate) async fn handle_lcia_result_package_build_worker_job(
         == Some(PORTAL_LCIA_PROJECTION_CONTRACT_VERSION)
     {
         let package_version = lcia_result_package_version(*build_id);
-        if let Some(receipt) = read_portal_lcia_result_package_ready_after_restart(
+        if let Some(receipt) = read_lcia_result_package_ready_after_restart(
             &state.pool,
             build_worker_job_id,
             worker_lease_token,
@@ -2766,19 +2859,25 @@ pub(crate) async fn handle_lcia_result_package_build_worker_job(
             }),
         )
     };
-    let prepare_portal_projection = portal_projection_contract_version.as_deref()
+    let requested_portal_projection = portal_projection_contract_version.as_deref()
         == Some(PORTAL_LCIA_PROJECTION_CONTRACT_VERSION);
     let mut artifacts = persist_lcia_result_package_all_unit_artifacts(
         state,
         result_job_id,
         snapshot_id,
-        prepare_portal_projection,
+        requested_portal_projection,
     )
     .await?;
+    let availability = artifacts
+        .lcia_availability
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("snapshot_lcia_availability_missing"))?;
+    let prepare_portal_projection = requested_portal_projection && availability.is_complete();
     let (available_impact_categories, resolved_default_impact_category) =
-        lcia_result_package_impact_axis(
+        lcia_result_package_available_impact_axis(
             artifacts.impact_map.as_slice(),
             default_impact_category.as_deref(),
+            availability,
         )?;
     link_lcia_result_package_worker_job_domain_refs(
         &state.pool,
@@ -2799,6 +2898,7 @@ pub(crate) async fn handle_lcia_result_package_build_worker_job(
             "artifactFormat": artifacts.query_artifact_meta.format.clone(),
         },
         "calculationBundle": artifacts.calculation_bundle.clone(),
+        "lciaAvailability": availability,
         "scopeClosureEvidence": closure_check_id.map(|closure_check_id| serde_json::json!({
             "closureCheckId": closure_check_id,
             "certificateHash": closure_certificate_hash,
@@ -2927,7 +3027,7 @@ pub(crate) async fn handle_lcia_result_package_build_worker_job(
         query_artifact_ref: lcia_result_query_artifact_ref(&artifacts.query_artifact_meta),
         artifact_manifest,
         available_impact_categories,
-        default_impact_category: Some(resolved_default_impact_category),
+        default_impact_category: resolved_default_impact_category,
         package_result_hash: artifacts
             .result_diag
             .get("artifact_sha256")
@@ -2946,6 +3046,11 @@ pub(crate) async fn handle_lcia_result_package_build_worker_job(
     };
     let mark_ready = match (projection_id, portal_projection.as_ref()) {
         (Some(projection_id), Some(projection)) => {
+            anyhow::ensure!(
+                package_ready_route(requested_portal_projection, availability.completeness, true)?
+                    == PackageReadyRoute::Portal,
+                "lcia_package_projection_completeness_mismatch"
+            );
             mark_portal_lcia_result_package_ready(
                 &state.pool,
                 projection_id,
@@ -2955,7 +3060,20 @@ pub(crate) async fn handle_lcia_result_package_build_worker_job(
             )
             .await?
         }
-        (None, None) => mark_lcia_result_package_ready(&state.pool, ready_input).await?,
+        (None, None) => match package_ready_route(
+            requested_portal_projection,
+            availability.completeness,
+            false,
+        )? {
+            PackageReadyRoute::PartialPreview => {
+                mark_lcia_result_package_partial_ready(&state.pool, worker_lease_token, ready_input)
+                    .await?
+            }
+            PackageReadyRoute::Legacy => {
+                mark_lcia_result_package_ready(&state.pool, ready_input).await?
+            }
+            PackageReadyRoute::Portal => unreachable!("Portal route requires prepared projection"),
+        },
         _ => {
             return Err(anyhow::anyhow!(
                 "Portal LCIA projection readiness state is inconsistent"
@@ -3526,6 +3644,7 @@ async fn persist_lcia_result_package_all_unit_artifacts(
         calculation_bundle: all_unit_artifacts.calculation_bundle,
         impact_map: all_unit_artifacts.impact_map,
         portal_lcia_projection: all_unit_artifacts.portal_lcia_projection,
+        lcia_availability: all_unit_artifacts.lcia_availability,
     })
 }
 
@@ -3556,6 +3675,29 @@ fn lcia_result_package_impact_axis(
                 )
             })?,
         None => first.impact_id.to_string(),
+    };
+    Ok((serde_json::to_value(available)?, default))
+}
+
+fn lcia_result_package_available_impact_axis(
+    impact_map: &[crate::snapshot_index::SnapshotImpactMapEntry],
+    requested_default: Option<&str>,
+    availability: &LciaAvailability,
+) -> anyhow::Result<(Value, Option<String>)> {
+    availability.validate_axis(impact_map)?;
+    let (_, requested) = lcia_result_package_impact_axis(impact_map, requested_default)?;
+    let available = availability
+        .categories
+        .iter()
+        .filter(|entry| entry.status == crate::lcia_availability::CategoryStatus::Available)
+        .map(|entry| entry.method_id.to_string())
+        .collect::<Vec<_>>();
+    let default = if available.contains(&requested) {
+        Some(requested)
+    } else if requested_default.is_none_or(|value| value.trim().is_empty()) {
+        available.first().cloned()
+    } else {
+        None
     };
     Ok((serde_json::to_value(available)?, default))
 }
@@ -3591,6 +3733,7 @@ async fn persist_result_artifact(
         encode_artifact_sec,
         calculation_evidence,
         calculation_bundle,
+        lcia_availability,
     } = input;
     let EncodedArtifact {
         format,
@@ -3618,6 +3761,7 @@ async fn persist_result_artifact(
         upload_artifact_sec: upload_started.elapsed().as_secs_f64(),
         calculation_evidence,
         calculation_bundle,
+        lcia_availability,
     };
     persist_object_storage_result(
         state,
@@ -3628,6 +3772,149 @@ async fn persist_result_artifact(
         &artifact_url,
     )
     .await
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PackageReadyRoute {
+    Legacy,
+    PartialPreview,
+    Portal,
+}
+
+fn package_ready_route(
+    requested_portal_projection: bool,
+    completeness: crate::lcia_availability::LciaCompleteness,
+    has_projection: bool,
+) -> anyhow::Result<PackageReadyRoute> {
+    use crate::lcia_availability::LciaCompleteness::{Complete, Partial, Unavailable};
+    match (requested_portal_projection, completeness, has_projection) {
+        (true, Complete, true) => Ok(PackageReadyRoute::Portal),
+        (true, Partial | Unavailable, false) => Ok(PackageReadyRoute::PartialPreview),
+        (false, _, false) => Ok(PackageReadyRoute::Legacy),
+        _ => anyhow::bail!("lcia_package_projection_completeness_mismatch"),
+    }
+}
+
+/// V3 private partial preview retains the caller's lease fence across the database boundary.
+async fn mark_lcia_result_package_partial_ready(
+    pool: &PgPool,
+    lease_token: Uuid,
+    input: LciaResultPackageReadyInput,
+) -> anyhow::Result<Value> {
+    anyhow::ensure!(
+        !lease_token.is_nil(),
+        "partial_package_lease_token_required"
+    );
+    execute_partial_package_ready_with_recovery(
+        &input,
+        || call_partial_package_ready(pool, lease_token, &input),
+        || {
+            read_lcia_result_package_ready_after_restart(
+                pool,
+                input.build_worker_job_id,
+                lease_token,
+                &input.package_version,
+                input.included_input_count,
+            )
+        },
+    )
+    .await
+}
+
+async fn call_partial_package_ready(
+    pool: &PgPool,
+    lease_token: Uuid,
+    input: &LciaResultPackageReadyInput,
+) -> Result<Value, PortalPackageReadyCallError<sqlx::Error>> {
+    let row = sqlx::query(
+        r"WITH _service_role AS (
+            SELECT set_config('request.jwt.claim.role', 'service_role', true)
+        )
+        SELECT private.svc_lcia_result_package_partial_mark_ready_v1(
+            $1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb,
+            $10::jsonb, $11, $12, $13::jsonb
+        ) AS result FROM _service_role",
+    )
+    .bind(input.build_worker_job_id)
+    .bind(lease_token)
+    .bind(input.package_version.as_str())
+    .bind(input.snapshot_id)
+    .bind(input.result_id)
+    .bind(input.latest_all_unit_result_id)
+    .bind(&input.result_artifact_ref)
+    .bind(&input.query_artifact_ref)
+    .bind(&input.artifact_manifest)
+    .bind(&input.available_impact_categories)
+    .bind(input.default_impact_category.as_deref())
+    .bind(input.package_result_hash.as_deref())
+    .bind(&input.audit)
+    .fetch_one(pool)
+    .await
+    .map_err(PortalPackageReadyCallError::Fetch)?;
+    row.try_get::<Value, _>("result")
+        .map_err(PortalPackageReadyCallError::Decode)
+}
+
+async fn execute_partial_package_ready_with_recovery<E, F, Fut, R, ReadFut>(
+    input: &LciaResultPackageReadyInput,
+    mut call: F,
+    mut readback: R,
+) -> anyhow::Result<Value>
+where
+    E: std::fmt::Display,
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<Value, PortalPackageReadyCallError<E>>>,
+    R: FnMut() -> ReadFut,
+    ReadFut: Future<Output = anyhow::Result<Option<Value>>>,
+{
+    let expected_availability: LciaAvailability = serde_json::from_value(
+        input
+            .artifact_manifest
+            .get("lciaAvailability")
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("partial_package_availability_missing"))?,
+    )?;
+    expected_availability.validate()?;
+    anyhow::ensure!(
+        !expected_availability.is_complete(),
+        "partial_package_requires_incomplete_receipt"
+    );
+    for attempt in 0..2 {
+        match call().await {
+            Ok(result) => {
+                parse_partial_package_ready_receipt(
+                    &result,
+                    input.build_worker_job_id,
+                    &input.package_version,
+                    input.included_input_count,
+                    Some(&expected_availability),
+                    false,
+                )?;
+                return Ok(result);
+            }
+            Err(PortalPackageReadyCallError::Fetch(error)) => {
+                if let Some(result) = readback().await? {
+                    parse_partial_package_ready_receipt(
+                        &result,
+                        input.build_worker_job_id,
+                        &input.package_version,
+                        input.included_input_count,
+                        Some(&expected_availability),
+                        true,
+                    )?;
+                    return Ok(result);
+                }
+                anyhow::ensure!(
+                    attempt == 0,
+                    "partial package-ready transport failed without a matching committed package: {error}"
+                );
+            }
+            Err(PortalPackageReadyCallError::Decode(error)) => {
+                anyhow::bail!("partial package-ready response decode failed: {error}")
+            }
+        }
+    }
+    unreachable!("bounded partial package-ready attempts return or fail")
 }
 
 async fn mark_lcia_result_package_ready(
@@ -4158,7 +4445,7 @@ fn verify_portal_lcia_projection_seal(
     Ok(())
 }
 
-async fn read_portal_lcia_result_package_ready_after_restart(
+async fn read_lcia_result_package_ready_after_restart(
     pool: &PgPool,
     build_worker_job_id: Uuid,
     worker_lease_token: Uuid,
@@ -4170,7 +4457,7 @@ async fn read_portal_lcia_result_package_ready_after_restart(
         WITH _service_role AS (
             SELECT set_config('request.jwt.claim.role', 'service_role', true)
         )
-        SELECT private.svc_portal_lcia_projection_package_ready_readback_v1(
+        SELECT private.svc_lcia_result_package_ready_readback_v1(
             $1, $2
         ) AS result
         FROM _service_role
@@ -4181,9 +4468,66 @@ async fn read_portal_lcia_result_package_ready_after_restart(
     .fetch_one(pool)
     .await?;
     let result = row.try_get::<Value, _>("result")?;
-    parse_portal_package_ready_restart_readback(
+    parse_lcia_package_ready_restart_readback(
         result,
         build_worker_job_id,
+        expected_package_version,
+        expected_included_input_count,
+    )
+}
+
+fn parse_partial_package_ready_receipt(
+    result: &Value,
+    expected_build_worker_job_id: Uuid,
+    expected_package_version: &str,
+    expected_included_input_count: i32,
+    expected_availability: Option<&LciaAvailability>,
+    require_reused: bool,
+) -> anyhow::Result<PartialPackageReadyReceipt> {
+    let receipt: PartialPackageReadyReceipt = serde_json::from_value(result.clone())
+        .map_err(|error| anyhow::anyhow!("partial package-ready receipt is invalid: {error}"))?;
+    receipt.data.lcia_availability.validate()?;
+    anyhow::ensure!(
+        receipt.ok
+            && (!require_reused || receipt.reused)
+            && !receipt.data.package_id.is_nil()
+            && receipt.data.package_version == expected_package_version
+            && receipt.data.status == "preview_ready"
+            && receipt.data.build_worker_job_id == expected_build_worker_job_id
+            && receipt.data.included_input_count == expected_included_input_count
+            && !receipt.data.lcia_availability.is_complete()
+            && expected_availability
+                .is_none_or(|expected| expected == &receipt.data.lcia_availability),
+        "partial package-ready receipt does not match current immutable Worker job"
+    );
+    Ok(receipt)
+}
+
+fn parse_lcia_package_ready_restart_readback(
+    result: Value,
+    expected_build_worker_job_id: Uuid,
+    expected_package_version: &str,
+    expected_included_input_count: i32,
+) -> anyhow::Result<Option<Value>> {
+    if result
+        .get("data")
+        .and_then(|data| data.get("lciaAvailability"))
+        .is_some()
+    {
+        let receipt = parse_partial_package_ready_receipt(
+            &result,
+            expected_build_worker_job_id,
+            expected_package_version,
+            expected_included_input_count,
+            None,
+            true,
+        )?;
+        info!(package_id = %receipt.data.package_id, "recovered committed partial package before rebuilding");
+        return Ok(Some(result));
+    }
+    parse_portal_package_ready_restart_readback(
+        result,
+        expected_build_worker_job_id,
         expected_package_version,
         expected_included_input_count,
     )
@@ -5217,6 +5561,7 @@ async fn persist_object_storage_result(
         "artifact_url": artifact_url,
         "calculation_evidence": timing.calculation_evidence.clone(),
         "calculation_bundle": timing.calculation_bundle.clone(),
+        "lcia_availability": timing.lcia_availability.clone(),
         "compute_timing_sec": timing.compute_timing,
         "persistence_timing_sec": persistence_timing_json(
             Some(timing.encode_artifact_sec),
@@ -5250,6 +5595,7 @@ async fn persist_object_storage_result(
         "artifact_url": artifact_url,
         "calculation_evidence": timing.calculation_evidence.clone(),
         "calculation_bundle": timing.calculation_bundle.clone(),
+        "lcia_availability": timing.lcia_availability.clone(),
         "compute_timing_sec": timing.compute_timing,
         "persistence_timing_sec": persistence_timing_json(
             Some(timing.encode_artifact_sec),
@@ -6382,6 +6728,7 @@ mod tests {
                 numerical_policy_version: policy.map(str::to_owned),
                 lcia_applicability_policy_version: None,
                 lcia_applicability_proof_set_sha256: None,
+                lcia_availability: None,
                 include_user_id: None,
                 data_scope: None,
                 scope_manifest_sha256: None,
@@ -6477,6 +6824,29 @@ mod tests {
             lcia_config.lcia_applicability_policy_version =
                 Some(crate::lcia_applicability::POLICY_VERSION.to_owned());
             assert!(lcia_config.is_lcia_applicability_policy_current());
+            assert!(
+                ensure_numerical_snapshot_policy(
+                    &lcia_config,
+                    snapshot_id,
+                    SNAPSHOT_ARTIFACT_FORMAT
+                )
+                .unwrap_err()
+                .to_string()
+                .contains("snapshot_lcia_availability_missing")
+            );
+            lcia_config.lcia_availability = Some(
+                crate::lcia_availability::LciaAvailability::new(
+                    crate::lcia_applicability::POLICY_VERSION.to_owned(),
+                    vec![crate::lcia_availability::CategoryAvailability {
+                        impact_index: 0,
+                        method_id: uuid::Uuid::from_u128(1),
+                        method_version: "01.00.000".to_owned(),
+                        status: crate::lcia_availability::CategoryStatus::Available,
+                        reasons: vec![],
+                    }],
+                )
+                .unwrap(),
+            );
             ensure_numerical_snapshot_policy(&lcia_config, snapshot_id, SNAPSHOT_ARTIFACT_FORMAT)
                 .expect("current LCIA applicability evidence admits new compute");
         }
@@ -6613,6 +6983,170 @@ mod tests {
                 }
             }
         })
+    }
+
+    fn partial_package_ready_test_case() -> (LciaResultPackageReadyInput, serde_json::Value) {
+        use crate::lcia_availability::{CategoryAvailability, CategoryStatus, LciaAvailability};
+        let mut input = portal_package_ready_test_input(Uuid::new_v4());
+        let availability = LciaAvailability::new(
+            crate::lcia_applicability::POLICY_VERSION.to_owned(),
+            vec![CategoryAvailability {
+                impact_index: 0,
+                method_id: Uuid::from_u128(1),
+                method_version: "01.00.000".to_owned(),
+                status: CategoryStatus::Unavailable,
+                reasons: vec!["unresolved".to_owned()],
+            }],
+        )
+        .unwrap();
+        input.artifact_manifest = json!({"lciaAvailability":availability});
+        let receipt = json!({"ok":true,"reused":true,"data":{
+            "packageId":Uuid::new_v4(),"packageVersion":input.package_version,"status":"preview_ready",
+            "buildWorkerJobId":input.build_worker_job_id,"includedInputCount":input.included_input_count,
+            "lciaAvailability":availability,
+        }});
+        (input, receipt)
+    }
+
+    #[test]
+    fn partial_package_restart_accepts_only_exact_explicit_incomplete_receipts() {
+        let (input, receipt) = partial_package_ready_test_case();
+        assert_eq!(
+            super::parse_lcia_package_ready_restart_readback(
+                receipt.clone(),
+                input.build_worker_job_id,
+                &input.package_version,
+                input.included_input_count
+            )
+            .unwrap(),
+            Some(receipt.clone())
+        );
+        for path in [
+            "packageVersion",
+            "buildWorkerJobId",
+            "includedInputCount",
+            "status",
+        ] {
+            let mut changed = receipt.clone();
+            changed["data"][path] = json!("changed");
+            assert!(
+                super::parse_lcia_package_ready_restart_readback(
+                    changed,
+                    input.build_worker_job_id,
+                    &input.package_version,
+                    input.included_input_count
+                )
+                .is_err()
+            );
+        }
+        for mutation in ["missing", "complete", "locator"] {
+            let mut changed = receipt.clone();
+            match mutation {
+                "missing" => {
+                    changed["data"]
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("lciaAvailability");
+                }
+                "complete" => {
+                    changed["data"]["lciaAvailability"]["completeness"] = json!("complete");
+                }
+                _ => {
+                    changed["data"]["projection"] = json!({"projectionId":Uuid::new_v4()});
+                }
+            }
+            assert!(
+                super::parse_lcia_package_ready_restart_readback(
+                    changed,
+                    input.build_worker_job_id,
+                    &input.package_version,
+                    input.included_input_count
+                )
+                .is_err()
+            );
+        }
+        assert!(
+            super::parse_lcia_package_ready_restart_readback(
+                json!({"ok":false,"code":"projection_package_not_found","status":404}),
+                input.build_worker_job_id,
+                &input.package_version,
+                input.included_input_count
+            )
+            .unwrap()
+            .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn partial_package_response_loss_reads_committed_receipt_without_repeating_work() {
+        let (input, receipt) = partial_package_ready_test_case();
+        let mut calls = 0;
+        let mut reads = 0;
+        let result = super::execute_partial_package_ready_with_recovery(
+            &input,
+            || {
+                calls += 1;
+                std::future::ready(Err::<serde_json::Value, _>(
+                    PortalPackageReadyCallError::Fetch(std::io::Error::other("lost response")),
+                ))
+            },
+            || {
+                reads += 1;
+                std::future::ready(Ok(Some(receipt.clone())))
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(result, receipt);
+        assert_eq!((calls, reads), (1, 1));
+    }
+
+    #[tokio::test]
+    async fn partial_package_response_loss_retries_only_same_immutable_ready_call() {
+        let (input, mut receipt) = partial_package_ready_test_case();
+        receipt["reused"] = json!(false);
+        let mut calls = 0;
+        let mut reads = 0;
+        let mut responses = VecDeque::from([
+            Err(PortalPackageReadyCallError::Fetch(std::io::Error::other(
+                "lost before commit",
+            ))),
+            Ok(receipt.clone()),
+        ]);
+        let result = super::execute_partial_package_ready_with_recovery(
+            &input,
+            || {
+                calls += 1;
+                std::future::ready(responses.pop_front().unwrap())
+            },
+            || {
+                reads += 1;
+                std::future::ready(Ok(None))
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(result, receipt);
+        assert_eq!((calls, reads), (2, 1));
+        let mut attempts = 0;
+        let mut readbacks = 0;
+        let malformed = json!({"ok":true,"reused":false,"data":{}});
+        let result = super::execute_partial_package_ready_with_recovery(
+            &input,
+            || {
+                attempts += 1;
+                std::future::ready(Ok::<_, PortalPackageReadyCallError<std::io::Error>>(
+                    malformed.clone(),
+                ))
+            },
+            || {
+                readbacks += 1;
+                std::future::ready(Ok(None))
+            },
+        )
+        .await;
+        assert!(result.is_err());
+        assert_eq!((attempts, readbacks), (1, 0));
     }
 
     #[tokio::test]
@@ -6893,7 +7427,7 @@ mod tests {
             .expect("package handler end");
         let handler = &source[handler_start..handler_end];
         let readback = handler
-            .find("read_portal_lcia_result_package_ready_after_restart")
+            .find("read_lcia_result_package_ready_after_restart")
             .expect("restart readback invocation");
         for expensive_operation in [
             "prepare_certified_package_snapshot",
@@ -6958,6 +7492,98 @@ mod tests {
         let (_, default) = lcia_result_package_impact_axis(&impacts, None).unwrap();
         assert_eq!(default, impact_id.to_string());
         assert!(lcia_result_package_impact_axis(&impacts, Some("method:missing")).is_err());
+    }
+
+    #[test]
+    fn package_ready_routes_keep_partial_v3_on_the_fenced_preview_command() {
+        use super::{PackageReadyRoute, package_ready_route};
+        use crate::lcia_availability::LciaCompleteness::{Complete, Partial, Unavailable};
+        assert_eq!(
+            package_ready_route(true, Complete, true).unwrap(),
+            PackageReadyRoute::Portal
+        );
+        for completeness in [Partial, Unavailable] {
+            assert_eq!(
+                package_ready_route(true, completeness, false).unwrap(),
+                PackageReadyRoute::PartialPreview
+            );
+            assert!(package_ready_route(true, completeness, true).is_err());
+            assert_eq!(
+                package_ready_route(false, completeness, false).unwrap(),
+                PackageReadyRoute::Legacy
+            );
+        }
+        assert!(package_ready_route(true, Complete, false).is_err());
+        let source = include_str!("db.rs");
+        let helper = source
+            .split("async fn call_partial_package_ready(")
+            .nth(1)
+            .unwrap()
+            .split("async fn mark_lcia_result_package_ready(")
+            .next()
+            .unwrap();
+        assert!(helper.contains("private.svc_lcia_result_package_partial_mark_ready_v1("));
+        assert!(helper.contains(".bind(input.build_worker_job_id)\n    .bind(lease_token)"));
+        assert!(helper.contains("$10::jsonb, $11, $12, $13::jsonb"));
+    }
+
+    #[test]
+    fn private_partial_package_exposes_only_available_categories_and_no_unknown_default() {
+        use crate::lcia_availability::{CategoryAvailability, CategoryStatus, LciaAvailability};
+        let impacts = (0..2)
+            .map(|index| SnapshotImpactMapEntry {
+                impact_id: Uuid::from_u128(u128::try_from(index).unwrap() + 1),
+                impact_index: index,
+                impact_version: Some("01.00.000".to_owned()),
+                impact_key: format!("method:{index}"),
+                impact_name: String::new(),
+                unit: "kg".to_owned(),
+            })
+            .collect::<Vec<_>>();
+        let categories = impacts
+            .iter()
+            .enumerate()
+            .map(|(index, impact)| CategoryAvailability {
+                impact_index: index,
+                method_id: impact.impact_id,
+                method_version: "01.00.000".to_owned(),
+                status: if index == 0 {
+                    CategoryStatus::Unavailable
+                } else {
+                    CategoryStatus::Available
+                },
+                reasons: if index == 0 {
+                    vec!["unresolved".to_owned()]
+                } else {
+                    vec![]
+                },
+            })
+            .collect::<Vec<_>>();
+        let mut availability = LciaAvailability::new(
+            crate::lcia_applicability::POLICY_VERSION.to_owned(),
+            categories,
+        )
+        .unwrap();
+        let (available, default) =
+            super::lcia_result_package_available_impact_axis(&impacts, None, &availability)
+                .unwrap();
+        assert_eq!(available, json!([impacts[1].impact_id.to_string()]));
+        assert_eq!(default, Some(impacts[1].impact_id.to_string()));
+        let (_, default) = super::lcia_result_package_available_impact_axis(
+            &impacts,
+            Some("method:0"),
+            &availability,
+        )
+        .unwrap();
+        assert_eq!(default, None);
+        availability.categories[1].status = CategoryStatus::Unavailable;
+        availability.categories[1].reasons = vec!["unresolved".to_owned()];
+        availability.completeness = crate::lcia_availability::LciaCompleteness::Unavailable;
+        let (available, default) =
+            super::lcia_result_package_available_impact_axis(&impacts, None, &availability)
+                .unwrap();
+        assert_eq!(available, json!([]));
+        assert_eq!(default, None);
     }
 
     #[test]

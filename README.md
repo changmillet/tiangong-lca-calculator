@@ -100,8 +100,9 @@ related:
   - `lca_results` 仅存 artifact 元数据 + diagnostics（不存 inline payload）
 - `solve_all_unit` 生成 canonical `tiangong.calculation-bundle.v2`：
   - 固定 256-process deterministic gzip NDJSON chunks，保存 exact quantitative reference、direct provider edge、directional LCI 和 reviewed 25-method LCIA
+  - 来源绑定的地区/default 规则选择单一 CF；类别不可用时保留 LCI 和其他类别，以 null/原因显示，私有预览可就绪但不能宣称完整 LCIA 或发布完整 Portal 投影
   - 只在单个 artifact chunk 内临时保留 `x/h`，不跨 chunk 聚合完整 G/LCI/H；sidecars 先上传，content-addressed manifest 最后上传
-  - `all-unit-query:v2` 只保存 manifest identity 与确定性的 LCIA chunk range/hash index；legacy `lca_results` HDF5 仅为指向 bundle/query index 的小型 descriptor，不再包含完整 `h_matrix`
+  - `all-unit-query:v3` 保存 manifest identity、精确类别可用性与确定性的 LCIA chunk range/hash index（历史 v2 保持可读）；legacy `lca_results` HDF5 仅为指向 bundle/query index 的小型 descriptor，不再包含完整 `h_matrix`
 - factorization cache 使用 `FACTORIZATION_CACHE_MAX_BYTES` hard capacity 和 deterministic LRU eviction；admission 结合 `FACTORIZATION_ADMISSION_FILL_IN_MULTIPLIER` 与 UMFPACK 实际 symbolic/numeric size telemetry，fill-in 仍按 workload 评估
 - 已支持 snapshot artifact-first：
   - builder 直接生成 `M/B/C` 并上传只包含数值 payload/config/coverage 的 `HDF5`；普通计算快照不持久化完整 `CompiledGraph`

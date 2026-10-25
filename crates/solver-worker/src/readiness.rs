@@ -617,7 +617,43 @@ fn add_graph_findings(
         )),
     }
 
-    if input.policy.require_lcia_factors && coverage.matrix_scale.c_nnz == 0 {
+    let declared_availability = input
+        .config
+        .as_ref()
+        .and_then(|config| config.lcia_availability.as_ref());
+    let availability_is_valid = declared_availability.is_some_and(|availability| {
+        availability.validate().is_ok()
+            && availability.policy_version == crate::lcia_applicability::POLICY_VERSION
+            && i64::try_from(availability.categories.len()).ok()
+                == Some(coverage.matrix_scale.impact_count)
+            && input.payload.characterization_factors.iter().all(|factor| {
+                usize::try_from(factor.row)
+                    .ok()
+                    .and_then(|index| availability.categories.get(index))
+                    .is_some_and(|category| {
+                        category.status == crate::lcia_availability::CategoryStatus::Available
+                    })
+            })
+    });
+    if declared_availability.is_some() && !availability_is_valid {
+        push_blocker(
+            blockers,
+            "lcia_availability_invalid",
+            "category availability does not match the characterization matrix".to_owned(),
+            Value::Null,
+        );
+    }
+    if availability_is_valid
+        && declared_availability.is_some_and(|availability| !availability.is_complete())
+    {
+        findings.push(finding("lcia_categories_unavailable", FindingSeverity::Warning,
+            "inventory and available categories remain computable; incomplete LCIA cannot support complete publication",
+            serde_json::to_value(declared_availability).unwrap_or(Value::Null)));
+    }
+    if input.policy.require_lcia_factors
+        && coverage.matrix_scale.c_nnz == 0
+        && !availability_is_valid
+    {
         push_blocker(
             blockers,
             "lcia_factors_missing",
@@ -1075,6 +1111,63 @@ mod tests {
         assert_eq!(report.provider_evidence[0].confidence, "high");
         assert!(report.metrics.compute_stability.factorization_ready);
         assert_eq!(report.metrics.compute_stability.sampled_unit_solves, 2);
+    }
+
+    #[test]
+    fn all_unavailable_categories_retain_inventory_readiness_but_never_allow_hidden_c_values() {
+        use crate::lcia_availability::{CategoryAvailability, CategoryStatus, LciaAvailability};
+        let mut input = fixture_input(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            true,
+        );
+        input.payload.characterization_factors.clear();
+        input.coverage.matrix_scale.c_nnz = 0;
+        let without_receipt = verify_matrix_readiness(&input);
+        assert!(
+            without_receipt
+                .blockers
+                .iter()
+                .any(|finding| finding.code == "lcia_factors_missing")
+        );
+        let availability = LciaAvailability::new(
+            crate::lcia_applicability::POLICY_VERSION.to_owned(),
+            vec![CategoryAvailability {
+                impact_index: 0,
+                method_id: Uuid::from_u128(340_006),
+                method_version: "01.00.000".to_owned(),
+                status: CategoryStatus::Unavailable,
+                reasons: vec!["lcia_exchange_location_semantics_unresolved".to_owned()],
+            }],
+        )
+        .unwrap();
+        input.config=Some(serde_json::from_value(json!({"process_states":"100","process_limit":0,
+            "provider_rule":"strict_unique_provider","self_loop_cutoff":0.999_999,"singular_eps":1e-12,
+            "has_lcia":true,"lcia_availability":availability})).unwrap());
+        let report = verify_matrix_readiness(&input);
+        assert!(report.blockers.is_empty(), "{:?}", report.blockers);
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|finding| finding.code == "lcia_categories_unavailable")
+        );
+        assert!(report.metrics.compute_stability.factorization_ready);
+        assert_eq!(report.metrics.compute_stability.sampled_unit_solves, 2);
+        input.payload.characterization_factors.push(SparseTriplet {
+            row: 0,
+            col: 0,
+            value: 0.5,
+        });
+        input.coverage.matrix_scale.c_nnz = 1;
+        assert!(
+            verify_matrix_readiness(&input)
+                .blockers
+                .iter()
+                .any(|finding| finding.code == "lcia_availability_invalid")
+        );
     }
 
     #[test]

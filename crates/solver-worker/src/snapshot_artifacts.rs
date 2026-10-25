@@ -71,6 +71,10 @@ pub struct SnapshotBuildConfig {
     /// Operator-pinned reviewed proof set, when the source selection used one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lcia_applicability_proof_set_sha256: Option<String>,
+    /// Ordered availability of the complete requested method axis. Unknown categories retain
+    /// inventory but may never be serialized as zero impacts or published as complete LCIA.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lcia_availability: Option<crate::lcia_availability::LciaAvailability>,
     /// Optional `user_id` inclusion in process selection.
     #[serde(default)]
     pub include_user_id: Option<Uuid>,
@@ -1122,6 +1126,7 @@ mod tests {
             numerical_policy_version: Some(crate::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned()),
             lcia_applicability_policy_version: None,
             lcia_applicability_proof_set_sha256: None,
+            lcia_availability: None,
             include_user_id: None,
             data_scope: None,
             scope_manifest_sha256: None,

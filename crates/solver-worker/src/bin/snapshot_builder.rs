@@ -60,6 +60,7 @@ use solver_worker::lcia_applicability::{
     FactorLocation, MethodFactors, SelectionRecord,
 };
 use solver_worker::lcia_applicability_proof::{ProofSource, TrustedProofSet};
+use solver_worker::lcia_availability::{CategoryAvailability, CategoryStatus, LciaAvailability};
 use solver_worker::lcia_method_metadata;
 use solver_worker::lcia_source_xml::{self, InspectedIlcdMethod};
 use solver_worker::local_reports::{
@@ -1051,6 +1052,9 @@ struct CompiledScopeGraph {
 struct ActiveLciaFactorSelection {
     factors_by_impact: Vec<BTreeMap<FlowLinkIdentity, f64>>,
     decisions: Vec<(usize, FlowLinkIdentity, FactorDecision)>,
+    unavailable: Vec<(usize, FlowLinkIdentity, FactorDecision)>,
+    unavailable_group_count: u64,
+    availability: Option<LciaAvailability>,
     observation_groups_sha256: String,
     unmatched_group_count: u64,
     invalid_group_count: u64,
@@ -1108,6 +1112,8 @@ struct SourceSnapshotSummary {
     lciamethod_max_modified_at_utc: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     lcia_factor_sources_sha256: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    process_payload_sha256: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -1837,7 +1843,11 @@ fn diagnostic_selection_result(
             let qualified = !selection.decisions.is_empty()
                 && selection.unmatched_group_count == 0
                 && selection.invalid_group_count == 0
-                && selection.unsupported_direction_group_count == 0;
+                && selection.unsupported_direction_group_count == 0
+                && selection
+                    .availability
+                    .as_ref()
+                    .is_some_and(LciaAvailability::is_complete);
             let decisions = selection
                 .decisions
                 .into_iter()
@@ -1850,6 +1860,8 @@ fn diagnostic_selection_result(
                 qualified,
                 json!({"status":if qualified {"selected"} else {"incomplete"},
                 "observation_groups_sha256":selection.observation_groups_sha256,"selected":decisions,
+                "lcia_availability":selection.availability,"unavailable":selection.unavailable.iter().map(|(method_index, identity, decision)| json!({"diagnostic_method_index":method_index,"flow_id":identity.flow_id,"flow_version":identity.flow_version,"decision":decision})).collect::<Vec<_>>(),
+                "unavailable_group_count":selection.unavailable_group_count, "unavailable_samples_truncated": selection.unavailable_group_count > u64::try_from(selection.unavailable.len())?,
                 "unmatched_group_count":selection.unmatched_group_count,"invalid_group_count":selection.invalid_group_count,
                 "unsupported_direction_group_count":selection.unsupported_direction_group_count}),
             ))
@@ -2347,9 +2359,6 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
     };
     let impact_factor_sets =
         load_impact_factor_sets_with_proofs(&method, applicability_proofs.as_ref())?;
-    for impact in &impact_factor_sets {
-        impact.factors.ensure_source_usable()?;
-    }
 
     let artifact_expires_in_seconds = positive_seconds(cli.artifact_expires_in_seconds);
     let reuse_max_age_seconds = positive_seconds(cli.reuse_max_age_seconds);
@@ -2359,6 +2368,7 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
         lcia_applicability_policy_version: Some(
             solver_worker::lcia_applicability::POLICY_VERSION.to_owned(),
         ),
+        lcia_availability: None,
         lcia_applicability_proof_set_sha256: applicability_proofs
             .as_ref()
             .map(|proofs| proofs.raw_sha256().to_owned()),
@@ -2804,6 +2814,11 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
     )
     .await?;
     build_timing.build_sparse_payload_sec = build_started.elapsed().as_secs_f64();
+    build_config.lcia_availability = built
+        .snapshot_index
+        .lcia_applicability
+        .as_ref()
+        .and_then(|evidence| evidence.availability.clone());
 
     if let Some((_, frozen_snapshot, "build")) = scope_closure_snapshot.as_ref() {
         let source_datasets = built
@@ -3185,6 +3200,14 @@ fn validate_reusable_snapshot_index(
                     .map(|impact| &impact.factors.source)),
             "lcia_applicability_source_mismatch: reusable index differs from the loaded factor sources"
         );
+    }
+    if method.has_lcia {
+        index
+            .lcia_applicability
+            .as_ref()
+            .and_then(|evidence| evidence.availability.as_ref())
+            .ok_or_else(|| anyhow::anyhow!("lcia_availability_missing"))?
+            .validate_axis(&index.impact_map)?;
     }
     let Some(scope) = versioned_scope else {
         return Ok(());
@@ -3870,9 +3893,15 @@ fn encode_regular_snapshot_artifact(
     built: &BuildOutput,
     release_evidence_artifact: Option<SnapshotLinkedArtifact>,
 ) -> anyhow::Result<EncodedSnapshotArtifact> {
+    let mut config = config.clone();
+    config.lcia_availability = built
+        .snapshot_index
+        .lcia_applicability
+        .as_ref()
+        .and_then(|evidence| evidence.availability.clone());
     encode_snapshot_artifact_with_links(
         snapshot_id,
-        config.clone(),
+        config,
         built.coverage.clone(),
         &built.data,
         None,
@@ -4244,6 +4273,16 @@ fn reusable_snapshot_policy_matches(
     decoded.config.is_numerical_policy_current()
         && decoded.config.is_allocation_semantics_current()
         && decoded.config.is_lcia_applicability_policy_current()
+        && (!decoded.config.has_lcia
+            || decoded
+                .config
+                .lcia_availability
+                .as_ref()
+                .is_some_and(|availability| {
+                    availability.validate().is_ok()
+                        && availability.categories.len()
+                            == usize::try_from(decoded.payload.impact_count).unwrap_or(0)
+                }))
         && decoded.config.is_lcia_proof_pin_current(
             std::env::var("LCIA_APPLICABILITY_PROOF_SET_SHA256")
                 .ok()
@@ -6185,106 +6224,131 @@ fn select_active_lcia_factors(
     observations: &[LciaExchangeObservation],
     _directional_lcia: bool,
 ) -> anyhow::Result<ActiveLciaFactorSelection> {
+    // Finite zero observations carry no burden and must not make an otherwise usable category
+    // unavailable. Keep them in the input hash, but do not let their context poison an active axis.
+    let active_observations = observations
+        .iter()
+        .filter(|observation| {
+            biosphere_flow_ids.contains(&observation.flow_id) && observation.amount != Some(0.0)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    anyhow::ensure!(
+        active_observations
+            .iter()
+            .all(|observation| observation.amount.is_some_and(f64::is_finite)),
+        "invalid_exchange_amount"
+    );
     let mut selection = ActiveLciaFactorSelection {
-        direction_by_flow: unique_supported_direction_by_flow(observations),
+        direction_by_flow: unique_supported_direction_by_flow(&active_observations),
         observation_groups_sha256: canonical_json_sha256(&serde_json::to_value(observations)?)?,
         ..ActiveLciaFactorSelection::default()
     };
     if impact_factor_sets.is_empty() {
         return Ok(selection);
     }
-    for impact in impact_factor_sets {
-        impact.factors.ensure_source_usable()?;
-    }
     let mut evidence_bytes = 0_u64;
-    let mut locations = BTreeMap::<FlowLinkIdentity, BTreeSet<FactorLocation>>::new();
     let mut groups = BTreeMap::new();
-    for observation in observations {
-        if !biosphere_flow_ids.contains(&observation.flow_id) {
-            continue;
-        }
+    for observation in &active_observations {
         let identity =
             flow_link_identity_from_parts(observation.flow_id, &observation.flow_version);
-        if observation
-            .amount
-            .is_some_and(|value| value.is_finite() && value != 0.0)
-        {
-            locations
-                .entry(identity.clone())
-                .or_default()
-                .insert(observation.location.clone());
-        }
         groups
             .entry((
                 identity,
                 observation.direction.map(ExchangeDirection::as_str),
                 observation.location.clone(),
-                observation.amount.is_some_and(f64::is_finite),
             ))
             .or_insert(observation);
     }
+    let mut categories = Vec::with_capacity(impact_factor_sets.len());
     for (impact_index, impact) in impact_factor_sets.iter().enumerate() {
-        if !impact.factors.is_location_independent() {
-            for (identity, values) in &locations {
-                if values.len() > 1 {
-                    return Err(ApplicabilityError::new("lcia_mixed_location_axis_unsupported",
-                        "this method has no validated location-independent proof for the shared Flow/version axis",
-                        json!({"method_id":impact.impact_id,"flow_id":identity.flow_id,"flow_version":identity.flow_version,"locations":values})).into());
-                }
-            }
-        }
+        let unavailable_sample_start = selection.unavailable.len();
         let mut active = BTreeMap::new();
         let mut selected_records = BTreeMap::new();
+        let mut reasons = BTreeSet::new();
+        // A verified but lossy source is an unavailable category, not a reason to discard LCI or
+        // independent methods. Hash/source corruption is rejected by the loader before this point.
+        if !impact.factors.source.applicability_complete {
+            reasons.insert("lcia_applicability_source_incomplete".to_owned());
+        }
         for observation in groups.values() {
+            let identity =
+                flow_link_identity_from_parts(observation.flow_id, &observation.flow_version);
+            let mut decision = impact.factors.select(observation);
             if selection.direction_by_flow.get(&observation.flow_id) == Some(&None) {
                 selection.unsupported_direction_group_count += 1;
-                continue;
+                decision.status = DecisionStatus::Unsupported;
+                "ambiguous_elementary_flow_direction_axis".clone_into(&mut decision.reason);
+                decision.selected = None;
             }
-            let decision = impact.factors.select(observation);
             match decision.status {
                 DecisionStatus::Selected => {
-                    let identity = flow_link_identity_from_parts(
-                        observation.flow_id,
-                        &observation.flow_version,
-                    );
                     let factor = decision.selected.as_ref().expect("selected record");
                     let record_identity = (factor.record_index, factor.record_sha256.clone());
-                    if let Some(previous) =
-                        selected_records.insert(identity.clone(), record_identity.clone())
+                    if selected_records
+                        .insert(identity.clone(), record_identity.clone())
+                        .is_some_and(|previous| previous != record_identity)
                     {
-                        anyhow::ensure!(
-                            impact.factors.is_location_independent() && previous == record_identity,
-                            "lcia_multiple_selected_records_for_one_axis"
-                        );
+                        // The existing C axis has no occurrence-location dimension. Only identical
+                        // source records can share it, including a reviewed generic fallback.
+                        reasons.insert("lcia_mixed_location_axis_unsupported".to_owned());
                     }
                     active.insert(identity.clone(), factor.value);
-                    anyhow::ensure!(
-                        selection.decisions.len() < lcia_applicability::MAX_SELECTION_RECORDS,
-                        "lcia_applicability_evidence_limit_exceeded"
-                    );
-                    evidence_bytes = evidence_bytes
-                        .checked_add(u64::try_from(serde_json::to_vec(&decision)?.len())?)
-                        .ok_or_else(|| {
-                            anyhow::anyhow!("lcia_applicability_evidence_size_overflow")
-                        })?;
-                    anyhow::ensure!(
-                        evidence_bytes <= lcia_applicability::MAX_DIAGNOSTIC_BYTES,
-                        "lcia_applicability_evidence_size_limit_exceeded"
-                    );
-                    selection.decisions.push((impact_index, identity, decision));
                 }
-                DecisionStatus::Unmatched => selection.unmatched_group_count += 1,
-                DecisionStatus::Invalid => selection.invalid_group_count += 1,
+                DecisionStatus::Unmatched => {
+                    selection.unmatched_group_count += 1;
+                    reasons.insert(decision.reason.clone());
+                }
+                DecisionStatus::Invalid => anyhow::bail!("invalid_exchange_amount"),
                 DecisionStatus::Unsupported => {
-                    return Err(ApplicabilityError::new(
-                        "lcia_factor_applicability_unsupported",
-                        decision.reason.clone(),
-                        serde_json::to_value(&decision)?,
-                    )
-                    .into());
+                    reasons.insert(decision.reason.clone());
                 }
             }
+            if decision.status != DecisionStatus::Selected {
+                selection.unavailable_group_count = selection
+                    .unavailable_group_count
+                    .checked_add(1)
+                    .ok_or_else(|| anyhow::anyhow!("lcia_unavailable_group_count_overflow"))?;
+                // Do not physically expand method × unknown observation evidence. Full input/source
+                // hashes and exact category reasons are retained; detailed gaps can be replayed.
+                if selection.unavailable.len() - unavailable_sample_start >= 8 {
+                    continue;
+                }
+            }
+            anyhow::ensure!(
+                selection.decisions.len() + selection.unavailable.len()
+                    < lcia_applicability::MAX_SELECTION_RECORDS,
+                "lcia_applicability_evidence_limit_exceeded"
+            );
+            evidence_bytes = evidence_bytes
+                .checked_add(u64::try_from(serde_json::to_vec(&decision)?.len())?)
+                .ok_or_else(|| anyhow::anyhow!("lcia_applicability_evidence_size_overflow"))?;
+            anyhow::ensure!(
+                evidence_bytes <= lcia_applicability::MAX_DIAGNOSTIC_BYTES,
+                "lcia_applicability_evidence_size_limit_exceeded"
+            );
+            if decision.status == DecisionStatus::Selected {
+                selection.decisions.push((impact_index, identity, decision));
+            } else {
+                selection
+                    .unavailable
+                    .push((impact_index, identity, decision));
+            }
         }
+        let status = if reasons.is_empty() {
+            CategoryStatus::Available
+        } else {
+            // Never expose the sum of only the characterized subset as this category's full result.
+            active.clear();
+            CategoryStatus::Unavailable
+        };
+        categories.push(CategoryAvailability {
+            impact_index,
+            method_id: impact.impact_id,
+            method_version: impact.method_version.clone(),
+            status,
+            reasons: reasons.into_iter().collect(),
+        });
         for (identity, value) in &active {
             if *value != 0.0 {
                 selection.active_flow_ids.insert(identity.flow_id);
@@ -6295,6 +6359,10 @@ fn select_active_lcia_factors(
         }
         selection.factors_by_impact.push(active);
     }
+    selection.availability = Some(LciaAvailability::new(
+        lcia_applicability::POLICY_VERSION.to_owned(),
+        categories,
+    )?);
     Ok(selection)
 }
 
@@ -6630,6 +6698,23 @@ fn assemble_sparse_payload_with_selection(
         lcia_applicability: has_lcia
             .then(|| -> anyhow::Result<_> {
                 Ok(ApplicabilityEvidence {
+                    availability: active_lcia_factors.availability.clone(),
+                    unavailable_group_count: active_lcia_factors.unavailable_group_count,
+                    unavailable_samples_truncated: active_lcia_factors.unavailable_group_count
+                        > u64::try_from(active_lcia_factors.unavailable.len())?,
+                    unavailable: active_lcia_factors
+                        .unavailable
+                        .iter()
+                        .map(|(impact_index, identity, decision)| {
+                            Ok(SelectionRecord {
+                                impact_index: *impact_index,
+                                flow_index: *flow_indices_by_identity.get(identity).ok_or_else(
+                                    || anyhow::anyhow!("missing unresolved Flow axis"),
+                                )?,
+                                decision: decision.clone(),
+                            })
+                        })
+                        .collect::<anyhow::Result<Vec<_>>>()?,
                     schema_version: lcia_applicability::EVIDENCE_SCHEMA_VERSION.to_owned(),
                     policy_version: lcia_applicability::POLICY_VERSION.to_owned(),
                     sources: impact_factor_sets
@@ -6660,10 +6745,14 @@ fn assemble_sparse_payload_with_selection(
             })
             .transpose()?,
     };
+    let mut selected_build_config = build_config.clone();
+    selected_build_config
+        .lcia_availability
+        .clone_from(&active_lcia_factors.availability);
     let readiness = verify_matrix_readiness(&MatrixReadinessInput {
         schema_version: "matrix_readiness_input.v2".to_owned(),
         snapshot_id: Some(snapshot_id),
-        config: Some(build_config.clone()),
+        config: Some(selected_build_config),
         coverage: coverage.clone(),
         payload: data.clone(),
         compiled_graph: Some(compiled_graph.clone()),
@@ -6730,24 +6819,19 @@ fn lcia_gap_reason(
     observation: &LciaExchangeObservation,
     method: &ImpactFactorSet,
     direction_by_flow: &HashMap<Uuid, Option<ExchangeDirection>>,
-) -> anyhow::Result<Option<&'static str>> {
+) -> Option<&'static str> {
     if observation.direction.is_none() {
-        return Ok(Some("unsupported_exchange_direction"));
+        return Some("unsupported_exchange_direction");
     }
     if direction_by_flow.get(&observation.flow_id) == Some(&None) {
-        return Ok(Some("ambiguous_elementary_flow_direction_axis"));
+        return Some("ambiguous_elementary_flow_direction_axis");
     }
-    let decision = method.factors.select(observation);
-    match decision.status {
-        DecisionStatus::Selected => Ok(None),
-        DecisionStatus::Invalid => Ok(Some("invalid_exchange_amount")),
-        DecisionStatus::Unmatched => Ok(Some("no_lcia_factor_for_exact_applicability")),
-        DecisionStatus::Unsupported => Err(ApplicabilityError::new(
-            "lcia_factor_applicability_unsupported",
-            decision.reason.clone(),
-            serde_json::to_value(&decision)?,
-        )
-        .into()),
+    match method.factors.select(observation).status {
+        DecisionStatus::Selected => None,
+        DecisionStatus::Invalid => Some("invalid_exchange_amount"),
+        DecisionStatus::Unmatched | DecisionStatus::Unsupported => {
+            Some("no_lcia_factor_for_exact_applicability")
+        }
     }
 }
 
@@ -6779,7 +6863,7 @@ fn build_lcia_factor_coverage(
     for method in methods {
         let mut method_counts = LciaFactorCoverageCounts::default();
         for (observation, multiplicity) in groups.values() {
-            let count = match lcia_gap_reason(observation, method, direction_by_flow)? {
+            let count = match lcia_gap_reason(observation, method, direction_by_flow) {
                 None => &mut method_counts.matched,
                 Some("invalid_exchange_amount") => &mut method_counts.invalid,
                 Some("no_lcia_factor_for_exact_applicability") => &mut method_counts.unmatched,
@@ -6841,7 +6925,7 @@ fn visit_lcia_gaps(
     let mut count = 0;
     for method in methods {
         for observation in &sorted {
-            if let Some(reason) = lcia_gap_reason(observation, method, &directions)? {
+            if let Some(reason) = lcia_gap_reason(observation, method, &directions) {
                 visit(LciaUncharacterizedRecord {
                     method_id: method.impact_id,
                     method_version: method.method_version.clone(),
@@ -8397,6 +8481,7 @@ async fn compute_source_fingerprint(
     };
 
     let summary = SourceSnapshotSummary {
+        process_payload_sha256: Some(selected_process_payload_sha256(selected_processes)?),
         process_count,
         process_max_modified_at_utc,
         lifecyclemodel_count: provider_lineage.model_count,
@@ -8454,6 +8539,9 @@ fn compute_source_fingerprint_from_summary(
         },
         "config": config,
     });
+    if let Some(source_hash) = &summary.process_payload_sha256 {
+        body["source"]["processes"]["payload_sha256"] = json!(source_hash);
+    }
     if let Some(source_hash) = &summary.lcia_factor_sources_sha256 {
         body["source"]["lciamethods"]["factor_sources_sha256"] = json!(source_hash);
     }
@@ -8461,6 +8549,29 @@ fn compute_source_fingerprint_from_summary(
     let mut hasher = Sha256::new();
     hasher.update(serde_json::to_vec(&body)?);
     Ok(hex::encode(hasher.finalize()))
+}
+
+/// Bind the exact already-loaded exchange contexts; a timestamp/count aggregate cannot prove
+/// that location or Flow version remained unchanged while the source summary was collected.
+fn selected_process_payload_sha256(processes: &[ProcessRow]) -> anyhow::Result<String> {
+    let mut receipts = processes
+        .iter()
+        .map(|row| {
+            Ok((
+                row.id,
+                row.version.clone(),
+                row.model_id,
+                row.model_version.clone(),
+                row.state_code,
+                row.user_id,
+                row.team_id,
+                row.review_id,
+                stable_json_sha256(&row.json)?,
+            ))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    receipts.sort();
+    stable_json_sha256(&serde_json::to_value(receipts)?)
 }
 
 fn summarize_selected_processes(processes: &[ProcessRow]) -> anyhow::Result<(i64, String)> {
@@ -11038,6 +11149,16 @@ async fn persist_snapshot_metadata(
         scope_summary,
     );
 
+    process_filter["lcia_enabled"] = json!(method.has_lcia);
+    if let Some(availability) = built
+        .snapshot_index
+        .lcia_applicability
+        .as_ref()
+        .and_then(|evidence| evidence.availability.as_ref())
+    {
+        availability.validate_axis(&built.snapshot_index.impact_map)?;
+        process_filter["lcia_availability"] = serde_json::to_value(availability)?;
+    }
     attach_artifact_lifecycle(
         &mut process_filter,
         artifact_purpose,
@@ -12307,6 +12428,7 @@ mod tests {
         let changed =
             synthetic_impact(&[(flow_id, "01.00.000", ExchangeDirection::Output, "B", 4.0)]);
         let mut summary = SourceSnapshotSummary {
+            process_payload_sha256: None,
             process_count: 1,
             process_max_modified_at_utc: "unchanged".to_owned(),
             lifecyclemodel_count: 0,
@@ -12377,17 +12499,18 @@ mod tests {
             "lcia_applicability_source_incomplete"
         );
         let observation = synthetic_lcia_observation(Uuid::from_u128(339_340), "01.00.000", "A");
-        let error = select_active_lcia_factors(
+        let selection = select_active_lcia_factors(
             &factors,
             &BTreeSet::from([observation.flow_id]),
             &[observation],
             true,
         )
-        .expect_err("complete XML is not a replacement for a selected lossy index");
+        .expect("lossy index leaves the category unavailable while retaining inventory");
+        assert!(selection.factors_by_impact[0].is_empty());
         assert!(
-            error
-                .to_string()
-                .contains("lcia_applicability_source_incomplete")
+            selection.availability.unwrap().categories[0]
+                .reasons
+                .contains(&"lcia_applicability_source_incomplete".to_owned())
         );
     }
 
@@ -12466,6 +12589,7 @@ mod tests {
     fn source_bound_proof_pin_is_a_build_identity_and_reuse_requirement() {
         let fixture = synthetic_nonspatial_fixture();
         let summary = SourceSnapshotSummary {
+            process_payload_sha256: None,
             process_count: 1,
             process_max_modified_at_utc: "none".to_owned(),
             lifecyclemodel_count: 0,
@@ -12837,6 +12961,7 @@ mod tests {
                 solver_worker::lcia_applicability::POLICY_VERSION.to_owned(),
             ),
             lcia_applicability_proof_set_sha256: None,
+            lcia_availability: None,
             numerical_policy_version: Some(
                 solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned(),
             ),
@@ -12920,6 +13045,7 @@ mod tests {
     #[test]
     fn canonical_lcia_metadata_does_not_reuse_legacy_source_fingerprint() {
         let summary = SourceSnapshotSummary {
+            process_payload_sha256: None,
             process_count: 2,
             process_max_modified_at_utc: "unchanged".to_owned(),
             lifecyclemodel_count: 0,
@@ -12956,6 +13082,7 @@ mod tests {
     #[test]
     fn numerical_policy_and_allocation_semantics_change_snapshot_source_fingerprint() {
         let mut summary = SourceSnapshotSummary {
+            process_payload_sha256: None,
             process_count: 2,
             process_max_modified_at_utc: "2026-07-15T00:00:00.000000Z".to_owned(),
             lifecyclemodel_count: 0,
@@ -13014,6 +13141,7 @@ mod tests {
     #[test]
     fn link_boundary_and_flow_identity_policy_change_source_fingerprints() {
         let summary = SourceSnapshotSummary {
+            process_payload_sha256: None,
             process_count: 2,
             process_max_modified_at_utc: "2026-07-15T00:00:00.000000Z".to_owned(),
             lifecyclemodel_count: 0,
@@ -14035,20 +14163,12 @@ mod tests {
             provider_outputs: Vec::new(),
             provider_decisions: Vec::new(),
             technosphere_edges: Vec::new(),
-            biosphere_edges: vec![
-                CompiledBiosphereEdge {
-                    process_idx: 0,
-                    flow_idx: 0,
-                    amount: tiny_exchange,
-                    process_partition: ScopeProcessPartition::Public,
-                },
-                CompiledBiosphereEdge {
-                    process_idx: 0,
-                    flow_idx: 0,
-                    amount: f64::INFINITY,
-                    process_partition: ScopeProcessPartition::Public,
-                },
-            ],
+            biosphere_edges: vec![CompiledBiosphereEdge {
+                process_idx: 0,
+                flow_idx: 0,
+                amount: tiny_exchange,
+                process_partition: ScopeProcessPartition::Public,
+            }],
             reference_stats: CompiledReferenceStats::default(),
             allocation_stats: CompiledAllocationStats::default(),
             matching_stats: CompiledMatchingStats::default(),
@@ -14066,30 +14186,15 @@ mod tests {
                 &[((flow_id, ExchangeDirection::Output), tiny_factor)],
             ),
         }];
-        let observations = vec![
-            LciaExchangeObservation {
-                flow_id,
-                flow_version: "01.00.000".to_owned(),
-                direction: Some(ExchangeDirection::Output),
-                direction_label: "Output".to_owned(),
-                exchange_id: "tiny-exchange".to_owned(),
-                amount: Some(tiny_exchange),
-                location: solver_worker::lcia_applicability::FactorLocation::Code(
-                    "test".to_owned(),
-                ),
-            },
-            LciaExchangeObservation {
-                flow_id,
-                flow_version: "01.00.000".to_owned(),
-                direction: Some(ExchangeDirection::Output),
-                direction_label: "Output".to_owned(),
-                exchange_id: "nonfinite-exchange".to_owned(),
-                amount: Some(f64::INFINITY),
-                location: solver_worker::lcia_applicability::FactorLocation::Code(
-                    "test".to_owned(),
-                ),
-            },
-        ];
+        let observations = vec![LciaExchangeObservation {
+            flow_id,
+            flow_version: "01.00.000".to_owned(),
+            direction: Some(ExchangeDirection::Output),
+            direction_label: "Output".to_owned(),
+            exchange_id: "tiny-exchange".to_owned(),
+            amount: Some(tiny_exchange),
+            location: solver_worker::lcia_applicability::FactorLocation::Code("test".to_owned()),
+        }];
         let method = MethodSelection {
             has_lcia: true,
             method_id: None,
@@ -14131,8 +14236,8 @@ mod tests {
             .lcia_factor_coverage
             .expect("versioned factor coverage");
         assert_eq!(factor_coverage.counts.matched, 1);
-        assert_eq!(factor_coverage.counts.invalid, 1);
-        assert_eq!(factor_coverage.record_count, 1);
+        assert_eq!(factor_coverage.counts.invalid, 0);
+        assert_eq!(factor_coverage.record_count, 0);
     }
 
     #[test]
@@ -14336,6 +14441,26 @@ mod tests {
         current_lcia.has_lcia = true;
         current_lcia.lcia_applicability_policy_version =
             Some(solver_worker::lcia_applicability::POLICY_VERSION.to_owned());
+        // A current policy marker alone does not authorize internal placeholder zeros.
+        let without_availability =
+            super::decode_snapshot_artifact(&encode(&current_lcia).bytes).unwrap();
+        assert!(!reusable_snapshot_policy_matches(
+            &candidate(artifact_format),
+            &without_availability
+        ));
+        current_lcia.lcia_availability = Some(
+            solver_worker::lcia_availability::LciaAvailability::new(
+                solver_worker::lcia_applicability::POLICY_VERSION.to_owned(),
+                vec![solver_worker::lcia_availability::CategoryAvailability {
+                    impact_index: 0,
+                    method_id: snapshot_id,
+                    method_version: "01.00.000".to_owned(),
+                    status: solver_worker::lcia_availability::CategoryStatus::Available,
+                    reasons: vec![],
+                }],
+            )
+            .unwrap(),
+        );
         let encoded = encode(&current_lcia);
         let decoded =
             super::decode_snapshot_artifact(&encoded.bytes).expect("current applicability");
@@ -18960,17 +19085,18 @@ mod tests {
         for value in [4.0, f64::MAX] {
             let record = (flow, "01.00.000", ExchangeDirection::Output, "test", value);
             let impact = synthetic_impact(&[record, record]);
-            let error = select_active_lcia_factors(
+            let selection = select_active_lcia_factors(
                 &[impact],
                 &BTreeSet::from([flow]),
                 &[synthetic_lcia_observation(flow, "01.00.000", "test")],
                 true,
             )
-            .expect_err("identical applicability records remain ambiguous");
+            .expect("ambiguous category retains inventory");
+            assert!(selection.factors_by_impact[0].is_empty());
             assert!(
-                error
-                    .to_string()
-                    .contains("lcia_factor_applicability_ambiguous")
+                selection.availability.unwrap().categories[0]
+                    .reasons
+                    .contains(&"lcia_factor_applicability_ambiguous".to_owned())
             );
         }
     }
@@ -18993,13 +19119,14 @@ mod tests {
                 synthetic_lcia_observation(flow, "01.00.000", "A"),
                 synthetic_lcia_observation(flow, "01.00.000", "B"),
             ];
-            let error =
+            let selection =
                 select_active_lcia_factors(&[impact], &BTreeSet::from([flow]), &observations, true)
-                    .expect_err("the existing axis cannot retain two locations");
+                    .expect("mixed contexts disable only this category");
+            assert!(selection.factors_by_impact[0].is_empty());
             assert!(
-                error
-                    .to_string()
-                    .contains("lcia_mixed_location_axis_unsupported")
+                selection.availability.unwrap().categories[0]
+                    .reasons
+                    .contains(&"lcia_mixed_location_axis_unsupported".to_owned())
             );
         }
     }
@@ -19009,17 +19136,181 @@ mod tests {
         let flow = Uuid::new_v4();
         let impact =
             synthetic_impact(&[(flow, "01.00.000", ExchangeDirection::Output, "test", 4.0)]);
-        let error = select_active_lcia_factors(
+        let selection = select_active_lcia_factors(
             &[impact],
             &BTreeSet::from([flow]),
             &[synthetic_lcia_observation(flow, "01.00.002", "test")],
             true,
         )
-        .expect_err("UUID alone cannot authorize a different revision");
+        .expect("wrong-version category is unavailable");
+        assert!(selection.factors_by_impact[0].is_empty());
         assert!(
-            error
-                .to_string()
-                .contains("lcia_factor_flow_version_mismatch")
+            selection.availability.unwrap().categories[0]
+                .reasons
+                .contains(&"lcia_factor_flow_version_mismatch".to_owned())
+        );
+    }
+
+    #[test]
+    fn unavailable_category_does_not_erase_other_categories_or_claim_a_subtotal() {
+        let flow = Uuid::from_u128(340_001);
+        let other_flow = Uuid::from_u128(340_002);
+        let first = synthetic_impact(&[(flow, "01.00.000", ExchangeDirection::Output, "A", 4.0)]);
+        let mut second = synthetic_impact(&[
+            (flow, "01.00.000", ExchangeDirection::Output, "A", 2.0),
+            (
+                other_flow,
+                "01.00.000",
+                ExchangeDirection::Output,
+                "A",
+                -3.0,
+            ),
+        ]);
+        second.impact_id = Uuid::from_u128(340_003);
+        second.factors = synthetic_method_factors(
+            second.impact_id,
+            &[
+                (flow, "01.00.000", ExchangeDirection::Output, "A", 2.0),
+                (
+                    other_flow,
+                    "01.00.000",
+                    ExchangeDirection::Output,
+                    "A",
+                    -3.0,
+                ),
+            ],
+        );
+        let observations = [
+            synthetic_lcia_observation(flow, "01.00.000", "A"),
+            synthetic_lcia_observation(other_flow, "01.00.000", "A"),
+        ];
+        let selection = select_active_lcia_factors(
+            &[first, second],
+            &BTreeSet::from([flow, other_flow]),
+            &observations,
+            true,
+        )
+        .unwrap();
+        assert!(
+            selection.factors_by_impact[0].is_empty(),
+            "known subset must not be a claimed category total"
+        );
+        assert_eq!(selection.factors_by_impact[1].len(), 2);
+        assert_eq!(
+            selection.factors_by_impact[1]
+                [&super::flow_link_identity_from_parts(flow, "01.00.000")]
+                .to_bits(),
+            2.0_f64.to_bits()
+        );
+        let availability = selection.availability.unwrap();
+        assert_eq!(
+            availability.completeness,
+            solver_worker::lcia_availability::LciaCompleteness::Partial
+        );
+        assert_eq!(
+            availability.categories[0].status,
+            solver_worker::lcia_availability::CategoryStatus::Unavailable
+        );
+        assert_eq!(
+            availability.categories[1].status,
+            solver_worker::lcia_availability::CategoryStatus::Available
+        );
+    }
+
+    #[test]
+    fn unavailable_diagnostics_are_bounded_without_losing_counts_or_category_reasons() {
+        let flow = Uuid::from_u128(340_100);
+        let first = synthetic_impact(&[(flow, "01.00.000", ExchangeDirection::Output, "A", 4.0)]);
+        let mut second = first.clone();
+        second.impact_id = Uuid::from_u128(340_101);
+        let observations = (0..1000)
+            .map(|index| {
+                synthetic_lcia_observation(Uuid::from_u128(350_000 + index), "01.00.000", "A")
+            })
+            .collect::<Vec<_>>();
+        let flows = observations
+            .iter()
+            .map(|observation| observation.flow_id)
+            .collect();
+        let selection =
+            select_active_lcia_factors(&[first, second], &flows, &observations, true).unwrap();
+        assert_eq!(selection.unavailable_group_count, 2000);
+        assert_eq!(selection.unavailable.len(), 16);
+        let availability = selection.availability.unwrap();
+        assert_eq!(
+            availability.completeness,
+            solver_worker::lcia_availability::LciaCompleteness::Unavailable
+        );
+        assert!(
+            availability
+                .categories
+                .iter()
+                .all(|category| category.reasons == ["no_lcia_factor_for_flow_direction"])
+        );
+    }
+
+    #[test]
+    fn nonfinite_inventory_cannot_claim_retained_valid_lci() {
+        let flow = Uuid::from_u128(340_007);
+        let impact = synthetic_impact(&[(flow, "01.00.000", ExchangeDirection::Output, "A", 4.0)]);
+        for amount in [None, Some(f64::INFINITY), Some(f64::NAN)] {
+            let mut observation = synthetic_lcia_observation(flow, "01.00.000", "A");
+            observation.amount = amount;
+            let error = select_active_lcia_factors(
+                std::slice::from_ref(&impact),
+                &BTreeSet::from([flow]),
+                &[observation],
+                true,
+            )
+            .unwrap_err();
+            assert!(error.to_string().contains("invalid_exchange_amount"));
+        }
+    }
+
+    #[test]
+    fn zero_observations_do_not_mask_active_context_or_make_known_zero_unavailable() {
+        let flow = Uuid::from_u128(340_004);
+        let impact = synthetic_impact(&[(flow, "01.00.000", ExchangeDirection::Output, "A", 0.0)]);
+        let mut zero = synthetic_lcia_observation(flow, "01.00.000", "B");
+        zero.amount = Some(0.0);
+        zero.direction = Some(ExchangeDirection::Input);
+        let observations = [zero, synthetic_lcia_observation(flow, "01.00.000", "A")];
+        let selection =
+            select_active_lcia_factors(&[impact], &BTreeSet::from([flow]), &observations, true)
+                .unwrap();
+        assert!(selection.availability.unwrap().is_complete());
+        assert_eq!(selection.decisions.len(), 1);
+        assert_eq!(
+            selection.factors_by_impact[0]
+                [&super::flow_link_identity_from_parts(flow, "01.00.000")]
+                .to_bits(),
+            0.0_f64.to_bits()
+        );
+    }
+
+    #[test]
+    fn exact_loaded_exchange_context_changes_source_hash_despite_same_timestamps() {
+        let mut process = ProcessRow {
+            id: Uuid::from_u128(340_005),
+            version: "01.00.000".to_owned(),
+            model_id: None,
+            model_version: None,
+            user_id: None,
+            state_code: 100,
+            team_id: None,
+            review_id: None,
+            modified_at: None,
+            json: json!({"processDataSet":{"exchanges":{"exchange":[{"location":"A","referenceToFlowDataSet":{"@version":"01.00.000"}}]}}}),
+        };
+        let before = super::selected_process_payload_sha256(&[process.clone()]).unwrap();
+        process.json["processDataSet"]["exchanges"]["exchange"][0]["location"] = json!("B");
+        let location = super::selected_process_payload_sha256(&[process.clone()]).unwrap();
+        assert_ne!(before, location);
+        process.json["processDataSet"]["exchanges"]["exchange"][0]["referenceToFlowDataSet"]["@version"] =
+            json!("01.00.001");
+        assert_ne!(
+            location,
+            super::selected_process_payload_sha256(&[process]).unwrap()
         );
     }
 

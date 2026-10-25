@@ -56,7 +56,7 @@ Provider-link 的运行时决策顺序由 `docs/provider-linking.md` 维护。�
 输入 schema version 为 `matrix_readiness_input.v2`，核心字段为：
 
 - `config`: snapshot build config；其中 `link_semantics_version`、`technosphere_boundary_policy`、`flow_identity_policy` 决定本次 closure 的显式合同。 `SnapshotBuildConfig` 现在还携带 `numerical_policy_version`（公开数值资格策略标记）与可选的 `scope_closure_binding`／`snapshot_build_contract_hash`。它们参与 snapshot 身份与复用判定，但不改变本报告的 schema、blocker、finding 或 policy 语义。
-- LCIA config 还绑定 `lcia_applicability_policy_version` 与可选 `lcia_applicability_proof_set_sha256`。适用性歧义、丢失来源或证明漂移属于构建前置阻断，在本报告生成之前拒绝；它们不新增本报告的 schema、blocker 或 policy，也不能由 `require_lcia_factors=false`、`open/cutoff` 绕过。完整输入与证明合同见 `docs/lca-api-contract.md`。
+- LCIA config 绑定当前 `lcia_applicability_policy_version`、`lcia_availability` 与可选 proof pin。完整性哈希漂移仍在加载时拒绝；适用性未解决则保留 LCI 与可用类别，并以 `lcia_categories_unavailable` warning 报告。可用性回执必须与类别轴及 C 一致，不可通过 `require_lcia_factors=false` 或 `open/cutoff` 伪造。完整合同见 `docs/lca-api-contract.md`。
 - `coverage`: `snapshot_coverage.v3` report，同时提供中性 `residual_edges_total` / `a_balance_edges_written` 和 legacy input/provider 兼容计数。
 - `payload`: `ModelSparseData` sparse payload。
 - `compiled_graph`（可选）：fresh build 时包含以 `(Flow UUID, resolved version)` 标识的 flow axis、`reference_ports`、`balance_resolutions`、`unresolved_balances`，以及兼容的 provider decision projection。没有该字段时仍可验证 coverage/compute，但逐边解释证据会为空。
@@ -94,7 +94,8 @@ Provider-link 的运行时决策顺序由 `docs/provider-linking.md` 维护。�
 | `allocation_fraction_invalid` | 除两个有界 legacy fallback 外，已声明 allocation 的 target、fraction 或 targetless shape 无法按 TIDAS target-aware 规则安全解析，因而产生 invalid 计数 | 修复 allocation target / fraction 声明后重跑 | 否 |
 | `singular_risk_high` | singular risk 为 `high`，且 `allow_high_singular_risk = false` | 修复矩阵结构或人工确认风险 | 是，设置 `allow_high_singular_risk` |
 | `singular_risk_medium` | generic readiness 中 singular risk 为 `medium`，且 `allow_medium_singular_risk = false` | 复核矩阵结构或人工确认风险 | 是，设置 `allow_medium_singular_risk`；证书级 Scope Closure 固定转为 warning |
-| `lcia_factors_missing` | `require_lcia_factors = true` 且 `coverage.matrix_scale.c_nnz = 0` | 补齐 LCIA factors 后重跑 | 是，设置 `require_lcia_factors = false` |
+| `lcia_factors_missing` | 要求 LCIA、C 为空且没有合法当前类别可用性回执 | 补齐来源与可用性证据后重跑 | 显式 inventory-only 可不要求 LCIA；不能据此宣称完整 LCIA |
+| `lcia_availability_invalid` | 回执策略、类别数量、状态或 C 行不一致 | 修复生成端证据后重跑 | 否 |
 | `factorization_not_ready` | `SolverService.prepare` 失败，包含结构校验或 UMFPACK factorization 失败 | 修复 compute stability 后重跑 | 否 |
 | `sample_unit_solve_failed` | sample unit demand solve 对某个 process index 失败 | 修复 compute stability 后重跑 | 否 |
 | `compute_non_finite_values` | sample solve 的 `x` / `g` / `h` 中存在 NaN 或 Infinity | 修复 compute stability 后重跑 | 否 |
@@ -114,6 +115,7 @@ Provider-link 的运行时决策顺序由 `docs/provider-linking.md` 维护。�
 | `technosphere_boundary_unresolved_permitted` | `warning` | `open` / `cutoff` 显式允许一个或多个 unresolved balance；details 保留 policy 和 evidence count |
 | `singular_risk_medium` | `warning` | policy 显式允许 medium singular risk；证书级 Scope Closure 固定采用该策略并保留对角线风险计数 |
 | `singular_risk_observed` | `info` | singular risk level 不是 `low` / `medium` / `high` 中的已知值 |
+| `lcia_categories_unavailable` | `warning` | 一个或多个类别不可计算；可计算 LCI 和其余类别，完整 LCIA 发布仍受限 |
 | `biosphere_entries_missing` | `warning` | `coverage.matrix_scale.b_nnz = 0`，结果可能缺少环境流信息 |
 | `matrix_validation_warning` | `warning` | factorization matrix validation 返回 near-singular warning |
 | `negative_lcia_values` | `info` / `warning` | 出现 negative LCIA，但 `negative_lcia_policy` 配置为 `ignore` 或 `warning` |

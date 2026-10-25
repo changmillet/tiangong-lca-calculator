@@ -212,9 +212,67 @@ fn blank_and_absent_factors_require_reviewed_proof_even_for_br() {
         let report = read_report(&path);
         assert_eq!(report["selection_qualified"], false);
         assert_eq!(
-            report["selection"]["issue"]["details"]["reason"],
+            report["selection"]["unavailable"][0]["decision"]["reason"],
             "lcia_factor_location_semantics_unresolved"
         );
+    }
+}
+
+#[test]
+fn shipped_policy_uses_original_climate_and_acidification_sources_without_operator_proof() {
+    type OriginalCase<'a> = (&'a [u8], &'a str, Vec<(Value, f64)>);
+    let originals: [OriginalCase<'_>; 2] = [
+        (
+            include_bytes!(
+                "fixtures/lcia_supported_sources/7fce5b3a-66b8-4ce1-91e8-a925aee1f186.xml.gz"
+            ),
+            "08a91e70-3ddc-11dd-923d-0050c2490048",
+            vec![
+                (json!({"kind":"missing"}), 1.0),
+                (json!({"kind":"code","value":"CN"}), 1.0),
+            ],
+        ),
+        (
+            include_bytes!(
+                "fixtures/lcia_supported_sources/b5c611c6-def3-11e6-bf01-fe55135034f3.xml.gz"
+            ),
+            "08a91e70-3ddc-11dd-a2a9-0050c2490048",
+            vec![
+                (json!({"kind":"missing"}), 3.02),
+                (json!({"kind":"code","value":"DE"}), 4.0),
+            ],
+        ),
+    ];
+    for (compressed, flow_id, cases) in originals {
+        let mut source = String::new();
+        flate2::read::GzDecoder::new(compressed)
+            .read_to_string(&mut source)
+            .unwrap();
+        let fixture = Fixture::new(&source);
+        for (index, (location, expected)) in cases.into_iter().enumerate() {
+            let mut exchange = observation(location);
+            exchange["flow_id"] = json!(flow_id);
+            let request = fixture.request("select", vec![exchange]);
+            let (output, path) = fixture.run(&request, None, &format!("shipped-{index}"));
+            assert_exit(&output, 0);
+            let report = read_report(&path);
+            assert_eq!(report["selection_qualified"], true);
+            assert_eq!(
+                report["selection"]["lcia_availability"]["completeness"],
+                "complete"
+            );
+            assert_eq!(
+                report["selection"]["selected"][0]["decision"]["selected"]["value"],
+                json!(expected)
+            );
+            assert!(
+                report["selection"]["selected"][0]["decision"]["source"]["source_policy"]
+                    .is_object()
+            );
+            assert_eq!(report["matrix_created"], false);
+            assert_eq!(report["calculation_performed"], false);
+            assert_eq!(fs::read_to_string(&fixture.source_path).unwrap(), source);
+        }
     }
 }
 
@@ -460,7 +518,7 @@ fn native_source_hash_alias_and_inventory_version_cannot_silently_change() {
     let report = read_report(&path);
     assert_eq!(report["selection_qualified"], false);
     assert_eq!(
-        report["selection"]["issue"]["details"]["reason"],
+        report["selection"]["unavailable"][0]["decision"]["reason"],
         "lcia_factor_flow_version_mismatch"
     );
 }

@@ -15,13 +15,14 @@ use crate::calculation_evidence::{
     LciaExchangeDirection, LciaExchangeObservation, canonical_json_sha256,
 };
 use crate::lcia_applicability_proof::{ProofReceipt, ValidatedNonspatialProof};
+use crate::lcia_source_policy::{SourcePolicyReceipt, SupportedSourcePolicy};
 use crate::lcia_source_xml::{
     InspectedIlcdMethod, XML_CANONICALIZATION, XML_PROJECTION_SCHEMA_VERSION,
 };
 use crate::static_lcia_cache::VerifiedStaticLciaBundle;
 
-pub const POLICY_VERSION: &str = "lcia.applicability.source-bound.v1";
-pub const EVIDENCE_SCHEMA_VERSION: &str = "lcia.applicability.evidence.v1";
+pub const POLICY_VERSION: &str = "lcia.applicability.source-bound.v2";
+pub const EVIDENCE_SCHEMA_VERSION: &str = "lcia.applicability.evidence.v2";
 pub const MAX_DIAGNOSTIC_BYTES: u64 = 64 * 1024 * 1024;
 pub const MAX_SELECTION_RECORDS: usize = 100_000;
 const MAX_FACTOR_RECORDS: usize = 1_000_000;
@@ -128,6 +129,8 @@ pub struct FactorSource {
     pub native_source: Option<NativeSourceReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nonspatial_proof: Option<ProofReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_policy: Option<SourcePolicyReceipt>,
 }
 
 #[derive(Debug, Clone)]
@@ -136,6 +139,7 @@ pub struct MethodFactors {
     pub records: Vec<FactorRecord>,
     by_flow: BTreeMap<Uuid, Vec<usize>>,
     nonspatial_proof: Option<ValidatedNonspatialProof>,
+    source_policy: Option<SupportedSourcePolicy>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -296,6 +300,29 @@ impl MethodFactors {
         artifact_locator_id: Uuid,
         document: &Value,
     ) -> anyhow::Result<Self> {
+        let mut factors = Self::from_method_document_unbound(
+            method_id,
+            method_version,
+            artifact_locator_id,
+            document,
+        )?;
+        if let Some(policy) = crate::lcia_source_policy::bind_method_document(
+            method_id,
+            method_version,
+            artifact_locator_id,
+            &factors.source.source_sha256,
+        )? {
+            factors.attach_source_policy(policy);
+        }
+        Ok(factors)
+    }
+
+    fn from_method_document_unbound(
+        method_id: Uuid,
+        method_version: &str,
+        artifact_locator_id: Uuid,
+        document: &Value,
+    ) -> anyhow::Result<Self> {
         crate::calculation_bundle::validate_version(method_version, "lcia_method.version")?;
         anyhow::ensure!(
             u64::try_from(serde_json::to_vec(document)?.len())? <= MAX_DIAGNOSTIC_BYTES,
@@ -336,6 +363,7 @@ impl MethodFactors {
                 applicability_complete: true,
                 native_source: None,
                 nonspatial_proof: None,
+                source_policy: None,
             },
             records,
         ))
@@ -346,7 +374,7 @@ impl MethodFactors {
         source: &InspectedIlcdMethod,
         artifact_locator_id: Uuid,
     ) -> anyhow::Result<Self> {
-        let mut factors = Self::from_method_document(
+        let mut factors = Self::from_method_document_unbound(
             source.method_id,
             &source.method_version,
             artifact_locator_id,
@@ -372,6 +400,11 @@ impl MethodFactors {
             projection_schema: XML_PROJECTION_SCHEMA_VERSION.to_owned(),
             canonicalization: XML_CANONICALIZATION.to_owned(),
         });
+        if let Some(policy) =
+            crate::lcia_source_policy::bind_native_source(source, artifact_locator_id)?
+        {
+            factors.attach_source_policy(policy);
+        }
         Ok(factors)
     }
 
@@ -441,8 +474,32 @@ impl MethodFactors {
             .iter()
             .find(|method| method.method_id == method_id)
             .ok_or_else(|| anyhow::anyhow!("unmanifested LCIA method"))?;
-        // Integrity verification retained the original records in the bundle. Since this source
-        // omitted applicability, do not copy a large numeric index into a selectable factor set.
+        if let Some((records, policy)) = crate::lcia_source_policy::complete_static_method(
+            bundle,
+            method_id,
+            &method.method_version,
+            method.artifact_locator_id,
+        )? {
+            let mut factors = Self::new(
+                FactorSource {
+                    method_id,
+                    method_version: method.method_version.clone(),
+                    artifact_locator_id: method.artifact_locator_id,
+                    source_sha256: bundle.source_evidence.factor_manifest_sha256.clone(),
+                    source_kind: "supported_static_index_with_applicability_companion".to_owned(),
+                    factor_count: records.len(),
+                    applicability_complete: true,
+                    native_source: None,
+                    nonspatial_proof: None,
+                    source_policy: None,
+                },
+                records,
+            );
+            factors.attach_source_policy(policy);
+            return Ok(factors);
+        }
+        // Unrecognized legacy inputs retain integrity/read compatibility, without invented
+        // applicability. The reviewed release instead uses its shipped companion above.
         let factor_count = bundle.factors_by_method.get(&method_id).map_or(0, Vec::len);
         Ok(Self::new(
             FactorSource {
@@ -455,6 +512,7 @@ impl MethodFactors {
                 applicability_complete: false,
                 native_source: None,
                 nonspatial_proof: None,
+                source_policy: None,
             },
             Vec::new(),
         ))
@@ -470,7 +528,14 @@ impl MethodFactors {
             records,
             by_flow,
             nonspatial_proof: None,
+            source_policy: None,
         }
+    }
+
+    fn attach_source_policy(&mut self, policy: SupportedSourcePolicy) {
+        policy.review_qualifiers(&mut self.records);
+        self.source.source_policy = Some(policy.receipt.clone());
+        self.source_policy = Some(policy);
     }
 
     pub fn ensure_source_usable(&self) -> Result<(), ApplicabilityError> {
@@ -512,16 +577,18 @@ impl MethodFactors {
             ))
         } else if observation.location == FactorLocation::Invalid {
             Some((unsupported, "lcia_exchange_location_invalid"))
-        } else if !self.is_location_independent() && !observation.location.is_exact_token() {
+        } else if !self.is_location_independent()
+            && self.source_policy.is_none()
+            && !observation.location.is_exact_token()
+        {
             Some((unsupported, "lcia_exchange_location_semantics_unresolved"))
         } else {
             None
         }
     }
 
-    #[must_use]
-    pub fn select(&self, observation: &LciaExchangeObservation) -> FactorDecision {
-        let mut decision = FactorDecision {
+    fn pending_decision(&self, observation: &LciaExchangeObservation) -> FactorDecision {
+        FactorDecision {
             policy_version: POLICY_VERSION.to_owned(),
             source: self.source.clone(),
             flow_id: observation.flow_id,
@@ -532,7 +599,12 @@ impl MethodFactors {
             reason: String::new(),
             selected: None,
             rejected: vec![],
-        };
+        }
+    }
+
+    #[must_use]
+    pub fn select(&self, observation: &LciaExchangeObservation) -> FactorDecision {
+        let mut decision = self.pending_decision(observation);
         let candidates = self
             .by_flow
             .get(&observation.flow_id)
@@ -543,6 +615,7 @@ impl MethodFactors {
             return decision;
         }
         let mut exact = Vec::new();
+        let mut generic = Vec::new();
         let mut exact_version = false;
         let mut unresolved_location = false;
         for index in candidates {
@@ -551,17 +624,23 @@ impl MethodFactors {
                 exact_version = true;
                 if Some(factor.direction) != observation.direction {
                     "direction_mismatch"
-                } else if self.is_location_independent() {
+                } else if self.is_location_independent()
+                    || factor.location.is_exact_token() && factor.location == observation.location
+                {
                     exact.push(factor);
                     continue;
+                } else if self
+                    .source_policy
+                    .as_ref()
+                    .is_some_and(|policy| policy.is_generic(factor.record_index))
+                {
+                    generic.push(factor);
+                    "reviewed_source_generic_alternative"
                 } else if !factor.location.is_exact_token() {
                     unresolved_location = true;
                     "factor_location_semantics_unresolved"
-                } else if factor.location != observation.location {
-                    "location_mismatch"
                 } else {
-                    exact.push(factor);
-                    continue;
+                    "location_mismatch"
                 }
             } else {
                 "flow_version_mismatch"
@@ -571,16 +650,25 @@ impl MethodFactors {
                 reason: reason.to_owned(),
             });
         }
+        let used_generic = exact.is_empty() && !generic.is_empty();
+        if used_generic {
+            exact = generic;
+        }
         match exact.as_slice() {
             [factor] if !factor.unsupported_qualifiers => {
                 decision.status = DecisionStatus::Selected;
                 (if self.is_location_independent() {
                     "reviewed_location_independent_source"
+                } else if used_generic {
+                    "reviewed_source_generic_default"
                 } else {
                     "exact_source_location_token"
                 })
                 .clone_into(&mut decision.reason);
                 decision.selected = Some((*factor).clone());
+                decision
+                    .rejected
+                    .retain(|item| item.factor.record_index != factor.record_index);
             }
             [] => {
                 if !exact_version {
@@ -633,4 +721,14 @@ pub struct ApplicabilityEvidence {
     pub unmatched_group_count: u64,
     pub invalid_group_count: u64,
     pub unsupported_direction_group_count: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub availability: Option<crate::lcia_availability::LciaAvailability>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unavailable: Vec<SelectionRecord>,
+    /// Exact number of unsupported/unmatched method-observation groups evaluated. The detailed
+    /// unavailable records are deterministic bounded samples, never a claimed complete expansion.
+    #[serde(default)]
+    pub unavailable_group_count: u64,
+    #[serde(default)]
+    pub unavailable_samples_truncated: bool,
 }

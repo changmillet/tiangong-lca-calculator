@@ -12,7 +12,7 @@ use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
-    db::{AppState, ensure_prepared, fetch_snapshot_sparse_data},
+    db::{AppState, ensure_prepared_with_availability, fetch_snapshot_sparse_data},
     types::{PrepareHttpBody, SolveHttpBody},
 };
 
@@ -104,13 +104,17 @@ async fn solve(
     Json(body): Json<SolveHttpBody>,
 ) -> impl IntoResponse {
     let print_level = body.print_level.unwrap_or(0.0);
-    if let Err(err) = ensure_prepared(&state, snapshot_id, print_level).await {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": err.to_string()})),
-        )
-            .into_response();
-    }
+    let availability =
+        match ensure_prepared_with_availability(&state, snapshot_id, print_level).await {
+            Ok(value) => value,
+            Err(err) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": err.to_string()})),
+                )
+                    .into_response();
+            }
+        };
 
     let options = SolveOptions {
         return_x: body.solve.return_x,
@@ -119,17 +123,15 @@ async fn solve(
     };
 
     if let Some(rhs) = body.rhs {
-        return match state.solver.solve_one(
-            snapshot_id,
-            NumericOptions { print_level },
-            &rhs,
-            options,
-        ) {
-            Ok(result) => (
-                StatusCode::OK,
-                Json(serde_json::to_value(result).unwrap_or_default()),
-            )
-                .into_response(),
+        return match state
+            .solver
+            .solve_one(snapshot_id, NumericOptions { print_level }, &rhs, options)
+            .map_err(anyhow::Error::from)
+            .and_then(|result| match &availability {
+                Some(availability) => availability.project_solve_result(&result),
+                None => Ok(serde_json::to_value(result)?),
+            }) {
+            Ok(result) => (StatusCode::OK, Json(result)).into_response(),
             Err(err) => (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({"error": err.to_string()})),
@@ -139,17 +141,20 @@ async fn solve(
     }
 
     if let Some(rhs_batch) = body.rhs_batch {
-        return match state.solver.solve_batch(
-            snapshot_id,
-            NumericOptions { print_level },
-            &rhs_batch,
-            options,
-        ) {
-            Ok(result) => (
-                StatusCode::OK,
-                Json(serde_json::to_value(result).unwrap_or_default()),
+        return match state
+            .solver
+            .solve_batch(
+                snapshot_id,
+                NumericOptions { print_level },
+                &rhs_batch,
+                options,
             )
-                .into_response(),
+            .map_err(anyhow::Error::from)
+            .and_then(|result| match &availability {
+                Some(availability) => availability.project_solve_batch_result(&result),
+                None => Ok(serde_json::to_value(result)?),
+            }) {
+            Ok(result) => (StatusCode::OK, Json(result)).into_response(),
             Err(err) => (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({"error": err.to_string()})),

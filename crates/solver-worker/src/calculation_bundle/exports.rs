@@ -1,11 +1,12 @@
 //! Optional exports consume a completed, hash-bound bundle; they never invoke the solver.
 use super::{
     CALCULATION_BUNDLE_FORMAT, CalculationBundleArtifactRef, CalculationBundleManifest,
-    CalculationDownloadArtifactRef, LCI_EXPORT_HEADERS, LocalCalculationBundleArtifact,
-    LocalCalculationDownloadArtifact, ObjectStoreClient, OwnedInventoryRecord, ReleaseImpact,
-    ReleaseProcessRecord, artifacts_of_kind, bundle_content_hash, canonical_json_bytes, lci_row,
-    local_download, require_record_count, validate_sha256, visit_gzip_ndjson, write_csv_row,
-    write_lci_parquet, write_lcia_csv_zip, write_lcia_xlsx,
+    CalculationDownloadArtifactRef, LCI_EXPORT_HEADERS, LciaRecord, LocalCalculationBundleArtifact,
+    LocalCalculationDownloadArtifact, ObjectStoreClient, OwnedInventoryRecord,
+    PARTIAL_CALCULATION_BUNDLE_FORMAT, ReleaseImpact, ReleaseProcessRecord, artifacts_of_kind,
+    bundle_content_hash, canonical_json_bytes, lci_row, local_download, require_record_count,
+    validate_sha256, visit_gzip_ndjson, write_csv_row, write_lci_parquet, write_lcia_csv_zip,
+    write_lcia_xlsx,
 };
 use crate::{resource::CancellationToken, storage::ObjectTransferOptions};
 use flate2::{Compression, GzBuilder, write::GzEncoder};
@@ -209,6 +210,7 @@ struct PreparedSources {
     process_count: usize,
 }
 
+#[allow(clippy::too_many_lines)]
 async fn load_sources(
     store: &ObjectStoreClient,
     request: &ExportRequest,
@@ -241,13 +243,16 @@ async fn load_sources(
     );
     let manifest: CalculationBundleManifest = serde_json::from_reader(File::open(&manifest_path)?)?;
     anyhow::ensure!(
-        manifest.schema_version == CALCULATION_BUNDLE_FORMAT
-            && manifest.calculation_id == request.bundle.calculation_id
+        matches!(
+            manifest.schema_version.as_str(),
+            CALCULATION_BUNDLE_FORMAT | PARTIAL_CALCULATION_BUNDLE_FORMAT
+        ) && manifest.calculation_id == request.bundle.calculation_id
             && manifest.bundle_content_hash == request.bundle.bundle_content_hash
             && bundle_content_hash(&manifest)? == manifest.bundle_content_hash
             && manifest.artifacts.len() == request.bundle.artifact_count,
         "export source bundle binding mismatch"
     );
+    manifest.validate_lcia_contract()?;
     let mut artifacts = Vec::new();
     let mut paths = BTreeSet::new();
     for metadata in &manifest.artifacts {
@@ -299,12 +304,63 @@ async fn load_sources(
             local_path,
         });
     }
+    if let Some(availability) = &manifest.lcia_availability
+        && matches!(
+            request.format,
+            ExportFormat::LciaCsv | ExportFormat::LciaXlsx | ExportFormat::Audit
+        )
+    {
+        validate_lcia_categories(&artifacts, availability)?;
+    }
     Ok(PreparedSources {
         directory,
         manifest_path,
         artifacts,
         process_count: manifest.snapshot.process_count,
     })
+}
+
+fn validate_lcia_categories(
+    artifacts: &[LocalCalculationBundleArtifact],
+    availability: &crate::lcia_availability::LciaAvailability,
+) -> anyhow::Result<()> {
+    availability.validate()?;
+    let impacts = load_impacts(artifacts)?;
+    anyhow::ensure!(
+        impacts.len() == availability.categories.len(),
+        "export_availability_axis_mismatch"
+    );
+    for (impact, category) in impacts.iter().zip(&availability.categories) {
+        anyhow::ensure!(
+            impact.index == category.impact_index
+                && impact.id == category.method_id
+                && impact.version == category.method_version,
+            "export_availability_axis_mismatch"
+        );
+    }
+    for artifact in artifacts_of_kind(artifacts, "lcia") {
+        let observed = visit_gzip_ndjson::<LciaRecord, _>(&artifact.local_path, |record| {
+            let category = availability
+                .categories
+                .iter()
+                .find(|c| {
+                    c.method_id == record.method.id && c.method_version == record.method.version
+                })
+                .ok_or_else(|| anyhow::anyhow!("export_availability_method_mismatch"))?;
+            let unavailable =
+                category.status == crate::lcia_availability::CategoryStatus::Unavailable;
+            anyhow::ensure!(
+                record.mean_amount.is_none() == unavailable
+                    && record.reasons.as_deref().unwrap_or_default() == category.reasons
+                    && (!unavailable || record.status == Some(category.status))
+                    && record.status.is_none_or(|status| status == category.status),
+                "export_availability_record_mismatch"
+            );
+            Ok(())
+        })?;
+        require_record_count(artifact, observed)?;
+    }
+    Ok(())
 }
 
 pub(super) fn load_processes(
