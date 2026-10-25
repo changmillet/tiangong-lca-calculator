@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-21
-lastReviewedCommit: d7603426f36a0554fdbe1e0b0c9bb90c345440a9
-lastReviewedNote: "Reviewed Worker #339 source d760342: exact loaded factor-source hashes participate in ordinary fingerprints and reusable indices compare complete source receipts before scope-specific shortcuts. Selection/proof semantics, inventory-only exemption, source ownership and deployment boundaries remain unchanged."
+lastReviewedAt: "2026-10-25"
+lastReviewedCommit: "ae7fe386e291266451383bbe47e1110ade3c78ca"
+lastReviewedNote: "Integrated Worker #342 explicit validation destinations with #339 source-bound applicability. Both contracts retained; review metadata conflict only. Expanded #340 compatibility implementation and qualification remain pending."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -130,6 +130,25 @@ not evidence of the new cache's speedup.
 ## Python dependency smoke
 
 The focused Python 3.12 Linux job installs `tools/bw25-validator`, checks installed dependency consistency, and runs its secretless synthetic Brightway/HDF5/CLI suite. See [dependency maintenance](dependency-maintenance.md) for exact commands, path selection and platform/qualification limits. This does not replace native Rust CI or frozen real-data parity proof.
+
+## Manual LCIA validation destination proof
+
+`validate_lcia_targets.sh` requires `--base-url` or `LCIA_VALIDATION_BASE_URL`;
+the flag overrides the environment variable and an empty flag fails closed.
+No hosted destination is inferred. Run the network-free regression with:
+
+```bash
+python3 -m unittest scripts/test_validate_lcia_targets.py
+bash -n scripts/validate_lcia_targets.sh
+shellcheck scripts/validate_lcia_targets.sh
+```
+
+The regression intercepts curl and uses synthetic credentials/results. It must
+prove that absent, empty or malformed destinations perform no HTTP call, that
+explicit loopback/custom destinations preserve the request/result contract,
+and that diagnostics do not print the key or rejected URL. `make check` includes
+this suite through `qualification-test`; hosted CI also runs it before native
+setup. Do not use a production API call to qualify target selection.
 
 ## Validation Matrix
 

@@ -23,9 +23,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/tidas-package-contract.md
-lastReviewedAt: 2026-10-07
-lastReviewedCommit: 35821d17d20bee5bebaae3202fd42ac83c9fb54b
-lastReviewedNote: "Reviewed Worker #313 adoption of formally published Toolkit 0.3.4: exact Flow context across batch/cache/package paths, applicable complete semantic coverage, public-native compatibility probes and isolated DB/Storage certificate/numerical lifecycle PASS. Hosted rollout remains separately gated."
+lastReviewedAt: 2026-10-25
+lastReviewedCommit: 4c3c9f0cb2f63544ae0a210a2d6d6bc7607890fc
+lastReviewedNote: "Worker #342: reviewed explicit manual LCIA validation destinations and offline target checks; runtime API, numerical, authorization and hosted deployment boundaries are unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -541,7 +541,7 @@ cargo run -p solver-worker --bin review_quality_diagnostic_runner --release --
 核心脚本：
 
 - `scripts/generate_lcia_expected.sh`：从 snapshot artifact 直接解方程，生成 `expected` TSV。
-- `scripts/validate_lcia_targets.sh`：调用 `lca_query_results`，将实际值与 `expected` TSV 对比。
+- `scripts/validate_lcia_targets.sh`：对显式选择的 Edge 地址调用 `lca_query_results`，将实际值与 `expected` TSV 对比；没有默认远程目标。
 
 #### 6.2.1 准备 process 列表
 
@@ -578,9 +578,12 @@ process_id
 
 #### 6.2.3 对比当前 API 结果
 
+必须通过 `--base-url` 或 `LCIA_VALIDATION_BASE_URL` 指定 Edge base URL，命令行参数优先。未配置目标或 URL 格式无效时，脚本会在 HTTP 请求之前退出；不会回退到天工生产服务。地址不得包含 userinfo、查询参数、fragment 或空白。`--base-url` 只选择服务地址，现有请求的数据 scope 和结果比较语义保持不变。下面使用本地地址；需要远程验证时显式替换为已确认的目标。
+
 ```bash
 USER_API_KEY=<base64-email-password> \
 ./scripts/validate_lcia_targets.sh \
+  --base-url http://127.0.0.1:54321/functions/v1 \
   --snapshot-id <snapshot_id> \
   --expected reports/lcia-targets/<expected>.tsv \
   --out reports/lcia-targets/<compare>.tsv
