@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-16
-lastReviewedCommit: 8a698fb5e38f787b98230329c61c4e0c1a3e541a
-lastReviewedNote: "Reviewed merge of Worker #320/PR #323 (5e191a93) with #322 dependency monitoring (8a698fb5): independent immutable-bundle export jobs, default Parquet, bounded CSV, terminal protection and bounded Cargo/pip/Actions monitoring are retained. Exact Toolkit, native/runtime/data/model, authorization, lease and production boundaries remain intact. Metadata conflict resolution only; final merged Rust gates remain required."
+lastReviewedAt: 2026-10-25
+lastReviewedCommit: 4c3c9f0cb2f63544ae0a210a2d6d6bc7607890fc
+lastReviewedNote: "Worker #342: reviewed explicit manual LCIA validation destinations and offline target checks; runtime API, numerical, authorization and hosted deployment boundaries are unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml

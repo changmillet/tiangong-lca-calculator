@@ -25,9 +25,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: 2026-10-16
-lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
-lastReviewedNote: "Reviewed for Worker #320 phase one: independent immutable-bundle export jobs, default Parquet, bounded compressed CSV and terminal polling protection. Existing authorization, numerical, lease and production boundaries remain; validation results belong to the linked Issues and PRs."
+lastReviewedAt: 2026-10-25
+lastReviewedCommit: 4c3c9f0cb2f63544ae0a210a2d6d6bc7607890fc
+lastReviewedNote: "Worker #342: reviewed explicit manual LCIA validation destinations and offline target checks; runtime API, numerical, authorization and hosted deployment boundaries are unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml

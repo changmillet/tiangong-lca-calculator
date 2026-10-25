@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-16
-lastReviewedCommit: 8a698fb5e38f787b98230329c61c4e0c1a3e541a
-lastReviewedNote: "Reviewed merge of Worker #320/PR #323 (5e191a93) with #322 dependency monitoring (8a698fb5): independent immutable-bundle export jobs, default Parquet, bounded CSV, terminal protection and bounded Cargo/pip/Actions monitoring are retained. Exact Toolkit, native/runtime/data/model, authorization, lease and production boundaries remain intact. Metadata conflict resolution only; final merged Rust gates remain required."
+lastReviewedAt: 2026-10-25
+lastReviewedCommit: 4c3c9f0cb2f63544ae0a210a2d6d6bc7607890fc
+lastReviewedNote: "Worker #342: reviewed explicit manual LCIA validation destinations and offline target checks; runtime API, numerical, authorization and hosted deployment boundaries are unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -124,6 +124,25 @@ not evidence of the new cache's speedup.
 ## Python dependency smoke
 
 The focused Python 3.12 Linux job installs `tools/bw25-validator`, checks installed dependency consistency, and runs its secretless synthetic Brightway/HDF5/CLI suite. See [dependency maintenance](dependency-maintenance.md) for exact commands, path selection and platform/qualification limits. This does not replace native Rust CI or frozen real-data parity proof.
+
+## Manual LCIA validation destination proof
+
+`validate_lcia_targets.sh` requires `--base-url` or `LCIA_VALIDATION_BASE_URL`;
+the flag overrides the environment variable and an empty flag fails closed.
+No hosted destination is inferred. Run the network-free regression with:
+
+```bash
+python3 -m unittest scripts/test_validate_lcia_targets.py
+bash -n scripts/validate_lcia_targets.sh
+shellcheck scripts/validate_lcia_targets.sh
+```
+
+The regression intercepts curl and uses synthetic credentials/results. It must
+prove that absent, empty or malformed destinations perform no HTTP call, that
+explicit loopback/custom destinations preserve the request/result contract,
+and that diagnostics do not print the key or rejected URL. `make check` includes
+this suite through `qualification-test`; hosted CI also runs it before native
+setup. Do not use a production API call to qualify target selection.
 
 ## Validation Matrix
 

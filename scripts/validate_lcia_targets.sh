@@ -11,16 +11,18 @@ Required env:
 Required args:
   --snapshot-id <uuid>   Snapshot id used by query
   --expected <path>      TSV file: process_id<TAB>expected_value[<TAB>abs_tol]
+  --base-url <url>       Explicit HTTP(S) Edge base URL; alternatively set
+                        LCIA_VALIDATION_BASE_URL (the flag takes precedence)
 
 Optional args:
   --impact-id <uuid>     Impact method id to compare (default: GWP/Climate change)
-  --base-url <url>       Edge base url (default: https://qgzvkongdjqiiamzbbts.supabase.co/functions/v1)
   --default-abs-tol <n>  Default absolute tolerance (default: 1e-9)
   --out <path>           Write comparison TSV output
   -h, --help             Show help
 
 Example:
   USER_API_KEY=... ./scripts/validate_lcia_targets.sh \
+    --base-url http://127.0.0.1:54321/functions/v1 \
     --snapshot-id 9319be83-be17-40ca-a8db-d829f8e93d9e \
     --impact-id 6209b35f-9447-40b5-b68c-a1099e3674a0 \
     --expected reports/bw25-validation/user10-impact-target.tsv \
@@ -28,12 +30,7 @@ Example:
 USAGE
 }
 
-if ! command -v jq >/dev/null 2>&1; then
-  echo "missing required command: jq" >&2
-  exit 1
-fi
-
-BASE_URL="https://qgzvkongdjqiiamzbbts.supabase.co/functions/v1"
+BASE_URL="${LCIA_VALIDATION_BASE_URL:-}"
 # Default LCIA impact category: Climate change (GWP)
 DEFAULT_GWP_IMPACT_ID="${DEFAULT_GWP_IMPACT_ID:-6209b35f-9447-40b5-b68c-a1099e3674a0}"
 SNAPSHOT_ID=""
@@ -57,6 +54,10 @@ while [ "$#" -gt 0 ]; do
       shift 2
       ;;
     --base-url)
+      if [ "$#" -lt 2 ] || [[ "$2" == --* ]]; then
+        echo "missing value for --base-url" >&2
+        exit 2
+      fi
       BASE_URL="$2"
       shift 2
       ;;
@@ -79,6 +80,26 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+if [ -z "$BASE_URL" ]; then
+  echo "missing --base-url or LCIA_VALIDATION_BASE_URL; no default remote target is selected" >&2
+  exit 2
+fi
+
+# A destination is operator-selected. Reject malformed targets and embedded
+# credentials before sending the separately supplied authorization header.
+if [[ ! "$BASE_URL" =~ ^https?://[^/?#@[:space:]]+(/[^?#[:space:]]*)?$ ]]; then
+  echo "invalid Edge base URL: require HTTP(S), a host, and no userinfo, query, fragment or whitespace" >&2
+  exit 2
+fi
+while [[ "$BASE_URL" == */ ]]; do
+  BASE_URL="${BASE_URL%/}"
+done
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "missing required command: jq" >&2
+  exit 1
+fi
 
 if [ -z "${USER_API_KEY:-}" ]; then
   echo "missing USER_API_KEY env" >&2
