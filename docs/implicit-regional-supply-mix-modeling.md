@@ -25,7 +25,7 @@ checkPaths:
   - crates/solver-worker/src/signed_flow.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
 lastReviewedAt: 2026-10-25
-lastReviewedCommit: ae7fe386e291266451383bbe47e1110ade3c78ca
+lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
 lastReviewedNote: "Worker #339: reviewed nonregional source-default selection, exact Flow versions, legacy replay and additive snapshot metadata; provider, closure admission, package, publication and review policies are unchanged."
 related:
   - AGENTS.md

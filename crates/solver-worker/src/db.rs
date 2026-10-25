@@ -904,6 +904,7 @@ fn ensure_numerical_snapshot_policy(
             crate::NUMERICAL_SNAPSHOT_POLICY_VERSION
         ));
     }
+    crate::calculation_contract::ensure_current(config.calculation_fingerprint.as_deref())?;
     let Some(binding) = config.scope_closure_binding.as_ref() else {
         // Not closure-bound: the global policy marker above is its numerical evidence.
         return Ok(());
@@ -4442,6 +4443,8 @@ async fn run_snapshot_builder_job(
     no_lcia: bool,
 ) -> anyhow::Result<SnapshotBuilderExecution> {
     let mut builder_args = vec![
+        "--expected-calculation-fingerprint".to_owned(),
+        crate::calculation_contract::fingerprint().to_owned(),
         "--snapshot-id".to_owned(),
         snapshot_id.to_string(),
         "--process-states".to_owned(),
@@ -6292,6 +6295,9 @@ mod tests {
             SnapshotBuildConfig {
                 process_states: crate::numerical_process_states_arg(),
                 numerical_policy_version: policy.map(str::to_owned),
+                calculation_fingerprint: Some(
+                    crate::calculation_contract::fingerprint().to_owned(),
+                ),
                 lcia_selection_policy: None,
                 lcia_defaults_sha256: None,
                 include_user_id: None,
@@ -6347,6 +6353,19 @@ mod tests {
             closure_bundle_hash: "c".repeat(64),
         };
         let current_policy = crate::NUMERICAL_SNAPSHOT_POLICY_VERSION;
+
+        for recorded in [None, Some("retired-calculation".to_owned())] {
+            let mut historical = config(Some(current_policy), None, None);
+            historical.calculation_fingerprint = recorded;
+            let bytes = serde_json::to_vec(&historical).unwrap();
+            let decoded = serde_json::from_slice(&bytes).unwrap();
+            assert!(
+                ensure_numerical_snapshot_policy(&decoded, snapshot_id, SNAPSHOT_ARTIFACT_FORMAT)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("calculation_contract_mismatch")
+            );
+        }
 
         // Fresh ordinary global/subset snapshot: admitted for new compute.
         ensure_numerical_snapshot_policy(

@@ -64,6 +64,9 @@ pub struct SnapshotBuildConfig {
     /// current marker; decoding and historical reads never consult it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub numerical_policy_version: Option<String>,
+    /// Opaque Worker-owned implementation identity; absent only on historical artifacts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calculation_fingerprint: Option<String>,
     /// Executable LCIA selection profile. None on historical artifacts; no data-quality meaning.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lcia_selection_policy: Option<String>,
@@ -1111,6 +1114,7 @@ mod tests {
         let config = SnapshotBuildConfig {
             process_states: crate::default_snapshot_process_states_arg(),
             numerical_policy_version: Some(crate::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned()),
+            calculation_fingerprint: Some(crate::calculation_contract::fingerprint().to_owned()),
             lcia_selection_policy: Some(crate::lcia_nonregional::POLICY.to_owned()),
             lcia_defaults_sha256: Some(crate::calculation_evidence::sha256_bytes(
                 crate::lcia_nonregional::DEFAULTS,

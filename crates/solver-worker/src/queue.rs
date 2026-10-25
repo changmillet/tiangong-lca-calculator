@@ -1511,6 +1511,13 @@ fn solver_worker_job_payload(job: &WorkerJob) -> anyhow::Result<JobPayload> {
         );
     }
 
+    if job.job_kind == "lca.build_snapshot"
+        && let Some(value) = payload
+            .get("calculation_fingerprint")
+            .filter(|value| !value.is_null())
+    {
+        crate::calculation_contract::ensure_current(value.as_str())?;
+    }
     let parsed = serde_json::from_value(Value::Object(payload))?;
     let expected_payload_type = payload_type_for_job_kind(&job.job_kind)
         .ok_or_else(|| anyhow::anyhow!("unsupported solver worker job kind: {}", job.job_kind))?;
@@ -2613,6 +2620,28 @@ mod tests {
                 assert!((amount - 4.0).abs() < f64::EPSILON);
             }
             other => panic!("unexpected payload: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn snapshot_build_requires_its_pinned_calculation_implementation() {
+        for fingerprint in [
+            serde_json::json!(crate::calculation_contract::fingerprint()),
+            serde_json::json!("retired"),
+            serde_json::json!(42),
+        ] {
+            let job = worker_job(
+                "lca.build_snapshot",
+                "lca.build_snapshot.request.v1",
+                json!({
+                    "job_id": Uuid::new_v4(), "snapshot_id": Uuid::new_v4(),
+                    "process_states": "100", "calculation_fingerprint": fingerprint
+                }),
+            );
+            assert_eq!(
+                solver_worker_job_payload(&job).is_ok(),
+                fingerprint.as_str() == Some(crate::calculation_contract::fingerprint())
+            );
         }
     }
 

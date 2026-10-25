@@ -28,8 +28,8 @@ checkPaths:
   - docs/agents/contracts/scope-closure-provider-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-owned-result.v1.schema.json
 lastReviewedAt: 2026-10-25
-lastReviewedCommit: ae7fe386e291266451383bbe47e1110ade3c78ca
-lastReviewedNote: "Worker #339: reviewed nonregional source-default selection, exact Flow versions, legacy replay and additive snapshot metadata; provider, closure admission, package, publication and review policies are unchanged."
+lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
+lastReviewedNote: "Worker #339: calculation semantics and descriptor ownership remain in Worker; pinned requests and artifact reuse validate opaque identity while historical evidence, provider rules and data-quality policy remain independent."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml

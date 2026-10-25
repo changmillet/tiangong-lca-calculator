@@ -26,8 +26,8 @@ checkPaths:
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: 2026-10-25
-lastReviewedCommit: ae7fe386e291266451383bbe47e1110ade3c78ca
-lastReviewedNote: "Worker #339: reviewed nonregional source-default selection, exact Flow versions, legacy replay and additive snapshot metadata; provider, closure admission, package, publication and review policies are unchanged."
+lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
+lastReviewedNote: "Worker #339: calculation semantics and descriptor ownership remain in Worker; pinned requests and artifact reuse validate opaque identity while historical evidence, provider rules and data-quality policy remain independent."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -54,6 +54,7 @@ related:
 - 计算与 AI 入口都是异步任务；统一队列路径分别使用 `private.worker_jobs(worker_queue=solver)` 与 `private.worker_jobs(worker_queue=ai)`。旧 `lca_jobs` + `pgmq` lifecycle 已退役并 fail closed。前端不直连队列。
 - worker 连接池可通过 `DB_MAX_CONNECTIONS`、`DB_MIN_CONNECTIONS` 和 `DB_ACQUIRE_TIMEOUT_SECONDS` 调整；默认采用 `max_connections = 8`、`min_connections = 1`、`acquire_timeout = 30s`、`idle_timeout = 5min` 与 `max_lifetime = 30min`，以保证长时求解与 artifact 落盘阶段有稳定连接窗口。
 - 主路径读取 `private.lca_snapshot_artifacts`（artifact-only）；artifact 缺失或不可读时 fail closed。
+- 新计算复用的 snapshot 还须匹配 Worker 拥有的计算身份；身份生成、显式激活和历史兼容边界见 [Scope Closure contract](scope-closure-contract.md#calculation-implementation-identity)。
 - 所有写操作由服务端（Edge Function / worker，`service_role`）执行。
 
 ## 2. 关键表与职责

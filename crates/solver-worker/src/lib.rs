@@ -441,6 +441,7 @@ pub mod ai;
 pub mod artifact_gc;
 pub mod artifacts;
 pub mod calculation_bundle;
+pub mod calculation_contract;
 pub mod calculation_evidence;
 pub mod compiled_graph;
 pub mod config;

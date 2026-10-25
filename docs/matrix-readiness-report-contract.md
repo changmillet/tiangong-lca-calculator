@@ -25,7 +25,7 @@ checkPaths:
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
 lastReviewedAt: 2026-10-25
-lastReviewedCommit: ae7fe386e291266451383bbe47e1110ade3c78ca
+lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
 lastReviewedNote: "Worker #339: reviewed nonregional source-default selection, exact Flow versions, legacy replay and additive snapshot metadata; provider, closure admission, package, publication and review policies are unchanged."
 related:
   - AGENTS.md
@@ -56,6 +56,7 @@ Provider-link 的运行时决策顺序由 `docs/provider-linking.md` 维护。�
 输入 schema version 为 `matrix_readiness_input.v2`，核心字段为：
 
 - `config`: snapshot build config；其中 `link_semantics_version`、`technosphere_boundary_policy`、`flow_identity_policy` 决定本次 closure 的显式合同。 `SnapshotBuildConfig` 现在还携带 `numerical_policy_version`（公开数值资格策略标记）与可选的 `scope_closure_binding`／`snapshot_build_contract_hash`。它们参与 snapshot 身份与复用判定，但不改变本报告的 schema、blocker、finding 或 policy 语义。
+- `config.calculation_fingerprint` 记录 Worker 计算身份，用于快照复用；不改变 readiness 报告语义。
 - `config` 的 `lcia_selection_policy` / `lcia_defaults_sha256` 记录非区域化默认因子选择；缺少地区或某类别未覆盖全部 Flow 不新增 blocker、finding 或报告字段。
 - `coverage`: `snapshot_coverage.v3` report，同时提供中性 `residual_edges_total` / `a_balance_edges_written` 和 legacy input/provider 兼容计数。
 - `payload`: `ModelSparseData` sparse payload。

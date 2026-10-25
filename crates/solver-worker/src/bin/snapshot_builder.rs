@@ -204,6 +204,10 @@ struct Cli {
     #[arg(long, requires = "replay_lcia_index", conflicts_with = "method_id")]
     replay_all_methods: bool,
 
+    /// Require the same implementation as the invoking Worker, including fallback binaries.
+    #[arg(long)]
+    expected_calculation_fingerprint: Option<String>,
+
     #[arg(long, env = "DATABASE_URL")]
     database_url: Option<String>,
     #[arg(long, env = "CONN")]
@@ -1649,6 +1653,9 @@ async fn replay_lcia_evidence(cli: &Cli) -> anyhow::Result<()> {
 }
 
 async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
+    if let Some(fingerprint) = cli.expected_calculation_fingerprint.as_deref() {
+        solver_worker::calculation_contract::ensure_current(Some(fingerprint))?;
+    }
     let total_started = Instant::now();
     let versioned_scope = validate_versioned_scope_cli(&cli)?;
     let scope_closure_snapshot = parse_scope_closure_snapshot_args(&cli)?;
@@ -1731,6 +1738,9 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
     let mut build_config = SnapshotBuildConfig {
         process_states: process_states_label.clone(),
         numerical_policy_version: Some(solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned()),
+        calculation_fingerprint: Some(
+            solver_worker::calculation_contract::fingerprint().to_owned(),
+        ),
         lcia_selection_policy: Some(solver_worker::lcia_nonregional::POLICY.to_owned()),
         lcia_defaults_sha256: Some(solver_worker::calculation_evidence::sha256_bytes(
             solver_worker::lcia_nonregional::DEFAULTS,
@@ -7764,6 +7774,7 @@ fn compute_source_fingerprint_from_summary(
     let body = serde_json::json!({
         "schema": solver_worker::NUMERICAL_SOURCE_FINGERPRINT_SCHEMA,
         "numerical_policy_version": config.numerical_policy_version,
+        "calculation_fingerprint": config.calculation_fingerprint,
         "lcia_selection_policy": solver_worker::lcia_nonregional::POLICY,
         "lcia_defaults_sha256": solver_worker::calculation_evidence::sha256_bytes(solver_worker::lcia_nonregional::DEFAULTS),
         "source": {
@@ -10324,6 +10335,10 @@ fn snapshot_process_filter(
     // stored evidence instead of inferring eligibility from 100-shaped states.
     if let Some(object) = process_filter.as_object_mut() {
         object.insert(
+            "calculation_fingerprint".to_owned(),
+            Value::String(solver_worker::calculation_contract::fingerprint().to_owned()),
+        );
+        object.insert(
             NUMERICAL_POLICY_VERSION_FIELD.to_owned(),
             Value::String(solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned()),
         );
@@ -11594,6 +11609,10 @@ mod tests {
             Some(current)
         );
         assert_eq!(public["all_states"], json!(false));
+        assert_eq!(
+            public["calculation_fingerprint"],
+            solver_worker::calculation_contract::fingerprint()
+        );
 
         // `all_states` branch.
         let all = snapshot_process_filter(true, &[], None, None, &summary);
@@ -11652,6 +11671,9 @@ mod tests {
             process_states: "100".to_owned(),
             numerical_policy_version: Some(
                 solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned(),
+            ),
+            calculation_fingerprint: Some(
+                solver_worker::calculation_contract::fingerprint().to_owned(),
             ),
             lcia_selection_policy: Some(solver_worker::lcia_nonregional::POLICY.to_owned()),
             lcia_defaults_sha256: Some(solver_worker::calculation_evidence::sha256_bytes(

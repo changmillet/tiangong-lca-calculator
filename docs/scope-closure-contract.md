@@ -32,8 +32,8 @@ checkPaths:
   - scripts/run_scope_closure_external_qualification.sh
   - scripts/run_scope_closure_provider_qualification.sh
 lastReviewedAt: 2026-10-25
-lastReviewedCommit: ae7fe386e291266451383bbe47e1110ade3c78ca
-lastReviewedNote: "Worker #339: reviewed nonregional source-default selection, exact Flow versions, legacy replay and additive snapshot metadata; provider, closure admission, package, publication and review policies are unchanged."
+lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
+lastReviewedNote: "Worker #339: calculation semantics and descriptor ownership remain in Worker; pinned requests and artifact reuse validate opaque identity while historical evidence, provider rules and data-quality policy remain independent."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -63,7 +63,7 @@ The canonical job kind is `lcia.scope_closure_check` with payload schema `lcia.s
 
 The Worker loads the full service input through `svc_lcia_scope_closure_check_get_worker_input`. It requires the normalized requested scope, scope/policy/request hashes, expected validator-scanner fingerprint, publication epoch, and `lcia.scope-closure-data-snapshot.v2`.
 
-The current internal request identity is `scope-closure-validator-scanner.v1+cutoff-readiness-r5`. Worker also accepts the historical exact values `scope-closure-validator-scanner.v1+cutoff-readiness-r4`, `scope-closure-validator-scanner.v1+cutoff-readiness-r3`, `scope-closure-validator-scanner.v1+cutoff-readiness-r2`, `scope-closure-validator-scanner.v1+cutoff-readiness-r1`, and `scope-closure-validator-scanner.v1` so already-enqueued and in-flight requests remain executable during rollout. This is a closed compatibility set: any other fingerprint fails before scan claim. The revision changes cache identity only; it does not version or alter the public V1 job, result, certificate, or artifact contracts. R5 accompanies the canonical LCIA metadata reader: Database advances the singleton scanner revision for new requests, making the same frozen input receive a different request fingerprint and scan execution instead of reusing an R4 completed scan with placeholder names/unknown units. Historical R4 checks, certificates, snapshots, artifacts and recorded fingerprints remain unchanged. All eligible solver Workers must support R5 before the Database configuration migration is applied; adding R5 to a Worker alone does not change request normalization or force a fresh scan. The new scan uses the same public numerical policy, method identities/factors and TIDAS validation requirements.
+The current validator/scanner identity is `scope-closure-validator-scanner.v1+cutoff-readiness-r5`. This identity does not version calculation algorithms. Worker also accepts the historical exact values `scope-closure-validator-scanner.v1+cutoff-readiness-r4`, `scope-closure-validator-scanner.v1+cutoff-readiness-r3`, `scope-closure-validator-scanner.v1+cutoff-readiness-r2`, `scope-closure-validator-scanner.v1+cutoff-readiness-r1`, and `scope-closure-validator-scanner.v1` so already-enqueued and in-flight requests remain executable during rollout. This is a closed compatibility set: any other fingerprint fails before scan claim. The revision changes cache identity only; it does not version or alter the public V1 job, result, certificate, or artifact contracts. R5 accompanies the canonical LCIA metadata reader: Database advances the singleton scanner revision for new requests, making the same frozen input receive a different request fingerprint and scan execution instead of reusing an R4 completed scan with placeholder names/unknown units. Historical R4 checks, certificates, snapshots, artifacts and recorded fingerprints remain unchanged. All eligible solver Workers must support R5 before the Database configuration migration is applied; adding R5 to a Worker alone does not change request normalization or force a fresh scan. The new scan uses the same public numerical policy, method identities/factors and TIDAS validation requirements.
 
 New certificate requests bind `allocationSemanticsVersion=tidas-reference-allocation-v5`
 through the paired Database normalizer adoption and Worker frozen-input validation. Worker independently requires this marker in both the requested scope and frozen data snapshot before execution; rollout is blocked until Database and Edge adopt v5. New builds and
@@ -306,3 +306,27 @@ For changes to this contract, run the repo baseline plus focused closure tests. 
 - shared-scan target-specific report/finalizer behavior.
 
 Live integration proof, when available, must use isolated non-production database and object-storage state. Before any server execution, validate the largest available package locally with the exact published binary and bounded memory/queue settings. Do not deploy or mutate production data as validation.
+
+## Calculation implementation identity
+
+`calculation_contract.rs` owns an immutable descriptor of numerical eligibility, allocation/solver semantics, source-fingerprint schema, LCIA selection and the exact prepared-default bytes. Its SHA-256 is the opaque `calculation_fingerprint`. A semantic calculation change must update this descriptor in Worker; it does not require an Edge constant or Database scanner-revision migration.
+
+Database #873 stores descriptor bytes and activates an identity by service-only compare-and-set. New closure requests and ordinary snapshot-build queue identities bind the active fingerprint. A retry with the same actor/token retains its original closure request and fingerprint; a changed payload is rejected for newly recorded tokens. Historical pre-migration tokens remain bound to their existing task. A fresh token after activation obtains a new numerical scan even if source, scope and scanner identity are unchanged. Worker validates a pinned identity before execution or completed-scan reuse. Pre-activation legacy requests remain decodable; they do not acquire a new identity implicitly.
+
+New snapshots embed this identity in the artifact build config, source hash and server-authored ready process filter. Worker refuses a missing/different artifact identity for new computation; history decoding and immutable artifact downloads stay available. The invoked snapshot-builder binary must advertise the same expected fingerprint through its CLI argument, including fallback binaries. Database compares the ready marker with its active identity and projects `calculationCurrent`; Edge #506 checks it before cache lookup/enqueue without interpreting the descriptor.
+
+Inspect a binary without database access:
+
+```sh
+cargo run -p solver-worker --bin calculation_contract --
+```
+
+Activation is a deliberate deployment operation, never startup behavior:
+
+```sh
+cargo run -p solver-worker --bin calculation_contract -- --activate --expected-fingerprint <exact-current-sha256>
+```
+
+`DATABASE_URL` supplies the service connection. Omit `--expected-fingerprint` only for the initial unconfigured activation; a stale expected identity fails without changing the active value. Deploy the Database contract first, drain/stop incompatible Workers, deploy matching Worker and snapshot-builder binaries plus the Edge consumer, then explicitly activate the intended descriptor and rebuild affected snapshots. Keep historical packages and original task IDs; use new request tokens for new computations. An intentional rollback must select a compatible binary/descriptor and use the same compare-and-set path. This source change does not authorize deployment or activation in any hosted environment.
+
+Missing location and missing characterization factors are not calculation-identity failures and add no admission/reporting requirement.
