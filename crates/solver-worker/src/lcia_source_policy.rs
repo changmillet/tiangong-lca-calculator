@@ -1078,12 +1078,12 @@ mod tests {
             let record = &factors.records[index];
             assert!(!record.unsupported_qualifiers);
             let comment = &record.qualifiers["generalComment"];
-            assert!(
-                !comment
+            assert_ne!(
+                comment
                     .as_str()
                     .or_else(|| comment.get("#text")?.as_str())
-                    .unwrap()
-                    .is_empty()
+                    .unwrap(),
+                ""
             );
         }
     }
