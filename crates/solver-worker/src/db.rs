@@ -6292,6 +6292,8 @@ mod tests {
             SnapshotBuildConfig {
                 process_states: crate::numerical_process_states_arg(),
                 numerical_policy_version: policy.map(str::to_owned),
+                lcia_selection_policy: None,
+                lcia_defaults_sha256: None,
                 include_user_id: None,
                 data_scope: None,
                 scope_manifest_sha256: None,

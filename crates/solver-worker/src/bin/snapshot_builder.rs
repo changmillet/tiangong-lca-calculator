@@ -94,7 +94,7 @@ use solver_worker::snapshot_index::{
 };
 use solver_worker::snapshot_source_closure::{
     ClassifiedSourceReference, SnapshotSourceClosureError, SourceClosureLimits,
-    classify_source_document_with_lcia_flow_axis, parse_target_uuid, provenance_summary,
+    classify_source_document_with_lcia_flow_versions, parse_target_uuid, provenance_summary,
     source_dependency_issue, validate_resource_limits,
 };
 use solver_worker::source_reference_policy::{ArtifactPurpose, SourceReferenceAction};
@@ -1006,8 +1006,8 @@ struct ImpactFactorSet {
     impact_key: String,
     impact_name: String,
     unit: String,
-    factors_by_flow: HashMap<Uuid, f64>,
-    factors_by_flow_direction: HashMap<(Uuid, ExchangeDirection), f64>,
+    factors_by_flow: HashMap<(Uuid, String), f64>,
+    factors_by_flow_direction: HashMap<(Uuid, String, ExchangeDirection), f64>,
 }
 
 #[derive(Debug)]
@@ -1029,8 +1029,8 @@ struct CompiledScopeGraph {
 
 #[derive(Debug, Clone, Default)]
 struct ActiveLciaFactorSelection {
-    factors_by_impact: Vec<BTreeMap<Uuid, f64>>,
-    active_flow_ids: BTreeSet<Uuid>,
+    factors_by_impact: Vec<BTreeMap<FlowLinkIdentity, f64>>,
+    active_flow_versions: BTreeSet<(Uuid, String)>,
     direction_by_flow: HashMap<Uuid, Option<ExchangeDirection>>,
 }
 
@@ -1552,6 +1552,14 @@ async fn replay_lcia_evidence(cli: &Cli) -> anyhow::Result<()> {
     else {
         anyhow::bail!("legacy release evidence has no replay inputs");
     };
+    anyhow::ensure!(
+        release
+            .lcia_selection_policy
+            .as_deref()
+            .is_none_or(|policy| policy == solver_worker::lcia_nonregional::POLICY),
+        "unsupported historical LCIA selection policy"
+    );
+    let legacy_replay = release.lcia_selection_policy.is_none();
     let observations = release
         .lcia_coverage_inputs
         .ok_or_else(|| anyhow::anyhow!("snapshot is missing LCIA replay inputs"))?;
@@ -1579,6 +1587,9 @@ async fn replay_lcia_evidence(cli: &Cli) -> anyhow::Result<()> {
         static_bundle: Some(bundle),
     };
     let mut factors = load_impact_factor_sets(&method)?;
+    if legacy_replay {
+        adapt_legacy_replay_factor_versions(&mut factors, &observations);
+    }
     let coverage = build_lcia_factor_coverage(
         &observations,
         &factors,
@@ -1720,6 +1731,10 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
     let mut build_config = SnapshotBuildConfig {
         process_states: process_states_label.clone(),
         numerical_policy_version: Some(solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned()),
+        lcia_selection_policy: Some(solver_worker::lcia_nonregional::POLICY.to_owned()),
+        lcia_defaults_sha256: Some(solver_worker::calculation_evidence::sha256_bytes(
+            solver_worker::lcia_nonregional::DEFAULTS,
+        )),
         include_user_id: cli.include_user_id,
         data_scope: versioned_scope
             .as_ref()
@@ -3980,30 +3995,27 @@ fn load_impact_factor_sets(method: &MethodSelection) -> anyhow::Result<Vec<Impac
         for source_method in &bundle.methods {
             let mut factor_map = HashMap::new();
             let mut directional_factor_map = HashMap::new();
-            for factor in bundle
-                .factors_by_method
-                .get(&source_method.method_id)
-                .into_iter()
-                .flatten()
-            {
+            for factor in solver_worker::lcia_nonregional::prepare_static_method(
+                bundle,
+                source_method.method_id,
+                &source_method.method_version,
+            )? {
                 let direction = match factor.direction {
                     StaticLciaDirection::Input => ExchangeDirection::Input,
                     StaticLciaDirection::Output => ExchangeDirection::Output,
                 };
-                accumulate_finite_factor(
+                insert_default_factor(
                     &mut directional_factor_map,
-                    (factor.flow_id, direction),
+                    (factor.flow_id, factor.flow_version.clone(), direction),
                     factor.value,
                     source_method.method_id,
                 )?;
-                if factor.value != 0.0 {
-                    accumulate_finite_factor(
-                        &mut factor_map,
-                        factor.flow_id,
-                        factor.value,
-                        source_method.method_id,
-                    )?;
-                }
+                accumulate_finite_factor(
+                    &mut factor_map,
+                    (factor.flow_id, factor.flow_version),
+                    factor.value,
+                    source_method.method_id,
+                )?;
             }
             factor_map.retain(|_, value| *value != 0.0);
             out.push(ImpactFactorSet {
@@ -4027,10 +4039,22 @@ fn load_impact_factor_sets(method: &MethodSelection) -> anyhow::Result<Vec<Impac
     let mut out = Vec::with_capacity(method.rows.len());
     for row in &method.rows {
         let identity = &row.identity;
-        let mut factor_map: HashMap<Uuid, f64> = HashMap::new();
-        let mut directional_factor_map: HashMap<(Uuid, ExchangeDirection), f64> = HashMap::new();
+        let mut factor_map: HashMap<(Uuid, String), f64> = HashMap::new();
+        let mut directional_factor_map: HashMap<(Uuid, String, ExchangeDirection), f64> =
+            HashMap::new();
+        let mut default_keys = HashSet::new();
         for factor in method_factor_items(&row.json) {
+            if !solver_worker::lcia_nonregional::is_default_location(factor.get("location")) {
+                continue;
+            }
             let Some(flow_id) = parse_uuid_at(factor, &["referenceToFlowDataSet", "@refObjectId"])
+            else {
+                continue;
+            };
+            let Some(version) = factor
+                .pointer("/referenceToFlowDataSet/@version")
+                .and_then(Value::as_str)
+                .filter(|version| valid_source_dataset_version(version))
             else {
                 continue;
             };
@@ -4042,20 +4066,27 @@ fn load_impact_factor_sets(method: &MethodSelection) -> anyhow::Result<Vec<Impac
             ) else {
                 continue;
             };
-            if let Some(direction) =
-                parse_exchange_direction(factor.get("exchangeDirection").and_then(Value::as_str))
-            {
-                accumulate_finite_factor(
+            let direction =
+                parse_exchange_direction(factor.get("exchangeDirection").and_then(Value::as_str));
+            anyhow::ensure!(
+                default_keys.insert((flow_id, version.to_owned(), direction)),
+                "multiple nonregional default factors for method {}",
+                identity.method_id
+            );
+            if let Some(direction) = direction {
+                insert_default_factor(
                     &mut directional_factor_map,
-                    (flow_id, direction),
+                    (flow_id, version.to_owned(), direction),
                     value,
                     identity.method_id,
                 )?;
             }
-            if value.abs() <= f64::EPSILON {
-                continue;
-            }
-            accumulate_finite_factor(&mut factor_map, flow_id, value, identity.method_id)?;
+            accumulate_finite_factor(
+                &mut factor_map,
+                (flow_id, version.to_owned()),
+                value,
+                identity.method_id,
+            )?;
         }
         factor_map.retain(|_, value| value.abs() > f64::EPSILON);
 
@@ -4074,6 +4105,23 @@ fn load_impact_factor_sets(method: &MethodSelection) -> anyhow::Result<Vec<Impac
     }
     out.sort_unstable_by_key(|impact| impact.impact_id);
     Ok(out)
+}
+
+fn insert_default_factor<K: Eq + std::hash::Hash>(
+    factors: &mut HashMap<K, f64>,
+    key: K,
+    value: f64,
+    method_id: Uuid,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        value.is_finite(),
+        "LCIA factor for method {method_id} is non-finite"
+    );
+    anyhow::ensure!(
+        factors.insert(key, value).is_none(),
+        "multiple nonregional default factors for method {method_id}"
+    );
+    Ok(())
 }
 
 fn accumulate_finite_factor<K>(
@@ -5312,14 +5360,14 @@ async fn compile_scope_graph(
             )
         })
         .collect::<Vec<_>>();
-    let biosphere_flow_ids = flows
+    let biosphere_flows = flows
         .iter()
         .filter(|flow| flow.space == CompiledFlowSpace::Biosphere)
-        .map(|flow| flow.flow_id)
+        .map(|flow| flow_link_identity_from_parts(flow.flow_id, &flow.flow_version))
         .collect::<BTreeSet<_>>();
     let active_lcia_factors = select_active_lcia_factors(
         impact_factor_sets,
-        &biosphere_flow_ids,
+        &biosphere_flows,
         &lcia_exchange_observations,
         directional_lcia,
     );
@@ -5328,7 +5376,7 @@ async fn compile_scope_graph(
         &processes,
         &flow_meta.by_identity,
         impact_factor_sets,
-        &active_lcia_factors.active_flow_ids,
+        &active_lcia_factors.active_flow_versions,
         versioned_scope,
         artifact_purpose,
     )
@@ -5561,7 +5609,7 @@ fn compiled_exchange_direction(direction: ExchangeDirection) -> CompiledExchange
 
 fn select_active_lcia_factors(
     impact_factor_sets: &[ImpactFactorSet],
-    biosphere_flow_ids: &BTreeSet<Uuid>,
+    biosphere_flows: &BTreeSet<FlowLinkIdentity>,
     observations: &[LciaExchangeObservation],
     directional_lcia: bool,
 ) -> ActiveLciaFactorSelection {
@@ -5572,37 +5620,41 @@ fn select_active_lcia_factors(
     };
     let mut selection = ActiveLciaFactorSelection {
         factors_by_impact: Vec::with_capacity(impact_factor_sets.len()),
-        active_flow_ids: BTreeSet::new(),
+        active_flow_versions: BTreeSet::new(),
         direction_by_flow,
     };
     for impact in impact_factor_sets {
         let mut active = BTreeMap::new();
-        if directional_lcia {
-            for (flow_id, direction) in &selection.direction_by_flow {
-                let Some(direction) = direction else {
-                    continue;
-                };
-                let Some(value) = impact
-                    .factors_by_flow_direction
-                    .get(&(*flow_id, *direction))
-                else {
-                    continue;
-                };
-                if retain_sparse_value(*value, true) {
-                    active.insert(*flow_id, *value);
-                }
-            }
-        } else {
-            for flow_id in biosphere_flow_ids {
-                let Some(value) = impact.factors_by_flow.get(flow_id) else {
-                    continue;
-                };
-                if value.abs() > f64::EPSILON {
-                    active.insert(*flow_id, *value);
-                }
+        for identity in biosphere_flows {
+            let value = if directional_lcia {
+                selection
+                    .direction_by_flow
+                    .get(&identity.flow_id)
+                    .copied()
+                    .flatten()
+                    .and_then(|direction| {
+                        impact.factors_by_flow_direction.get(&(
+                            identity.flow_id,
+                            identity.flow_version.clone(),
+                            direction,
+                        ))
+                    })
+            } else {
+                impact
+                    .factors_by_flow
+                    .get(&(identity.flow_id, identity.flow_version.clone()))
+            };
+            if let Some(value) =
+                value.filter(|value| retain_sparse_value(**value, directional_lcia))
+            {
+                active.insert(identity.clone(), *value);
             }
         }
-        selection.active_flow_ids.extend(active.keys().copied());
+        selection.active_flow_versions.extend(
+            active
+                .keys()
+                .map(|key| (key.flow_id, key.flow_version.clone())),
+        );
         selection.factors_by_impact.push(active);
     }
     selection
@@ -5626,7 +5678,7 @@ fn assemble_sparse_payload(
             .flows
             .iter()
             .filter(|flow| flow.space == CompiledFlowSpace::Biosphere)
-            .map(|flow| flow.flow_id)
+            .map(|flow| flow_link_identity_from_parts(flow.flow_id, &flow.flow_version))
             .collect(),
         lcia_exchange_observations,
         directional_lcia,
@@ -5664,13 +5716,13 @@ fn assemble_sparse_payload_with_selection(
         .map_err(|_| anyhow::anyhow!("process overflow"))?;
     let flow_count =
         i32::try_from(compiled_graph.flows.len()).map_err(|_| anyhow::anyhow!("flow overflow"))?;
-    let mut flow_indices_by_id = HashMap::<Uuid, Vec<i32>>::new();
+    let mut flow_indices_by_identity = HashMap::<FlowLinkIdentity, i32>::new();
     for flow in &compiled_graph.flows {
         if flow.space == CompiledFlowSpace::Biosphere {
-            flow_indices_by_id
-                .entry(flow.flow_id)
-                .or_default()
-                .push(flow.flow_idx);
+            flow_indices_by_identity.insert(
+                flow_link_identity_from_parts(flow.flow_id, &flow.flow_version),
+                flow.flow_idx,
+            );
         }
     }
 
@@ -5764,16 +5816,9 @@ fn assemble_sparse_payload_with_selection(
                 .factors_by_impact
                 .get(impact_idx)
                 .ok_or_else(|| anyhow::anyhow!("active LCIA factor axis omitted impact index"))?;
-            for (flow_id, cf_value) in factors {
-                if let Some(flow_indices) = flow_indices_by_id.get(flow_id) {
-                    for flow_idx in flow_indices {
-                        accumulate_finite_factor(
-                            &mut c_map,
-                            *flow_idx,
-                            *cf_value,
-                            impact.impact_id,
-                        )?;
-                    }
+            for (identity, cf_value) in factors {
+                if let Some(flow_idx) = flow_indices_by_identity.get(identity) {
+                    accumulate_finite_factor(&mut c_map, *flow_idx, *cf_value, impact.impact_id)?;
                 }
             }
             c_map.retain(|_, value| retain_sparse_value(*value, directional_lcia));
@@ -6005,6 +6050,30 @@ fn unique_supported_direction_by_flow(
         .collect()
 }
 
+// Historical coverage used UUID/direction without Flow version. Reconstruct only
+// its presence lookup for explicit replay; this adapter never supplies C values.
+fn adapt_legacy_replay_factor_versions(
+    methods: &mut [ImpactFactorSet],
+    observations: &[LciaExchangeObservation],
+) {
+    let mut versions = HashMap::<Uuid, HashSet<String>>::new();
+    for observation in observations {
+        versions
+            .entry(observation.flow_id)
+            .or_default()
+            .insert(observation.flow_version.clone());
+    }
+    for method in methods {
+        let mut presence = HashMap::new();
+        for (flow, _, direction) in method.factors_by_flow_direction.keys() {
+            for version in versions.get(flow).into_iter().flatten() {
+                presence.insert((*flow, version.clone(), *direction), 0.0);
+            }
+        }
+        method.factors_by_flow_direction = presence;
+    }
+}
+
 fn lcia_gap_reason(
     observation: &LciaExchangeObservation,
     method: &ImpactFactorSet,
@@ -6017,9 +6086,11 @@ fn lcia_gap_reason(
     } else if observation.amount.is_none_or(|value| !value.is_finite()) {
         Some("invalid_exchange_amount")
     } else if observation.direction.is_some_and(|direction| {
-        method
-            .factors_by_flow_direction
-            .contains_key(&(observation.flow_id, direction))
+        method.factors_by_flow_direction.contains_key(&(
+            observation.flow_id,
+            observation.flow_version.clone(),
+            direction,
+        ))
     }) {
         None
     } else {
@@ -6037,6 +6108,7 @@ fn build_lcia_factor_coverage(
     for observation in observations {
         let key = (
             observation.flow_id,
+            observation.flow_version.clone(),
             observation.direction,
             observation.amount.is_some_and(f64::is_finite),
         );
@@ -7692,6 +7764,8 @@ fn compute_source_fingerprint_from_summary(
     let body = serde_json::json!({
         "schema": solver_worker::NUMERICAL_SOURCE_FINGERPRINT_SCHEMA,
         "numerical_policy_version": config.numerical_policy_version,
+        "lcia_selection_policy": solver_worker::lcia_nonregional::POLICY,
+        "lcia_defaults_sha256": solver_worker::calculation_evidence::sha256_bytes(solver_worker::lcia_nonregional::DEFAULTS),
         "source": {
             "processes": {
                 "count": summary.process_count,
@@ -9165,7 +9239,7 @@ async fn build_frozen_source_datasets(
     processes: &[ProcessRow],
     flows: &HashMap<FlowLinkIdentity, FlowRow>,
     impact_factor_sets: &[ImpactFactorSet],
-    active_lcia_flow_ids: &BTreeSet<Uuid>,
+    active_lcia_flow_versions: &BTreeSet<(Uuid, String)>,
     versioned_scope: Option<&ValidatedPublicOwnerDraftScope>,
     artifact_purpose: ArtifactPurpose,
 ) -> anyhow::Result<(
@@ -9253,7 +9327,9 @@ async fn build_frozen_source_datasets(
     }
     lcia_factor_flow_references.retain(|reference| {
         reference.dataset_type != CompiledReleaseSourceDatasetType::Flow
-            || active_lcia_flow_ids.contains(&reference.id)
+            || reference.version.as_ref().is_some_and(|version| {
+                active_lcia_flow_versions.contains(&(reference.id, version.clone()))
+            })
     });
     let lcia_flow_requests =
         flow_reference_requests_from_source_references(&lcia_factor_flow_references);
@@ -9329,10 +9405,10 @@ async fn build_frozen_source_datasets(
                 }
                 continue;
             }
-            let classification = classify_source_document_with_lcia_flow_axis(
+            let classification = classify_source_document_with_lcia_flow_versions(
                 dataset,
                 artifact_purpose,
-                Some(active_lcia_flow_ids),
+                Some(active_lcia_flow_versions),
             )?;
             preflight_issues.extend(classification.extraction_issues);
             for reference in classification.references {
@@ -11577,6 +11653,10 @@ mod tests {
             numerical_policy_version: Some(
                 solver_worker::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned(),
             ),
+            lcia_selection_policy: Some(solver_worker::lcia_nonregional::POLICY.to_owned()),
+            lcia_defaults_sha256: Some(solver_worker::calculation_evidence::sha256_bytes(
+                solver_worker::lcia_nonregional::DEFAULTS,
+            )),
             include_user_id: None,
             data_scope: None,
             scope_manifest_sha256: None,
@@ -11686,6 +11766,36 @@ mod tests {
         assert_ne!(
             compute_source_fingerprint_from_summary(&summary, &config).unwrap(),
             super::sha256_bytes(&serde_json::to_vec(&legacy).unwrap())
+        );
+    }
+
+    #[test]
+    fn nonregional_selection_and_defaults_change_snapshot_identity() {
+        let summary = SourceSnapshotSummary {
+            process_count: 1,
+            process_max_modified_at_utc: "unchanged".into(),
+            lifecyclemodel_count: 0,
+            lifecyclemodel_max_modified_at_utc: "none".into(),
+            lifecyclemodel_payload_sha256: "empty".into(),
+            flow_count: 1,
+            flow_max_modified_at_utc: "unchanged".into(),
+            lciamethod_count: 25,
+            lciamethod_max_modified_at_utc: "unchanged".into(),
+        };
+        let config = test_snapshot_build_config("tidas-reference-allocation-v5");
+        let current = compute_source_fingerprint_from_summary(&summary, &config).unwrap();
+        let mut legacy = config.clone();
+        legacy.lcia_selection_policy = None;
+        legacy.lcia_defaults_sha256 = None;
+        assert_ne!(
+            current,
+            compute_source_fingerprint_from_summary(&summary, &legacy).unwrap()
+        );
+        let mut changed = config;
+        changed.lcia_defaults_sha256 = Some("different".into());
+        assert_ne!(
+            current,
+            compute_source_fingerprint_from_summary(&summary, &changed).unwrap()
         );
     }
 
@@ -12777,9 +12887,9 @@ mod tests {
             impact_key: format!("method:{method_id}"),
             impact_name: "Tiny factor method".to_owned(),
             unit: "kg".to_owned(),
-            factors_by_flow: HashMap::from([(flow_id, tiny_factor)]),
+            factors_by_flow: HashMap::from([((flow_id, "01.00.000".to_owned()), tiny_factor)]),
             factors_by_flow_direction: HashMap::from([(
-                (flow_id, ExchangeDirection::Output),
+                (flow_id, "01.00.000".to_owned(), ExchangeDirection::Output),
                 tiny_factor,
             )]),
         }];
@@ -12906,10 +13016,13 @@ mod tests {
             method_version: "01.00.000".to_owned(),
             artifact_locator_id: method_id,
             impact_key: format!("method:{method_id}"),
-            impact_name: "version-independent factor".to_owned(),
+            impact_name: "exact-version factor".to_owned(),
             unit: "kg".to_owned(),
-            factors_by_flow: HashMap::from([(flow_id, 3.0)]),
-            factors_by_flow_direction: HashMap::from([((flow_id, ExchangeDirection::Output), 3.0)]),
+            factors_by_flow: HashMap::from([((flow_id, "01.00.000".to_owned()), 3.0)]),
+            factors_by_flow_direction: HashMap::from([(
+                (flow_id, "01.00.000".to_owned(), ExchangeDirection::Output),
+                3.0,
+            )]),
         }];
         let observations = ["01.00.000", "01.00.002"]
             .into_iter()
@@ -12949,7 +13062,8 @@ mod tests {
 
         assert_eq!(built.data.flow_count, 2);
         assert_eq!(built.data.biosphere_entries.len(), 2);
-        assert_eq!(built.data.characterization_factors.len(), 2);
+        assert_eq!(built.data.characterization_factors.len(), 1);
+        assert_eq!(built.data.characterization_factors[0].col, 0);
         assert_eq!(built.compiled_graph.flows[0].flow_version, "01.00.000");
         assert_eq!(built.compiled_graph.flows[1].flow_version, "01.00.002");
     }
@@ -16836,7 +16950,7 @@ mod tests {
                 factors_by_flow: HashMap::new(),
                 // Explicit zero is still an existing factor, unlike an absent key.
                 factors_by_flow_direction: HashMap::from([(
-                    (flow, ExchangeDirection::Output),
+                    (flow, "01.00.000".to_owned(), ExchangeDirection::Output),
                     0.0,
                 )]),
             })
@@ -16874,8 +16988,11 @@ mod tests {
             impact_key: "method:test".to_owned(),
             impact_name: "Test".to_owned(),
             unit: "kg".to_owned(),
-            factors_by_flow: HashMap::from([(flow_id, 1.0)]),
-            factors_by_flow_direction: HashMap::from([((flow_id, ExchangeDirection::Output), 1.0)]),
+            factors_by_flow: HashMap::from([((flow_id, "01.00.000".to_owned()), 1.0)]),
+            factors_by_flow_direction: HashMap::from([(
+                (flow_id, "01.00.000".to_owned(), ExchangeDirection::Output),
+                1.0,
+            )]),
         }];
         let observations = vec![LciaExchangeObservation {
             flow_id,
@@ -16975,8 +17092,11 @@ mod tests {
             impact_key: "method:input".to_owned(),
             impact_name: "Input direction".to_owned(),
             unit: "kg".to_owned(),
-            factors_by_flow: HashMap::from([(flow_id, 1.0)]),
-            factors_by_flow_direction: HashMap::from([((flow_id, ExchangeDirection::Input), 1.0)]),
+            factors_by_flow: HashMap::from([((flow_id, "01.00.000".to_owned()), 1.0)]),
+            factors_by_flow_direction: HashMap::from([(
+                (flow_id, "01.00.000".to_owned(), ExchangeDirection::Input),
+                1.0,
+            )]),
         }];
         let coverage =
             build_lcia_factor_coverage(&observations, &factors, &directions).expect("coverage");
@@ -17011,9 +17131,9 @@ mod tests {
                 impact_key: "method:b".to_owned(),
                 impact_name: "B".to_owned(),
                 unit: "kg".to_owned(),
-                factors_by_flow: HashMap::from([(flow_b, 2.0)]),
+                factors_by_flow: HashMap::from([((flow_b, "01.00.000".to_owned()), 2.0)]),
                 factors_by_flow_direction: HashMap::from([(
-                    (flow_b, ExchangeDirection::Output),
+                    (flow_b, "01.00.000".to_owned(), ExchangeDirection::Output),
                     2.0,
                 )]),
             },
@@ -17024,9 +17144,9 @@ mod tests {
                 impact_key: "method:a".to_owned(),
                 impact_name: "A".to_owned(),
                 unit: "kg".to_owned(),
-                factors_by_flow: HashMap::from([(flow_a, 1.0)]),
+                factors_by_flow: HashMap::from([((flow_a, "01.00.000".to_owned()), 1.0)]),
                 factors_by_flow_direction: HashMap::from([(
-                    (flow_a, ExchangeDirection::Output),
+                    (flow_a, "01.00.000".to_owned(), ExchangeDirection::Output),
                     1.0,
                 )]),
             },
@@ -17701,10 +17821,27 @@ mod tests {
             impact_key: "impact".to_owned(),
             impact_name: "Impact".to_owned(),
             unit: "kg".to_owned(),
-            factors_by_flow: HashMap::from([(active_flow, 2.0), (unrelated_flow, 99.0)]),
+            factors_by_flow: HashMap::from([
+                ((active_flow, "01.00.000".to_owned()), 2.0),
+                ((unrelated_flow, "01.00.000".to_owned()), 99.0),
+            ]),
             factors_by_flow_direction: HashMap::from([
-                ((active_flow, ExchangeDirection::Output), 2.0),
-                ((unrelated_flow, ExchangeDirection::Output), 99.0),
+                (
+                    (
+                        active_flow,
+                        "01.00.000".to_owned(),
+                        ExchangeDirection::Output,
+                    ),
+                    2.0,
+                ),
+                (
+                    (
+                        unrelated_flow,
+                        "01.00.000".to_owned(),
+                        ExchangeDirection::Output,
+                    ),
+                    99.0,
+                ),
             ]),
         };
         let observations = vec![LciaExchangeObservation {
@@ -17719,13 +17856,23 @@ mod tests {
         for directional in [false, true] {
             let selected = select_active_lcia_factors(
                 std::slice::from_ref(&impact),
-                &BTreeSet::from([active_flow]),
+                &BTreeSet::from([super::flow_link_identity_from_parts(
+                    active_flow,
+                    "01.00.000",
+                )]),
                 &observations,
                 directional,
             );
-            assert_eq!(selected.active_flow_ids, BTreeSet::from([active_flow]));
+            assert_eq!(
+                selected.active_flow_versions,
+                BTreeSet::from([(active_flow, "01.00.000".to_owned())])
+            );
             assert_eq!(selected.factors_by_impact[0].len(), 1);
-            assert_close(selected.factors_by_impact[0][&active_flow], 2.0);
+            assert_close(
+                selected.factors_by_impact[0]
+                    [&super::flow_link_identity_from_parts(active_flow, "01.00.000")],
+                2.0,
+            );
         }
     }
 
@@ -18222,7 +18369,7 @@ mod tests {
                     },
                     "characterisationFactors": {
                         "factor": [{
-                            "referenceToFlowDataSet": {"@refObjectId": flow_id.to_string()},
+                            "referenceToFlowDataSet": {"@refObjectId": flow_id.to_string(), "@version":"01.00.000"},
                             "exchangeDirection": "Output",
                             "meanValue": "2.5"
                         }]
@@ -18242,11 +18389,18 @@ mod tests {
             static_bundle: None,
         };
         let impacts = load_impact_factor_sets(&method).expect("load method");
-        assert_eq!(impacts[0].factors_by_flow.get(&flow_id), Some(&2.5));
         assert_eq!(
             impacts[0]
-                .factors_by_flow_direction
-                .get(&(flow_id, ExchangeDirection::Output)),
+                .factors_by_flow
+                .get(&(flow_id, "01.00.000".to_owned())),
+            Some(&2.5)
+        );
+        assert_eq!(
+            impacts[0].factors_by_flow_direction.get(&(
+                flow_id,
+                "01.00.000".to_owned(),
+                ExchangeDirection::Output
+            )),
             Some(&2.5)
         );
         let axis = super::build_snapshot_impact_map(Uuid::new_v4(), &method, &impacts)
@@ -18524,6 +18678,306 @@ mod tests {
         assert_eq!(
             with_other_process.processes[0].quantitative_reference_flow_id,
             product_flow_id
+        );
+    }
+    fn nonregional_method(factors: &[serde_json::Value]) -> MethodSelection {
+        let id = Uuid::new_v4();
+        let count = i64::try_from(factors.len()).unwrap();
+        let rows = resolve_database_lcia_method_rows(vec![super::MethodRow {
+            id,
+            version: "01.00.000".into(),
+            json: json!({"LCIAMethodDataSet":{
+                "LCIAMethodInformation":{"dataSetInformation":{"common:UUID":id}},
+                "characterisationFactors":{"factor":factors}
+            }}),
+        }])
+        .unwrap();
+        MethodSelection {
+            has_lcia: true,
+            method_id: None,
+            method_version: None,
+            method_count: 1,
+            factor_count: count,
+            source_evidence: None,
+            rows,
+            static_bundle: None,
+        }
+    }
+
+    fn nonregional_factor(
+        flow: Uuid,
+        version: &str,
+        value: f64,
+        location: Option<&str>,
+    ) -> serde_json::Value {
+        let mut factor = json!({"referenceToFlowDataSet":{"@refObjectId":flow,"@version":version},
+            "exchangeDirection":"Output", "meanValue":value});
+        if let Some(location) = location {
+            factor["location"] = json!(location);
+        }
+        factor
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)] // Exact source literals, no floating-point arithmetic.
+    fn nonregional_defaults_do_not_sum_regional_alternatives_or_apply_geographic_admission() {
+        let flow = Uuid::new_v4();
+        let method = nonregional_method(&[
+            nonregional_factor(flow, "03.00.004", 4.0, Some("DE")),
+            nonregional_factor(flow, "03.00.004", 11.491, Some("NO")),
+            nonregional_factor(flow, "03.00.004", 3.02, Some("")),
+            nonregional_factor(flow, "03.00.005", 8.0, None),
+        ]);
+        let factors = load_impact_factor_sets(&method).unwrap();
+        assert_eq!(
+            factors[0].factors_by_flow[&(flow, "03.00.004".into())],
+            3.02
+        );
+        assert_eq!(factors[0].factors_by_flow[&(flow, "03.00.005".into())], 8.0);
+        assert_eq!(factors[0].factors_by_flow.len(), 2);
+        let duplicate = nonregional_method(&[
+            nonregional_factor(flow, "03.00.004", 3.02, None),
+            nonregional_factor(flow, "03.00.004", 3.02, Some("GLO")),
+        ]);
+        assert!(
+            load_impact_factor_sets(&duplicate)
+                .unwrap_err()
+                .to_string()
+                .contains("multiple nonregional")
+        );
+    }
+
+    #[test]
+    fn nonregional_defaults_preserve_signed_zero_tiny_and_distinct_directions() {
+        let flow = Uuid::new_v4();
+        let mut input = nonregional_factor(flow, "03.00.004", -2.0, None);
+        input["exchangeDirection"] = json!("Input");
+        let method = nonregional_method(&[
+            input,
+            nonregional_factor(flow, "03.00.004", 3.0, None),
+            nonregional_factor(flow, "03.00.005", 0.0, None),
+            nonregional_factor(flow, "03.00.006", 1e-30, None),
+        ]);
+        let factors = load_impact_factor_sets(&method).unwrap();
+        let lookup = |version: &str, direction| {
+            factors[0].factors_by_flow_direction[&(flow, version.into(), direction)].to_bits()
+        };
+        assert_eq!(
+            lookup("03.00.004", ExchangeDirection::Input),
+            (-2.0_f64).to_bits()
+        );
+        assert_eq!(
+            lookup("03.00.004", ExchangeDirection::Output),
+            3.0_f64.to_bits()
+        );
+        assert_eq!(
+            lookup("03.00.005", ExchangeDirection::Output),
+            0.0_f64.to_bits()
+        );
+        assert_eq!(
+            lookup("03.00.006", ExchangeDirection::Output),
+            1e-30_f64.to_bits()
+        );
+        assert_eq!(
+            factors[0].factors_by_flow[&(flow, "03.00.004".into())].to_bits(),
+            1.0_f64.to_bits()
+        );
+    }
+
+    #[test]
+    fn nonregional_legacy_replay_keeps_historical_uuid_only_presence() {
+        let flow = Uuid::new_v4();
+        let method = nonregional_method(&[nonregional_factor(flow, "03.00.004", 3.02, None)]);
+        let mut factors = load_impact_factor_sets(&method).unwrap();
+        let observation = LciaExchangeObservation {
+            flow_id: flow,
+            flow_version: "01.00.000".into(),
+            direction: Some(ExchangeDirection::Output),
+            direction_label: "Output".into(),
+            exchange_id: "historical".into(),
+            amount: Some(1.0),
+        };
+        let observations = [observation];
+        let directions = unique_supported_direction_by_flow(&observations);
+        assert_eq!(
+            build_lcia_factor_coverage(&observations, &factors, &directions)
+                .unwrap()
+                .counts
+                .unmatched,
+            1
+        );
+        super::adapt_legacy_replay_factor_versions(&mut factors, &observations);
+        assert_eq!(
+            build_lcia_factor_coverage(&observations, &factors, &directions)
+                .unwrap()
+                .counts
+                .matched,
+            1
+        );
+    }
+
+    #[test]
+    fn nonregional_mixed_inventory_keeps_independent_category_values_and_exact_versions() {
+        let co2 = Uuid::new_v4();
+        let ammonia = Uuid::new_v4();
+        let mut climate = nonregional_method(&[nonregional_factor(co2, "03.00.004", 1.0, None)]);
+        let acid = nonregional_method(&[
+            nonregional_factor(ammonia, "03.00.004", 3.02, None),
+            nonregional_factor(ammonia, "03.00.004", 4.0, Some("DE")),
+        ]);
+        climate.rows.extend(acid.rows);
+        climate.method_count = 2;
+        let factors = load_impact_factor_sets(&climate).unwrap();
+        let mut graph = super::empty_compiled_graph();
+        graph.processes.push(CompiledProcess {
+            process_idx: 0,
+            process_id: Uuid::new_v4(),
+            process_version: "01.00.000".into(),
+            process_name: None,
+            model_id: None,
+            model_version: None,
+            location: None,
+            reference_year: None,
+            annual_supply_or_production_volume: None,
+            partition: ScopeProcessPartition::Public,
+        });
+        let identities = [
+            (co2, "03.00.004"),
+            (ammonia, "03.00.004"),
+            (co2, "03.00.005"),
+        ];
+        graph.flows = identities
+            .iter()
+            .enumerate()
+            .map(|(i, (id, version))| CompiledFlow {
+                flow_idx: i32::try_from(i).unwrap(),
+                flow_id: *id,
+                flow_version: (*version).into(),
+                kind: CompiledFlowKind::Elementary,
+                space: CompiledFlowSpace::Biosphere,
+                source_type: solver_worker::compiled_graph::CompiledSourceFlowType::Elementary,
+            })
+            .collect();
+        graph.biosphere_edges = (0..3)
+            .map(|i| CompiledBiosphereEdge {
+                process_idx: 0,
+                flow_idx: i,
+                amount: 2.0,
+                process_partition: ScopeProcessPartition::Public,
+            })
+            .collect();
+        let observations = identities
+            .iter()
+            .map(|(id, version)| LciaExchangeObservation {
+                flow_id: *id,
+                flow_version: (*version).into(),
+                direction: Some(ExchangeDirection::Output),
+                direction_label: "Output".into(),
+                exchange_id: id.to_string(),
+                amount: Some(2.0),
+            })
+            .collect::<Vec<_>>();
+        for directional in [false, true] {
+            let built = assemble_sparse_payload(
+                Uuid::new_v4(),
+                &climate,
+                &test_snapshot_build_config("tidas-reference-allocation-v5"),
+                &graph,
+                0.999_999,
+                1e-12,
+                true,
+                &factors,
+                &observations,
+                directional,
+            )
+            .unwrap();
+            assert_eq!(built.data.characterization_factors.len(), 2);
+            assert!(
+                built
+                    .data
+                    .characterization_factors
+                    .iter()
+                    .all(|factor| factor.col != 2)
+            );
+            let mut values = built
+                .data
+                .characterization_factors
+                .iter()
+                .map(|factor| factor.value * 2.0)
+                .collect::<Vec<_>>();
+            values.sort_by(f64::total_cmp);
+            assert_eq!(values, vec![2.0, 6.04]);
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires LCIA_TEST_STATIC_CACHE_DIR with the immutable real 25-method bundle"]
+    #[allow(clippy::float_cmp)] // Compare exact source values.
+    async fn nonregional_real_bundle_preserves_all_defaults_and_mixed_inventory() {
+        let source = super::TrustedStaticCacheSource::new(
+            Some(std::env::var("LCIA_TEST_STATIC_CACHE_DIR").unwrap().into()),
+            None,
+        )
+        .unwrap();
+        let bundle = super::load_verified_static_lcia_bundle(
+            &source,
+            &solver_worker::calculation_evidence::method_factor_source_contract_fixture(),
+        )
+        .await
+        .unwrap();
+        let method = MethodSelection {
+            has_lcia: true,
+            method_id: None,
+            method_version: None,
+            method_count: 25,
+            factor_count: 319_575,
+            source_evidence: Some(bundle.source_evidence.clone()),
+            rows: vec![],
+            static_bundle: Some(bundle),
+        };
+        let factors = load_impact_factor_sets(&method).unwrap();
+        assert_eq!(factors.len(), 25);
+        assert_eq!(
+            factors
+                .iter()
+                .map(|method| method.factors_by_flow_direction.len())
+                .sum::<usize>(),
+            276_704
+        );
+        let co2 = Uuid::parse_str("08a91e70-3ddc-11dd-9c14-0050c2490048").unwrap();
+        let ammonia = Uuid::parse_str("08a91e70-3ddc-11dd-96ae-0050c2490048").unwrap();
+        let observations = [co2, ammonia].map(|flow_id| LciaExchangeObservation {
+            flow_id,
+            flow_version: "03.00.004".into(),
+            direction: Some(ExchangeDirection::Output),
+            direction_label: "Output".into(),
+            exchange_id: flow_id.to_string(),
+            amount: Some(1.0),
+        });
+        let axis = [co2, ammonia]
+            .map(|id| super::flow_link_identity_from_parts(id, "03.00.004"))
+            .into_iter()
+            .collect();
+        let selected = select_active_lcia_factors(&factors, &axis, &observations, true);
+        for (id, flow, value) in [
+            ("6209b35f-9447-40b5-b68c-a1099e3674a0", co2, 1.0),
+            ("b5c611c6-def3-11e6-bf01-fe55135034f3", ammonia, 3.02),
+        ] {
+            let idx = factors
+                .iter()
+                .position(|m| m.impact_id.to_string() == id)
+                .unwrap();
+            assert_eq!(
+                selected.factors_by_impact[idx]
+                    [&super::flow_link_identity_from_parts(flow, "03.00.004")],
+                value
+            );
+        }
+        // All prepared default families remain available without inventory geography.
+        assert!(
+            factors
+                .iter()
+                .all(|method| !method.factors_by_flow_direction.is_empty())
         );
     }
 }

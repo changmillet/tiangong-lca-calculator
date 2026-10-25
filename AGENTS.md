@@ -43,8 +43,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-25
-lastReviewedCommit: 4c3c9f0cb2f63544ae0a210a2d6d6bc7607890fc
-lastReviewedNote: "Worker #342: reviewed explicit manual LCIA validation destinations and offline target checks; runtime API, numerical, authorization and hosted deployment boundaries are unchanged."
+lastReviewedCommit: ae7fe386e291266451383bbe47e1110ade3c78ca
+lastReviewedNote: "Worker #339: reviewed nonregional source-default selection, exact Flow versions, legacy replay and additive snapshot metadata; provider, closure admission, package, publication and review policies are unchanged."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md
@@ -176,6 +176,8 @@ Route those tasks to:
 `tiangong-lca-worker` does not use a separate promote line. Normal implementation merges to `main`, and later workspace delivery still requires a root submodule bump when the updated worker runtime should ship.
 
 ## Operational Invariants
+
+- ordinary LCIA calculation uses the versioned nonregional source-default profile described in `docs/lca-api-contract.md`; missing exchange geography and incomplete method coverage do not add calculation or publication gates
 
 - public numerical eligibility is exactly `state_code = 100`; the reserved publication segment `100..=199` is a reserved metadata range and never a computation capability or generic display grant, so unknown or newly reserved public states fail closed. Owner draft `0` is admitted only by the versioned `public_plus_owner_draft` scope for the row's own actor, and the dedicated Review Admin diagnostic (`20` plus public `100`) is the single intentional numeric exception
 - a published Result Process (`120`) is never a numerical root, provider or matrix axis, is not exposed through generic product reads, references or exports, and never leaves the platform inside a product export package; its only readback is the authorization-bound Database publication receipt. Every newly built numerical snapshot records `numerical_policy_version = public-numerical-state-100-excluding-result-120:v1` in its artifact config and in the server-authored READY `process_filter`; new compute execution and reuse require that exact marker, while historical artifacts stay byte-identical and readable

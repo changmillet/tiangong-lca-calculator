@@ -1,8 +1,8 @@
 version: 1
 layout: repo
-lastReviewedAt: 2026-10-25
-lastReviewedCommit: 4c3c9f0cb2f63544ae0a210a2d6d6bc7607890fc
-lastReviewedNote: "Worker #342: reviewed explicit manual LCIA validation destinations and offline target checks; runtime API, numerical, authorization and hosted deployment boundaries are unchanged."
+lastReviewedAt: "2026-10-25"
+lastReviewedCommit: "ae7fe386e291266451383bbe47e1110ade3c78ca"
+lastReviewedNote: "Worker #339: reviewed nonregional source-default selection, exact Flow versions, legacy replay and additive snapshot metadata; provider, closure admission, package, publication and review policies are unchanged."
 
 # Keep deterministic governance facts here.
 # AGENTS.md remains the repo contract entrypoint.

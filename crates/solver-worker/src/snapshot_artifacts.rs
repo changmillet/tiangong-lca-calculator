@@ -64,6 +64,11 @@ pub struct SnapshotBuildConfig {
     /// current marker; decoding and historical reads never consult it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub numerical_policy_version: Option<String>,
+    /// Executable LCIA selection profile. None on historical artifacts; no data-quality meaning.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lcia_selection_policy: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lcia_defaults_sha256: Option<String>,
     /// Optional `user_id` inclusion in process selection.
     #[serde(default)]
     pub include_user_id: Option<Uuid>,
@@ -566,6 +571,9 @@ impl SnapshotReviewGateEvidence {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotReleaseEvidence {
+    /// Absent in historical UUID-only coverage; only explicit replay uses that legacy lookup.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lcia_selection_policy: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lcia_coverage_inputs: Option<Vec<crate::calculation_evidence::LciaExchangeObservation>>,
     pub processes: Vec<compiled_graph::CompiledReleaseProcess>,
@@ -580,6 +588,7 @@ pub struct SnapshotReleaseEvidence {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SnapshotReleaseEvidenceRef<'a> {
+    lcia_selection_policy: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     lcia_coverage_inputs: Option<&'a [crate::calculation_evidence::LciaExchangeObservation]>,
     processes: &'a [compiled_graph::CompiledReleaseProcess],
@@ -899,6 +908,7 @@ pub fn encode_snapshot_release_evidence_with_lcia_inputs(
             format: SNAPSHOT_RELEASE_EVIDENCE_FORMAT,
             snapshot_id,
             release_evidence: SnapshotReleaseEvidenceRef {
+                lcia_selection_policy: crate::lcia_nonregional::POLICY,
                 lcia_coverage_inputs,
                 processes: &release_evidence.processes,
                 inventory_exchanges: &release_evidence.inventory_exchanges,
@@ -1101,6 +1111,10 @@ mod tests {
         let config = SnapshotBuildConfig {
             process_states: crate::default_snapshot_process_states_arg(),
             numerical_policy_version: Some(crate::NUMERICAL_SNAPSHOT_POLICY_VERSION.to_owned()),
+            lcia_selection_policy: Some(crate::lcia_nonregional::POLICY.to_owned()),
+            lcia_defaults_sha256: Some(crate::calculation_evidence::sha256_bytes(
+                crate::lcia_nonregional::DEFAULTS,
+            )),
             include_user_id: None,
             data_scope: None,
             scope_manifest_sha256: None,
@@ -1490,6 +1504,8 @@ mod tests {
         });
         let parsed: SnapshotBuildConfig = serde_json::from_value(legacy).expect("parse legacy");
         assert_eq!(parsed.biosphere_sign_mode, "signed");
+        assert!(parsed.lcia_selection_policy.is_none());
+        assert!(parsed.lcia_defaults_sha256.is_none());
         assert_eq!(parsed.allocation_semantics_version, "legacy-unscoped-v0");
         assert_eq!(parsed.include_user_id, None);
         assert_eq!(

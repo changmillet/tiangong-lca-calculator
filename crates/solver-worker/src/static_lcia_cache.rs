@@ -112,9 +112,10 @@ pub struct StaticLciaMethod {
     pub unit: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StaticLciaFactor {
     pub flow_id: Uuid,
+    pub flow_version: String,
     pub direction: StaticLciaDirection,
     pub value: f64,
 }
@@ -659,6 +660,7 @@ impl<'de> Visitor<'de> for FactorIndexVisitor<'_, '_> {
                     .expect("manifested method factor vector")
                     .push(StaticLciaFactor {
                         flow_id: record.flow_id,
+                        flow_version: record.flow_version.clone(),
                         direction,
                         value,
                     });

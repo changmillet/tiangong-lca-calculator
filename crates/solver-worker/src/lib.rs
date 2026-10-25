@@ -451,6 +451,7 @@ pub mod file_cache;
 pub mod graph_types;
 pub mod http;
 pub mod lcia_method_metadata;
+pub mod lcia_nonregional;
 pub mod local_reports;
 pub mod package_artifacts;
 pub mod package_db;

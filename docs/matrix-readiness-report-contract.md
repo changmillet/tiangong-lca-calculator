@@ -24,9 +24,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-10-14
-lastReviewedCommit: 5d7c3cbf2d16d743791f13e86052eb42de46a2aa
-lastReviewedNote: "Reviewed Worker #320 snapshot replay and typed upload blockage. Coverage matching, provider/allocation rules and numerical matrices remain unchanged; v3 request and v2 replay evidence require coordinated consumers. Full local and historical replay proof is recorded on #320."
+lastReviewedAt: 2026-10-25
+lastReviewedCommit: ae7fe386e291266451383bbe47e1110ade3c78ca
+lastReviewedNote: "Worker #339: reviewed nonregional source-default selection, exact Flow versions, legacy replay and additive snapshot metadata; provider, closure admission, package, publication and review policies are unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -56,6 +56,7 @@ Provider-link 的运行时决策顺序由 `docs/provider-linking.md` 维护。�
 输入 schema version 为 `matrix_readiness_input.v2`，核心字段为：
 
 - `config`: snapshot build config；其中 `link_semantics_version`、`technosphere_boundary_policy`、`flow_identity_policy` 决定本次 closure 的显式合同。 `SnapshotBuildConfig` 现在还携带 `numerical_policy_version`（公开数值资格策略标记）与可选的 `scope_closure_binding`／`snapshot_build_contract_hash`。它们参与 snapshot 身份与复用判定，但不改变本报告的 schema、blocker、finding 或 policy 语义。
+- `config` 的 `lcia_selection_policy` / `lcia_defaults_sha256` 记录非区域化默认因子选择；缺少地区或某类别未覆盖全部 Flow 不新增 blocker、finding 或报告字段。
 - `coverage`: `snapshot_coverage.v3` report，同时提供中性 `residual_edges_total` / `a_balance_edges_written` 和 legacy input/provider 兼容计数。
 - `payload`: `ModelSparseData` sparse payload。
 - `compiled_graph`（可选）：fresh build 时包含以 `(Flow UUID, resolved version)` 标识的 flow axis、`reference_ports`、`balance_resolutions`、`unresolved_balances`，以及兼容的 provider decision projection。没有该字段时仍可验证 coverage/compute，但逐边解释证据会为空。
@@ -121,7 +122,7 @@ Provider-link 的运行时决策顺序由 `docs/provider-linking.md` 维护。�
 
 单个 targetless full allocation 只有在 Process 有唯一 reference exchange、其有效 internal ID 等于 quantitative reference、且 fraction 为 canonical `100` 或 legacy string 精确 `"100%"` 时才推断为 factor `1.0`，并计入 `legacy_single_reference_target_inferred_count`。旧 `legacy_single_output_target_inferred_count` 仅为兼容字段。方向不参与该推断。
 
-Snapshot build config 使用 `allocation_semantics_version = tidas-reference-allocation-v5`、`link_semantics_version = signed-flow-balance-v1`、`provider_lineage_policy = version-exact-lineage-gate-v1` 与 `source_closure_policy = selected-lcia-factor-flow-support-v1`。这些版本、boundary、flow identity policy 以及被消费 Lifecycle Model payload 的 canonical digest 均进入 `source-fingerprint:v2`，所以 readiness 不会把旧语义、旧 lineage 或 exchange-only source closure snapshot 当作同一构建身份复用。LCIA source dependency selection 与 C 共用 biosphere Flow/direction 轴；off-axis factor 不进入 readiness 的 C、source blocker 或 provider 指标。
+Snapshot build config 使用 `allocation_semantics_version = tidas-reference-allocation-v5`、`link_semantics_version = signed-flow-balance-v1`、`provider_lineage_policy = version-exact-lineage-gate-v1` 与 `source_closure_policy = selected-lcia-factor-flow-support-v1`。这些版本、boundary、flow identity policy 以及被消费 Lifecycle Model payload 的 canonical digest 均进入 `source-fingerprint:v2`，所以 readiness 不会把旧语义、旧 lineage 或 exchange-only source closure snapshot 当作同一构建身份复用。LCIA source dependency selection 与 C 共用 biosphere Flow UUID/version/direction 轴；off-axis factor 不进入 readiness 的 C、source blocker 或 provider 指标。
 
 `provider_closure_reference_provider_missing` 只针对实际 input provider decision，不会因为 Process 中一个没有被 demand 的 co-product 本身而触发。其 `details.examples[]` 必须给出 consumer index / ID / version / name、`flow_id`、`flow_version`、candidate provider index / ID / process name、output exchange internal ID、是否为 reference output、normalized amount、allocation state 与 eligibility。它可以与通用的 `provider_closure_unmatched` 同时出现：前者解释“为什么没有合法 provider”，后者仍表达 coverage policy 失败。
 

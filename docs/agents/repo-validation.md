@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-25
-lastReviewedCommit: 4c3c9f0cb2f63544ae0a210a2d6d6bc7607890fc
-lastReviewedNote: "Worker #342: reviewed explicit manual LCIA validation destinations and offline target checks; runtime API, numerical, authorization and hosted deployment boundaries are unchanged."
+lastReviewedCommit: ae7fe386e291266451383bbe47e1110ade3c78ca
+lastReviewedNote: "Worker #339: reviewed nonregional source-default selection, exact Flow versions, legacy replay and additive snapshot metadata; provider, closure admission, package, publication and review policies are unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -71,6 +71,19 @@ cargo fmt --all -- --check
 ```
 
 Treat the last two commands as non-negotiable hard gates after code changes.
+
+### Nonregional LCIA source defaults
+
+Run the baseline gates plus the `nonregional_` snapshot-builder tests and the library `lcia_nonregional` / `snapshot_source_closure` tests. Cover exact version/direction, default versus regional alternatives, equal duplicate defaults, missing geography, mixed CO2/ammonia with independent category values, negative/zero/sub-epsilon values, legacy replay compatibility and snapshot identity. No missing-factor report or category-completeness gate is added.
+
+Verify the checked-in prepared defaults against the original Data checkout and unchanged Platform cache (both are read-only):
+
+```bash
+python3 scripts/build_lcia_nonregional_defaults.py --data-root /absolute/data --cache-dir /absolute/platform/public/lciamethods --output crates/solver-worker/src/lcia_nonregional_defaults.json --verify
+LCIA_TEST_STATIC_CACHE_DIR=/absolute/platform/public cargo test -p solver-worker --bin snapshot_builder nonregional_real_bundle -- --ignored
+```
+
+The generator refuses overwrites unless verifying existing bytes. It checks all 25 original XML hashes, the exact cache asset and complete numeric multisets, then requires one native absent/blank default per group. Source/default corruption must fail verification. This qualification covers the full method bundle and mixed inventory selection, not a full production Process library, hosted DB/Storage execution, cache migration or deployment. Record those limits separately; existing completed upstream scans need separately coordinated rebuild/adoption.
 
 ### LCIA method metadata and existing snapshots
 
