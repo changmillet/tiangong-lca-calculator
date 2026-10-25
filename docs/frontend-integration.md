@@ -20,9 +20,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/edge-function-integration.md
   - docs/review-quality-diagnostic-contract.md
-lastReviewedAt: "2026-09-15"
-lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
-lastReviewedNote: "Worker #289: reviewed with no content change. Frontend interaction, polling, result reading, idempotency and Review Admin consumption are unaffected; Result display stays out of scope and no frontend change is required by the exact-100 numerical policy."
+lastReviewedAt: 2026-10-25
+lastReviewedCommit: 70599072b0e3486e72be808dbc3aef0d5be7124f
+lastReviewedNote: "Reviewed Worker #339 source-bound v2 defaults, exact category availability, partial private results, complete-only publication, fenced recovery and coordinated consumer qualification. Original assets and installed runtimes remain unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml

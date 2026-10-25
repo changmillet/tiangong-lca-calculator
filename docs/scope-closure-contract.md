@@ -31,9 +31,9 @@ checkPaths:
   - scripts/scope_closure_qualification.py
   - scripts/run_scope_closure_external_qualification.sh
   - scripts/run_scope_closure_provider_qualification.sh
-lastReviewedAt: 2026-10-21
-lastReviewedCommit: d7603426f36a0554fdbe1e0b0c9bb90c345440a9
-lastReviewedNote: "Reviewed Worker #339 source d760342: exact loaded factor-source hashes participate in ordinary fingerprints and reusable indices compare complete source receipts before scope-specific shortcuts. Selection/proof semantics, inventory-only exemption, source ownership and deployment boundaries remain unchanged."
+lastReviewedAt: 2026-10-25
+lastReviewedCommit: 70599072b0e3486e72be808dbc3aef0d5be7124f
+lastReviewedNote: "Reviewed Worker #339 source-bound v2 defaults, exact category availability, partial private results, complete-only publication, fenced recovery and coordinated consumer qualification. Original assets and installed runtimes remain unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml

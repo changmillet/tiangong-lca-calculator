@@ -24,8 +24,8 @@ checkPaths:
   - docs/frontend-integration.md
   - docs/tidas-package-contract.md
 lastReviewedAt: 2026-10-25
-lastReviewedCommit: 4c3c9f0cb2f63544ae0a210a2d6d6bc7607890fc
-lastReviewedNote: "Worker #342: reviewed explicit manual LCIA validation destinations and offline target checks; runtime API, numerical, authorization and hosted deployment boundaries are unchanged."
+lastReviewedCommit: 70599072b0e3486e72be808dbc3aef0d5be7124f
+lastReviewedNote: "Reviewed Worker #339 source-bound v2 defaults, exact category availability, partial private results, complete-only publication, fenced recovery and coordinated consumer qualification. Original assets and installed runtimes remain unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml

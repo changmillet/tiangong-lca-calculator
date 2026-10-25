@@ -28,9 +28,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-10-21
-lastReviewedCommit: d7603426f36a0554fdbe1e0b0c9bb90c345440a9
-lastReviewedNote: "Reviewed Worker #339 source d760342: exact loaded factor-source hashes participate in ordinary fingerprints and reusable indices compare complete source receipts before scope-specific shortcuts. Selection/proof semantics, inventory-only exemption, source ownership and deployment boundaries remain unchanged."
+lastReviewedAt: 2026-10-25
+lastReviewedCommit: 70599072b0e3486e72be808dbc3aef0d5be7124f
+lastReviewedNote: "Reviewed Worker #339 applicability changes: Review Admin remains no-LCIA and informational; its matrix, authorization and job lifecycle contracts are unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
