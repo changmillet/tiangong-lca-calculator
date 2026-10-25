@@ -6304,6 +6304,12 @@ fn select_active_lcia_factors(
                     reasons.insert(decision.reason.clone());
                 }
             }
+            // First establish whole-category availability. Selected decisions are serialized in
+            // a second pass only for an emitted C row; an unknown factor late in input order must
+            // not turn a discarded subtotal into an evidence-capacity failure.
+            if decision.status == DecisionStatus::Selected {
+                continue;
+            }
             if decision.status != DecisionStatus::Selected {
                 selection.unavailable_group_count = selection
                     .unavailable_group_count
@@ -6320,20 +6326,17 @@ fn select_active_lcia_factors(
                     < lcia_applicability::MAX_SELECTION_RECORDS,
                 "lcia_applicability_evidence_limit_exceeded"
             );
+            let decision_bytes = u64::try_from(serde_json::to_vec(&decision)?.len())?;
             evidence_bytes = evidence_bytes
-                .checked_add(u64::try_from(serde_json::to_vec(&decision)?.len())?)
+                .checked_add(decision_bytes)
                 .ok_or_else(|| anyhow::anyhow!("lcia_applicability_evidence_size_overflow"))?;
             anyhow::ensure!(
                 evidence_bytes <= lcia_applicability::MAX_DIAGNOSTIC_BYTES,
                 "lcia_applicability_evidence_size_limit_exceeded"
             );
-            if decision.status == DecisionStatus::Selected {
-                selection.decisions.push((impact_index, identity, decision));
-            } else {
-                selection
-                    .unavailable
-                    .push((impact_index, identity, decision));
-            }
+            selection
+                .unavailable
+                .push((impact_index, identity, decision));
         }
         let status = if reasons.is_empty() {
             CategoryStatus::Available
@@ -6342,6 +6345,30 @@ fn select_active_lcia_factors(
             active.clear();
             CategoryStatus::Unavailable
         };
+        if status == CategoryStatus::Available {
+            for observation in groups.values() {
+                let identity =
+                    flow_link_identity_from_parts(observation.flow_id, &observation.flow_version);
+                let decision = impact.factors.select(observation);
+                anyhow::ensure!(
+                    decision.status == DecisionStatus::Selected,
+                    "lcia_selection_changed_during_compilation"
+                );
+                anyhow::ensure!(
+                    selection.decisions.len() + selection.unavailable.len()
+                        < lcia_applicability::MAX_SELECTION_RECORDS,
+                    "lcia_applicability_evidence_limit_exceeded"
+                );
+                evidence_bytes = evidence_bytes
+                    .checked_add(u64::try_from(serde_json::to_vec(&decision)?.len())?)
+                    .ok_or_else(|| anyhow::anyhow!("lcia_applicability_evidence_size_overflow"))?;
+                anyhow::ensure!(
+                    evidence_bytes <= lcia_applicability::MAX_DIAGNOSTIC_BYTES,
+                    "lcia_applicability_evidence_size_limit_exceeded"
+                );
+                selection.decisions.push((impact_index, identity, decision));
+            }
+        }
         categories.push(CategoryAvailability {
             impact_index,
             method_id: impact.impact_id,
@@ -19195,6 +19222,10 @@ mod tests {
             selection.factors_by_impact[0].is_empty(),
             "known subset must not be a claimed category total"
         );
+        assert!(
+            selection.decisions.iter().all(|(index, _, _)| *index == 1),
+            "unavailable category must not retain a discarded subtotal as selected C evidence"
+        );
         assert_eq!(selection.factors_by_impact[1].len(), 2);
         assert_eq!(
             selection.factors_by_impact[1]
@@ -19247,6 +19278,50 @@ mod tests {
                 .iter()
                 .all(|category| category.reasons == ["no_lcia_factor_for_flow_direction"])
         );
+    }
+
+    #[test]
+    fn missing_factor_order_does_not_expand_discarded_category_evidence() {
+        let records = (0..1000)
+            .map(|index| {
+                (
+                    Uuid::from_u128(360_000 + index),
+                    "01.00.000",
+                    ExchangeDirection::Output,
+                    "A",
+                    4.0,
+                )
+            })
+            .collect::<Vec<_>>();
+        let impact = synthetic_impact(&records);
+        for unknown in [1, 999_999] {
+            let mut observations = records
+                .iter()
+                .map(|record| synthetic_lcia_observation(record.0, "01.00.000", "A"))
+                .collect::<Vec<_>>();
+            // Unknown sorts before or after the large known subset. Neither order may retain
+            // a discarded numeric subtotal as selected C evidence.
+            observations.push(synthetic_lcia_observation(
+                Uuid::from_u128(unknown),
+                "01.00.000",
+                "A",
+            ));
+            let flows = observations
+                .iter()
+                .map(|observation| observation.flow_id)
+                .collect();
+            let selection = select_active_lcia_factors(
+                std::slice::from_ref(&impact),
+                &flows,
+                &observations,
+                true,
+            )
+            .unwrap();
+            assert!(selection.decisions.is_empty());
+            assert!(selection.factors_by_impact[0].is_empty());
+            assert_eq!(selection.unavailable_group_count, 1);
+            assert_eq!(selection.unavailable.len(), 1);
+        }
     }
 
     #[test]
