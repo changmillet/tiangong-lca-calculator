@@ -3141,7 +3141,7 @@ mod tests {
         use crate::lcia_availability::{CategoryAvailability, LciaAvailability};
         let mut writer = fixture_writer_with_method_indices(&[0, 1]);
         let availability = LciaAvailability::new(
-            "lcia.applicability.source-bound.v2".to_owned(),
+            "lcia.applicability.source-bound.v3".to_owned(),
             writer
                 .impacts
                 .iter()

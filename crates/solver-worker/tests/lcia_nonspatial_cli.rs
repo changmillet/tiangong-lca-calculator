@@ -238,7 +238,7 @@ fn shipped_policy_uses_original_climate_and_acidification_sources_without_operat
             ),
             "08a91e70-3ddc-11dd-a2a9-0050c2490048",
             vec![
-                (json!({"kind":"missing"}), 3.02),
+                (json!({"kind":"code","value":"RER"}), 3.02),
                 (json!({"kind":"code","value":"DE"}), 4.0),
             ],
         ),
@@ -273,6 +273,55 @@ fn shipped_policy_uses_original_climate_and_acidification_sources_without_operat
             assert_eq!(report["calculation_performed"], false);
             assert_eq!(fs::read_to_string(&fixture.source_path).unwrap(), source);
         }
+    }
+}
+
+#[test]
+fn restricted_generic_requires_the_exact_declared_source_geography() {
+    let compressed = include_bytes!(
+        "fixtures/lcia_supported_sources/b5c611c6-def3-11e6-bf01-fe55135034f3.xml.gz"
+    );
+    let mut source = String::new();
+    flate2::read::GzDecoder::new(compressed.as_slice())
+        .read_to_string(&mut source)
+        .unwrap();
+    let fixture = Fixture::new(&source);
+    for (index, location) in [
+        json!({"kind":"missing"}),
+        json!({"kind":"blank"}),
+        json!({"kind":"unknown"}),
+        json!({"kind":"code","value":"BR"}),
+        json!({"kind":"code","value":"CN"}),
+        json!({"kind":"code","value":"unrecognized-region"}),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut exchange = observation(location.clone());
+        exchange["flow_id"] = json!("08a91e70-3ddc-11dd-a2a9-0050c2490048");
+        let request = fixture.request("select", vec![exchange]);
+        let (output, path) = fixture.run(&request, None, &format!("restricted-geo-{index}"));
+        assert_exit(&output, 2);
+        let report = read_report(&path);
+        assert_eq!(report["selection_qualified"], false);
+        assert_eq!(
+            report["selection"]["lcia_availability"]["completeness"],
+            "unavailable"
+        );
+        assert_eq!(
+            report["selection"]["unavailable"][0]["decision"]["reason"],
+            "lcia_generic_location_not_admitted"
+        );
+        assert_eq!(
+            report["selection"]["unavailable"][0]["decision"]["location"],
+            location
+        );
+        assert_eq!(
+            report["selection"]["unavailable"][0]["decision"]["selected"],
+            Value::Null
+        );
+        assert_eq!(report["matrix_created"], false);
+        assert_eq!(report["calculation_performed"], false);
     }
 }
 

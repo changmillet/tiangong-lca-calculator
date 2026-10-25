@@ -25,13 +25,51 @@ import xml.etree.ElementTree as ET
 SOURCE_COMMIT = "367642d7994e0e75188e7e241fb2a4b85ffff62f"
 BUNDLE_SHA256 = "e9b4e7f9a5125bb921efbffba9a4b50711f9ea982e22b500f35211884a0479c5"
 FACTOR_SHA256 = "40ffd33323c9882dbd0b0d9c99982bad1752e311062231bcf1f490ee96f92e96"
-POLICY_VERSION = "lcia.applicability.source-bound.v2"
-SCHEMA_VERSION = "lcia.supported-source-policy.v1"
+POLICY_VERSION = "lcia.applicability.source-bound.v3"
+SCHEMA_VERSION = "lcia.supported-source-policy.v2"
 METHOD_NS = "http://lca.jrc.it/ILCD/LCIAMethod"
 COMMON_NS = "http://lca.jrc.it/ILCD/Common"
 NS = {"m": METHOD_NS, "c": COMMON_NS}
 ILCD_DOC = "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/CharacterisationFactorType.html"
 JRC_REPORT = "https://eplca.jrc.ec.europa.eu/permalink/TR_SupportingCF_FINAL.pdf"
+
+GEOGRAPHY_DOC = "https://eplca.pages.code.europa.eu/ilcd_docs/impactmethod/GeographyType.html"
+# This review recipe enumerates exact retained source identities. Runtime readers
+# consume the pinned declarations, never infer geographical scope from names,
+# absent locations, numerical uniqueness, or region/country containment.
+GLOBAL_GENERIC_SOURCE_IDS = {
+    "01500b74-7ffb-463e-9bd4-72f17c2263ff", "05316e7a-b254-4bea-9cf0-6bf33eb5c630",
+    "14af9ca7-aa1d-4832-b1d9-ab05a06dcb12", "2299222a-bbd8-474f-9d4f-4dd1f18aea7c",
+    "503699e0-eca9-4089-8bf8-e0f49c93e578", "6209b35f-9447-40b5-b68c-a1099e3674a0",
+    "706261af-a357-4cc0-a50a-f3033fcbd556", "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8",
+    "7fce5b3a-66b8-4ce1-91e8-a925aee1f186", "8c3141e9-1f15-43b5-bff2-182e49893a46",
+    "9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85", "b2ad6110-c78d-11e6-9d9d-cec0c932ce01",
+    "b2ad6494-c78d-11e6-9d9d-cec0c932ce01", "b2ad66ce-c78d-11e6-9d9d-cec0c932ce01",
+    "b2ad6890-c78d-11e6-9d9d-cec0c932ce01", "b5c602c6-def3-11e6-bf01-fe55135034f3",
+    "b5c629d6-def3-11e6-bf01-fe55135034f3", "b5c632be-def3-11e6-bf01-fe55135034f3",
+    "dacd48b5-4da5-49aa-aff4-cd5f5495c037", "fd530f00-9325-424a-92ef-aaac67922fd9",
+}
+RESTRICTED_GENERIC_SOURCE_TOKENS = {
+    "b53ec18f-7377-4ad3-86eb-cc3f4f276b2b": "RER",
+    "b5c610fe-def3-11e6-bf01-fe55135034f3": "RER",
+    "b5c611c6-def3-11e6-bf01-fe55135034f3": "RER",
+    "b5c614d2-def3-11e6-bf01-fe55135034f3": "RER",
+    "b5c619fa-def3-11e6-bf01-fe55135034f3": "RER",
+}
+
+
+def generic_geographic_admission(method_id: str, metadata: dict[str, object]) -> dict[str, object]:
+    geography = metadata["information"]["geography"]
+    geographic_hash = sha256(canonical(geography))
+    intervention = geography["interventionLocation"]
+    if method_id in GLOBAL_GENERIC_SOURCE_IDS:
+        if intervention != "GLO":
+            raise ValueError("reviewed global source intervention changed")
+        return {"kind": "global", "source_geography_sha256": geographic_hash}
+    token = RESTRICTED_GENERIC_SOURCE_TOKENS.get(method_id)
+    if token is None or intervention != token:
+        raise ValueError("source has no reviewed exact geographic admission")
+    return {"kind": "exact_source_tokens", "tokens": [token], "source_geography_sha256": geographic_hash}
 
 # These entries describe the exact retained sources, rather than a rule that would
 # authorize arbitrary missing locations. Named regional alternatives remain first.
@@ -234,7 +272,11 @@ def source_method(source_root: Path, entry: dict[str, object], index: dict[tuple
         "numeric_binding_sha256": numeric.hexdigest(),
         "metadata_sha256": sha256(canonical(metadata)),
         "source_scope": metadata,
+        "generic_geographic_admission": generic_geographic_admission(method_id, metadata),
         "basis": [
+            {"id": "source-intervention-geographic-admission", "uri": GEOGRAPHY_DOC,
+             "locator": "LCIAMethodInformation/geography/interventionLocation and geographicalRepresentativenessDescription",
+             "scope": "Generic records require their source-qualified global or exact declared intervention context; no geographic inference or proxy adoption"},
             {"id": "ilcd-optional-factor-location", "uri": ILCD_DOC, "locator": "location [0..1], used only by methods using location information", "scope": "Source-specific nonregional families, preserving the method model and geography"},
             *([REGIONAL_DEFAULT_BASIS[method_id]] if method_id in REGIONAL_DEFAULT_BASIS else []),
         ],
@@ -247,7 +289,7 @@ def source_method(source_root: Path, entry: dict[str, object], index: dict[tuple
     }
     encoded = canonical(method) + b"\n"
     compressed = gzip.compress(encoded, compresslevel=9, mtime=0)
-    metadata_entry = {key: method[key] for key in ["method_id", "method_version", "artifact_locator_id", "source_path", "source_xml_sha256", "method_document_sha256", "numeric_binding_sha256", "metadata_sha256", "basis", "regional_default_unresolved_family_count"]}
+    metadata_entry = {key: method[key] for key in ["method_id", "method_version", "artifact_locator_id", "source_path", "source_xml_sha256", "method_document_sha256", "numeric_binding_sha256", "metadata_sha256", "generic_geographic_admission", "basis", "regional_default_unresolved_family_count"]}
     metadata_entry.update({"asset": f"{locator}.json.gz", "asset_sha256": sha256(compressed), "decompressed_sha256": sha256(encoded), "decompressed_byte_size": len(encoded), "factor_count": len(bindings), "generic_record_count": len(generic_records), "reviewed_comment_count": len(reviewed_comments)})
     return metadata_entry, compressed
 

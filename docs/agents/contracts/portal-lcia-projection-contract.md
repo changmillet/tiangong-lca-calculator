@@ -27,7 +27,7 @@ checkPaths:
   - docs/agents/repo-validation.md
 lastReviewedAt: 2026-10-25
 lastReviewedCommit: 70599072b0e3486e72be808dbc3aef0d5be7124f
-lastReviewedNote: "Reviewed Worker #339 source-bound v2 defaults, exact category availability, partial private results, complete-only publication, fenced recovery and coordinated consumer qualification. Original assets and installed runtimes remain unchanged."
+lastReviewedNote: "Reviewed Worker #339 source-bound v3 defaults, exact category availability, partial private results, complete-only publication, fenced recovery and coordinated consumer qualification. Original assets and installed runtimes remain unchanged."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml
@@ -140,4 +140,4 @@ Focused proof must cover the fixed framing vector, decimal limits, explicit zero
 
 ## LCIA applicability admission
 
-Current numerical consumers require `lcia.applicability.source-bound.v2` and exact config/index category availability. Private partial calculations remain readable and exportable; only complete availability may prepare/stage full Portal LCIA projection or authorize publication. Source/proof integrity and existing exact axes, closure binding, hashes, staging leases and ownership remain enforced. Paired Database guards validate the authoritative result and snapshot receipts, rather than trusting caller-provided completeness. Historical reads and inventory-only admission remain separate. Source/default/partial-result semantics are owned by `docs/lca-api-contract.md`.
+Current numerical consumers require `lcia.applicability.source-bound.v3` and exact config/index category availability. Private partial calculations remain readable and exportable; only complete availability may prepare/stage full Portal LCIA projection or authorize publication. Source/proof integrity and existing exact axes, closure binding, hashes, staging leases and ownership remain enforced. Paired Database guards validate the authoritative result and snapshot receipts, rather than trusting caller-provided completeness. Historical reads and inventory-only admission remain separate. Source/default/partial-result semantics are owned by `docs/lca-api-contract.md`.

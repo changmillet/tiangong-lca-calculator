@@ -26,10 +26,10 @@ use crate::{
     static_lcia_cache::{StaticLciaDirection, VerifiedStaticLciaBundle},
 };
 
-pub const SCHEMA_VERSION: &str = "lcia.supported-source-policy.v1";
+pub const SCHEMA_VERSION: &str = "lcia.supported-source-policy.v2";
 pub const MANIFEST_SHA256: &str =
-    "e75dc4a0597f9bebffea79aa486ec7bc4d1d00139890a05f0320f79ea05ec026";
-const MANIFEST: &[u8] = include_bytes!("lcia_source_policy_assets/manifest.json");
+    "2ddb0fe715a2b6647246dd443f4fe417868683ca67bbea29c1a81ee7b955142d";
+const MANIFEST: &[u8] = include_bytes!("lcia_source_policy_assets_v2/manifest.json");
 const MAX_METHOD_BYTES: u64 = 16 * 1024 * 1024;
 const NUMERIC_BINDING_HEADER: &[u8] = b"lcia.source-numeric-binding.v1\n";
 
@@ -41,6 +41,62 @@ pub struct PolicyBasis {
     pub uri: String,
     pub locator: String,
     pub scope: String,
+}
+
+/// Generic record identity and geographic applicability are separate source claims.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum GenericGeographicAdmission {
+    Global {
+        source_geography_sha256: String,
+    },
+    ExactSourceTokens {
+        source_geography_sha256: String,
+        tokens: BTreeSet<String>,
+    },
+}
+
+impl GenericGeographicAdmission {
+    fn validate_source(&self, source_scope: &Value) -> anyhow::Result<()> {
+        let geography = source_scope
+            .pointer("/information/geography")
+            .ok_or_else(|| anyhow::anyhow!("lcia_supported_policy_source_geography_missing"))?;
+        let actual_hash = canonical_json_sha256(geography)?;
+        let intervention = geography
+            .get("interventionLocation")
+            .and_then(Value::as_str);
+        let valid = match self {
+            Self::Global {
+                source_geography_sha256,
+            } => *source_geography_sha256 == actual_hash && intervention == Some("GLO"),
+            Self::ExactSourceTokens {
+                source_geography_sha256,
+                tokens,
+            } => {
+                *source_geography_sha256 == actual_hash
+                    && tokens.len() == 1
+                    && intervention.is_some_and(|token| {
+                        !token.trim().is_empty() && token.len() <= 256 && tokens.contains(token)
+                    })
+            }
+        };
+        anyhow::ensure!(valid, "lcia_supported_policy_geographic_binding_mismatch");
+        Ok(())
+    }
+
+    fn admits(&self, location: &FactorLocation) -> bool {
+        match self {
+            Self::Global { .. } => {
+                matches!(
+                    location,
+                    FactorLocation::Missing | FactorLocation::Blank | FactorLocation::Unknown
+                ) || location.is_exact_token()
+            }
+            Self::ExactSourceTokens { tokens, .. } => {
+                matches!(location, FactorLocation::Code(token) if tokens.contains(token))
+            }
+        }
+    }
 }
 
 /// Persisted provenance only. The private validated policy grants selection authority.
@@ -56,6 +112,9 @@ pub struct SourcePolicyReceipt {
     pub source_xml_sha256: String,
     pub source_metadata_sha256: String,
     pub source_scope_description: String,
+    /// Historical receipts decode without granting executable geographic authority.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generic_geographic_admission: Option<GenericGeographicAdmission>,
     pub numeric_binding_sha256: String,
     pub source_binding_kind: String,
     pub static_bundle_manifest_sha256: String,
@@ -91,6 +150,7 @@ struct MethodManifest {
     method_document_sha256: String,
     numeric_binding_sha256: String,
     metadata_sha256: String,
+    generic_geographic_admission: GenericGeographicAdmission,
     basis: Vec<PolicyBasis>,
     regional_default_unresolved_family_count: usize,
     asset: String,
@@ -118,6 +178,7 @@ struct MethodCompanion {
     numeric_binding_sha256: String,
     metadata_sha256: String,
     source_scope: Value,
+    generic_geographic_admission: GenericGeographicAdmission,
     basis: Vec<PolicyBasis>,
     regional_default_unresolved_family_count: usize,
     locations: Vec<FactorLocation>,
@@ -132,11 +193,16 @@ pub(crate) struct SupportedSourcePolicy {
     pub receipt: SourcePolicyReceipt,
     generic_records: BTreeSet<usize>,
     reviewed_comment_records: BTreeSet<usize>,
+    generic_geographic_admission: GenericGeographicAdmission,
 }
 
 impl SupportedSourcePolicy {
     pub(crate) fn is_generic(&self, record_index: usize) -> bool {
         self.generic_records.contains(&record_index)
+    }
+
+    pub(crate) fn admits_generic_location(&self, location: &FactorLocation) -> bool {
+        self.generic_geographic_admission.admits(location)
     }
 
     pub(crate) fn review_qualifiers(&self, records: &mut [FactorRecord]) {
@@ -231,6 +297,7 @@ fn decode_companion(entry: &MethodManifest) -> anyhow::Result<MethodCompanion> {
             && companion.method_document_sha256 == entry.method_document_sha256
             && companion.numeric_binding_sha256 == entry.numeric_binding_sha256
             && companion.metadata_sha256 == entry.metadata_sha256
+            && companion.generic_geographic_admission == entry.generic_geographic_admission
             && canonical_json_sha256(&companion.source_scope)? == entry.metadata_sha256
             && companion.basis == entry.basis
             && companion.regional_default_unresolved_family_count
@@ -245,6 +312,9 @@ fn decode_companion(entry: &MethodManifest) -> anyhow::Result<MethodCompanion> {
                 .all(|index| *index < entry.factor_count),
         "lcia_supported_policy_method_binding_mismatch"
     );
+    companion
+        .generic_geographic_admission
+        .validate_source(&companion.source_scope)?;
     for binding in &companion.bindings {
         anyhow::ensure!(
             binding.3 < companion.locations.len() && binding.4 < companion.qualifiers.len(),
@@ -271,6 +341,7 @@ fn bound_policy(
             source_path: entry.source_path.clone(),
             source_xml_sha256: entry.source_xml_sha256.clone(),
             source_metadata_sha256: entry.metadata_sha256.clone(),
+            generic_geographic_admission: Some(entry.generic_geographic_admission.clone()),
             source_scope_description: companion
                 .source_scope
                 .pointer("/information/geography/geographicalRepresentativenessDescription")
@@ -289,6 +360,7 @@ fn bound_policy(
         },
         generic_records: companion.generic_records.clone(),
         reviewed_comment_records: companion.reviewed_comment_records.clone(),
+        generic_geographic_admission: companion.generic_geographic_admission.clone(),
     })
 }
 
@@ -459,79 +531,79 @@ pub(crate) fn complete_static_method(
 fn asset(path: &str) -> Option<&'static [u8]> {
     match path {
         "01500b74-7ffb-463e-9bd4-72f17c2263ff.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/01500b74-7ffb-463e-9bd4-72f17c2263ff.json.gz"
+            "lcia_source_policy_assets_v2/01500b74-7ffb-463e-9bd4-72f17c2263ff.json.gz"
         )),
         "05316e7a-b254-4bea-9cf0-6bf33eb5c630.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/05316e7a-b254-4bea-9cf0-6bf33eb5c630.json.gz"
+            "lcia_source_policy_assets_v2/05316e7a-b254-4bea-9cf0-6bf33eb5c630.json.gz"
         )),
         "14af9ca7-aa1d-4832-b1d9-ab05a06dcb12.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/14af9ca7-aa1d-4832-b1d9-ab05a06dcb12.json.gz"
+            "lcia_source_policy_assets_v2/14af9ca7-aa1d-4832-b1d9-ab05a06dcb12.json.gz"
         )),
         "2299222a-bbd8-474f-9d4f-4dd1f18aea7c.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/2299222a-bbd8-474f-9d4f-4dd1f18aea7c.json.gz"
+            "lcia_source_policy_assets_v2/2299222a-bbd8-474f-9d4f-4dd1f18aea7c.json.gz"
         )),
         "9ec743ea-6b00-400d-a53b-61547a3fc03c.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/9ec743ea-6b00-400d-a53b-61547a3fc03c.json.gz"
+            "lcia_source_policy_assets_v2/9ec743ea-6b00-400d-a53b-61547a3fc03c.json.gz"
         )),
         "6209b35f-9447-40b5-b68c-a1099e3674a0.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/6209b35f-9447-40b5-b68c-a1099e3674a0.json.gz"
+            "lcia_source_policy_assets_v2/6209b35f-9447-40b5-b68c-a1099e3674a0.json.gz"
         )),
         "706261af-a357-4cc0-a50a-f3033fcbd556.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/706261af-a357-4cc0-a50a-f3033fcbd556.json.gz"
+            "lcia_source_policy_assets_v2/706261af-a357-4cc0-a50a-f3033fcbd556.json.gz"
         )),
         "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8.json.gz"
+            "lcia_source_policy_assets_v2/7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8.json.gz"
         )),
         "7fce5b3a-66b8-4ce1-91e8-a925aee1f186.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/7fce5b3a-66b8-4ce1-91e8-a925aee1f186.json.gz"
+            "lcia_source_policy_assets_v2/7fce5b3a-66b8-4ce1-91e8-a925aee1f186.json.gz"
         )),
         "8c3141e9-1f15-43b5-bff2-182e49893a46.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/8c3141e9-1f15-43b5-bff2-182e49893a46.json.gz"
+            "lcia_source_policy_assets_v2/8c3141e9-1f15-43b5-bff2-182e49893a46.json.gz"
         )),
         "9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85.json.gz"
+            "lcia_source_policy_assets_v2/9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85.json.gz"
         )),
         "b2ad6110-c78d-11e6-9d9d-cec0c932ce01.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/b2ad6110-c78d-11e6-9d9d-cec0c932ce01.json.gz"
+            "lcia_source_policy_assets_v2/b2ad6110-c78d-11e6-9d9d-cec0c932ce01.json.gz"
         )),
         "b2ad6494-c78d-11e6-9d9d-cec0c932ce01.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/b2ad6494-c78d-11e6-9d9d-cec0c932ce01.json.gz"
+            "lcia_source_policy_assets_v2/b2ad6494-c78d-11e6-9d9d-cec0c932ce01.json.gz"
         )),
         "b2ad66ce-c78d-11e6-9d9d-cec0c932ce01.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/b2ad66ce-c78d-11e6-9d9d-cec0c932ce01.json.gz"
+            "lcia_source_policy_assets_v2/b2ad66ce-c78d-11e6-9d9d-cec0c932ce01.json.gz"
         )),
         "b2ad6890-c78d-11e6-9d9d-cec0c932ce01.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/b2ad6890-c78d-11e6-9d9d-cec0c932ce01.json.gz"
+            "lcia_source_policy_assets_v2/b2ad6890-c78d-11e6-9d9d-cec0c932ce01.json.gz"
         )),
         "b53ec18f-7377-4ad3-86eb-cc3f4f276b2b.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/b53ec18f-7377-4ad3-86eb-cc3f4f276b2b.json.gz"
+            "lcia_source_policy_assets_v2/b53ec18f-7377-4ad3-86eb-cc3f4f276b2b.json.gz"
         )),
         "b5c602c6-def3-11e6-bf01-fe55135034f3.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/b5c602c6-def3-11e6-bf01-fe55135034f3.json.gz"
+            "lcia_source_policy_assets_v2/b5c602c6-def3-11e6-bf01-fe55135034f3.json.gz"
         )),
         "b5c610fe-def3-11e6-bf01-fe55135034f3.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/b5c610fe-def3-11e6-bf01-fe55135034f3.json.gz"
+            "lcia_source_policy_assets_v2/b5c610fe-def3-11e6-bf01-fe55135034f3.json.gz"
         )),
         "b5c611c6-def3-11e6-bf01-fe55135034f3.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/b5c611c6-def3-11e6-bf01-fe55135034f3.json.gz"
+            "lcia_source_policy_assets_v2/b5c611c6-def3-11e6-bf01-fe55135034f3.json.gz"
         )),
         "b5c614d2-def3-11e6-bf01-fe55135034f3.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/b5c614d2-def3-11e6-bf01-fe55135034f3.json.gz"
+            "lcia_source_policy_assets_v2/b5c614d2-def3-11e6-bf01-fe55135034f3.json.gz"
         )),
         "b5c619fa-def3-11e6-bf01-fe55135034f3.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/b5c619fa-def3-11e6-bf01-fe55135034f3.json.gz"
+            "lcia_source_policy_assets_v2/b5c619fa-def3-11e6-bf01-fe55135034f3.json.gz"
         )),
         "b5c629d6-def3-11e6-bf01-fe55135034f3.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/b5c629d6-def3-11e6-bf01-fe55135034f3.json.gz"
+            "lcia_source_policy_assets_v2/b5c629d6-def3-11e6-bf01-fe55135034f3.json.gz"
         )),
         "b5c632be-def3-11e6-bf01-fe55135034f3.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/b5c632be-def3-11e6-bf01-fe55135034f3.json.gz"
+            "lcia_source_policy_assets_v2/b5c632be-def3-11e6-bf01-fe55135034f3.json.gz"
         )),
         "dacd48b5-4da5-49aa-aff4-cd5f5495c037.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/dacd48b5-4da5-49aa-aff4-cd5f5495c037.json.gz"
+            "lcia_source_policy_assets_v2/dacd48b5-4da5-49aa-aff4-cd5f5495c037.json.gz"
         )),
         "fd530f00-9325-424a-92ef-aaac67922fd9.json.gz" => Some(include_bytes!(
-            "lcia_source_policy_assets/fd530f00-9325-424a-92ef-aaac67922fd9.json.gz"
+            "lcia_source_policy_assets_v2/fd530f00-9325-424a-92ef-aaac67922fd9.json.gz"
         )),
         _ => None,
     }
@@ -556,6 +628,7 @@ mod tests {
     const CLIMATE: &str = "7fce5b3a-66b8-4ce1-91e8-a925aee1f186";
     const ACIDIFICATION: &str = "b5c611c6-def3-11e6-bf01-fe55135034f3";
     const PM: &str = "b5c602c6-def3-11e6-bf01-fe55135034f3";
+    const FRESHWATER: &str = "b53ec18f-7377-4ad3-86eb-cc3f4f276b2b";
 
     fn source(id: &str) -> InspectedIlcdMethod {
         let bytes: &[u8] = match id {
@@ -567,6 +640,9 @@ mod tests {
             ),
             PM => include_bytes!(
                 "../tests/fixtures/lcia_supported_sources/b5c602c6-def3-11e6-bf01-fe55135034f3.xml.gz"
+            ),
+            FRESHWATER => include_bytes!(
+                "../tests/fixtures/lcia_supported_sources/b53ec18f-7377-4ad3-86eb-cc3f4f276b2b.xml.gz"
             ),
             _ => panic!("unknown fixture"),
         };
@@ -643,6 +719,19 @@ mod tests {
                 .status,
             DecisionStatus::Selected
         );
+        for (flow, value) in [
+            ("08a91e70-3ddc-11dd-94c3-0050c2490048", 273.0),
+            ("08a91e70-3ddc-11dd-9610-0050c2490048", 29.8),
+        ] {
+            for location in [
+                FactorLocation::Missing,
+                FactorLocation::Code("CN".to_owned()),
+            ] {
+                let decision = factors.select(&observe(flow, location));
+                assert_eq!(decision.status, DecisionStatus::Selected);
+                assert_eq!(decision.selected.unwrap().value, value);
+            }
+        }
     }
 
     #[test]
@@ -651,9 +740,7 @@ mod tests {
         let factors = MethodFactors::from_native_source(&source, source.method_id).unwrap();
         let flow = "08a91e70-3ddc-11dd-a2a9-0050c2490048";
         for (location, expected, record_index) in [
-            (FactorLocation::Missing, 3.02, 211),
-            (FactorLocation::Blank, 3.02, 211),
-            (FactorLocation::Code("CN".to_owned()), 3.02, 211),
+            (FactorLocation::Code("RER".to_owned()), 3.02, 211),
             (FactorLocation::Code("DE".to_owned()), 4.0, 574),
         ] {
             let decision = factors.select(&observe(flow, location));
@@ -669,6 +756,26 @@ mod tests {
                     .all(|rejected| rejected.factor.record_index != selected.record_index)
             );
         }
+        for location in [
+            FactorLocation::Missing,
+            FactorLocation::Blank,
+            FactorLocation::Unknown,
+            FactorLocation::Code("BR".to_owned()),
+            FactorLocation::Code("CN".to_owned()),
+            FactorLocation::Code("unrecognized-region".to_owned()),
+            FactorLocation::Code("DE-unreviewed-alias".to_owned()),
+        ] {
+            let decision = factors.select(&observe(flow, location));
+            assert_eq!(decision.status, DecisionStatus::Unsupported);
+            assert_eq!(decision.reason, "lcia_generic_location_not_admitted");
+            assert!(decision.selected.is_none());
+            assert!(
+                decision
+                    .rejected
+                    .iter()
+                    .any(|record| record.factor.record_index == 211)
+            );
+        }
         let mut wrong_version = observe(flow, FactorLocation::Missing);
         wrong_version.flow_version = "03.00.003".to_owned();
         let decision = factors.select(&wrong_version);
@@ -680,6 +787,126 @@ mod tests {
             factors.select(&wrong_direction).status,
             DecisionStatus::Selected
         );
+    }
+
+    #[test]
+    fn geographic_admission_binds_exact_source_geography_without_country_inference() {
+        let source_scope = serde_json::json!({"information":{"geography":{
+            "interventionLocation":"RER","impactLocation":"RER"}}});
+        let geographic_hash =
+            canonical_json_sha256(&source_scope["information"]["geography"]).unwrap();
+        let scoped = GenericGeographicAdmission::ExactSourceTokens {
+            source_geography_sha256: geographic_hash.clone(),
+            tokens: ["RER".to_owned()].into(),
+        };
+        scoped.validate_source(&source_scope).unwrap();
+        assert!(scoped.admits(&FactorLocation::Code("RER".to_owned())));
+        for location in [
+            FactorLocation::Missing,
+            FactorLocation::Blank,
+            FactorLocation::Unknown,
+            FactorLocation::Invalid,
+            FactorLocation::Code("DE".to_owned()),
+            FactorLocation::Code("BR".to_owned()),
+        ] {
+            assert!(!scoped.admits(&location));
+        }
+        for declaration in [
+            GenericGeographicAdmission::Global {
+                source_geography_sha256: geographic_hash.clone(),
+            },
+            GenericGeographicAdmission::ExactSourceTokens {
+                source_geography_sha256: geographic_hash.clone(),
+                tokens: ["CN".to_owned()].into(),
+            },
+            GenericGeographicAdmission::ExactSourceTokens {
+                source_geography_sha256: geographic_hash,
+                tokens: ["RER".to_owned(), "DE".to_owned()].into(),
+            },
+        ] {
+            assert!(declaration.validate_source(&source_scope).is_err());
+        }
+        assert!(
+            scoped
+                .validate_source(&serde_json::json!({"information":{}}))
+                .is_err()
+        );
+        let global_scope =
+            serde_json::json!({"information":{"geography":{"interventionLocation":"GLO"}}});
+        let global = GenericGeographicAdmission::Global {
+            source_geography_sha256: canonical_json_sha256(
+                &global_scope["information"]["geography"],
+            )
+            .unwrap(),
+        };
+        global.validate_source(&global_scope).unwrap();
+        assert!(global.admits(&FactorLocation::Missing));
+        assert!(global.admits(&FactorLocation::Code("CN".to_owned())));
+        assert!(!global.admits(&FactorLocation::Invalid));
+    }
+
+    #[test]
+    fn a_nonspatial_proof_cannot_expand_a_known_european_source_domain() {
+        use crate::lcia_applicability_proof::{ProofSource, TrustedProofSet};
+        let source = source(FRESHWATER);
+        let mut factors = MethodFactors::from_native_source(&source, source.method_id).unwrap();
+        let basis = source
+            .metadata_index
+            .iter()
+            .find(|entry| entry.xml_path.ends_with("}geography"))
+            .unwrap();
+        let document = serde_json::json!({"schema_version":"lcia.applicability-proof-set.v1","records":[{
+            "method_id":source.method_id,"method_version":source.method_version,
+            "artifact_locator_id":source.method_id,"decision":"location_independent",
+            "source_raw_sha256":source.raw_sha256,"canonical_body_sha256":source.canonical_body_sha256,
+            "ordered_factors_sha256":source.ordered_factors_sha256,"projection_schema":crate::lcia_source_xml::XML_PROJECTION_SCHEMA_VERSION,
+            "basis":[{"pointer":basis.pointer,"value_sha256":basis.sha256}],
+            "review_reference":{"decision_id":"synthetic-local-nonspatial-regression-not-proxy-adoption","sha256":"0".repeat(64)}
+        }]});
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory
+            .path()
+            .join("synthetic-scope-regression-proof.json");
+        let bytes = serde_json::to_vec(&document).unwrap();
+        std::fs::write(&path, &bytes).unwrap();
+        let proofs = TrustedProofSet::load(&path, &sha256_bytes(&bytes)).unwrap();
+        let proof = proofs
+            .bind_location_independent(ProofSource {
+                method_id: source.method_id,
+                method_version: &source.method_version,
+                artifact_locator_id: source.method_id,
+                source_raw_sha256: &source.raw_sha256,
+                canonical_body_sha256: &source.canonical_body_sha256,
+                ordered_factors_sha256: &source.ordered_factors_sha256,
+                projection_schema: crate::lcia_source_xml::XML_PROJECTION_SCHEMA_VERSION,
+                projection: &source.projection,
+            })
+            .unwrap()
+            .unwrap();
+        factors.apply_location_independent_proof(proof).unwrap();
+        assert!(factors.is_location_independent());
+        let first = &factors.records[0];
+        for location in [
+            FactorLocation::Missing,
+            FactorLocation::Blank,
+            FactorLocation::Unknown,
+            FactorLocation::Code("BR".to_owned()),
+            FactorLocation::Code("CN".to_owned()),
+        ] {
+            let observation = LciaExchangeObservation {
+                flow_id: first.flow_id,
+                flow_version: first.flow_version.clone(),
+                location,
+                direction: Some(first.direction),
+                direction_label: first.direction.as_str().to_owned(),
+                exchange_id: "synthetic-geo-proof-observation".to_owned(),
+                amount: Some(1.0),
+            };
+            let decision = factors.select(&observation);
+            assert_eq!(decision.status, DecisionStatus::Unsupported);
+            assert_eq!(decision.reason, "lcia_generic_location_not_admitted");
+            assert!(decision.selected.is_none());
+        }
     }
 
     #[test]
@@ -786,13 +1013,27 @@ mod tests {
         assert_eq!(restored.records.len(), 935);
         assert!(restored.source.applicability_complete);
         for (location, expected) in [
-            (FactorLocation::Missing, 3.02),
+            (FactorLocation::Code("RER".to_owned()), 3.02),
             (FactorLocation::Code("DE".to_owned()), 4.0),
         ] {
             let decision =
                 restored.select(&observe("08a91e70-3ddc-11dd-a2a9-0050c2490048", location));
             assert_eq!(decision.status, DecisionStatus::Selected);
             assert_eq!(decision.selected.unwrap().value, expected);
+        }
+        for location in [
+            FactorLocation::Missing,
+            FactorLocation::Blank,
+            FactorLocation::Unknown,
+            FactorLocation::Code("BR".to_owned()),
+            FactorLocation::Code("CN".to_owned()),
+            FactorLocation::Code("unrecognized-region".to_owned()),
+        ] {
+            let decision =
+                restored.select(&observe("08a91e70-3ddc-11dd-a2a9-0050c2490048", location));
+            assert_eq!(decision.status, DecisionStatus::Unsupported);
+            assert_eq!(decision.reason, "lcia_generic_location_not_admitted");
+            assert!(decision.selected.is_none());
         }
         for mutate in ["value", "version", "index", "missing"] {
             let mut changed = bundle.clone();

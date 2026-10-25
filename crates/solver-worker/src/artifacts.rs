@@ -418,7 +418,7 @@ mod tests {
     fn category_aware_artifacts_mask_unknown_h_for_one_and_batch() {
         use crate::lcia_availability::{CategoryAvailability, CategoryStatus, LciaAvailability};
         let availability = LciaAvailability::new(
-            "lcia.applicability.source-bound.v2".to_owned(),
+            "lcia.applicability.source-bound.v3".to_owned(),
             vec![CategoryAvailability {
                 impact_index: 0,
                 method_id: Uuid::from_u128(1),

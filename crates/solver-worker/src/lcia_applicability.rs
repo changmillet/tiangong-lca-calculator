@@ -21,7 +21,7 @@ use crate::lcia_source_xml::{
 };
 use crate::static_lcia_cache::VerifiedStaticLciaBundle;
 
-pub const POLICY_VERSION: &str = "lcia.applicability.source-bound.v2";
+pub const POLICY_VERSION: &str = "lcia.applicability.source-bound.v3";
 pub const EVIDENCE_SCHEMA_VERSION: &str = "lcia.applicability.evidence.v2";
 pub const MAX_DIAGNOSTIC_BYTES: u64 = 64 * 1024 * 1024;
 pub const MAX_SELECTION_RECORDS: usize = 100_000;
@@ -169,6 +169,31 @@ pub struct FactorDecision {
     pub reason: String,
     pub selected: Option<FactorRecord>,
     pub rejected: Vec<RejectedFactor>,
+}
+
+fn unselected_status(
+    exact_version: bool,
+    geographic_refusal: bool,
+    unresolved_location: bool,
+) -> (DecisionStatus, &'static str) {
+    match (exact_version, geographic_refusal, unresolved_location) {
+        (false, _, _) => (
+            DecisionStatus::Unsupported,
+            "lcia_factor_flow_version_mismatch",
+        ),
+        (_, true, _) => (
+            DecisionStatus::Unsupported,
+            "lcia_generic_location_not_admitted",
+        ),
+        (_, _, true) => (
+            DecisionStatus::Unsupported,
+            "lcia_factor_location_semantics_unresolved",
+        ),
+        _ => (
+            DecisionStatus::Unmatched,
+            "no_lcia_factor_for_exact_location_direction",
+        ),
+    }
 }
 
 // An empty comment carries no condition. Language/uncertainty metadata remain preserved;
@@ -602,6 +627,27 @@ impl MethodFactors {
         }
     }
 
+    fn record_selection(
+        &self,
+        decision: &mut FactorDecision,
+        factor: &FactorRecord,
+        used_generic: bool,
+    ) {
+        decision.status = DecisionStatus::Selected;
+        (if self.is_location_independent() {
+            "reviewed_location_independent_source"
+        } else if used_generic {
+            "reviewed_source_generic_default"
+        } else {
+            "exact_source_location_token"
+        })
+        .clone_into(&mut decision.reason);
+        decision.selected = Some(factor.clone());
+        decision
+            .rejected
+            .retain(|item| item.factor.record_index != factor.record_index);
+    }
+
     #[must_use]
     pub fn select(&self, observation: &LciaExchangeObservation) -> FactorDecision {
         let mut decision = self.pending_decision(observation);
@@ -618,17 +664,32 @@ impl MethodFactors {
         let mut generic = Vec::new();
         let mut exact_version = false;
         let mut unresolved_location = false;
+        let mut geographic_refusal = false;
+        let generic_location_admitted = self
+            .source_policy
+            .as_ref()
+            .is_none_or(|policy| policy.admits_generic_location(&observation.location));
         for index in candidates {
             let factor = &self.records[*index];
             let reason = if factor.flow_version == observation.flow_version {
                 exact_version = true;
                 if Some(factor.direction) != observation.direction {
                     "direction_mismatch"
-                } else if self.is_location_independent()
-                    || factor.location.is_exact_token() && factor.location == observation.location
+                } else if factor.location.is_exact_token()
+                    && factor.location == observation.location
+                    || self.is_location_independent() && generic_location_admitted
                 {
                     exact.push(factor);
                     continue;
+                } else if !generic_location_admitted
+                    && (self.is_location_independent()
+                        || self
+                            .source_policy
+                            .as_ref()
+                            .is_some_and(|policy| policy.is_generic(factor.record_index)))
+                {
+                    geographic_refusal = true;
+                    "generic_location_not_admitted"
                 } else if self
                     .source_policy
                     .as_ref()
@@ -656,29 +717,13 @@ impl MethodFactors {
         }
         match exact.as_slice() {
             [factor] if !factor.unsupported_qualifiers => {
-                decision.status = DecisionStatus::Selected;
-                (if self.is_location_independent() {
-                    "reviewed_location_independent_source"
-                } else if used_generic {
-                    "reviewed_source_generic_default"
-                } else {
-                    "exact_source_location_token"
-                })
-                .clone_into(&mut decision.reason);
-                decision.selected = Some((*factor).clone());
-                decision
-                    .rejected
-                    .retain(|item| item.factor.record_index != factor.record_index);
+                self.record_selection(&mut decision, factor, used_generic);
             }
             [] => {
-                if !exact_version {
-                    "lcia_factor_flow_version_mismatch".clone_into(&mut decision.reason);
-                } else if unresolved_location {
-                    "lcia_factor_location_semantics_unresolved".clone_into(&mut decision.reason);
-                } else {
-                    decision.status = DecisionStatus::Unmatched;
-                    "no_lcia_factor_for_exact_location_direction".clone_into(&mut decision.reason);
-                }
+                let (status, reason) =
+                    unselected_status(exact_version, geographic_refusal, unresolved_location);
+                decision.status = status;
+                reason.clone_into(&mut decision.reason);
             }
             [factor] => {
                 "lcia_factor_qualifier_unsupported".clone_into(&mut decision.reason);

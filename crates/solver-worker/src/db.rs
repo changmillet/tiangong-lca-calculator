@@ -6796,7 +6796,11 @@ mod tests {
                 }),
             );
             lcia_config.has_lcia = true;
-            for applicability in [None, Some("lcia.applicability.legacy.v0")] {
+            for applicability in [
+                None,
+                Some("lcia.applicability.legacy.v0"),
+                Some("lcia.applicability.source-bound.v2"),
+            ] {
                 lcia_config.lcia_applicability_policy_version = applicability.map(str::to_owned);
                 let error = ensure_numerical_snapshot_policy(
                     &lcia_config,

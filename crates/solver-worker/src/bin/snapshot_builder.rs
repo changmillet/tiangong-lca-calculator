@@ -14452,7 +14452,11 @@ mod tests {
             &decoded
         ));
 
-        for policy in [None, Some("lcia.applicability.legacy.v0")] {
+        for policy in [
+            None,
+            Some("lcia.applicability.legacy.v0"),
+            Some("lcia.applicability.source-bound.v2"),
+        ] {
             let mut config = fresh_ordinary.clone();
             config.has_lcia = true;
             config.lcia_applicability_policy_version = policy.map(str::to_owned);

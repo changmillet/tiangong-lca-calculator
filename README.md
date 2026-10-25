@@ -25,7 +25,7 @@ checkPaths:
   - docs/tidas-package-contract.md
 lastReviewedAt: 2026-10-25
 lastReviewedCommit: 70599072b0e3486e72be808dbc3aef0d5be7124f
-lastReviewedNote: "Reviewed Worker #339 source-bound v2 defaults, exact category availability, partial private results, complete-only publication, fenced recovery and coordinated consumer qualification. Original assets and installed runtimes remain unchanged."
+lastReviewedNote: "Reviewed Worker #339 source-bound v3 defaults, exact category availability, partial private results, complete-only publication, fenced recovery and coordinated consumer qualification. Original assets and installed runtimes remain unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml

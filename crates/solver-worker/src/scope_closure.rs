@@ -67,6 +67,10 @@ const VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R5: &str =
 // shipped source-bound defaults. Database chooses this revision at coordinated rollout.
 const VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R6: &str =
     "scope-closure-validator-scanner.v1+cutoff-readiness-r6";
+// Geographic admission is a numerical eligibility change; retain r6 history but never
+// let new r7 requests share its completed numerical evidence.
+const VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R7: &str =
+    "scope-closure-validator-scanner.v1+cutoff-readiness-r7";
 pub const TIDAS_BATCH_PROTOCOL: &str = tidas_cli::TIDAS_BATCH_PROTOCOL;
 pub const TIDAS_BATCH_PROFILE: &str = tidas_cli::TIDAS_BATCH_PROFILE;
 pub const REFERENCE_EDGE_SCHEMA_VERSION: &str = "tidas.reference-edge.v1";
@@ -109,6 +113,7 @@ fn validate_validator_scanner_fingerprint(fingerprint: &str) -> anyhow::Result<(
         || fingerprint == VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R4
         || fingerprint == VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R5
         || fingerprint == VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R6
+        || fingerprint == VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R7
     {
         return Ok(());
     }
@@ -10354,6 +10359,7 @@ mod tests {
             VALIDATOR_SCANNER_FINGERPRINT_CUTOFF_READINESS_R4,
             "scope-closure-validator-scanner.v1+cutoff-readiness-r5",
             "scope-closure-validator-scanner.v1+cutoff-readiness-r6",
+            "scope-closure-validator-scanner.v1+cutoff-readiness-r7",
         ] {
             assert!(validate_validator_scanner_fingerprint(fingerprint).is_ok());
         }
