@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-25
-lastReviewedCommit: 4c3c9f0cb2f63544ae0a210a2d6d6bc7607890fc
-lastReviewedNote: "Worker #342: reviewed explicit manual LCIA validation destinations and offline target checks; runtime API, numerical, authorization and hosted deployment boundaries are unchanged."
+lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
+lastReviewedNote: "Worker #339: calculation semantics and descriptor ownership remain in Worker; pinned requests and artifact reuse validate opaque identity while historical evidence, provider rules and data-quality policy remain independent."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -72,6 +72,19 @@ cargo fmt --all -- --check
 
 Treat the last two commands as non-negotiable hard gates after code changes.
 
+### Nonregional LCIA source defaults
+
+Run the baseline gates plus the `nonregional_` snapshot-builder tests and the library `lcia_nonregional` / `snapshot_source_closure` tests. Cover exact version/direction, default versus regional alternatives, equal duplicate defaults, missing geography, mixed CO2/ammonia with independent category values, negative/zero/sub-epsilon values, legacy replay compatibility and snapshot identity. No missing-factor report or category-completeness gate is added.
+
+Verify the checked-in prepared defaults against the original Data checkout and unchanged Platform cache (both are read-only):
+
+```bash
+python3 scripts/build_lcia_nonregional_defaults.py --data-root /absolute/data --cache-dir /absolute/platform/public/lciamethods --output crates/solver-worker/src/lcia_nonregional_defaults.json --verify
+LCIA_TEST_STATIC_CACHE_DIR=/absolute/platform/public cargo test -p solver-worker --bin snapshot_builder nonregional_real_bundle -- --ignored
+```
+
+The generator refuses overwrites unless verifying existing bytes. It checks all 25 original XML hashes, the exact cache asset and complete numeric multisets, then requires one native absent/blank default per group. Source/default corruption must fail verification. This qualification covers the full method bundle and mixed inventory selection, not a full production Process library, hosted DB/Storage execution, cache migration or deployment. Record those limits separately; existing completed upstream scans require a fresh request under the explicitly activated calculation contract; historical evidence is retained.
+
 ### LCIA method metadata and existing snapshots
 
 For canonical metadata changes, run `cargo test -p solver-worker lcia_method_metadata`,
@@ -83,11 +96,14 @@ The source-fingerprint regression must distinguish the old ordinary snapshot cac
 
 Native candidate qualification additionally requires a separately isolated DB/queue
 and Storage plus the actual consumer/Edge configuration and exact original public-100
-Manager BuildV2 inputs. Retain a completed R4 scan and its old snapshot/package, then
-apply the paired Database R5 configuration migration in the isolated fixture. A normal
-new check with unchanged source/scope/policy must create a distinct R5 scan and new
-snapshot/certificate/build evidence; another identical R5 request must share that R5
-scan. Preserve all R4 evidence and prove actual candidate/builder identities. `WORKER_ID` does not isolate a shared solver queue;
+Manager BuildV2 inputs. Retain a completed scan under calculation identity A and its
+old snapshot/package, then explicitly activate identity B with the Worker-owned
+descriptor and an exact expected-A precondition. A normal new check with unchanged
+source/scope/policy must create a distinct B scan and new snapshot/certificate/build
+evidence; another identical B request must share that B scan. A retry of the original
+request token must remain bound to A. Preserve all A evidence and prove actual
+candidate/builder identities. The scanner identity stays unchanged for calculation-only
+changes; the historical R4-to-R5 metadata migration is not the algorithm rollout mechanism. `WORKER_ID` does not isolate a shared solver queue;
 `SNAPSHOT_BUILDER_BIN` has fallback candidates, so record the program actually used.
 A new token alone can reuse a completed scan and its old snapshot. Verify the
 versioned warm-history recovery through actual preview and CSV/XLSX downloads; a

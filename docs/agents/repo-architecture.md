@@ -37,8 +37,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-25
-lastReviewedCommit: 4c3c9f0cb2f63544ae0a210a2d6d6bc7607890fc
-lastReviewedNote: "Worker #342: reviewed explicit manual LCIA validation destinations and offline target checks; runtime API, numerical, authorization and hosted deployment boundaries are unchanged."
+lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
+lastReviewedNote: "Worker #339: calculation semantics and descriptor ownership remain in Worker; pinned requests and artifact reuse validate opaque identity while historical evidence, provider rules and data-quality policy remain independent."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -84,6 +84,9 @@ Keep these constraints in mind before editing `crates/solver-core/**` or worker 
 | `crates/solver-worker/src/storage.rs` | S3-compatible object operations plus byte-capped, hash-verified, cancellable file download/upload primitives |
 | `crates/solver-worker/src/snapshot_artifacts.rs` | numerical HDF5 envelope, Review projections, release-metadata/source-closure descriptor chain, and legacy graph/v1 readers |
 | `crates/solver-worker/src/calculation_bundle.rs` | canonical content-addressed Calculation Bundle shards and frozen method axis; optional exports live in `calculation_bundle/exports.rs` |
+| `crates/solver-worker/src/calculation_contract.rs` and `src/bin/calculation_contract.rs` | Worker-owned numerical descriptor/digest and explicit CAS activation; generic storage/orchestration consume only opaque identity |
+| `crates/solver-worker/src/lcia_nonregional.rs` and `lcia_nonregional_defaults.json` | source-bound nonregional default selection; exact Flow versions; no geographic eligibility or method-coverage admission |
+| `scripts/build_lcia_nonregional_defaults.py` and `scripts/lcia_nonregional_sources.json` | read-only original XML/cache multiset verification and deterministic preparation of additive defaults |
 | `crates/solver-worker/src/lcia_method_metadata.rs` | canonical/legacy LCIA display-name fields, localized text selection and method result-quantity labels; no factor conversion or source-reference resolution |
 | `crates/solver-worker/src/portal_lcia_projection.rs` | V3-only typed Process/Impact/Value spool, canonical decimals, int32be hashes, verified LCIA shard reader, and bounded Database batches |
 | `crates/solver-worker/src/artifact_gc.rs` | generic artifact lifecycle candidate validation and object-first retry-safe GC state machine |

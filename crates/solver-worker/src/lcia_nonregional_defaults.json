@@ -1,0 +1,3291 @@
+{
+  "schema": "lcia.nonregional-defaults.v1",
+  "source_repository": "tiangong-lca/data",
+  "source_commit": "367642d7994e0e75188e7e241fb2a4b85ffff62f",
+  "static_bundle_manifest_sha256": "e9b4e7f9a5125bb921efbffba9a4b50711f9ea982e22b500f35211884a0479c5",
+  "static_factor_manifest_sha256": "40ffd33323c9882dbd0b0d9c99982bad1752e311062231bcf1f490ee96f92e96",
+  "reused_from": "tiangong-lca/worker#340@758e484eb5bf13fd8001b9e31ce2dcc4423c05db",
+  "methods": [
+    {
+      "method_id": "01500b74-7ffb-463e-9bd4-72f17c2263ff",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "01500b74-7ffb-463e-9bd4-72f17c2263ff",
+      "source_path": "tiangong_lca_data/lciamethods/01500b74-7ffb-463e-9bd4-72f17c2263ff.xml",
+      "source_xml_sha256": "537c9e6a898c67e2d803991a3de9507f2ec4756bcbe5b60a211b75687a331a23",
+      "factor_count": 398,
+      "default_count": 398,
+      "alternatives": []
+    },
+    {
+      "method_id": "05316e7a-b254-4bea-9cf0-6bf33eb5c630",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "05316e7a-b254-4bea-9cf0-6bf33eb5c630",
+      "source_path": "tiangong_lca_data/lciamethods/05316e7a-b254-4bea-9cf0-6bf33eb5c630.xml",
+      "source_xml_sha256": "252fe760308a14b647ba2a32e8e056f9d8434235be9f1bf3b0d452afe4548cd4",
+      "factor_count": 79349,
+      "default_count": 79169,
+      "alternatives": [
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96ae-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "406312e147ae147b",
+          "source_record_index": 30403,
+          "source_record_sha256": "9d9a1163b321cf17393f4e38298859a27466cdd4d3c755ee4a5d4848207551bf",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96af-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "405d100000000000",
+          "source_record_index": 48410,
+          "source_record_sha256": "2edc76927a06248be62626c364ba081f06a252af3872e33f5057ef6c97542fb9",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2a9-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "4060cd70a3d70a3d",
+          "source_record_index": 56755,
+          "source_record_sha256": "84220c5b2bb7ad2893d22532a3c291d9f50f63a54b586c6c4fd9e1fb7ef39daa",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2aa-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "0000000000000000",
+          "source_record_index": 6912,
+          "source_record_sha256": "774a9f0c2723b13a9a5818f3e4c69412f4ccff1e8a37952ad5f14a45fb6a154a",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2905c64e-6556-11dd-ad8b-0800200c9a66",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "405d100000000000",
+          "source_record_index": 59568,
+          "source_record_sha256": "7d2ad9894bb56a943629266802e01bfc6ccb60856bdeb5994e102dce63262225",
+          "source_location": "",
+          "alternative_count": 37
+        }
+      ]
+    },
+    {
+      "method_id": "14af9ca7-aa1d-4832-b1d9-ab05a06dcb12",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "14af9ca7-aa1d-4832-b1d9-ab05a06dcb12",
+      "source_path": "tiangong_lca_data/lciamethods/14af9ca7-aa1d-4832-b1d9-ab05a06dcb12.xml",
+      "source_xml_sha256": "f184b2f418e69aa51df17f4741674c82ff98c486d78450097140fb6e863ffe4a",
+      "factor_count": 12,
+      "default_count": 12,
+      "alternatives": []
+    },
+    {
+      "method_id": "2299222a-bbd8-474f-9d4f-4dd1f18aea7c",
+      "method_version": "01.01.000",
+      "artifact_locator_id": "2299222a-bbd8-474f-9d4f-4dd1f18aea7c",
+      "source_path": "tiangong_lca_data/lciamethods/2299222a-bbd8-474f-9d4f-4dd1f18aea7c.xml",
+      "source_xml_sha256": "f8f23807aa68f005c4dacae10aff931c568e8a74a4faad6717438b2d2c20dc35",
+      "factor_count": 13717,
+      "default_count": 13717,
+      "alternatives": []
+    },
+    {
+      "method_id": "503699e0-eca9-4089-8bf8-e0f49c93e578",
+      "method_version": "01.01.000",
+      "artifact_locator_id": "9ec743ea-6b00-400d-a53b-61547a3fc03c",
+      "source_path": "tiangong_lca_data/lciamethods/9ec743ea-6b00-400d-a53b-61547a3fc03c.xml",
+      "source_xml_sha256": "84203510df0a0700e385cd1b08288859bff79d0127df02edb3b26882145d33c2",
+      "factor_count": 13319,
+      "default_count": 13319,
+      "alternatives": []
+    },
+    {
+      "method_id": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+      "source_path": "tiangong_lca_data/lciamethods/6209b35f-9447-40b5-b68c-a1099e3674a0.xml",
+      "source_xml_sha256": "c0fe31d3c045ae85b64bd85a3bfa41e1f246d664e8f8d463005f37dee003a5a8",
+      "factor_count": 1099,
+      "default_count": 1099,
+      "alternatives": []
+    },
+    {
+      "method_id": "706261af-a357-4cc0-a50a-f3033fcbd556",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "706261af-a357-4cc0-a50a-f3033fcbd556",
+      "source_path": "tiangong_lca_data/lciamethods/706261af-a357-4cc0-a50a-f3033fcbd556.xml",
+      "source_xml_sha256": "a3d8a39e8e0bacfe7f2877b2bf1886cb733b4124cddaf362a0a5e285311878e1",
+      "factor_count": 13,
+      "default_count": 13,
+      "alternatives": []
+    },
+    {
+      "method_id": "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8",
+      "source_path": "tiangong_lca_data/lciamethods/7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8.xml",
+      "source_xml_sha256": "d932a60f1615945df21b823f19321d80427a6eadb1b3e816f40153726b39993f",
+      "factor_count": 43816,
+      "default_count": 43636,
+      "alternatives": [
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96ae-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3e5ad71f7f8aa121",
+          "source_record_index": 30811,
+          "source_record_sha256": "1fba0521c718b203b0cbb5f50bf450500b172d91732cb680a42259bde954c1df",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96af-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3e1a3b60915896a5",
+          "source_record_index": 40813,
+          "source_record_sha256": "086f8ff4ab8fa7489e556146ba1dd3ab8dddb492356651aa8ce1866574892748",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2a9-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3e4c7adc9210c49e",
+          "source_record_index": 39792,
+          "source_record_sha256": "209fd035b0b345ccd06602f84b4fe313dd2223c0d3dbb5e68906727bbc9f0bdb",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2aa-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "0000000000000000",
+          "source_record_index": 12420,
+          "source_record_sha256": "9622960494b6f977f3e3e6d9b95257bbbbf02cd23123e6c0e8ca858ef5b435ba",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2905c64e-6556-11dd-ad8b-0800200c9a66",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3e1a3b60915896a5",
+          "source_record_index": 25915,
+          "source_record_sha256": "360ef8ee6c8c5f512e7b2c3b4203bedbdaef623978bd00be9f89c3318f7d8ad7",
+          "source_location": "",
+          "alternative_count": 37
+        }
+      ]
+    },
+    {
+      "method_id": "7fce5b3a-66b8-4ce1-91e8-a925aee1f186",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "7fce5b3a-66b8-4ce1-91e8-a925aee1f186",
+      "source_path": "tiangong_lca_data/lciamethods/7fce5b3a-66b8-4ce1-91e8-a925aee1f186.xml",
+      "source_xml_sha256": "7925c8ad33f804723fee7a808d8bf98c8ecdca9b47a5d6f732e415137ac58991",
+      "factor_count": 1074,
+      "default_count": 1074,
+      "alternatives": []
+    },
+    {
+      "method_id": "8c3141e9-1f15-43b5-bff2-182e49893a46",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "8c3141e9-1f15-43b5-bff2-182e49893a46",
+      "source_path": "tiangong_lca_data/lciamethods/8c3141e9-1f15-43b5-bff2-182e49893a46.xml",
+      "source_xml_sha256": "51caa1ad49ac65822714fca432c34ec032c90101afca6cdaeccfec3ab50e10e7",
+      "factor_count": 39499,
+      "default_count": 39499,
+      "alternatives": []
+    },
+    {
+      "method_id": "9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85",
+      "source_path": "tiangong_lca_data/lciamethods/9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85.xml",
+      "source_xml_sha256": "fee7f45542a256f03faa73b406da8d40e7042be4c3719f24e0f0fdb55feace98",
+      "factor_count": 4317,
+      "default_count": 4137,
+      "alternatives": [
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96ae-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3e5ad71f7f8aa121",
+          "source_record_index": 1323,
+          "source_record_sha256": "1fba0521c718b203b0cbb5f50bf450500b172d91732cb680a42259bde954c1df",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96af-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3e1a3b60915896a5",
+          "source_record_index": 1194,
+          "source_record_sha256": "086f8ff4ab8fa7489e556146ba1dd3ab8dddb492356651aa8ce1866574892748",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2a9-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3e4c7adc9210c49e",
+          "source_record_index": 855,
+          "source_record_sha256": "209fd035b0b345ccd06602f84b4fe313dd2223c0d3dbb5e68906727bbc9f0bdb",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2aa-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "0000000000000000",
+          "source_record_index": 1855,
+          "source_record_sha256": "9622960494b6f977f3e3e6d9b95257bbbbf02cd23123e6c0e8ca858ef5b435ba",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2905c64e-6556-11dd-ad8b-0800200c9a66",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3e1a3b60915896a5",
+          "source_record_index": 3,
+          "source_record_sha256": "360ef8ee6c8c5f512e7b2c3b4203bedbdaef623978bd00be9f89c3318f7d8ad7",
+          "source_location": "",
+          "alternative_count": 37
+        }
+      ]
+    },
+    {
+      "method_id": "b2ad6110-c78d-11e6-9d9d-cec0c932ce01",
+      "method_version": "01.00.010",
+      "artifact_locator_id": "b2ad6110-c78d-11e6-9d9d-cec0c932ce01",
+      "source_path": "tiangong_lca_data/lciamethods/b2ad6110-c78d-11e6-9d9d-cec0c932ce01.xml",
+      "source_xml_sha256": "d9b4f8480a8e916e37b1403fc70e68241edbe71098e26cadc41e5f5caaa9fb93",
+      "factor_count": 6,
+      "default_count": 6,
+      "alternatives": []
+    },
+    {
+      "method_id": "b2ad6494-c78d-11e6-9d9d-cec0c932ce01",
+      "method_version": "01.00.010",
+      "artifact_locator_id": "b2ad6494-c78d-11e6-9d9d-cec0c932ce01",
+      "source_path": "tiangong_lca_data/lciamethods/b2ad6494-c78d-11e6-9d9d-cec0c932ce01.xml",
+      "source_xml_sha256": "903dc1764187342f518c5fc00e6519cd0082cfe207569592f77adadb18568b06",
+      "factor_count": 48,
+      "default_count": 48,
+      "alternatives": []
+    },
+    {
+      "method_id": "b2ad66ce-c78d-11e6-9d9d-cec0c932ce01",
+      "method_version": "03.00.014",
+      "artifact_locator_id": "b2ad66ce-c78d-11e6-9d9d-cec0c932ce01",
+      "source_path": "tiangong_lca_data/lciamethods/b2ad66ce-c78d-11e6-9d9d-cec0c932ce01.xml",
+      "source_xml_sha256": "f06fec854a386ecd9c2d6b2de3d735b341b9f5ac68990764a3e1fd84e91268d2",
+      "factor_count": 2310,
+      "default_count": 11,
+      "alternatives": [
+        {
+          "flow_id": "21868f36-62ab-4e8e-98ed-7106228c17be",
+          "flow_version": "00.00.002",
+          "direction": "INPUT",
+          "value_bits": "404579999999999a",
+          "source_record_index": 1248,
+          "source_record_sha256": "1ed4017ae27359b6c00c72fda455e4707a27174a8623c783917ea4dc9c5ededd",
+          "source_location": "",
+          "alternative_count": 210
+        },
+        {
+          "flow_id": "419682fe-60fb-4b43-be89-bf2824b51104",
+          "flow_version": "00.00.002",
+          "direction": "INPUT",
+          "value_bits": "404579999999999a",
+          "source_record_index": 2088,
+          "source_record_sha256": "e4771006200402edefeeb2aca0eae97ac5ffb4dc9408da0037dea83fe8966c6d",
+          "source_location": "",
+          "alternative_count": 210
+        },
+        {
+          "flow_id": "4f462198-40cd-4184-8733-86648a20dc3f",
+          "flow_version": "00.00.002",
+          "direction": "INPUT",
+          "value_bits": "404579999999999a",
+          "source_record_index": 408,
+          "source_record_sha256": "699cbb943b37faaf0000be31dd089c3b4649e13a54821dd4a5dcd8196eebe438",
+          "source_location": "",
+          "alternative_count": 210
+        },
+        {
+          "flow_id": "5e50fc01-19c6-4377-a1cc-bc65a12498ea",
+          "flow_version": "00.00.002",
+          "direction": "OUTPUT",
+          "value_bits": "c04579999999999a",
+          "source_record_index": 840,
+          "source_record_sha256": "6ed16f88edd5df5413bdd14d38909d9da7fa87763428569d75a567b00d6bb229",
+          "source_location": "",
+          "alternative_count": 210
+        },
+        {
+          "flow_id": "5fdac403-9f2c-4a10-b8d6-5367cc9d2d9b",
+          "flow_version": "00.00.002",
+          "direction": "INPUT",
+          "value_bits": "404579999999999a",
+          "source_record_index": 198,
+          "source_record_sha256": "0d3c9d6fd66fd1ad59416177a6fa212d5e532e2251d002a7e1dba003c2a5304f",
+          "source_location": "",
+          "alternative_count": 210
+        },
+        {
+          "flow_id": "73fb4dab-b979-4dcc-8616-2193fc154255",
+          "flow_version": "00.00.002",
+          "direction": "OUTPUT",
+          "value_bits": "c04579999999999a",
+          "source_record_index": 1680,
+          "source_record_sha256": "ad1da458e4f60975565fb18b7cb56a2d00d5243ca97d30b4aec0faac4c8d26c8",
+          "source_location": "",
+          "alternative_count": 210
+        },
+        {
+          "flow_id": "805a7346-1664-4483-afe3-4b224be5e361",
+          "flow_version": "00.00.002",
+          "direction": "INPUT",
+          "value_bits": "404579999999999a",
+          "source_record_index": 828,
+          "source_record_sha256": "9db15c442d167626c0a96ebfd2e798bca8d34384d00ea60f6fa7a16bbc76c578",
+          "source_location": "",
+          "alternative_count": 210
+        },
+        {
+          "flow_id": "9575e5d0-f865-4ad1-9d98-6b0d6e275780",
+          "flow_version": "00.00.002",
+          "direction": "INPUT",
+          "value_bits": "404579999999999a",
+          "source_record_index": 1668,
+          "source_record_sha256": "93084f4eee34d2d493e346a1a6bd97125dd9e586679abc8ca23aa31555998eb7",
+          "source_location": "",
+          "alternative_count": 210
+        },
+        {
+          "flow_id": "a3876d9b-a3e8-4680-861a-4e08642f1392",
+          "flow_version": "01.00.008",
+          "direction": "OUTPUT",
+          "value_bits": "c0457a3d70a3d70a",
+          "source_record_index": 2100,
+          "source_record_sha256": "24a0c643ea05c016838607e94c5a6d93bf53c01242eb0c322816937afdee4f3f",
+          "source_location": "",
+          "alternative_count": 210
+        },
+        {
+          "flow_id": "c506b970-7b92-452f-8d6f-05d4f203d958",
+          "flow_version": "00.00.002",
+          "direction": "INPUT",
+          "value_bits": "404579999999999a",
+          "source_record_index": 618,
+          "source_record_sha256": "1a7f5f7ecb36f625a6a05e79bc5080753dbe4370afb3b07516f274465239e4f5",
+          "source_location": "",
+          "alternative_count": 210
+        },
+        {
+          "flow_id": "e2f7117d-06a4-49d8-9f5c-ae1a1f18ffb2",
+          "flow_version": "00.00.002",
+          "direction": "OUTPUT",
+          "value_bits": "c04579999999999a",
+          "source_record_index": 1260,
+          "source_record_sha256": "67e59de899ca0ffe06a6862e7bbe9997140eea6d4bd51507cabbd766a13c1c6d",
+          "source_location": "",
+          "alternative_count": 210
+        }
+      ]
+    },
+    {
+      "method_id": "b2ad6890-c78d-11e6-9d9d-cec0c932ce01",
+      "method_version": "01.00.010",
+      "artifact_locator_id": "b2ad6890-c78d-11e6-9d9d-cec0c932ce01",
+      "source_path": "tiangong_lca_data/lciamethods/b2ad6890-c78d-11e6-9d9d-cec0c932ce01.xml",
+      "source_xml_sha256": "94f959328235d7d68b6febea36810ab29104a14f1a1be57ae9e61c58ccb47149",
+      "factor_count": 36423,
+      "default_count": 171,
+      "alternatives": [
+        {
+          "flow_id": "03b56eb6-cc68-4251-9317-06878cb27dff",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07ce1c28f5c28f6",
+          "source_record_index": 19535,
+          "source_record_sha256": "0291029203a12abdc162aafd7cc7664a72eefd9bccb96b4b12f38ce897f7320f",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "05d4147c-59c1-46df-8df9-3971fab75779",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0b178999999999a",
+          "source_record_index": 19860,
+          "source_record_sha256": "a240c85912f44aece77ab22b9edda25323700c98ef4f880376d7820aee26ed93",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "0747ea88-7080-442f-b55c-832a0058d74a",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4026eb020c49ba5e",
+          "source_record_index": 23597,
+          "source_record_sha256": "7d7e883187ac535754fec2814e9ae45fee20f52887af982d7620f6c66f258d87",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "07937495-00a4-4676-8ef7-1161ee7a9f28",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "404b7624dd2f1aa0",
+          "source_record_index": 28026,
+          "source_record_sha256": "cd1d58742fac1b42069e71e91f98d92d3543dad5bdce152e7b825b9f84d950a1",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "0860f823-69da-48ae-b3ea-4ede3b661b7d",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "405d0a3d70a3d70a",
+          "source_record_index": 569,
+          "source_record_sha256": "4c08ac8ac58d00a76f8892a0ac1b3ecee8857e30ffc6956fbf3d74782af3d3dc",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "09fe907b-527e-4da9-91f3-7b9a75892b2d",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "4076468f5c28f5c3",
+          "source_record_index": 31416,
+          "source_record_sha256": "53d1226d4dc875df9e095b9b75f9abb8d43f03f0de8e00ff1f870c7f7a63a47d",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "0becf44a-3734-4bd0-bd5f-70ec2a4e1571",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40b7053333333333",
+          "source_record_index": 11691,
+          "source_record_sha256": "f4d4a7a3071db557dede06f2f20c0641a36d5eb9955de345a36f839bcce37d00",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "0c08b290-70d4-4d06-bf99-af10a0df99d5",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40b42de666666666",
+          "source_record_index": 18650,
+          "source_record_sha256": "1b623bd69cd5c960697ad18e4df15c6388c872098e6d0ee0ada46eac3ac01d57",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "0c72ce8f-abf1-4d29-8a13-01f9dc6b1c3b",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40b71f3333333333",
+          "source_record_index": 33140,
+          "source_record_sha256": "cff76813c86cf941547867c7eb96dc5d9c6027909bae133004f67985ed0f60dc",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "0ef5f936-2cfd-49a8-8d11-a062926464e4",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40491872b020c49c",
+          "source_record_index": 19882,
+          "source_record_sha256": "7c449bf9c6f4c1c81629907465b4082eebf56b2677a5b54fe79976befc09b9cc",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "1058891f-9dbe-419c-ae48-9d03289eeb39",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0bad0cccccccccd",
+          "source_record_index": 29925,
+          "source_record_sha256": "56ef6e7c3e82aed66afa1d1ca85cdb7effd272123a27b9c9e520dbb65e01bac3",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "105971fb-c1f3-42a2-ac38-42169e85d3e7",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4026eb020c49ba5e",
+          "source_record_index": 6271,
+          "source_record_sha256": "1e56759101dabb7b5e4a46402f5ed2e0923b657a7c309c0fbf4759f69eba51cb",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "1102e599-8b30-4c4e-bc98-6c34ac2c1748",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0b42de666666666",
+          "source_record_index": 11469,
+          "source_record_sha256": "224e269d8b5e8525063856a3bf0ebab5debc27a40276b8fe7cd0e677d04ab265",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "12411c15-bb42-428a-8bb0-b8b7276e7c63",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c09dea6666666666",
+          "source_record_index": 11534,
+          "source_record_sha256": "23aee511bf805de363fd80c37cb4e11fadea3e5b456b0d74aff285c801eb3049",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "157addff-967a-49a8-b3ee-8393e0ffce5a",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0bb6de666666666",
+          "source_record_index": 2362,
+          "source_record_sha256": "e91c48e92286d4c8e7dccef3d9aacc276182554891ac2ea536817c84052a9e46",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "19b04efe-3d1e-44d8-963e-e9cbc3c97613",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407ce1c28f5c28f6",
+          "source_record_index": 14764,
+          "source_record_sha256": "55af825176d3b00e7022cace0ed0c3cd9102ea9119790fd6f9dd0dffbbb19cf5",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "1a00b335-af6e-47db-bc23-012f2c0642ab",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "406600a3d70a3d71",
+          "source_record_index": 21918,
+          "source_record_sha256": "188e359a49eb2071675b12fa23d10f1f1156ecf41f2b728a431e24a2b6297062",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "1c6a1585-0329-4134-aa24-b0aca0c5af11",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4061570a3d70a3d7",
+          "source_record_index": 14973,
+          "source_record_sha256": "0f881e535aaedd3b6c250544bad18ddb6cb619ffc5aee3c709f99d3a0a3c471f",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "1d443c61-ff6f-419a-99a8-9ff3055f4922",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40481be76c8b4396",
+          "source_record_index": 20342,
+          "source_record_sha256": "097b3c29416f6d939f2db8dc5b55a5362807ef8e410cade4d73bb9acd0e177b3",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "1dea9abe-eef4-4e7e-9439-fa041242ceb5",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "405e633333333333",
+          "source_record_index": 4151,
+          "source_record_sha256": "109bcfea50a58427ccf66daf569b0037ca86c0a97517901e9e2e7de43c1fbd54",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "204480e6-eae8-43dc-b42b-3de73765deba",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07f5e8f5c28f5c3",
+          "source_record_index": 4123,
+          "source_record_sha256": "dd2b2a71deecf0bb5cfbe75c2a0c010a9fdec1b981c38b366f12d65d599fecba",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "21c8ec32-41d8-4eb8-aee5-910702f064a6",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0b7053333333333",
+          "source_record_index": 28319,
+          "source_record_sha256": "7cb7a3e7c7c699b827040bed51724f24d47d26cf5801af9c76bb23b3175096af",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "25a53117-7717-41f6-9085-64b1728c9b0d",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c06ad428f5c28f5c",
+          "source_record_index": 17762,
+          "source_record_sha256": "73d453af696ae2447a7215c328eaf4955dac847ec4e3aada44e7c5584c794581",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "26979302-3aba-48bc-a35f-eb66fdd4d369",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c076468f5c28f5c3",
+          "source_record_index": 564,
+          "source_record_sha256": "0e78dcb98782ab71cd4f2ac77badc3237b383476da561331e80b90f7d32d159b",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "28e5f69f-7b2e-4e31-9725-d407b2964b3f",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407e22e147ae147b",
+          "source_record_index": 11430,
+          "source_record_sha256": "903c8b63845b6e917f720ed1a9ade8648a28bcc2185b79b8ffa1c51be448286e",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "2abdec35-e00d-4760-842c-e63403507b1d",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0b717cccccccccd",
+          "source_record_index": 11184,
+          "source_record_sha256": "9580642ec9d0775b27b144fd69af42f11edc2fdd8fb97e22ad8aad933b1c88d7",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "2b97517c-87dd-4be0-824d-37b7aaaef8d4",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4026f9db22d0e560",
+          "source_record_index": 7108,
+          "source_record_sha256": "221632208c885434ae977d8efdb27f67b31e81de46e91d32b13ebcc8df4975e5",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "2de36d9f-313b-4fb1-8060-676eecbfec29",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "405bb28f5c28f5c3",
+          "source_record_index": 11135,
+          "source_record_sha256": "6ac195eda0ad310d0771334622b346b1f609c420d695d59acac17b64fd6004c0",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "2f8cc78f-7f63-4b5c-9010-70a847737d23",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40b717cccccccccd",
+          "source_record_index": 17779,
+          "source_record_sha256": "771b0272d17b931a72172ecc507fd463a15efd37b0d8e6f74b4dc31ddb82a779",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "32e9ce57-5c64-44fe-ba5f-e29adb467eb7",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c076468f5c28f5c3",
+          "source_record_index": 17760,
+          "source_record_sha256": "79157829392727ab770b47100877a85b40a42c8fc3cb4bae2516c3a05d526810",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "377979ef-ab2d-44ec-935f-7f77d5d9f52a",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407ce1c28f5c28f6",
+          "source_record_index": 4130,
+          "source_record_sha256": "994f450494606935c8fb3cdd3f3479b38649d47c301c2a748ce0609c86234703",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "37b2391c-6d90-4ef3-be80-df3d114cface",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07fd75c28f5c28f",
+          "source_record_index": 23325,
+          "source_record_sha256": "1f3e1ad01405ac2793f309f7326598de9664f26d056c2e5860e6117450685ba1",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "37c63eed-fdfd-4601-9756-7094d4c9f381",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "406ad428f5c28f5c",
+          "source_record_index": 11262,
+          "source_record_sha256": "693355c25231d0654f4a3d89d5ec7290e2e9768a22e12952e2d54e0712deaf0b",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "38a1c24d-8eda-43f4-a705-4d28fcf43770",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "4078bcf5c28f5c29",
+          "source_record_index": 14119,
+          "source_record_sha256": "60f7f026b00dddc8a8b4cf5bb0cabc46aaceb6cef7aa06350abde5519b4ac684",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "39f017d4-14b0-44c2-93c6-ed6bf28332a8",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40497916872b020c",
+          "source_record_index": 21533,
+          "source_record_sha256": "cc1997dfcd3e497dc1829693baf1c4ba9c34080a4d2acf927848adb9cb5ab5bf",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "3aa0cf01-ae8f-4d67-b584-96df1ef6ba4f",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4065d28f5c28f5c3",
+          "source_record_index": 5722,
+          "source_record_sha256": "a54d6c6012291ec2b42bc7e354a2d8b0ad291340a7fb89241b6acc49f53bcff3",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "3b93ab27-c0b5-4376-be16-7946c7dd6d87",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40468645a1cac083",
+          "source_record_index": 19551,
+          "source_record_sha256": "0928dfdd1afa6c308e27abd11c5f56e84c6217517870ae1f8b7c08dd7fb57fdd",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "3b9ccd9f-1dd3-48ad-b444-b08fb5a63a89",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407fd75c28f5c28f",
+          "source_record_index": 12928,
+          "source_record_sha256": "63a222cfacab4cd257c71011a0c6384ee3b9824c4f672c8e24bd8c2d2d10779f",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "3d6ecf59-2f58-40a9-a385-fcfd8dac0b24",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "c065d28f5c28f5c3",
+          "source_record_index": 35146,
+          "source_record_sha256": "c042c1683e7e9482d458178ae85837149f79567ff650f1a7ee2af87d56cf0627",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "3f52e820-a921-4ddb-a51b-45fdabc77d6e",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "406168a3d70a3d71",
+          "source_record_index": 21387,
+          "source_record_sha256": "6df39d023eca2b40b44cd5e925249d74252648a95c1af5036b96a4116f43e9fb",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "42378359-15eb-4e60-8f72-b796b9d71e69",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "404861cac083126f",
+          "source_record_index": 11389,
+          "source_record_sha256": "38d3d013edebacff8b13f51520f406c4f3a4db2f7005912822f7fc1f3d60a4f8",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "4a227586-270a-4b07-9f15-79da640bec83",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40bad0cccccccccd",
+          "source_record_index": 27895,
+          "source_record_sha256": "b3c7a7d4deb2f5d5f50cb910601980570c51b955f0a1bd1f7a1365cc2d188498",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "4c3b387c-8c28-4848-90fe-39620a81a013",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c031753f7ced9168",
+          "source_record_index": 2218,
+          "source_record_sha256": "8ca6768311bd97919eec6df23317fe6eade2cfb599923a67ed76c4e2b4dcf739",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "4d88d516-d8b4-4799-b3eb-44d57dd3e9a7",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c031753f7ced9168",
+          "source_record_index": 20708,
+          "source_record_sha256": "4837c9c83dad9ffbfb571a040255eaf9ccb471c59a87c2c183602313fb1c4bf8",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "503f7e73-748c-4f38-9b87-90805b5d1c38",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c076468f5c28f5c3",
+          "source_record_index": 20678,
+          "source_record_sha256": "0bec8f30ca057e564bd30cc757b6af424b8aa948b13ac8a2f3aed712fa616b55",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "519bd467-de3e-49eb-be1f-504323399437",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "405564dd2f1a9fbe",
+          "source_record_index": 24479,
+          "source_record_sha256": "45b79a43129ade16e52a8ce412fae46acdcb79e16afa84817175be894306905c",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "522f6ba8-5914-4f91-a198-a0da9aab707d",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c05cb851eb851eb8",
+          "source_record_index": 2699,
+          "source_record_sha256": "f81555040969ee88bfac37d66c530eaa9e7fbc53df58b61b3a94a25d9ba62700",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "52a3918e-59b7-4d62-9255-a8479e6671ae",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40437c8b43958106",
+          "source_record_index": 13443,
+          "source_record_sha256": "e11f72745b9e62ae12b44e5e897a0ad5f085297361cd3b18fe5a00daf9f5588b",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "52a7fc6d-de3b-4348-9ef2-11b119da6c98",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0a6ff3333333333",
+          "source_record_index": 13838,
+          "source_record_sha256": "8b2ebdf7a5e9ba45f4e5aa5c3492215a267c6eec4c67ee7db0283c00a9623b19",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "5a95a24a-1e9d-4ce9-8a57-b4da488cc8a8",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0b7390000000000",
+          "source_record_index": 6270,
+          "source_record_sha256": "93fea9c962fb4938a45e40b19bd05f15f3ea83d1fe22e83baccd992bcb9a19ab",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "5ba8d644-c1bb-410b-9bf4-e5f969efb078",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0785bae147ae148",
+          "source_record_index": 19118,
+          "source_record_sha256": "a9dd999146c55b264b0eb6fae3dfc0c3e14bb33e2695b78f31eea3f2cf6dd547",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "5bd6b1f7-11f8-40d5-ab22-19cadfa38402",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07f5e8f5c28f5c3",
+          "source_record_index": 6676,
+          "source_record_sha256": "26cb1ee7b12fb0ee8592ab37afae2c4c4faae1511deed4cd77c8d067bc3ae49d",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "5fa13d85-1722-4858-9cff-caec97da2363",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07ce1c28f5c28f6",
+          "source_record_index": 8472,
+          "source_record_sha256": "e38035a64d1f9674f2cd5b41b4c14ab107fc20b481b1cd014f6a77205e929154",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "616ab5c3-116f-4fbb-bc6b-196318afe5be",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "405a4f5c28f5c28f",
+          "source_record_index": 12668,
+          "source_record_sha256": "61114162fef44b4c09c7cf0e8f8ced14d6a956178179af4398ac939204e9d75b",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "641d3aa1-93d3-4fb2-9bd8-17600536c3c0",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "403576872b020c4a",
+          "source_record_index": 23587,
+          "source_record_sha256": "5e0e85b6ddf24eb41755ef038ceec0fa29af4e9ad667b3c8ae7913b125e644ca",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "64faa7b1-e114-497a-b584-f4659e7115e4",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c06600a3d70a3d71",
+          "source_record_index": 6983,
+          "source_record_sha256": "0be1f907a8a52fc0cf028b0b30351dc22b8f8065ff720ce46e866f7437db9263",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "651df0ec-3468-4453-aa11-dc197034517f",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4065d28f5c28f5c3",
+          "source_record_index": 5077,
+          "source_record_sha256": "ceed796f57aed5fe0700881626fc026c9a17407da69ffb1a0df0607ef453ead7",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "67055318-bad9-420f-ae31-9ba54456518d",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c08027eb851eb852",
+          "source_record_index": 3761,
+          "source_record_sha256": "6efb823f604fa28343f27fffaf5be7f2ae3e0d65d2f3f73ca18d5e3ecdbab3b9",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "68b3e3c6-04f4-49a6-91d0-8be809ec3835",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40471b020c49ba5e",
+          "source_record_index": 24132,
+          "source_record_sha256": "674a87c9fa463ef17335a931d68a14951721793314bbf5fd74107a01974bfa39",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "68e9e9b5-bd61-4fd3-a422-c3cff4f67203",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40b70b3333333333",
+          "source_record_index": 32192,
+          "source_record_sha256": "8866e039d24cf69a607b8e8d40c8f543c477e483b9fa87ff1646304459cb923a",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "68f57e2a-2909-423c-ad8e-6a695f59a48f",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40b2646666666666",
+          "source_record_index": 12673,
+          "source_record_sha256": "afa2057f90c802c6f2fb92d1c06030431eb63c2f70c4b939dbdb72e40553e81b",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "6985efa9-a113-48fa-a504-f520d91868bf",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "4076468f5c28f5c3",
+          "source_record_index": 6972,
+          "source_record_sha256": "cd62c41e5ce41f96f3d6a2d643b0f3461744b77f9ddaa2a42f08a1282529ac8d",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "6bcfa2f7-4970-469a-ae70-d1814e8a6bc3",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407f5e8f5c28f5c3",
+          "source_record_index": 31689,
+          "source_record_sha256": "b14372292b2a1cb357bdcc2f4d9b3431621111f60e04878f20dbe25a49a27564",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "6d205e19-e6c2-4090-b138-01a1b9326a76",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407f5e8f5c28f5c3",
+          "source_record_index": 7002,
+          "source_record_sha256": "f8050bdcba993e00c201d0d9b56bedeaaa9ea41b10de9ebb2facd111dfd616eb",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "6d2e9579-899e-4de6-a13d-e569c4aacd81",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "4082295c28f5c28f",
+          "source_record_index": 14763,
+          "source_record_sha256": "87c63c7b4b0641dce17768bcc5dee25abfa9754a8a96b27cc9e6e4c01f2f824b",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "6d34cf70-c64e-4a5b-8738-fd6e3237888f",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4064a70a3d70a3d7",
+          "source_record_index": 30978,
+          "source_record_sha256": "c022e21c84401320d6865b0ec4e05a7913c99c9fab6e3848f7c41b6366c1b03c",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "6f4ecdc5-0cf7-430b-9c66-8efe4113b2a2",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40497916872b020c",
+          "source_record_index": 6282,
+          "source_record_sha256": "56eab0a825c874a17abcaa5b44434cec400d81bd3f9f4d097693a0de13790b0f",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "71dbb6d9-fd63-4956-a5e0-0aa45152ad8f",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "4076c0cccccccccd",
+          "source_record_index": 12984,
+          "source_record_sha256": "52c1ae47b2ef130470977b5c4d94a2be0749796b3bd19527ce87799ad3d3c1a4",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "72b6ac89-b4c8-4429-a908-7d5e0293a9a6",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "4076468f5c28f5c3",
+          "source_record_index": 24464,
+          "source_record_sha256": "220aa26c12cb950539e4790f29ffb5ed122aa92d05d88a1afe6eb11eca6b50e0",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "75fb549e-21ce-4ad2-b65e-fa9b1664b74a",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407f5e8f5c28f5c3",
+          "source_record_index": 12039,
+          "source_record_sha256": "68a4ec59e5a4f86ce42456534c4757f66b5116a7530b406ee6ea010f12f075bc",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "793ad34b-c186-4933-94d6-ff1b09a24cd8",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407ce1c28f5c28f6",
+          "source_record_index": 21663,
+          "source_record_sha256": "fed3fc27ee139fbb4855632e164b9130d93cf4885c1c3ff189fce32d9fb28ba6",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "7a0b4a8e-c115-4a55-abe9-dfccbe888a7a",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "c065d28f5c28f5c3",
+          "source_record_index": 4154,
+          "source_record_sha256": "5173b21d79a3650d6734a9bfe11a2d1631504284b6ba5c36fab74c3778838aa0",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "7b830424-436d-428c-b2ad-3e93f3115d7b",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "408027eb851eb852",
+          "source_record_index": 18138,
+          "source_record_sha256": "83b04257cead947fe2ad9893ab09f36b7f534cd77e6a7d11aac39af9ec599326",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "7db3936a-8686-46e7-a694-107a117c6360",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40a6ff3333333333",
+          "source_record_index": 6490,
+          "source_record_sha256": "78378a5bb58ff5ae09f3ac9e3384193469d8658f8a2f525599f7bfe06f75ebc4",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "80a0d183-7b74-4497-95f5-8bf25681c32e",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c076468f5c28f5c3",
+          "source_record_index": 12839,
+          "source_record_sha256": "daa53805ba1c18032bc6ad6d8f7eb4399758ac1dc7cf630221af80db793449bb",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "82801171-9dd0-428e-9cb5-1e9c4211b2f7",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4041d20c49ba5e35",
+          "source_record_index": 34835,
+          "source_record_sha256": "4664980e1c48cb4cc67000515f94c137bfbd506272f4cbb6f341ea6380ec94f0",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "8348ce0c-3dcf-4425-8336-04d6c5619e4d",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40785bae147ae148",
+          "source_record_index": 35920,
+          "source_record_sha256": "13df128245bf13691a164001e159bca76df3cdee81cb9873b39cbc7d281467b9",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "84006665-082c-41fd-8aba-e785321b095e",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "c065d28f5c28f5c3",
+          "source_record_index": 957,
+          "source_record_sha256": "e6fd756ab5935de71ee0178d5a6674947ea3192af1b78fa2cc24b0520984549c",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "848d055d-88c2-4926-9ddd-1671887c4e2f",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "408129d70a3d70a4",
+          "source_record_index": 28973,
+          "source_record_sha256": "93b6d452635c8825866fa6d3498975e844372bc4b414ef2db20e4ad9fc3d5127",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "8681540b-cc15-40e7-9801-6f5bcda4d540",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4049d978d4fdf3b6",
+          "source_record_index": 15642,
+          "source_record_sha256": "23bd7d469b6ec6c0094988aa68c8c8c4ce7108be9d8d24d69fd3ca1bde089611",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "87334803-fa5b-4c21-b52c-de9d79d806f8",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07f5e8f5c28f5c3",
+          "source_record_index": 25516,
+          "source_record_sha256": "b49f61f828507f7609099b9649fd5121275ac9322204eb306b95da26c7de6d27",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "88586e86-b7e9-498f-866a-87055995af9e",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40a0310000000000",
+          "source_record_index": 20218,
+          "source_record_sha256": "cca35c8685ebd6d2b9b10aaba22383e48946e7411da2054c8b996cdd62acd895",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "89d3cae6-e44e-40cb-a3dc-82d57aa799be",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "405564dd2f1a9fbe",
+          "source_record_index": 7388,
+          "source_record_sha256": "52fd6be6ea2378415c0d1ee0f08abfa316c479cb610c7bb26b0feb0ce427b2d5",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "8af79474-1d57-4251-a878-c2973b2814e6",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "408abe147ae147ae",
+          "source_record_index": 35108,
+          "source_record_sha256": "2b17086840480aec6901b17a94ddc2a4ab71a76c31ed7e54b1da705b89094167",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "8db68d81-3998-4b52-af19-2beb2ac9a98e",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40753a3d70a3d70a",
+          "source_record_index": 9293,
+          "source_record_sha256": "44dceec5978c7b7ee0e21b186054d87256dcd37a366b7c218f33e1998463a2a4",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "8e2bf561-a95a-402d-83c1-d737dd73523d",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407f5e8f5c28f5c3",
+          "source_record_index": 5634,
+          "source_record_sha256": "0158a3b0ff7b428c9b2ec1b31cca655ff0dfb53b8788476b4ef755e1227e1895",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "8eb99b01-7ad0-41ad-9242-cd2728f21182",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07f5e8f5c28f5c3",
+          "source_record_index": 5228,
+          "source_record_sha256": "6050024ee3d8a4d231856a7e1b2e85690f9a1c6fca1e86134647a6b20b32d1f6",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "8ee82f3b-c2dd-4807-8e65-b33dc05f4aee",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40319a1cac083127",
+          "source_record_index": 15227,
+          "source_record_sha256": "a36b49fba73911378f0bca22dab73409954f58248ded430328b7ee0bfa6f85e8",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "9153cfb0-e762-47ba-9514-92d37321e68a",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "403220c49ba5e354",
+          "source_record_index": 2881,
+          "source_record_sha256": "aac9f70f86f6a105dc265156f005da0f7877e77c8ea0035a1dba8b5c216231a9",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "91e86b1f-98b2-433a-8356-cfc2b2b2a7c4",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "4076468f5c28f5c3",
+          "source_record_index": 7230,
+          "source_record_sha256": "96a82b92378a4571a3592fd23ea651ee7c86627d58039ae43cda3fa855dcf764",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "92f1554f-121d-4f07-a1bb-b07cd2f7c2f5",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "406430a3d70a3d71",
+          "source_record_index": 5314,
+          "source_record_sha256": "9cc105071b6ba3f739a29d28a178c8032593fcbfb8422727bcf03bc596833c31",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "933debfd-2aa5-4a35-b07b-2732350ea29c",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407f5e8f5c28f5c3",
+          "source_record_index": 15067,
+          "source_record_sha256": "2d0e8d568a8f222c27e9b153d6638e4656b0355dcf85929fe59db6c4b72ec171",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "937d6042-bb74-4425-888f-86e8d64c7875",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40491872b020c49c",
+          "source_record_index": 32594,
+          "source_record_sha256": "c1443df10d9f09c2f4c72108297bf59c5c6c832cfb44b20d7bcc855f2ece6dcf",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "9699a63f-c966-43a4-816c-b1fbbf0a3e88",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07f5e8f5c28f5c3",
+          "source_record_index": 20018,
+          "source_record_sha256": "006bb7b8117c9a9a87f77017b8ae3130da2d5a3b5f954240e95745c797baa9bc",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "97990d8f-aae4-41ea-afb4-c62d2bcfea3b",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40491872b020c49c",
+          "source_record_index": 23340,
+          "source_record_sha256": "4ce0408d22cdc94ac066e6cc9abbbc96b20ffe9dc039c7b1b593472215caf522",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "9b9212b8-aed9-4ffc-80a4-6e1c11ddb7ce",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c08abe147ae147ae",
+          "source_record_index": 29082,
+          "source_record_sha256": "78d61f4567381d43d17c4c3e284745ca000c101178899b405be8d1634bf0da7e",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "9c15ac25-4ac3-454c-8104-4d10cfba9376",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c05ca5c28f5c28f6",
+          "source_record_index": 28361,
+          "source_record_sha256": "306c99e9a6480b83edb555e6f7bf48c0303901a603d172a702aaea7241006d0a",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "9c374b15-d39d-4132-9648-507b7e48e003",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07ce1c28f5c28f6",
+          "source_record_index": 11638,
+          "source_record_sha256": "f659adc6a4f358617600b95390a84e43894032b6beddf7e8f8270f058be209ca",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "9cc0de8b-e413-48a5-b013-80ff11a693b2",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c082295c28f5c28f",
+          "source_record_index": 14480,
+          "source_record_sha256": "7d7b148dfab01f863c04c267ebf45afe361d34815946d4594f7919d6cd4cd077",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "9d4b5f58-7427-4a3f-95ce-0ea5daea10da",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c076c0cccccccccd",
+          "source_record_index": 4678,
+          "source_record_sha256": "75312dd11be63e6322b2747dc196f57e3eb4c30034fdbba05fceb75cf70f4cef",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "9db48d2d-17e8-4b4c-b439-2aab1c3d80f2",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0b71f3333333333",
+          "source_record_index": 182,
+          "source_record_sha256": "2cc091641da20306e877eeb20b186278d41b7aeb7afef43ab3510febef517216",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "9fcab08d-c0e9-490f-b594-ee023a78d5c7",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40b178999999999a",
+          "source_record_index": 24758,
+          "source_record_sha256": "bcfd29e2fffaf54aaa87abea0db6b41b591e84622346ed2abd3c7661ccd6a057",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "a205d0e9-cc71-4e4f-8c9f-c62b188321b3",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4061551eb851eb85",
+          "source_record_index": 6786,
+          "source_record_sha256": "48e536bd00ae002b549dc2474b0f909be8f031e90a95645edeacd4b674e0231f",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "a41d68cf-dc3f-4ced-b76b-10f3b9289a76",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407f5e8f5c28f5c3",
+          "source_record_index": 4949,
+          "source_record_sha256": "313af162ed63e6ae628a614c4422a4085cfe8766f33645abc812148a2de3d1d1",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "a53128a5-3383-4487-baab-860c4492f6e3",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "4066a8f5c28f5c29",
+          "source_record_index": 821,
+          "source_record_sha256": "b5c080b61b9e7a75ba4c7e1dd9d694ee07a2661b26162c2b72e04a092d789689",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "a687e5df-4694-4151-ba84-0722481d6fdf",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07fd75c28f5c28f",
+          "source_record_index": 27985,
+          "source_record_sha256": "f6c7d6a9d60b248cc34436c9f2269b6af9ca04c9955e290d96782ffc379bbb48",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "a6e91bef-0f5a-4c02-8f01-05d7240bd4b5",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07f5e8f5c28f5c3",
+          "source_record_index": 9477,
+          "source_record_sha256": "4ee739add5df104cc127c77c57a0158aa0833d2125b8c2814918f0e133a9de00",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "a88d4641-628b-4c82-906e-13769ac00dd6",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4041d20c49ba5e35",
+          "source_record_index": 11700,
+          "source_record_sha256": "a7c18fec6c0d38e358a5f8bb30b989e5d71e80520ded409d69466718d12ac1f0",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "aa9dc400-929f-48c8-86c6-628f34a0efa3",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407f5e8f5c28f5c3",
+          "source_record_index": 27416,
+          "source_record_sha256": "bd09e721fc01dfd52e4ad84a0573ebbc1bcc656cfa6b61e7573e3b8e9c1bf934",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "ac0aba5c-66ce-42c9-9f46-1e47ab7bc4b9",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c05ca5c28f5c28f6",
+          "source_record_index": 2207,
+          "source_record_sha256": "a46c0f917c3d3d169c53e37e2e86b0971e9f53148a6d6cc463e5dff3f05d7cd6",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "aeea42cc-4215-465f-981f-ae2ab387fbb9",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07e22e147ae147b",
+          "source_record_index": 19036,
+          "source_record_sha256": "25a0a50b56734e3ee39fc1914f80abac10c7e8f66f418c1721c24d62b98a2edb",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "af3058b8-cba0-4fbf-9e7f-ff822177623b",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40b2646666666666",
+          "source_record_index": 5074,
+          "source_record_sha256": "4c91f68ba4f03514b33e0a33f632002a4c20279743d743ef6332281d5ab1f693",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "b0259a80-eb97-4dee-be0a-d0535a8a9ed4",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40b7076666666666",
+          "source_record_index": 5747,
+          "source_record_sha256": "a043507c3c4adf0f9cc25e3358ebde08cb420b89ebbb07e0fd2e246c9d343f9a",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "b0744c5e-9859-470f-99dc-b117be5a32c5",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "405bb28f5c28f5c3",
+          "source_record_index": 11827,
+          "source_record_sha256": "70a85d23495f818eca8e0a37bd8b93dedae83ee96d1638ccc9c9af7043495fc6",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "b129498b-6ff1-4025-95f4-a7f821b341c1",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0b2646666666666",
+          "source_record_index": 17724,
+          "source_record_sha256": "a47449af84f94b9adbe4785cca270877ed04000e01eeebefd90eb052566c2b8c",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "b551114c-dc87-4359-a914-98b852ac9d9b",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "404233d70a3d70a4",
+          "source_record_index": 9855,
+          "source_record_sha256": "3c7a508d9d9320abea07de49fc76dd11d960f95227bf25e36dd6fb608114f1e5",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "b6d6d67f-a3c4-4292-93cf-0454339ace53",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c08abe147ae147ae",
+          "source_record_index": 32595,
+          "source_record_sha256": "7bccf1275f2cc7c7257dd31973f97ace7e865e43f961cfe19aa45e2fdc5d2d65",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "b76e1ff4-d0f3-4906-b6f9-240112e3dd69",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "404d0ef9db22d0e5",
+          "source_record_index": 24637,
+          "source_record_sha256": "70ab040cade258dd29c76a12379bb872b598692e81ddd6079d61f4ac252de12c",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "b886560e-7ab8-4ec9-8a0a-802affe63186",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407e22e147ae147b",
+          "source_record_index": 15887,
+          "source_record_sha256": "a0e03b4c6f3793101e15bfa5111286efa9305e17d9f2ef8c605dbedeee6b0cec",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "b88d3b6d-229e-477e-bce1-e16376f75c7b",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40491872b020c49c",
+          "source_record_index": 11370,
+          "source_record_sha256": "280f16f234220e3683d6e5e1d1e4ba081e2d82d4e1a3a7ce3b725353c272b5fc",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "bc2fb99a-c9b4-4473-9870-089bcef3054f",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4041d20c49ba5e35",
+          "source_record_index": 27424,
+          "source_record_sha256": "11054bbd347d38e713e5f949921687d0903c011b480f912896dc1891a8fadd96",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "be7cc1fe-c49e-4cce-9549-3d547f10c189",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "405150c49ba5e354",
+          "source_record_index": 35814,
+          "source_record_sha256": "4d2bba3802469403ecff4d648cc229e6b62dddcae2d99212ec6e35537d6f40ed",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "c0143eba-3daf-44ad-8d34-6e1d34128ace",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07e22e147ae147b",
+          "source_record_index": 28338,
+          "source_record_sha256": "6be99b96981b1442942140fea3f59bb5474e43747639c7c32ab444aaba6abd00",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "c38ef9cf-ae41-40a8-b018-58d9472c7cfa",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4040fb645a1cac08",
+          "source_record_index": 15082,
+          "source_record_sha256": "e865169eafe534e2972cc20611fe8f6d290dc5ddeffdfe72f6e3aea33094d9fc",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "c832b55c-3bce-4f31-abbe-ee7f10c0d6d5",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0b7076666666666",
+          "source_record_index": 27854,
+          "source_record_sha256": "4cf60b21adf435593bb596968edb916a7102192e92603e2b86b3b550ceb9990d",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "ca6db37c-1592-4468-8a0f-ec35ca8b5c76",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4065d28f5c28f5c3",
+          "source_record_index": 28359,
+          "source_record_sha256": "f930cf81c5b0da65006812a53161fbfeaa2142fba25178fae36c4bae45d9bcc0",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "cb38c620-e380-4765-8d51-2935315f5e6f",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0b70b3333333333",
+          "source_record_index": 932,
+          "source_record_sha256": "7b3d5a0e19d8a1807c3b2dfbf99ed50b33ac72602fa09707b7325f248394002c",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "cb72d307-631d-4e10-b036-d861d45caa82",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0a0310000000000",
+          "source_record_index": 24535,
+          "source_record_sha256": "f02260eb60ec7872ed22df1f97e2d9cf7516613cf9c02e8fbc89486fbb93aea4",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "ce732468-207d-4c2f-80dc-3a2e565cfe43",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407f5e8f5c28f5c3",
+          "source_record_index": 29746,
+          "source_record_sha256": "0fde20fc322b9cf1381caa345c3612c4dad919809a84e4aa8fcee90f280dfe70",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "ceabbb26-5d70-41f2-81bd-c1b096dc0931",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40491872b020c49c",
+          "source_record_index": 21525,
+          "source_record_sha256": "1efeaad4e4ee0b5b35fcbbca12b0f67dbc4e197e3cf3b3ccb77c1f78413d197a",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "d0630a10-a018-4624-b617-ffd63044b522",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "403c49ba5e353f7d",
+          "source_record_index": 23515,
+          "source_record_sha256": "3289a9d6b27151a7b7b60bd9cfeee373db8ebeb22a6c14f794b2d01fd89ffbef",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "d09f1f0e-875a-43a4-aee7-dd3b5606dcce",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40491872b020c49c",
+          "source_record_index": 7719,
+          "source_record_sha256": "30368c16590bb2a1c3d849def5046e9e7ac2a9b12d48b18b8c7b1a9d4691b30c",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "d0c20793-3df9-44d3-9c84-5fb6feedcd12",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07f5e8f5c28f5c3",
+          "source_record_index": 15566,
+          "source_record_sha256": "1f42f9c2129f795b75761a5664269918e8219134e4c3a8d8c98b5498e91b3457",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "d30e2c86-78a3-4693-99c9-e69b95548e99",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c066a8f5c28f5c29",
+          "source_record_index": 21170,
+          "source_record_sha256": "c0f767c04ce9cc910084c54a1834e6705be13371384b40f753dfe37b3fd3a991",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "d31e09db-9fc4-4842-8366-14dae068b402",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c078bcf5c28f5c29",
+          "source_record_index": 23257,
+          "source_record_sha256": "5b46d06502ba82588f9867ed1573259c8a13891a36d70d8fb9a6875be95334e9",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "d4008b63-fb71-4e00-bfda-3528c9c7e40d",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0753a3d70a3d70a",
+          "source_record_index": 24716,
+          "source_record_sha256": "0b6bb8cce2673566977ce7301e1edd3e193f600de16fe3d51130c0f3cd3806ad",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "d433f59a-a45d-42a4-88bc-ae8a4f29af39",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40617c28f5c28f5c",
+          "source_record_index": 10496,
+          "source_record_sha256": "b21bb83cd4bcf6df75d0c6b6cc406aed1c5c9d2ae6a1dbf5ee79c9ebaf51465e",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "d4b314f8-1a50-45bf-b139-79dca87d197f",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c071ae147ae147ae",
+          "source_record_index": 33280,
+          "source_record_sha256": "d13b60579b2d661f08f93a9e1f0e410d54ccce00e84a4b6fa1bd55f4dad4eae7",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "d7c58737-6937-4ba9-bd00-c5df908cc9aa",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40491872b020c49c",
+          "source_record_index": 12684,
+          "source_record_sha256": "d604ba30962b08c9202b6cb25e3d70a5f02f90c25b19d81c7483e954ae8d5bbe",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "da92b58d-96f2-4367-9f54-12edf135128b",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "408129d70a3d70a4",
+          "source_record_index": 14851,
+          "source_record_sha256": "72af22d06c53d8aef5090d3593433c55916dfdd6364b644d11390c46f558db96",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "dc3f4893-9db3-4d19-b108-bcd3a44ed78d",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40b3490000000000",
+          "source_record_index": 23719,
+          "source_record_sha256": "581fc77f995d76c2491fb28b16be9d8fcb9312924df635ad5d8442544f4c328b",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "dc65135e-0c62-40de-8f66-b41f519bd9e6",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40b7390000000000",
+          "source_record_index": 4116,
+          "source_record_sha256": "5082a645bbb65451ea6f7aae7907e117316db63781d46d5130cf629f4a2d1c2d",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "dce99876-da7e-45f1-991d-a129dee63d20",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40471b020c49ba5e",
+          "source_record_index": 11694,
+          "source_record_sha256": "265b7efc565be03f040414acfe053516f71b85ce5db8f474ce343421ecbeff04",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "dd5923b1-6ff5-4bb2-a37a-20b84727c16a",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07ce1c28f5c28f6",
+          "source_record_index": 12832,
+          "source_record_sha256": "17a279dccfea2a5158ee7dba0eb0cef5e26a490e8b927f289d4c84018fcf5316",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "e0e757b9-3cfe-46d2-846b-f5f1beb2e41b",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40491872b020c49c",
+          "source_record_index": 30348,
+          "source_record_sha256": "86fbb70fdb565556c670f824fef48385aeb133950425cc7a5524e5d7a215c5a4",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "e13b293a-b22b-46aa-a689-b2e22d31f358",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0b3490000000000",
+          "source_record_index": 6648,
+          "source_record_sha256": "d87d9bca7a7fae2288330d5e065bd7e0f6f19ac154673e05b803589628880464",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "e1d56d4e-afe3-4b92-bd51-0a21f75e50a8",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40481be76c8b4396",
+          "source_record_index": 15807,
+          "source_record_sha256": "34283b199b4fe831a4fee34946cd33dafed9164c0fbe09d881e03509773c8a7a",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "e1f89e32-e86c-452d-91bc-57d93ded3d0d",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "406159eb851eb852",
+          "source_record_index": 2845,
+          "source_record_sha256": "0295b766b38362ed99045bc35d004aa827b560ecf6c51f1ce4dd38960210943b",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "e29e7755-623d-47fb-b2ac-c0615a1b709f",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c08129d70a3d70a4",
+          "source_record_index": 12669,
+          "source_record_sha256": "e3c6a3df9a49319332e2ee06d0bee048ebaf92701922dde6016f593d87cc9a02",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "eb01bbdf-8977-4dd2-9c20-9d59d6f8a71f",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4040fb645a1cac08",
+          "source_record_index": 12014,
+          "source_record_sha256": "389311f3acb70c945117db441d2ca8450f372e89ddac0c5cb00ac5da671459c5",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "eb84226d-129f-49d8-8d69-cc484b7a6cbf",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4061633333333333",
+          "source_record_index": 11621,
+          "source_record_sha256": "429aaf8a416d91f2976ea24432705a299466f5194ed29ffd506f168875ebb3d5",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "ebca263d-89b9-4585-b75b-0ea8d5653514",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4043ca5e353f7cee",
+          "source_record_index": 6201,
+          "source_record_sha256": "ee5c143176e2bfff6566e4de70ca8d8df67e06c0f505532d46c77f479b5ec994",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "ec034746-a6cb-4ae3-99cc-f199893e1b9f",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "404b7624dd2f1aa0",
+          "source_record_index": 15311,
+          "source_record_sha256": "1f0199a7e07a2f06b72ed5596c8ab1e80c35bbca536b7926f056a0d6a8a38ce0",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "ecfea201-cb70-4704-a087-d031a753fa42",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "408abe147ae147ae",
+          "source_record_index": 24052,
+          "source_record_sha256": "48c670ae98e46777e266eaff7fae09e46b94f18403874b5b1f332b9f0dad7ae3",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "f0efe0f8-35ff-4d74-b084-38b4319c8a84",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c031753f7ced9168",
+          "source_record_index": 36321,
+          "source_record_sha256": "53773a69680584f9b89cf1dbdff56a581e7eb6241ca4a7d711c28403b566584b",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "f155e517-6618-4a26-9f14-b59cd6f11c03",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0b2646666666666",
+          "source_record_index": 2667,
+          "source_record_sha256": "a633578af3badb7ca9f14f8c5787c1b000c8cbf258f240613cdf00c9b6710751",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "f20439b3-200f-48d7-b0a0-972a0628a31e",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40753a3d70a3d70a",
+          "source_record_index": 14366,
+          "source_record_sha256": "08b9329aa53da55f74b8a651fc6f94ad40924f09203f4df222ea33745aded385",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "f210f08e-7377-49b2-bed9-7e420a951ae9",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "405cb851eb851eb8",
+          "source_record_index": 15226,
+          "source_record_sha256": "94288b3baff90b5030dfeddb35f3de242f5e830467053470f179967e66e5bd5c",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "f2a476ca-2f66-4b4e-ae8e-2af9e263d722",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40bb6de666666666",
+          "source_record_index": 8348,
+          "source_record_sha256": "290941950fdd21713f0a0761c70cec792d653ca0bcdd387fed3ec9e96bd66764",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "f49ad273-9482-453c-8bdb-dadf8751e3ae",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c07f5e8f5c28f5c3",
+          "source_record_index": 30531,
+          "source_record_sha256": "1474e73f2f96d32138c81ff70ea7fdad359819352b4b5ada89d6b728d4f4beb5",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "f5ca317d-5aab-4adf-add9-6ec43f5ffbd0",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "4041d20c49ba5e35",
+          "source_record_index": 15157,
+          "source_record_sha256": "f9262eb1f4cf318a754bbf567607702b0349c04da26a65e6bd1713cd0e74fb5f",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "f6225b5f-b9cf-4c88-82d2-a578e1ce5e42",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407fd75c28f5c28f",
+          "source_record_index": 23981,
+          "source_record_sha256": "afdeada7098d23f95bf9855510a560dbe431636f2c9d8e96b5bccad178ce96c0",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "f6637a0f-6f2e-4426-9ebc-6cbdbab1bd5f",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40471b020c49ba5e",
+          "source_record_index": 20017,
+          "source_record_sha256": "21df5f6b40b6b7a9ab214db488dca32bff9a3b8a9a93fe83bc28f6df24dff9e0",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "f775aae7-0b18-467e-bb29-97b5497eabd9",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "405ca5c28f5c28f6",
+          "source_record_index": 31119,
+          "source_record_sha256": "8863408093a7b2a9383d9e2c09a85f4df6afb135d128ea3e8a117de113816960",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "f80c15bc-c2bf-4491-8b02-46ad74b8e1eb",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c0753a3d70a3d70a",
+          "source_record_index": 6305,
+          "source_record_sha256": "9e5908492f8514bceefc56edde36b8e70f0f33b4e49c86ed9e78e5047c2b2baa",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "f825b854-b44e-4805-bf7a-891d5e99771a",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "405ca5c28f5c28f6",
+          "source_record_index": 11832,
+          "source_record_sha256": "52f8e3620a30276ffbb305c6883f7160f38e9d31ceb4de20ee5d4f48cad2e253",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "fa4d4851-3cab-48a0-a2e4-d3e047323eb6",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "409dea6666666666",
+          "source_record_index": 32611,
+          "source_record_sha256": "a1ac33c2c38c30b3ef50759b227acc675dcd5f5587e66f056ebb5f2b14c95a9a",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "fa535fee-c7d4-499c-ba15-2bcb60206b6e",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "c08129d70a3d70a4",
+          "source_record_index": 28922,
+          "source_record_sha256": "8cbd3803eb2e5680b27c690ae885675f6f362129368cb3ce397b549b18e89a4b",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "fae48449-451a-4d3c-b2fd-fc9102913b95",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "4071ae147ae147ae",
+          "source_record_index": 24456,
+          "source_record_sha256": "b754ecc2a9f25b0c9716445eee24a8c9f2f1bca8b699789407145a0db881d569",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "fcab01e3-c0b4-4147-a2d5-6387ffbf1840",
+          "flow_version": "03.00.004",
+          "direction": "INPUT",
+          "value_bits": "40471b020c49ba5e",
+          "source_record_index": 17304,
+          "source_record_sha256": "b0bc761b9a797ca6ae89a93380efbd8f7526a53be2873c3dc5d43929773d775d",
+          "source_location": "",
+          "alternative_count": 213
+        },
+        {
+          "flow_id": "fe3b7db4-a7e6-4e83-876e-ef859c1c421c",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "407ce1c28f5c28f6",
+          "source_record_index": 8522,
+          "source_record_sha256": "b7b9c88534bc51f3ad8a0d8c82da2e9dcc85db8a4ce5905d2be6ee5c000ca7cf",
+          "source_location": "",
+          "alternative_count": 213
+        }
+      ]
+    },
+    {
+      "method_id": "b53ec18f-7377-4ad3-86eb-cc3f4f276b2b",
+      "method_version": "01.00.010",
+      "artifact_locator_id": "b53ec18f-7377-4ad3-86eb-cc3f4f276b2b",
+      "source_path": "tiangong_lca_data/lciamethods/b53ec18f-7377-4ad3-86eb-cc3f4f276b2b.xml",
+      "source_xml_sha256": "15eff61b234c7564bbd41b6dd40ed0dc6dfc0d5c1704f89d143f3dc90e82d523",
+      "factor_count": 29,
+      "default_count": 29,
+      "alternatives": []
+    },
+    {
+      "method_id": "b5c602c6-def3-11e6-bf01-fe55135034f3",
+      "method_version": "02.00.011",
+      "artifact_locator_id": "b5c602c6-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c602c6-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "8c2168e142ac2c46d49e3f3265d1d252256f7c8cb63970f30350dcce2307f332",
+      "factor_count": 983,
+      "default_count": 83,
+      "alternatives": [
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96ae-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3eed5c31593e5fb7",
+          "source_record_index": 1,
+          "source_record_sha256": "be4f73aa9d8e9b9f2b7bea33c956a9419d267bc948dc8ad2d21816b08dfd22c7",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96af-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ef6052502eec7c9",
+          "source_record_index": 2,
+          "source_record_sha256": "0cfed0daed850d51308a15fea505567e3a3bb02e77a8e0fa60304579264ba5b9",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e5-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ebad7f29abcaf48",
+          "source_record_index": 4,
+          "source_record_sha256": "8a3e039fc7608e2d663fa71eff998be49211b079abb5be7120319052fb487cbb",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e6-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ebad7f29abcaf48",
+          "source_record_index": 5,
+          "source_record_sha256": "5fc459b134d005f2b7cbd15d5d91e3e0f8396d5b2861542b2f34dd4490946ad2",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e7-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ebad7f29abcaf48",
+          "source_record_index": 6,
+          "source_record_sha256": "05dce3f3b9736bc3b0f576f3df2a340ad09c2aef6844caacfcd99836ee9103d0",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e8-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3e8c2f8b88dfb80c",
+          "source_record_index": 7,
+          "source_record_sha256": "a0651de88cf2869b0d825cda389758be6c828593853662636e273ca3be23ae22",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e9-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3e8c2f8b88dfb80c",
+          "source_record_index": 8,
+          "source_record_sha256": "4a2449e703e81a325654d6478506c3c40c53f0042191a9450fdfe8fc664e11b6",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2a9-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ef6052502eec7c9",
+          "source_record_index": 3,
+          "source_record_sha256": "895427d63fbbfe85928a8b03a7a2bc19bc0951374fd892fac7d2215879f9f9d0",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2aa-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ef6052502eec7c9",
+          "source_record_index": 0,
+          "source_record_sha256": "52c10990a38124fcb53ad7b54ae27e2e2af5a80bccdd1f75d5fea0aea267ee98",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "191b44d4-90c9-465a-8802-93a651b4fd52",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3e8c2f8b88dfb80c",
+          "source_record_index": 18,
+          "source_record_sha256": "19a3abf5303490c5feb9dd3e7d74f4353eefd10c69fa595c0d3a61c058801e17",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "1c952836-ea05-43db-9063-0c5e1ee65fa8",
+          "flow_version": "01.02.004",
+          "direction": "OUTPUT",
+          "value_bits": "3e8c2f8b88dfb80c",
+          "source_record_index": 15,
+          "source_record_sha256": "fcd26be0d678c76be2a3e2837937ac3d7545741d053f6bb2bce1c8cbdbd1c355",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2905c636-6556-11dd-ad8b-0800200c9a66",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "0000000000000000",
+          "source_record_index": 77,
+          "source_record_sha256": "c2ef4575a31ac96be187480fbf26ddd8982dc7128d72085a8ce75c845a9d49c4",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2905c64e-6556-11dd-ad8b-0800200c9a66",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "0000000000000000",
+          "source_record_index": 72,
+          "source_record_sha256": "d9d326ca3edd4d018bc8921e0fe17d82bfb2e27ce9ae90fd6819408fbc6645a9",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2f89fbbd-e428-4de1-8c33-9dd66e53310c",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ebad7f29abcaf48",
+          "source_record_index": 16,
+          "source_record_sha256": "7363db2e869907dd507cf3bb740d3a80e22f6cb96d88736f042cd15b062b6056",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "e575ebc3-0a3b-4c38-9a2a-13e42c72553b",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ebad7f29abcaf48",
+          "source_record_index": 14,
+          "source_record_sha256": "cdc85941b8870d8fe8a5bbdc1aba8b4bd99ec8f367f498cfb5037b9924f17b1e",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "f79d0f8f-2b0e-49cb-bed0-b1ea0fbd8625",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ebad7f29abcaf48",
+          "source_record_index": 17,
+          "source_record_sha256": "953727e27d4ef9b096a3cd21e53b7fe44c1fefcb60e267764d236e89cd302887",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-a207-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ee0c6f7a0b5ed8d",
+          "source_record_index": 64,
+          "source_record_sha256": "2444daf0697f4567dd81f315011b722c857abd23a151cd2fd53da35e858b4614",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-a208-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ee0c6f7a0b5ed8d",
+          "source_record_index": 65,
+          "source_record_sha256": "e20c8fb5620db17cfa14355ba71135bd8520ef250b3d50460140edb026504410",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-a209-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ee0c6f7a0b5ed8d",
+          "source_record_index": 63,
+          "source_record_sha256": "f8111dbbda466e7951c2e5d957ec0f587149839d2776ff1e11bb185e87b81c90",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-a20a-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3eb09c0482f18c75",
+          "source_record_index": 66,
+          "source_record_sha256": "d461049f065004f56993da6b4184e0e298a01c857ab81035e7b079d4a10c0825",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac48-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ee0c6f7a0b5ed8d",
+          "source_record_index": 61,
+          "source_record_sha256": "c3ec18b79b31a624546aa302f9584469a8a170d73b36f8c027b5f637eddfff86",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac49-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ee0c6f7a0b5ed8d",
+          "source_record_index": 60,
+          "source_record_sha256": "104a451f2b3ee5c862bf0bbeaf9e81fd2c58beb14b9de3784598bfdd77aad22a",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac4a-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ee0c6f7a0b5ed8d",
+          "source_record_index": 62,
+          "source_record_sha256": "710608df8ccfbe153c3285a41b6bb1107202e8a7c6aeb905222e3e13dd6d1c67",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac4b-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3eb09c0482f18c75",
+          "source_record_index": 59,
+          "source_record_sha256": "214225fa3a6c67d79d4e73024c8d8fd70ddfc783c6ee31b7b69f430b968ebfbd",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac4c-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "0000000000000000",
+          "source_record_index": 74,
+          "source_record_sha256": "205b2314f0ae352b56ed7de13387183177ea32722740b4cbc0876fc0b09dd234",
+          "source_location": null,
+          "alternative_count": 37
+        }
+      ]
+    },
+    {
+      "method_id": "b5c610fe-def3-11e6-bf01-fe55135034f3",
+      "method_version": "02.01.000",
+      "artifact_locator_id": "b5c610fe-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c610fe-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "273c43df66bfd12f7884e1c3e19d23daade5af5b96bd1d7c68802d87f7755f4a",
+      "factor_count": 1401,
+      "default_count": 681,
+      "alternatives": [
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e5-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff0000000000000",
+          "source_record_index": 67,
+          "source_record_sha256": "faa17f3e69b45ac856313111a16837a58aca218bb4794231946714a3bd578d7c",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e6-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff0000000000000",
+          "source_record_index": 211,
+          "source_record_sha256": "fc1b33e4ac1b40d37ce17ffd3fbde5aba6b82d134374d2b97c613705626df2fc",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e7-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff0000000000000",
+          "source_record_index": 183,
+          "source_record_sha256": "65516f464077065e1b7a44230ba4752ca1acfe9c9fcbb481d2967b97cd7b2ca3",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e8-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff0000000000000",
+          "source_record_index": 400,
+          "source_record_sha256": "67689afa0f72d96b21c0686591e535df6110bf090ae0af6cb0e68add31e2c8dd",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e9-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff0000000000000",
+          "source_record_index": 1264,
+          "source_record_sha256": "bb3ef781f7648de88769967b1c26f95674e737e3b47212d3747bf76bdcb1f248",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "191b44d4-90c9-465a-8802-93a651b4fd52",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff0000000000000",
+          "source_record_index": 167,
+          "source_record_sha256": "aacad5e28af8424cbe684cafa4d08417c6acab775b680788d087347a41628458",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "1c952836-ea05-43db-9063-0c5e1ee65fa8",
+          "flow_version": "01.02.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff0000000000000",
+          "source_record_index": 905,
+          "source_record_sha256": "ab1bbe6a3609a3e1243a0e2bf69419fa9ccd4889b9248830dd5e65c49e807aff",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2905c636-6556-11dd-ad8b-0800200c9a66",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb4c2f837b4a234",
+          "source_record_index": 320,
+          "source_record_sha256": "f43430cdf9b97a29f61eca09b69acb80a3d93ad123d5f5b20733e9eec865a762",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2f89fbbd-e428-4de1-8c33-9dd66e53310c",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff0000000000000",
+          "source_record_index": 792,
+          "source_record_sha256": "e5f32e531e2104f01661ff306fea7643c3b459263311036d53afd1443c57e42c",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "e575ebc3-0a3b-4c38-9a2a-13e42c72553b",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff0000000000000",
+          "source_record_index": 1191,
+          "source_record_sha256": "fac533bf73d5ffa428bf4ecb6052a194d5e658e4c4cf301103459302e826df3e",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "f79d0f8f-2b0e-49cb-bed0-b1ea0fbd8625",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff0000000000000",
+          "source_record_index": 1343,
+          "source_record_sha256": "d717d3af92357e6f7e1851f1056d1ed2fae5d3f392c0ffa34c03ac110cc62a15",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-a207-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb4c2f837b4a234",
+          "source_record_index": 875,
+          "source_record_sha256": "eae25de0a41da5b2352ee10bcffdef873ceab30f8588e7b4114f3caa59cba472",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-a208-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb4c2f837b4a234",
+          "source_record_index": 761,
+          "source_record_sha256": "7351ba2b353d654df43476a4e68e7970da42b5f38189847d1c129e9904f337c6",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-a209-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb4c2f837b4a234",
+          "source_record_index": 836,
+          "source_record_sha256": "1ea0da9585be0d92be19b2fe2c7a6eefaff0a8b15ded1ff78ae811c9d738190f",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-a20a-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb4c2f837b4a234",
+          "source_record_index": 1103,
+          "source_record_sha256": "95d7682dd1154a0c5b655cb981de6f96fa8388459802f85fb2df0c9751cc9577",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac48-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb4c2f837b4a234",
+          "source_record_index": 928,
+          "source_record_sha256": "c6f01da1ecb68009d8545ecf7e301534e0fc92bb2ad19a6b2ca7bf08e8f49387",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac49-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb4c2f837b4a234",
+          "source_record_index": 1117,
+          "source_record_sha256": "86d015c6c3cb4e7948e72503b3ea095e794e8e4e96c4b04b40fd35a3d4980633",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac4a-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb4c2f837b4a234",
+          "source_record_index": 986,
+          "source_record_sha256": "73ca52aab10eb085d6d597a51c3619b24503ff83db1055b484231ddb821c4835",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac4b-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb4c2f837b4a234",
+          "source_record_index": 817,
+          "source_record_sha256": "86fba2d7f79e21f12a35e731e57c6ae6a5afb97423f90ab6459b319cd85c3a5b",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac4c-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb4c2f837b4a234",
+          "source_record_index": 753,
+          "source_record_sha256": "7b956154b9c9fb25f09ad83a89d051a7cf3d21e98ae4276e05bbddc739d9115a",
+          "source_location": "",
+          "alternative_count": 37
+        }
+      ]
+    },
+    {
+      "method_id": "b5c611c6-def3-11e6-bf01-fe55135034f3",
+      "method_version": "01.04.000",
+      "artifact_locator_id": "b5c611c6-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c611c6-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "1a09e9e8533cc6f1027f260c2672ca6f8dd231618fe81939ed1fc22d5e066f8f",
+      "factor_count": 935,
+      "default_count": 35,
+      "alternatives": [
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96ae-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "400828f5c28f5c29",
+          "source_record_index": 175,
+          "source_record_sha256": "305a48763f436795ee0ca9c6f9a82409a9b86b21358eeea5fffba4357a774b84",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96af-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "400828f5c28f5c29",
+          "source_record_index": 17,
+          "source_record_sha256": "ecaf4eb2ce8bae8e5c5d8e4322155f33cf9b2a1fa181bb4370d800eec6df9d0a",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e5-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fe7ae147ae147ae",
+          "source_record_index": 263,
+          "source_record_sha256": "ef68809810183342853c7110e5be59d4d69de512f6be3a62dc0bdf4ca080fc4a",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e6-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fe7ae147ae147ae",
+          "source_record_index": 604,
+          "source_record_sha256": "de1965441f7478c057717b2c502d2130c77f12db416f8f90af281c6282e45f8c",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e7-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fe7ae147ae147ae",
+          "source_record_index": 279,
+          "source_record_sha256": "3c89f5ee3eedfc9ab7949a28a822c2d7714035d63cae70ae4524fe5c8c25e9f8",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e8-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fe7ae147ae147ae",
+          "source_record_index": 745,
+          "source_record_sha256": "16f0301345bf4d189732c49428789c009caec653353d36423592d33163c66119",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e9-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fe7ae147ae147ae",
+          "source_record_index": 98,
+          "source_record_sha256": "63d2f61a223f4830d2702cd9f7e424f9309ec0324499b1c454b8c303a71d847b",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2a9-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "400828f5c28f5c29",
+          "source_record_index": 211,
+          "source_record_sha256": "d34ead31d7bd78e10f91c078723e521daf235d4bf4fec153219d0c725d07af56",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2aa-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "400828f5c28f5c29",
+          "source_record_index": 274,
+          "source_record_sha256": "0ab448a4b5144ce6dbd53c693b27d19183fd6630ac2dbdf8e5ea2f61c502d1da",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "191b44d4-90c9-465a-8802-93a651b4fd52",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fe7ae147ae147ae",
+          "source_record_index": 377,
+          "source_record_sha256": "8c59ec0a63950ebd1ef00ca833e05e5bbeae8d34f49af40e03ea9cbdf4ef2d50",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "1c952836-ea05-43db-9063-0c5e1ee65fa8",
+          "flow_version": "01.02.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fe7ae147ae147ae",
+          "source_record_index": 760,
+          "source_record_sha256": "3d11805117ee4e9473abae036cc461713cdb7306d74eaae7244ad936de545195",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2905c636-6556-11dd-ad8b-0800200c9a66",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff4f5c28f5c28f6",
+          "source_record_index": 839,
+          "source_record_sha256": "0bec9f876c84dad91a5ac0866748a7e3461c4353323da32c53f726acc0d2f3e7",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2905c64e-6556-11dd-ad8b-0800200c9a66",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "400828f5c28f5c29",
+          "source_record_index": 155,
+          "source_record_sha256": "8c1a754155b7babaed58dfb36d1df6accf503227aa24c3d100298f00f482f7af",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2f89fbbd-e428-4de1-8c33-9dd66e53310c",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fe7ae147ae147ae",
+          "source_record_index": 264,
+          "source_record_sha256": "5898c3afb0ef703d3f9b6421f2382769debe061e62818f67fe7e8f32ba42c15c",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "e575ebc3-0a3b-4c38-9a2a-13e42c72553b",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fe7ae147ae147ae",
+          "source_record_index": 66,
+          "source_record_sha256": "9f57f133725493747382eacb3d263065165cffe9789f2b19f6972adc6de0de55",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "f79d0f8f-2b0e-49cb-bed0-b1ea0fbd8625",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fe7ae147ae147ae",
+          "source_record_index": 344,
+          "source_record_sha256": "fe1a4f50b46bd5c56ba51729ec3a911c7568207a4a87c8869142a1b83d5184a4",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-a207-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff4f5c28f5c28f6",
+          "source_record_index": 134,
+          "source_record_sha256": "4c32a3343901d436a9d279f0c54204e3a510a222ad4d4d5bd2336de3b92e20e3",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-a208-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff4f5c28f5c28f6",
+          "source_record_index": 278,
+          "source_record_sha256": "7935f5bda698d376158de8de96560573a22e627f5783c9dcedc4aa6634adc43c",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-a209-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff4f5c28f5c28f6",
+          "source_record_index": 651,
+          "source_record_sha256": "43eab0547e674f1e7da3f75f232d9957b243f5097118834c76d2a14c52bcb75a",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-a20a-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff4f5c28f5c28f6",
+          "source_record_index": 222,
+          "source_record_sha256": "a908386f2f9c9ea102408e4d6058603943a6a127a7c4d6bf480f60e2bbdb6163",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac48-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff4f5c28f5c28f6",
+          "source_record_index": 207,
+          "source_record_sha256": "a004ed28e661cdfbc34a9d5f2c1911fa3448b389b4794a9f57e35b9e08209ff7",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac49-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff4f5c28f5c28f6",
+          "source_record_index": 226,
+          "source_record_sha256": "72bf3cfed30a0dbafdf7e34c0674daeba4382a5f0f4c18bde674ff80fe2566d9",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac4a-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff4f5c28f5c28f6",
+          "source_record_index": 183,
+          "source_record_sha256": "a8369db4d6e54d2fb62681c1abcd2fb59709d057229b1e319593d1994e834bce",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac4b-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff4f5c28f5c28f6",
+          "source_record_index": 165,
+          "source_record_sha256": "2657fc73ec0106b77dbcbdd28ea5d53b536dd5d3d97e4e3a63b02a93660a1bf9",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "fe0acd60-3ddc-11dd-ac4c-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3ff4f5c28f5c28f6",
+          "source_record_index": 149,
+          "source_record_sha256": "66f13996856f122ef27a3e467176ae3aa656c80c418d1ba73ff517b56596f731",
+          "source_location": "",
+          "alternative_count": 37
+        }
+      ]
+    },
+    {
+      "method_id": "b5c614d2-def3-11e6-bf01-fe55135034f3",
+      "method_version": "01.02.009",
+      "artifact_locator_id": "b5c614d2-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c614d2-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "72f1187a0682e186bdedf74f60fe99a1e1dafa7469141af74dfe4ea21c296992",
+      "factor_count": 575,
+      "default_count": 35,
+      "alternatives": [
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96ae-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "402af0a3d70a3d71",
+          "source_record_index": 2,
+          "source_record_sha256": "0ad50c0d45b1f4299ba4a513afa1b4cacd4af9a4a73e834c7e98015417ebcd8a",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96af-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "402af0a3d70a3d71",
+          "source_record_index": 1,
+          "source_record_sha256": "68d20e9413d8ed8a1cb0c160daf66bd468cc840833c3fd8a512987ba2fbe0904",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e5-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40110a3d70a3d70a",
+          "source_record_index": 120,
+          "source_record_sha256": "e724f84914e6a1fcd5826336b2a0df50364eeb2c2030020f881741dba0b2d5c6",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e6-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40110a3d70a3d70a",
+          "source_record_index": 121,
+          "source_record_sha256": "ad40ac38b62301bed2eea9ed43c3145fc9fc8e444fa3f3ae625bebfaa5f96b9f",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e7-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40110a3d70a3d70a",
+          "source_record_index": 124,
+          "source_record_sha256": "dcd80f143e32de89ea667e1f1d730b9d3d945db606596ff1d70c8a99e00f5994",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e8-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40110a3d70a3d70a",
+          "source_record_index": 123,
+          "source_record_sha256": "48a39d9f49e33017ecc0bd27b94bc4dd308dbe0dc5669f2c607e096ad687bdc6",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e9-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40110a3d70a3d70a",
+          "source_record_index": 122,
+          "source_record_sha256": "b9e2d922a4729fe584c305878db548d349a0df5b99893b4fa7816a347f616476",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2a9-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "402af0a3d70a3d71",
+          "source_record_index": 0,
+          "source_record_sha256": "133046e573af784a122ed04ef0d083b75ea28e1c8a52cd73026621eee90622a5",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2aa-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "402af0a3d70a3d71",
+          "source_record_index": 508,
+          "source_record_sha256": "14d21aee68beae29a188c6721e44b774b1638c65cf2f73b5f25cc2932233886b",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "191b44d4-90c9-465a-8802-93a651b4fd52",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40110a3d70a3d70a",
+          "source_record_index": 314,
+          "source_record_sha256": "74c1d921d61414905263a521ce0a14d6aff055b71b0e7db5abc8a3582338d4c4",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "1c952836-ea05-43db-9063-0c5e1ee65fa8",
+          "flow_version": "01.02.004",
+          "direction": "OUTPUT",
+          "value_bits": "40110a3d70a3d70a",
+          "source_record_index": 312,
+          "source_record_sha256": "1a70cc3791bcbc7f285279bb0deccfb9b45cccb5d521fb4de66bb04c0369f79e",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2905c64e-6556-11dd-ad8b-0800200c9a66",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "402af0a3d70a3d71",
+          "source_record_index": 506,
+          "source_record_sha256": "b3ed378de8e3230c32f5ad38b1124effaee80998068aaa5e0eb04dfcd6b7315d",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2f89fbbd-e428-4de1-8c33-9dd66e53310c",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40110a3d70a3d70a",
+          "source_record_index": 310,
+          "source_record_sha256": "68c10e2a4705be564bd7a9f8f66ff6e6cb38164d9fda154d1c9bd195d8ddf4d4",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "e575ebc3-0a3b-4c38-9a2a-13e42c72553b",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40110a3d70a3d70a",
+          "source_record_index": 313,
+          "source_record_sha256": "79c98766aa98a47f78d2e44a73033919bb3e4245be9fb94d9703b8a61a14026d",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "f79d0f8f-2b0e-49cb-bed0-b1ea0fbd8625",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "40110a3d70a3d70a",
+          "source_record_index": 311,
+          "source_record_sha256": "be8bd5a9beffc8a2237175ca6422778d91f4f4298fed74dbc1d93e4ede0040f2",
+          "source_location": "",
+          "alternative_count": 37
+        }
+      ]
+    },
+    {
+      "method_id": "b5c619fa-def3-11e6-bf01-fe55135034f3",
+      "method_version": "02.00.010",
+      "artifact_locator_id": "b5c619fa-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c619fa-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "a681b4b9b2d853697e2e044719d43cb7eaa6b8e185af8b00bb277aa92e735301",
+      "factor_count": 590,
+      "default_count": 50,
+      "alternatives": [
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96ae-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb78d4fdf3b645a",
+          "source_record_index": 6,
+          "source_record_sha256": "a4b3213b0ebafe9d29d3d93bf590577465e4fdf19bdbc43fe1adc7cf44a36c48",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96af-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb78d4fdf3b645a",
+          "source_record_index": 4,
+          "source_record_sha256": "9fc7c4c1684e1a48628bd5cfb48f99be20dd69e06fe65ce0a7fe20c6a5edec2e",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e5-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fd8e5604189374c",
+          "source_record_index": 31,
+          "source_record_sha256": "0afd7473b0d3de69086e0d2ba73377d67dc202a67ca1c9b7cec65e2b76e212c2",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e6-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fd8e5604189374c",
+          "source_record_index": 32,
+          "source_record_sha256": "a5b2740ecda8172f38838c3f05ba77fb3a23ae85e12d1c05172c46c40648cc6d",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e7-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fd8e5604189374c",
+          "source_record_index": 35,
+          "source_record_sha256": "1b2bd07d9abd4506c669078cc06393d835bddaac2c6ec24197e2d1384248a1a5",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e8-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fd8e5604189374c",
+          "source_record_index": 34,
+          "source_record_sha256": "43e2daad85a462819b2b03eff0e57164353cfd55388a4ec5b53867f7d74cdb96",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96e9-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fd8e5604189374c",
+          "source_record_index": 33,
+          "source_record_sha256": "42ee03390d16a8169c1648ef6411b1c821bf83d64072cce0fe8d0bb759606e6d",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2a9-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb78d4fdf3b645a",
+          "source_record_index": 0,
+          "source_record_sha256": "1326faa6097d004075bcb3e0f73592e93decb212d8723ca1d99d7601abb3cf58",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2aa-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb78d4fdf3b645a",
+          "source_record_index": 1,
+          "source_record_sha256": "d204ee9cbc0369f62c784f4961ac377dcaa5d29e2f6b0dec049fb3a448667d03",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "191b44d4-90c9-465a-8802-93a651b4fd52",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fd8e5604189374c",
+          "source_record_index": 48,
+          "source_record_sha256": "24fc1cd5dac104924d69876642f053d03b5d4c74844a92863ad839189f011245",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "1c952836-ea05-43db-9063-0c5e1ee65fa8",
+          "flow_version": "01.02.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fd8e5604189374c",
+          "source_record_index": 46,
+          "source_record_sha256": "1b7659f8ca449aba73213bc61358859b861b9a43af9338b63cd8c858fb7c45f8",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2905c64e-6556-11dd-ad8b-0800200c9a66",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fb78d4fdf3b645a",
+          "source_record_index": 3,
+          "source_record_sha256": "a2ca6efb9884c29d94d4d68cdcdffe48eb1a7eb289326433727ae7624b68a3e0",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2f89fbbd-e428-4de1-8c33-9dd66e53310c",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fd8e5604189374c",
+          "source_record_index": 49,
+          "source_record_sha256": "dce75cb607f2c8049ed66ce8dfa36855568d9ab7fb3697d00e6fb096cfb20d63",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "e575ebc3-0a3b-4c38-9a2a-13e42c72553b",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fd8e5604189374c",
+          "source_record_index": 47,
+          "source_record_sha256": "3c0242afe844d74cd4748f8210d42d64d99df20464bac1fad5328ebdc90a5959",
+          "source_location": null,
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "f79d0f8f-2b0e-49cb-bed0-b1ea0fbd8625",
+          "flow_version": "01.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "3fd8e5604189374c",
+          "source_record_index": 45,
+          "source_record_sha256": "c2580a0f3c0dfe257c03dd4eb8e91df7be4042cc7d7d9913d20d7642c7ca7fcd",
+          "source_location": null,
+          "alternative_count": 37
+        }
+      ]
+    },
+    {
+      "method_id": "b5c629d6-def3-11e6-bf01-fe55135034f3",
+      "method_version": "02.00.012",
+      "artifact_locator_id": "b5c629d6-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c629d6-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "e64477a1b282ce934a9fbeb456601589fca88c3d160289dc9680d4f1d261ead4",
+      "factor_count": 124,
+      "default_count": 124,
+      "alternatives": []
+    },
+    {
+      "method_id": "b5c632be-def3-11e6-bf01-fe55135034f3",
+      "method_version": "01.00.011",
+      "artifact_locator_id": "b5c632be-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c632be-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "69f7a44f3e0682e11c882d77936b5f8f79951795ac775e3e99ea975e14e7c59e",
+      "factor_count": 189,
+      "default_count": 189,
+      "alternatives": []
+    },
+    {
+      "method_id": "dacd48b5-4da5-49aa-aff4-cd5f5495c037",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "dacd48b5-4da5-49aa-aff4-cd5f5495c037",
+      "source_path": "tiangong_lca_data/lciamethods/dacd48b5-4da5-49aa-aff4-cd5f5495c037.xml",
+      "source_xml_sha256": "6ddbbb5a67a33caa8cbd3f6d7dc46bdce71e98830bcc73d6596a2f3b250ef26d",
+      "factor_count": 6198,
+      "default_count": 6018,
+      "alternatives": [
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96ae-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "406312e147ae147b",
+          "source_record_index": 2283,
+          "source_record_sha256": "b7174763295dbaa11c0ae1fa64b7286d1018727d0bb2dc4ea3e9034dc12bdf88",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-96af-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "405d100000000000",
+          "source_record_index": 4276,
+          "source_record_sha256": "6258696073cfea848744b5340aad99774e4b4f832d5c43f97f6fe71deb5818ff",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2a9-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "4060cd70a3d70a3d",
+          "source_record_index": 5039,
+          "source_record_sha256": "8702c197e738dea1e2a0f0dca5999a2a9085ef01bcbecd7c1693fe8db701a2f5",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "08a91e70-3ddc-11dd-a2aa-0050c2490048",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "0000000000000000",
+          "source_record_index": 659,
+          "source_record_sha256": "9622960494b6f977f3e3e6d9b95257bbbbf02cd23123e6c0e8ca858ef5b435ba",
+          "source_location": "",
+          "alternative_count": 37
+        },
+        {
+          "flow_id": "2905c64e-6556-11dd-ad8b-0800200c9a66",
+          "flow_version": "03.00.004",
+          "direction": "OUTPUT",
+          "value_bits": "405d100000000000",
+          "source_record_index": 4955,
+          "source_record_sha256": "ee68428cf5fd53d4b71639271ca09ab16b691fab608caa7dfced5ce10699766f",
+          "source_location": "",
+          "alternative_count": 37
+        }
+      ]
+    },
+    {
+      "method_id": "fd530f00-9325-424a-92ef-aaac67922fd9",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "fd530f00-9325-424a-92ef-aaac67922fd9",
+      "source_path": "tiangong_lca_data/lciamethods/fd530f00-9325-424a-92ef-aaac67922fd9.xml",
+      "source_xml_sha256": "9a5a23ee80ff03a673d5aa626db693a6a7554192495103bb553f0ef90d9b914a",
+      "factor_count": 73151,
+      "default_count": 73151,
+      "alternatives": []
+    }
+  ]
+}

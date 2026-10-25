@@ -25,9 +25,9 @@ checkPaths:
   - crates/solver-worker/src/worker_jobs.rs
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-10-16
-lastReviewedCommit: 3abc6502b0582448a562c4263e63215196eb184a
-lastReviewedNote: "Reviewed for Worker #320 phase one: independent immutable-bundle export jobs, default Parquet, bounded compressed CSV and terminal polling protection. Existing authorization, numerical, lease and production boundaries remain; validation results belong to the linked Issues and PRs."
+lastReviewedAt: 2026-10-25
+lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
+lastReviewedNote: "Worker #339: calculation semantics and descriptor ownership remain in Worker; pinned requests and artifact reuse validate opaque identity while historical evidence, provider rules and data-quality policy remain independent."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml
@@ -56,7 +56,7 @@ The Worker derives the projection only while materializing the same verified Cal
 - Localized Method names use the shared canonical `LCIAMethodInformation.dataSetInformation.common:name` reader with retained legacy aliases. Snapshot selection chooses a readable English-first label; Portal preserves the full localized value and still requires the certified name to occur in it. Result-unit labels retain method-specific equivalents rather than the referenced property's generic physical unit.
 - Values are streamed from the locally produced, compressed LCIA shards after compressed and uncompressed byte-size, SHA-256, record-count, range, and Cartesian-order verification.
 - Process and Method document SHA-256 values come from the immutable snapshot source closure, never mutable solve-time database reads.
-- Artifact binding includes input manifest, closure certificate, numerical snapshot, closure bundle, snapshot index/build contract, Calculation Bundle content/manifest, LCIA chunk set, result artifact, and query artifact hashes. Before any V3 preparation, the reused numerical snapshot must also declare the current global numerical-policy marker (`numerical_policy_version = public-numerical-state-100-excluding-result-120:v1`) in its artifact config: the binding hashes above prove the exact frozen evidence, while the marker proves the artifact was built under the current public numerical eligibility policy. A snapshot written before the marker existed fails closed for V3 rather than being silently re-executed.
+- Artifact binding includes input manifest, closure certificate, numerical snapshot, closure bundle, snapshot index/build contract, Calculation Bundle content/manifest, LCIA chunk set, result artifact, and query artifact hashes. Before any V3 preparation, the reused numerical snapshot must also declare the current global numerical-policy marker (`numerical_policy_version = public-numerical-state-100-excluding-result-120:v1`) in its artifact config: the binding hashes above prove the exact frozen evidence, while the marker proves the artifact was built under the current public numerical eligibility policy. A snapshot written before the marker existed fails closed for V3 rather than being silently re-executed. Re-execution also requires the Worker-owned calculation identity described in the [Scope Closure contract](../../scope-closure-contract.md#calculation-implementation-identity); historical published projections remain immutable.
 
 A missing functional unit, reference Flow, geography, reference year, Method name, unit, source document, grid cell, or exact identity fails the V3 package build. Missing numerical values are never converted to zero; an explicit finite zero remains the canonical string `"0"`.
 

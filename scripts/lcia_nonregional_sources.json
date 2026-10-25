@@ -1,0 +1,209 @@
+{
+  "source_repository": "tiangong-lca/data",
+  "source_commit": "367642d7994e0e75188e7e241fb2a4b85ffff62f",
+  "static_bundle_manifest_sha256": "e9b4e7f9a5125bb921efbffba9a4b50711f9ea982e22b500f35211884a0479c5",
+  "static_factor_manifest_sha256": "40ffd33323c9882dbd0b0d9c99982bad1752e311062231bcf1f490ee96f92e96",
+  "reused_from": "tiangong-lca/worker#340@758e484eb5bf13fd8001b9e31ce2dcc4423c05db",
+  "methods": [
+    {
+      "method_id": "01500b74-7ffb-463e-9bd4-72f17c2263ff",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "01500b74-7ffb-463e-9bd4-72f17c2263ff",
+      "source_path": "tiangong_lca_data/lciamethods/01500b74-7ffb-463e-9bd4-72f17c2263ff.xml",
+      "source_xml_sha256": "537c9e6a898c67e2d803991a3de9507f2ec4756bcbe5b60a211b75687a331a23",
+      "factor_count": 398
+    },
+    {
+      "method_id": "05316e7a-b254-4bea-9cf0-6bf33eb5c630",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "05316e7a-b254-4bea-9cf0-6bf33eb5c630",
+      "source_path": "tiangong_lca_data/lciamethods/05316e7a-b254-4bea-9cf0-6bf33eb5c630.xml",
+      "source_xml_sha256": "252fe760308a14b647ba2a32e8e056f9d8434235be9f1bf3b0d452afe4548cd4",
+      "factor_count": 79349
+    },
+    {
+      "method_id": "14af9ca7-aa1d-4832-b1d9-ab05a06dcb12",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "14af9ca7-aa1d-4832-b1d9-ab05a06dcb12",
+      "source_path": "tiangong_lca_data/lciamethods/14af9ca7-aa1d-4832-b1d9-ab05a06dcb12.xml",
+      "source_xml_sha256": "f184b2f418e69aa51df17f4741674c82ff98c486d78450097140fb6e863ffe4a",
+      "factor_count": 12
+    },
+    {
+      "method_id": "2299222a-bbd8-474f-9d4f-4dd1f18aea7c",
+      "method_version": "01.01.000",
+      "artifact_locator_id": "2299222a-bbd8-474f-9d4f-4dd1f18aea7c",
+      "source_path": "tiangong_lca_data/lciamethods/2299222a-bbd8-474f-9d4f-4dd1f18aea7c.xml",
+      "source_xml_sha256": "f8f23807aa68f005c4dacae10aff931c568e8a74a4faad6717438b2d2c20dc35",
+      "factor_count": 13717
+    },
+    {
+      "method_id": "503699e0-eca9-4089-8bf8-e0f49c93e578",
+      "method_version": "01.01.000",
+      "artifact_locator_id": "9ec743ea-6b00-400d-a53b-61547a3fc03c",
+      "source_path": "tiangong_lca_data/lciamethods/9ec743ea-6b00-400d-a53b-61547a3fc03c.xml",
+      "source_xml_sha256": "84203510df0a0700e385cd1b08288859bff79d0127df02edb3b26882145d33c2",
+      "factor_count": 13319
+    },
+    {
+      "method_id": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+      "source_path": "tiangong_lca_data/lciamethods/6209b35f-9447-40b5-b68c-a1099e3674a0.xml",
+      "source_xml_sha256": "c0fe31d3c045ae85b64bd85a3bfa41e1f246d664e8f8d463005f37dee003a5a8",
+      "factor_count": 1099
+    },
+    {
+      "method_id": "706261af-a357-4cc0-a50a-f3033fcbd556",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "706261af-a357-4cc0-a50a-f3033fcbd556",
+      "source_path": "tiangong_lca_data/lciamethods/706261af-a357-4cc0-a50a-f3033fcbd556.xml",
+      "source_xml_sha256": "a3d8a39e8e0bacfe7f2877b2bf1886cb733b4124cddaf362a0a5e285311878e1",
+      "factor_count": 13
+    },
+    {
+      "method_id": "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8",
+      "source_path": "tiangong_lca_data/lciamethods/7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8.xml",
+      "source_xml_sha256": "d932a60f1615945df21b823f19321d80427a6eadb1b3e816f40153726b39993f",
+      "factor_count": 43816
+    },
+    {
+      "method_id": "7fce5b3a-66b8-4ce1-91e8-a925aee1f186",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "7fce5b3a-66b8-4ce1-91e8-a925aee1f186",
+      "source_path": "tiangong_lca_data/lciamethods/7fce5b3a-66b8-4ce1-91e8-a925aee1f186.xml",
+      "source_xml_sha256": "7925c8ad33f804723fee7a808d8bf98c8ecdca9b47a5d6f732e415137ac58991",
+      "factor_count": 1074
+    },
+    {
+      "method_id": "8c3141e9-1f15-43b5-bff2-182e49893a46",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "8c3141e9-1f15-43b5-bff2-182e49893a46",
+      "source_path": "tiangong_lca_data/lciamethods/8c3141e9-1f15-43b5-bff2-182e49893a46.xml",
+      "source_xml_sha256": "51caa1ad49ac65822714fca432c34ec032c90101afca6cdaeccfec3ab50e10e7",
+      "factor_count": 39499
+    },
+    {
+      "method_id": "9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85",
+      "source_path": "tiangong_lca_data/lciamethods/9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85.xml",
+      "source_xml_sha256": "fee7f45542a256f03faa73b406da8d40e7042be4c3719f24e0f0fdb55feace98",
+      "factor_count": 4317
+    },
+    {
+      "method_id": "b2ad6110-c78d-11e6-9d9d-cec0c932ce01",
+      "method_version": "01.00.010",
+      "artifact_locator_id": "b2ad6110-c78d-11e6-9d9d-cec0c932ce01",
+      "source_path": "tiangong_lca_data/lciamethods/b2ad6110-c78d-11e6-9d9d-cec0c932ce01.xml",
+      "source_xml_sha256": "d9b4f8480a8e916e37b1403fc70e68241edbe71098e26cadc41e5f5caaa9fb93",
+      "factor_count": 6
+    },
+    {
+      "method_id": "b2ad6494-c78d-11e6-9d9d-cec0c932ce01",
+      "method_version": "01.00.010",
+      "artifact_locator_id": "b2ad6494-c78d-11e6-9d9d-cec0c932ce01",
+      "source_path": "tiangong_lca_data/lciamethods/b2ad6494-c78d-11e6-9d9d-cec0c932ce01.xml",
+      "source_xml_sha256": "903dc1764187342f518c5fc00e6519cd0082cfe207569592f77adadb18568b06",
+      "factor_count": 48
+    },
+    {
+      "method_id": "b2ad66ce-c78d-11e6-9d9d-cec0c932ce01",
+      "method_version": "03.00.014",
+      "artifact_locator_id": "b2ad66ce-c78d-11e6-9d9d-cec0c932ce01",
+      "source_path": "tiangong_lca_data/lciamethods/b2ad66ce-c78d-11e6-9d9d-cec0c932ce01.xml",
+      "source_xml_sha256": "f06fec854a386ecd9c2d6b2de3d735b341b9f5ac68990764a3e1fd84e91268d2",
+      "factor_count": 2310
+    },
+    {
+      "method_id": "b2ad6890-c78d-11e6-9d9d-cec0c932ce01",
+      "method_version": "01.00.010",
+      "artifact_locator_id": "b2ad6890-c78d-11e6-9d9d-cec0c932ce01",
+      "source_path": "tiangong_lca_data/lciamethods/b2ad6890-c78d-11e6-9d9d-cec0c932ce01.xml",
+      "source_xml_sha256": "94f959328235d7d68b6febea36810ab29104a14f1a1be57ae9e61c58ccb47149",
+      "factor_count": 36423
+    },
+    {
+      "method_id": "b53ec18f-7377-4ad3-86eb-cc3f4f276b2b",
+      "method_version": "01.00.010",
+      "artifact_locator_id": "b53ec18f-7377-4ad3-86eb-cc3f4f276b2b",
+      "source_path": "tiangong_lca_data/lciamethods/b53ec18f-7377-4ad3-86eb-cc3f4f276b2b.xml",
+      "source_xml_sha256": "15eff61b234c7564bbd41b6dd40ed0dc6dfc0d5c1704f89d143f3dc90e82d523",
+      "factor_count": 29
+    },
+    {
+      "method_id": "b5c602c6-def3-11e6-bf01-fe55135034f3",
+      "method_version": "02.00.011",
+      "artifact_locator_id": "b5c602c6-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c602c6-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "8c2168e142ac2c46d49e3f3265d1d252256f7c8cb63970f30350dcce2307f332",
+      "factor_count": 983
+    },
+    {
+      "method_id": "b5c610fe-def3-11e6-bf01-fe55135034f3",
+      "method_version": "02.01.000",
+      "artifact_locator_id": "b5c610fe-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c610fe-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "273c43df66bfd12f7884e1c3e19d23daade5af5b96bd1d7c68802d87f7755f4a",
+      "factor_count": 1401
+    },
+    {
+      "method_id": "b5c611c6-def3-11e6-bf01-fe55135034f3",
+      "method_version": "01.04.000",
+      "artifact_locator_id": "b5c611c6-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c611c6-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "1a09e9e8533cc6f1027f260c2672ca6f8dd231618fe81939ed1fc22d5e066f8f",
+      "factor_count": 935
+    },
+    {
+      "method_id": "b5c614d2-def3-11e6-bf01-fe55135034f3",
+      "method_version": "01.02.009",
+      "artifact_locator_id": "b5c614d2-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c614d2-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "72f1187a0682e186bdedf74f60fe99a1e1dafa7469141af74dfe4ea21c296992",
+      "factor_count": 575
+    },
+    {
+      "method_id": "b5c619fa-def3-11e6-bf01-fe55135034f3",
+      "method_version": "02.00.010",
+      "artifact_locator_id": "b5c619fa-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c619fa-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "a681b4b9b2d853697e2e044719d43cb7eaa6b8e185af8b00bb277aa92e735301",
+      "factor_count": 590
+    },
+    {
+      "method_id": "b5c629d6-def3-11e6-bf01-fe55135034f3",
+      "method_version": "02.00.012",
+      "artifact_locator_id": "b5c629d6-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c629d6-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "e64477a1b282ce934a9fbeb456601589fca88c3d160289dc9680d4f1d261ead4",
+      "factor_count": 124
+    },
+    {
+      "method_id": "b5c632be-def3-11e6-bf01-fe55135034f3",
+      "method_version": "01.00.011",
+      "artifact_locator_id": "b5c632be-def3-11e6-bf01-fe55135034f3",
+      "source_path": "tiangong_lca_data/lciamethods/b5c632be-def3-11e6-bf01-fe55135034f3.xml",
+      "source_xml_sha256": "69f7a44f3e0682e11c882d77936b5f8f79951795ac775e3e99ea975e14e7c59e",
+      "factor_count": 189
+    },
+    {
+      "method_id": "dacd48b5-4da5-49aa-aff4-cd5f5495c037",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "dacd48b5-4da5-49aa-aff4-cd5f5495c037",
+      "source_path": "tiangong_lca_data/lciamethods/dacd48b5-4da5-49aa-aff4-cd5f5495c037.xml",
+      "source_xml_sha256": "6ddbbb5a67a33caa8cbd3f6d7dc46bdce71e98830bcc73d6596a2f3b250ef26d",
+      "factor_count": 6198
+    },
+    {
+      "method_id": "fd530f00-9325-424a-92ef-aaac67922fd9",
+      "method_version": "01.00.000",
+      "artifact_locator_id": "fd530f00-9325-424a-92ef-aaac67922fd9",
+      "source_path": "tiangong_lca_data/lciamethods/fd530f00-9325-424a-92ef-aaac67922fd9.xml",
+      "source_xml_sha256": "9a5a23ee80ff03a673d5aa626db693a6a7554192495103bb553f0ef90d9b914a",
+      "factor_count": 73151
+    }
+  ]
+}

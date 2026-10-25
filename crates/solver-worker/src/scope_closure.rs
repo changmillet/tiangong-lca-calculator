@@ -401,6 +401,8 @@ pub struct ScopeClosureWorkerInput {
     pub publication_epoch: i64,
     pub expected_validator_scanner_fingerprint: String,
     pub request_fingerprint: String,
+    #[serde(default)]
+    pub calculation_fingerprint: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1762,6 +1764,11 @@ pub async fn load_scope_closure_worker_input(
 
 #[allow(clippy::too_many_lines)]
 pub fn validate_worker_input(input: &ScopeClosureWorkerInput) -> anyhow::Result<()> {
+    // Pre-activation requests retain legacy decoding. Once pinned, execution may never substitute
+    // another implementation, including when a completed scan would otherwise be coalesced.
+    if let Some(fingerprint) = input.calculation_fingerprint.as_deref() {
+        crate::calculation_contract::ensure_current(Some(fingerprint))?;
+    }
     let snapshot = parse_data_snapshot_manifest(&input.data_snapshot_manifest)?;
     if input
         .requested_scope
@@ -10533,7 +10540,23 @@ mod tests {
             publication_epoch: 1,
             expected_validator_scanner_fingerprint: "scope-closure-validator-scanner.v1".to_owned(),
             request_fingerprint: "5".repeat(64),
+            calculation_fingerprint: Some(crate::calculation_contract::fingerprint().to_owned()),
         }
+    }
+
+    #[test]
+    fn scope_closure_refuses_a_different_pinned_implementation_before_reuse() {
+        let mut input = validated_worker_input("cutoff");
+        validate_worker_input(&input).unwrap();
+        input.calculation_fingerprint = Some("retired".to_owned());
+        assert!(
+            validate_worker_input(&input)
+                .unwrap_err()
+                .to_string()
+                .contains("calculation_contract_mismatch")
+        );
+        input.calculation_fingerprint = None;
+        validate_worker_input(&input).unwrap();
     }
 
     #[test]

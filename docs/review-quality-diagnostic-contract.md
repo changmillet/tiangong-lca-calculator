@@ -28,9 +28,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-10-12
-lastReviewedCommit: c6558afa865feaf3b34c862896f500dc77b4ae2c
-lastReviewedNote: "Reviewed Worker #318 and equivalent Duration constructors in existing lease tests for Rust 1.95 Clippy. Queue selection, heartbeat timing, lease fencing, handler and review semantics are unchanged."
+lastReviewedAt: 2026-10-25
+lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
+lastReviewedNote: "Worker #339: calculation semantics and descriptor ownership remain in Worker; pinned requests and artifact reuse validate opaque identity while historical evidence, provider rules and data-quality policy remain independent."
 related:
   - AGENTS.md
   - .docpact/config.yaml
