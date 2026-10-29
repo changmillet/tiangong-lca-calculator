@@ -42,7 +42,7 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-29
-lastReviewedCommit: 48718235ba0af97b38f8ec09cba6815ddcf93843
+lastReviewedCommit: d62b924d9f62d33a6b4c28b7e2a71656d9386c91
 lastReviewedNote: "Worker #315: reviewed bounded claim transport, uncertain-commit reconciliation, unchanged handler fencing and isolated PostgreSQL fault proof."
 related:
   - ../../AGENTS.md
@@ -80,7 +80,7 @@ own uniquely named synthetic database; it requires PostgreSQL client tools and
 an isolated local server accepting the `postgres` user. CI runs this gate against
 PostgreSQL 17. The real TCP proxy covers a lost claim response, lost COMMIT
 acknowledgement, delayed COMMIT across multiple reconciliation deadlines,
-COMMIT rollback, caller cancellation, saturated-pool acquisition, lease expiry
+COMMIT rollback, connection-return ping loss, caller cancellation, saturated-pool acquisition, lease expiry
 and replacement, one-attempt recovery, and preservation of another checked-out
 connection. The ordinary unit suite marks this infrastructure test ignored; the
 explicit CI gate must run it. It does not prove hosted-pooler deployment.

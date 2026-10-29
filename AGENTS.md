@@ -43,7 +43,7 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-29
-lastReviewedCommit: 48718235ba0af97b38f8ec09cba6815ddcf93843
+lastReviewedCommit: d62b924d9f62d33a6b4c28b7e2a71656d9386c91
 lastReviewedNote: "Worker #315: reviewed bounded claim transport, uncertain-commit reconciliation, unchanged handler fencing and isolated PostgreSQL fault proof."
 related:
   - .docpact/config.yaml

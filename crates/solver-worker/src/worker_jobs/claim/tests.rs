@@ -28,6 +28,7 @@ enum Fault {
     CommitResponse,
     DelayedCommit,
     CommitRollback,
+    ReleaseResponse,
 }
 
 struct Proxy {
@@ -61,6 +62,7 @@ async fn proxy(upstream_port: u16, fault: Fault) -> Proxy {
                     cr.read_exact(&mut startup).await?;
                     sw.write_u32(size).await?;
                     sw.write_all(&startup).await?;
+                    let mut committed = false;
                     loop {
                         let tag = cr.read_u8().await?;
                         let size = cr.read_u32().await?;
@@ -73,8 +75,13 @@ async fn proxy(upstream_port: u16, fault: Fault) -> Proxy {
                                 Fault::CommitResponse
                                 | Fault::DelayedCommit
                                 | Fault::CommitRollback => query.starts_with("COMMIT"),
-                                Fault::None => false,
+                                Fault::None | Fault::ReleaseResponse => false,
                             };
+                        let matches = matches
+                            || (fault == Fault::ReleaseResponse && committed && tag == b'S');
+                        if tag == b'Q' && query.starts_with("COMMIT") {
+                            committed = true;
+                        }
                         if matches && armed.swap(false, Ordering::SeqCst) {
                             if fault == Fault::CommitRollback {
                                 return Ok(());
@@ -195,6 +202,7 @@ async fn postgres_fault_recovery() {
         Fault::CommitResponse,
         Fault::DelayedCommit,
         Fault::CommitRollback,
+        Fault::ReleaseResponse,
     ] {
         raw_query("TRUNCATE private.worker_jobs")
             .execute(&direct)

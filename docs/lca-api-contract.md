@@ -26,7 +26,7 @@ checkPaths:
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: 2026-10-29
-lastReviewedCommit: 48718235ba0af97b38f8ec09cba6815ddcf93843
+lastReviewedCommit: d62b924d9f62d33a6b4c28b7e2a71656d9386c91
 lastReviewedNote: "Worker #315: reviewed bounded claim transport, uncertain-commit reconciliation, unchanged handler fencing and isolated PostgreSQL fault proof."
 related:
   - AGENTS.md
@@ -573,7 +573,9 @@ All `claim_worker_jobs` consumers (including package, solver, AI, review and
 maintenance workers) use the same simple-protocol transaction path. Pool
 acquisition and each response have separate 30-second deadlines. An interrupted
 connection is detached and closed, releasing only its pool slot; active work and
-other pooled connections are preserved. Acquisition and response errors carry
+other pooled connections are preserved. SQLx's connection-return ping also has a
+30-second deadline; cancellation releases its pool slot without losing an
+already-confirmed claim. Acquisition and response errors carry
 `worker_claim_acquire_*` and `worker_claim_response_*` context respectively.
 
 The claim RPC runs inside an explicit READ COMMITTED transaction with LOCAL

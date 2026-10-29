@@ -43,9 +43,17 @@ impl ClaimConnection {
         self.0.as_mut().expect("claim connection already released")
     }
 
-    fn release(mut self) {
-        // Only after consuming ReadyForQuery for a successful COMMIT.
-        drop(self.0.take());
+    async fn release(mut self, deadlines: ClaimDeadlines) {
+        // SQLx 0.8.6 also pings on return. Its public return_to_pool future owns
+        // the socket and pool-size guard, so cancelling it closes the socket
+        // and frees capacity. Plain Drop would spawn an unbounded ping instead.
+        let mut connection = self.0.take().expect("claim connection already released");
+        if timeout(deadlines.response, connection.return_to_pool())
+            .await
+            .is_err()
+        {
+            warn!(phase = "release", "worker_claim_release_timeout");
+        }
     }
 }
 
@@ -126,7 +134,7 @@ async fn claim(
     .await
     {
         Ok(Ok(_)) => {
-            connection.release();
+            connection.release(deadlines).await;
             Ok(jobs)
         }
         outcome => {
@@ -213,7 +221,7 @@ async fn reconcile(
     )
     .await
     .context("worker_claim_reconcile_commit_timeout")??;
-    connection.release();
+    connection.release(deadlines).await;
     Ok(recovered)
 }
 
