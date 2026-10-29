@@ -1,3 +1,7 @@
+mod claim;
+
+pub use claim::claim_worker_jobs;
+
 use std::{future::Future, time::Duration};
 
 use serde::Deserialize;
@@ -356,36 +360,6 @@ where
             }
         }
     }
-}
-
-pub async fn claim_worker_jobs(
-    pool: &PgPool,
-    worker_queue: &str,
-    worker_id: &str,
-    limit: i32,
-    lease_seconds: i32,
-) -> anyhow::Result<Vec<WorkerJob>> {
-    let sql = format!(
-        r"
-        WITH _service_role AS (
-            SELECT set_config('request.jwt.claim.role', 'service_role', true)
-        )
-        SELECT private.worker_claim_jobs({}, {}, {}, {}) AS result
-        FROM _service_role
-        ",
-        sql_string_literal(worker_queue),
-        sql_string_literal(worker_id),
-        limit.clamp(1, 50),
-        lease_seconds.clamp(1, 86_400),
-    );
-    let row = sqlx::raw_query(&sql).fetch_one(pool).await?;
-    let result = row.try_get::<Value, _>("result")?;
-    ensure_ok(&result, "worker_claim_jobs")?;
-
-    result.get("data").and_then(Value::as_array).map_or_else(
-        || Ok(Vec::new()),
-        |items| items.iter().map(WorkerJob::from_json).collect(),
-    )
 }
 
 pub async fn heartbeat_worker_job(
