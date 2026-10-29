@@ -24,9 +24,9 @@ checkPaths:
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/signed_flow.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-10-25
-lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
-lastReviewedNote: "Worker #339: reviewed nonregional source-default selection, exact Flow versions, legacy replay and additive snapshot metadata; provider, closure admission, package, publication and review policies are unchanged."
+lastReviewedAt: 2026-10-29
+lastReviewedCommit: 48718235ba0af97b38f8ec09cba6815ddcf93843
+lastReviewedNote: "Reviewed Worker #345: bilingual provider-linking purpose, same-model supplier intent and study applicability; runtime contract cross-reference added. Routing, ownership and validation requirements are unchanged."
 related:
   - AGENTS.md
   - docs/agents/repo-architecture.md
@@ -38,6 +38,14 @@ related:
 # Implicit Regional Supply Mix Modeling
 
 This document explains where regional supply-mix routing sits in the signed-flow linker. `docs/provider-linking.md` is the runtime contract.
+
+## Design purpose and applicability
+
+TianGong uses provider linking to automatically construct a calculable product system from available data. Default linking rules select eligible supplier candidates and determine their shares so that existing process data can form matrix connections. Whether the system can be closed still depends on data availability and the explicit boundary policy.
+
+When the required supplier process data are available, data providers can organize related processes within the same Lifecycle Model to express their chosen internal supplier candidates. After candidates pass numerical eligibility, flow matching, sign and Lifecycle Model lineage checks, the default rule gives priority to eligible candidates sharing the same `model_id`. If no same-model candidates exist, it selects from the wider eligible data. Multiple eligible candidates within the model remain subject to supply-region, geography-tier and annual-volume selection and splitting. Model organization therefore expresses a supplier candidate scope; it does not itself specify a unique supplier for each exchange or arbitrary mix weights.
+
+This mechanism supports both data providers' modeling choices and automatic linking using the existing database. Default linking is constrained by available data and the matching strategy. Its connections and calculation results do not automatically satisfy a particular study's year, technology or other representativeness requirements. Researchers should check the selected supplier processes and their shares against the study goal and, where needed, express their intent through model organization and supplier data selection. For example, a study intended to represent 2019 should check whether automatic linking uses supplier data from other years; successful linking alone does not establish temporal representativeness.
 
 ## Definition
 
