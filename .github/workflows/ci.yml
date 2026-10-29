@@ -9,6 +9,18 @@ on:
 jobs:
   rust:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v7
       - name: Native cache identity tests
@@ -16,7 +28,7 @@ jobs:
       - name: Manual validation target tests
         run: python3 -m unittest scripts/test_validate_lcia_targets.py
       - name: Install SuiteSparse dependencies
-        run: sudo apt-get update && sudo apt-get install -y libsuitesparse-dev libopenblas-dev liblapack-dev pkg-config
+        run: sudo apt-get update && sudo apt-get install -y libsuitesparse-dev libopenblas-dev liblapack-dev pkg-config postgresql-client
       - name: Fingerprint installed native environment
         id: native
         run: python3 scripts/ci_native_fingerprint.py >> "$GITHUB_OUTPUT"
@@ -40,3 +52,7 @@ jobs:
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: Test
         run: cargo test --workspace --all-features
+      - name: Queue transport fault recovery
+        env:
+          WORKER_CLAIM_TEST_PORT: "5432"
+        run: ./scripts/test_worker_claim_recovery.sh

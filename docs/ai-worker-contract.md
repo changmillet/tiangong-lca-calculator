@@ -23,9 +23,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-architecture.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-10-12
-lastReviewedCommit: c6558afa865feaf3b34c862896f500dc77b4ae2c
-lastReviewedNote: "Reviewed Worker #318 and equivalent Duration constructors in existing lease tests for Rust 1.95 Clippy. Queue selection, heartbeat timing, lease fencing, handler and review semantics are unchanged."
+lastReviewedAt: 2026-10-29
+lastReviewedCommit: 68b34422dd1384be11bddb5823c325f54e43c5a7
+lastReviewedNote: "Worker #315: reviewed bounded claim transport, uncertain-commit reconciliation, unchanged handler fencing and isolated PostgreSQL fault proof."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -177,3 +177,5 @@ terminal write 使用现有同 lease token 幂等重试边界。
 队列级 claim 数量与 handler 内模型并发是两个不同限制。部署时应从小的
 `AI_WORKER_CLAIM_LIMIT` 和 `AI_MAX_CONCURRENCY` 开始，根据 provider rate limit 与 DB
 连接预算分别调整。
+
+共享领取连接超时、未确认提交核对与重连规则见 [共享任务契约](lca-api-contract.md#shared-worker-job-claim-transport)。handler 的 heartbeat 和 result fencing 规则保持不变。

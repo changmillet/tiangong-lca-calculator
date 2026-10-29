@@ -43,8 +43,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-29
-lastReviewedCommit: 48718235ba0af97b38f8ec09cba6815ddcf93843
-lastReviewedNote: "Reviewed Worker #345: bilingual provider-linking purpose, same-model supplier intent and study applicability; runtime contract cross-reference added. Routing, ownership and validation requirements are unchanged."
+lastReviewedCommit: "52f67da79911232ebaac3601a3abd656bd04eeae"
+lastReviewedNote: "Worker #345: reviewed documentation-only provider intent clarification against current main; retained Worker #315 bounded claim transport, reconciliation, handler fencing and validation guidance. Conflict resolution changes review metadata only."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md

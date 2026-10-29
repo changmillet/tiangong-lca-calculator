@@ -37,8 +37,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-29
-lastReviewedCommit: 48718235ba0af97b38f8ec09cba6815ddcf93843
-lastReviewedNote: "Reviewed Worker #345: bilingual provider-linking purpose, same-model supplier intent and study applicability; runtime contract cross-reference added. Routing, ownership and validation requirements are unchanged."
+lastReviewedCommit: "52f67da79911232ebaac3601a3abd656bd04eeae"
+lastReviewedNote: "Worker #345: reviewed documentation-only provider intent clarification against current main; retained Worker #315 bounded claim transport, reconciliation, handler fencing and validation guidance. Conflict resolution changes review metadata only."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -133,6 +133,8 @@ The worker currently covers families such as:
 These flows belong to the worker runtime, not to the API repo.
 
 The main solver worker uses `SOLVER_QUEUE_BACKEND=worker-jobs`. It claims `private.worker_jobs` rows from `worker_queue=solver`, maps `job_kind=lca.*`, `job_kind=lcia_result.package_build`, and `job_kind=lcia.scope_closure_check` payloads back to internal `JobPayload` variants, heartbeats `phase/progress`, and records lease-fenced terminal results. Terminal failures use explicit retryable/non-retryable/unclassified disposition; pure lease renewal creates no event, while phase and 5%-bucket progress changes form the bounded event history. Its explicit multi-thread runtime preserves configured/available host parallelism while enforcing a two-thread minimum before AppState initialization; `TOKIO_WORKER_THREADS<2` or malformed values fail closed. Ordinary solve jobs link LCA domain rows and use `private.worker_record_job_result`; scope closure uses its V2 result or reuse-finalizer RPC because that same transaction persists issue provenance, evidence, certificate state, and the terminal Worker result. LCIA result package builds use `private.lca_results` plus `private.lca_latest_all_unit_results` as Worker-produced artifacts and then mark `private.lcia_result_packages` preview-ready through the database service-role command. Request V3 alone additionally derives a locator-free typed LCIA projection from the same frozen Calculation Bundle, writes it through lease-fenced Database RPCs, verifies the returned hashes/counts, and binds the exact projection ID/content hash into the package artifact manifest. The queue wraps that V3-only lazy package future in a separate periodic renewal task spanning authoritative readback through ready-marking; renewals preserve phase/progress/diagnostics, and an active renewal completes or reaches its timeout before work completion can return. V1/V2 do not enter either branch. The retired `lca_jobs` lifecycle and matrix-table fallback are not compatibility surfaces: selecting `SOLVER_QUEUE_BACKEND=pgmq` or encountering a snapshot without a ready artifact fails closed. The independent `pgmq` extension remains available to unrelated consumers.
+
+The shared claim transport lives in `crates/solver-worker/src/worker_jobs/claim.rs`; it bounds acquisition/response waits, rolls back unseen claims and reconciles uncertain commits before polling again. See the shared claim contract in `docs/lca-api-contract.md`.
 
 ### Generic AI jobs
 

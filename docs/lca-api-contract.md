@@ -25,9 +25,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: 2026-10-25
-lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
-lastReviewedNote: "Worker #339: calculation semantics and descriptor ownership remain in Worker; pinned requests and artifact reuse validate opaque identity while historical evidence, provider rules and data-quality policy remain independent."
+lastReviewedAt: 2026-10-29
+lastReviewedCommit: 68b34422dd1384be11bddb5823c325f54e43c5a7
+lastReviewedNote: "Worker #315: reviewed bounded claim transport, uncertain-commit reconciliation, unchanged handler fencing and isolated PostgreSQL fault proof."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -565,3 +565,30 @@ Worker 重任务可使用共享 `worker.resource-profile.v1` primitive 声明并
 Package jobs retain the `tidas.import_package.result.v1` transport envelope and add a bounded `result.importResult` projection for list consumers. It carries the business outcome, execution completeness, allowlisted counts, and publication-time report availability; `completed` is an executor state, not proof of full import. Complete package coverage, including orphan records, determines the business outcome. Download requests revalidate current artifact access and expiry. The authoritative fields and outcome rules are in [the TIDAS package contract](tidas-package-contract.md#64-v2-过程模型引用链部分导入).
 
 TIDAS import completeness is mode-aware: a nonempty whole-package commit can succeed with zero process/model roots or zero new inserts when every identity already exists. The bounded importResult transport remains unchanged; reports own import_mode, the result-filter revision, ignored issue evidence and skip reasons. See docs/tidas-package-contract.md.
+
+
+### Shared worker-job claim transport
+
+All `claim_worker_jobs` consumers (including package, solver, AI, review and
+maintenance workers) use the same simple-protocol transaction path. Pool
+acquisition and each response have separate 30-second deadlines. An interrupted
+connection is detached and closed, releasing only its pool slot; active work and
+other pooled connections are preserved. SQLx's connection-return ping also has a
+30-second deadline; cancellation releases its pool slot without losing an
+already-confirmed claim. Acquisition and response errors carry
+`worker_claim_acquire_*` and `worker_claim_response_*` context respectively.
+
+The claim RPC runs inside an explicit READ COMMITTED transaction with LOCAL
+25-second statement and 30-second idle-in-transaction limits. The worker fully
+receives and decodes the claim before sending COMMIT. A lost or invalid claim
+response therefore rolls back and cannot consume an unseen lease/attempt.
+
+If COMMIT acknowledgement is lost, the worker retains the exact returned job IDs
+and lease tokens. Before another claim, it reconnects and locks those IDs to wait
+for the original transaction to settle, then returns only still-running,
+unexpired matching leases. Each reconciliation attempt is bounded and logged;
+failed attempts retry after one second without issuing another claim. This can
+wait through a database outage, while avoiding an indefinitely pending query.
+Existing heartbeat and result fencing still apply. Cancelling/shutting down the
+caller discards its socket; any already committed leases follow the existing
+server expiry/reclaim policy. No process-wide restart watchdog is introduced.
