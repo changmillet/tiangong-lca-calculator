@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-25
-lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
-lastReviewedNote: "Worker #339: calculation semantics and descriptor ownership remain in Worker; pinned requests and artifact reuse validate opaque identity while historical evidence, provider rules and data-quality policy remain independent."
+lastReviewedAt: 2026-10-29
+lastReviewedCommit: 68b34422dd1384be11bddb5823c325f54e43c5a7
+lastReviewedNote: "Worker #315: reviewed bounded claim transport, uncertain-commit reconciliation, unchanged handler fencing and isolated PostgreSQL fault proof."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md

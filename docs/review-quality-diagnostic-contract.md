@@ -28,9 +28,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-10-25
-lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
-lastReviewedNote: "Worker #339: calculation semantics and descriptor ownership remain in Worker; pinned requests and artifact reuse validate opaque identity while historical evidence, provider rules and data-quality policy remain independent."
+lastReviewedAt: 2026-10-29
+lastReviewedCommit: 68b34422dd1384be11bddb5823c325f54e43c5a7
+lastReviewedNote: "Worker #315: reviewed bounded claim transport, uncertain-commit reconciliation, unchanged handler fencing and isolated PostgreSQL fault proof."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -178,3 +178,5 @@ cargo fmt --all -- --check
 - factorization 失败返回 `completed + findings`；
 - DB/S3/进程启动故障返回 `failed`；
 - 所有结果均不修改 Review 状态。
+
+共享领取连接超时、未确认提交核对与重连规则见 [共享任务契约](lca-api-contract.md#shared-worker-job-claim-transport)。handler 的 heartbeat 和 result fencing 规则保持不变。
