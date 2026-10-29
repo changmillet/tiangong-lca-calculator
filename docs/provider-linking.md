@@ -22,9 +22,9 @@ checkPaths:
   - crates/solver-worker/src/bin/snapshot_builder.rs
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-10-25
-lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
-lastReviewedNote: "Worker #339: reviewed nonregional source-default selection, exact Flow versions, legacy replay and additive snapshot metadata; provider, closure admission, package, publication and review policies are unchanged."
+lastReviewedAt: 2026-10-29
+lastReviewedCommit: 48718235ba0af97b38f8ec09cba6815ddcf93843
+lastReviewedNote: "Reviewed Worker #345: bilingual provider-linking purpose, same-model supplier intent and study applicability; runtime contract cross-reference added. Routing, ownership and validation requirements are unchanged."
 related:
   - AGENTS.md
   - docs/implicit-regional-supply-mix-modeling.md
@@ -224,6 +224,8 @@ eligible same-flow opposite-sign reference ports
 这一步是硬过滤，不是权重加成。它发生在 geography tier selection 之前，因此同 model provider 子集存在时，不同 model provider 不会因为地理更近或 annual volume 更大而进入本条 input demand 的 provider mix。
 
 运行时这样处理的语义是：同一 `model_id` 内同时存在需求该 flow 的 consumer input 与供应该 flow 的 reference-output provider，表示模型已经在 product-flow 层面显式给出内部供应关系候选。这里的“显式”不是 exchange-level provider pointer，也不是现实交易证据；它表示 model 内部已经建模出可承担该 input demand 的供给侧 process。
+
+默认连接的设计目的、数据提供方通过模型组织表达供应选择的方式，以及结果相对于研究意图的适用边界，见建模说明的[设计目的与适用边界](implicit-regional-supply-mix-modeling.md#设计目的与适用边界)（[English](implicit-regional-supply-mix-modeling.en.md#design-purpose-and-applicability)）。
 
 ### 2. Supply-region anchor
 

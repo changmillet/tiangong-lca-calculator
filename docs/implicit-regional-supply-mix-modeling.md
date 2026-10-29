@@ -24,9 +24,9 @@ checkPaths:
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/signed_flow.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-10-25
-lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
-lastReviewedNote: "Worker #339: reviewed nonregional source-default selection, exact Flow versions, legacy replay and additive snapshot metadata; provider, closure admission, package, publication and review policies are unchanged."
+lastReviewedAt: 2026-10-29
+lastReviewedCommit: 48718235ba0af97b38f8ec09cba6815ddcf93843
+lastReviewedNote: "Reviewed Worker #345: bilingual provider-linking purpose, same-model supplier intent and study applicability; runtime contract cross-reference added. Routing, ownership and validation requirements are unchanged."
 related:
   - AGENTS.md
   - docs/agents/repo-architecture.md
@@ -39,6 +39,14 @@ related:
 # Implicit Regional Supply Mix Modeling
 
 本文说明 regional supply mix 在 signed-flow linker 中的建模位置。运行时精确合同以 `docs/provider-linking.md` 为准。
+
+## 设计目的与适用边界
+
+天工通过供应连接机制，在已有数据条件下自动构建可计算的产品系统。默认连接规则用于选择合格的供应候选并确定供应比例，使已有过程数据能够组成矩阵连接；能否闭合系统仍取决于数据可用性和明确的 boundary policy。
+
+当所需供应过程数据可用时，数据提供方可以在同一生命周期模型（model）中组织相关过程，表达其选定的内部供应候选关系。在候选通过数值资格、flow 匹配、符号和 Lifecycle Model lineage 检查后，默认规则优先采用同一 `model_id` 内的合格候选；没有同 model 候选时，再从更广的合格数据中选择。同 model 内存在多个合格候选时，仍按供应区域、地理层级和年产量继续筛选与分配。因此，模型内组织能够表达供应候选范围，但本身不等于逐条 exchange 指定唯一供应商或任意混合权重。
+
+这一机制既支持数据提供方表达建模选择，也支持利用已有数据库自动完成连接。默认连接受可用数据及匹配策略限制，所形成的连接和计算结果不自动保证符合特定研究的年份、技术或其他代表性要求。研究者应结合研究目标检查实际选中的供应过程及其比例，必要时通过模型组织和供应数据选择表达研究意图。比如研究要求代表 2019 年时，应检查自动连接是否使用了其他年份的供应数据；自动连接成功本身不证明时间代表性满足要求。
 
 ## 一句话定义
 
