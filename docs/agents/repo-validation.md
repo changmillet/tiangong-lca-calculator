@@ -42,7 +42,7 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-10-29
-lastReviewedCommit: d62b924d9f62d33a6b4c28b7e2a71656d9386c91
+lastReviewedCommit: 68b34422dd1384be11bddb5823c325f54e43c5a7
 lastReviewedNote: "Worker #315: reviewed bounded claim transport, uncertain-commit reconciliation, unchanged handler fencing and isolated PostgreSQL fault proof."
 related:
   - ../../AGENTS.md

@@ -237,7 +237,7 @@ async fn postgres_fault_recovery() {
             assert_eq!(jobs.len(), 1);
             assert_eq!(jobs[0].id, id);
         } else if fault == Fault::CommitRollback {
-            assert!(result.unwrap().is_empty());
+            assert_eq!(result.unwrap(), Vec::<WorkerJob>::new());
             let jobs = claim(&pool, "package", "test", 1, 60, TEST_DEADLINES)
                 .await
                 .unwrap();
@@ -250,11 +250,11 @@ async fn postgres_fault_recovery() {
         assert_eq!(state(&direct, id).await, ("running".into(), 1));
         raw_query("SELECT 1").execute(&mut *active).await.unwrap();
         drop(active);
-        assert!(
+        assert_eq!(
             claim(&pool, "package", "test", 1, 60, TEST_DEADLINES)
                 .await
-                .unwrap()
-                .is_empty()
+                .unwrap(),
+            Vec::<WorkerJob>::new()
         );
         pool.close().await;
     }
@@ -301,19 +301,15 @@ async fn postgres_fault_recovery() {
     .execute(&direct)
     .await
     .unwrap();
-    assert!(
-        reconcile(&pool, &jobs, TEST_DEADLINES)
-            .await
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        reconcile(&pool, &jobs, TEST_DEADLINES).await.unwrap(),
+        Vec::<WorkerJob>::new()
     );
     raw_query(&format!("UPDATE private.worker_jobs SET lease_token='{}', lease_expires_at=now()-interval '1 second' WHERE id='{id}'", jobs[0].lease_token))
         .execute(&direct).await.unwrap();
-    assert!(
-        reconcile(&pool, &jobs, TEST_DEADLINES)
-            .await
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        reconcile(&pool, &jobs, TEST_DEADLINES).await.unwrap(),
+        Vec::<WorkerJob>::new()
     );
     raw_query(&format!(
         "UPDATE private.worker_jobs SET status='queued', lease_token=NULL WHERE id='{id}'"
@@ -321,11 +317,9 @@ async fn postgres_fault_recovery() {
     .execute(&direct)
     .await
     .unwrap();
-    assert!(
-        reconcile(&pool, &jobs, TEST_DEADLINES)
-            .await
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        reconcile(&pool, &jobs, TEST_DEADLINES).await.unwrap(),
+        Vec::<WorkerJob>::new()
     );
     pool.close().await;
     direct.close().await;
