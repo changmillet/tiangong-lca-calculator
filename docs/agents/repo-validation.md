@@ -72,6 +72,33 @@ cargo fmt --all -- --check
 
 Treat the last two commands as non-negotiable hard gates after code changes.
 
+### HDF5 result query projections
+
+Run `cargo test -p solver-worker --lib query_artifact` and
+`cargo test -p solver-worker --lib result_query` plus the default baseline.
+Canonical fixtures cover zero/negative/sub-epsilon bit parity, multiple versions,
+258 processes across the 256-row boundary, directional/location CSR pagination,
+missing/duplicate/out-of-range records, decompression/output budgets and corrupt
+source/query files. Loopback object-store/HTTP tests cover authentication before
+storage, exact cursor binding, concurrent preparation deduplication, active-read
+pins, capacity refusal and disposable-cache ownership/cleanup. They use synthetic
+credentials and do not target hosted storage or a database.
+
+Record build, local first-open and warm-read timing with declared sample counts;
+a local synthetic result is not production S3 latency or full-library capacity
+proof. Actual rollout also requires Database/Edge exact-publication/subset
+permission tests, revocation and download-range tests, consumer browser checks,
+representative real Bundle capacity measurements and infrastructure qualification.
+The service's memory admission estimate is not a measured hard RSS guarantee.
+
+Run the opt-in local timing with `cargo test -p solver-worker --lib
+synthetic_query_layout_timing -- --ignored --nocapture`. On macOS ARM64 with the
+debug build on 2026-10-30, 4,096 processes × 25 impacts, one inventory item and
+3,510 LCI nonzeros produced 1,214,929 artifact bytes: build/readback 1,761 ms,
+verified local open 77 ms, and 1,000 paired LCI/LCIA warm reads p50/p95 135/148 μs.
+This very sparse synthetic sample excludes S3 transfer, HTTP, production-scale
+inventory diversity and RSS qualification; it establishes no production SLA.
+
 ### Worker claim recovery
 
 Run the baseline plus `WORKER_CLAIM_TEST_PORT=<isolated-loopback-port>

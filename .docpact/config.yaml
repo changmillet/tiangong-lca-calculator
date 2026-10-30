@@ -1,7 +1,7 @@
 version: 1
 layout: repo
-lastReviewedAt: "2026-10-29"
-lastReviewedCommit: "52f67da79911232ebaac3601a3abd656bd04eeae"
+lastReviewedAt: "2026-10-30"
+lastReviewedCommit: "e9bff51aeccd4d756c1749718f97a303ab86cd97"
 lastReviewedNote: "Worker #345: reviewed documentation-only provider intent clarification against current main; retained Worker #315 bounded claim transport, reconciliation, handler fencing and validation guidance. Conflict resolution changes review metadata only."
 
 # Keep deterministic governance facts here.

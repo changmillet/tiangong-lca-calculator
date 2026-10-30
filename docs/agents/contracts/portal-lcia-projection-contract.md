@@ -25,8 +25,8 @@ checkPaths:
   - crates/solver-worker/src/worker_jobs.rs
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-10-25
-lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
+lastReviewedAt: 2026-10-30
+lastReviewedCommit: e9bff51aeccd4d756c1749718f97a303ab86cd97
 lastReviewedNote: "Worker #339: calculation semantics and descriptor ownership remain in Worker; pinned requests and artifact reuse validate opaque identity while historical evidence, provider rules and data-quality policy remain independent."
 related:
   - ../../../AGENTS.md

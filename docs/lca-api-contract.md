@@ -526,6 +526,143 @@ Worker 重任务可使用共享 `worker.resource-profile.v1` primitive 声明并
 
 `lcia.scope_closure_check` 的公开 XLSX/manifest selector 与 result DTO 不因单条超大 administrative record 改变。canonical v4 内部保持普通 NDJSON partition 原样；若一条逻辑记录连同 NDJSON 换行超过 32 MiB，则以小型 index 和固定 8 MiB canonical-byte chunks 表示。index、top-level manifest 与 relation-local layout 共同绑定逻辑长度、完整 record SHA-256 以及 chunk 顺序/长度/hash；读端流式重建并以原 canonical record 加单个换行计算 relation hash，对缺失、重复、乱序或篡改 fail closed。该内部物理分段不扩大公开下载 selector，也不改变 Database #316 的 descriptor ordinal/digest、seal 或 finalize 契约。
 
+### 5.4 Independent HDF5 query artifacts and result service
+
+`result_artifact_builder` converts a completed Calculation Bundle into
+`tiangong.query-artifact.v1`. This optional projection never invokes the solver,
+changes calculation readiness, replaces the canonical Bundle, or generates
+standard Release ZIPs. Existing `hdf5:v1`, `all-unit-query:v1/v2` and Portal typed
+projection consumers retain their existing contracts.
+
+```sh
+cargo run -p solver-worker --bin result_artifact_builder -- build \
+  --bundle-ref /absolute/trusted-bundle-ref.json \
+  --source-dir /absolute/canonical-bundle \
+  --output /absolute/new-query-artifact \
+  --artifact-id <uuid>
+# Omit --source-dir to download from configured S3; add --upload to publish files.
+cargo run -p solver-worker --bin result_artifact_builder -- upload \
+  --artifact-dir /absolute/existing-query-artifact
+```
+
+The local input receipt is a `CalculationBundleArtifactRef`. Source locators
+are derived from the configured S3 bucket/prefix and immutable calculation ID /
+Bundle content hash; the receipt's URL is not a remote fetch authority. Input
+manifest, compressed and plain hashes/sizes, record counts, supported schemas,
+exact process ranges and Cartesian LCIA order are verified. Missing frozen Flow
+metadata, duplicate identities, incomplete ranges or invalid finite values fail
+closed. Symlinks/traversal in local source paths are rejected.
+
+The output directory must be new. It contains `manifest.json`,
+`artifact-ref.json` (local upload receipt), `processes.json.gz`,
+`inventory-items.json.gz`, `lci.h5`, and, when LCIA exists, `impacts.json.gz` plus
+`lcia.h5`. JSON indexes are ordered arrays; each entry has zero-based `ordinal`.
+The manifest binds its artifact UUID, original Bundle receipt, axis lengths,
+LCI nonzero count and every file's hash/size; JSON files also declare plain size.
+Source provenance is referenced, not copied into a new background snapshot.
+
+| File / dataset | Contract |
+| --- | --- |
+| Process index | `ordinal,id,version,quantitativeReference`; reference metadata preserved from the frozen process axis |
+| Impact index | `ordinal,id,version,key,name,unit`; exact frozen method identities and display metadata |
+| Inventory index | `ordinal,key,name,classification`; key is `flowId,flowVersion,direction,unit,location`; name/classification come from frozen Flow source documents |
+| `lcia.h5:values` | Float64 `[processCount,impactCount]`, row chunks; complete finite values, including zero |
+| `lci.h5:indptr` | Uint64 `[processCount+1]`, monotonically increasing offsets starting at zero |
+| `lci.h5:indices` | Uint64 `[lciNonzeroCount]`, sorted unique inventory ordinals within each process row |
+| `lci.h5:values` | Float64 `[lciNonzeroCount]`, finite nonzero values including negative and sub-epsilon values |
+
+LCI row absence means zero only after the complete source shard/range has been
+verified. Empty complete rows are valid. Missing LCIA is a capability absence,
+not a matrix of zero scores. Files and lookup axes share the same process order;
+no latest-source lookup or state-120 numerical admission is introduced.
+
+S3 layout is `query-artifacts/<artifactId>/<manifestSha256>/...` under the
+configured prefix. Upload writes the checked file set first and manifest last.
+The JSON receipt is `{schemaVersion,artifactId,manifestSha256,manifestByteSize}`.
+The `upload` command revalidates an existing local set and retries publication
+without rebuilding; equal immutable manifest identities imply equal file bytes.
+Registration and authorization are consumer-owned steps, not side effects of
+this CLI. Local success or an S3 receipt does not publish a dataset to users.
+
+Builder defaults bound each compressed source file to 2 GiB, plain file to 8 GiB,
+total plain source to 64 GiB and output to 32 GiB. Process/inventory axes and LCI
+rows are capped at 2 million entries, methods at 4096, each NDJSON record at
+8 MiB and each JSON index at 128 MiB plain. Manifest/receipt admission is 1 MiB.
+LCIA is written row-wise and LCI is written by sparse row; no full dense LCI is
+allocated. Source decompression uses temporary file spools. These are explicit
+admission defaults, not production capacity qualification; consumers must not
+silently override limits or drop rows to fit them.
+
+#### Independent query process
+
+`result_query_service` starts without a database pool, solver `AppState`, snapshot
+cache or queue. It requires the existing `S3_*` storage settings and a separate
+`RESULT_QUERY_SERVICE_SECRET` of at least 32 UTF-8 bytes. The secret is not a CLI
+argument and must never be exposed to Platform. Configure:
+
+| Setting | Default / meaning |
+| --- | --- |
+| `RESULT_QUERY_BIND` | `127.0.0.1:8788`; non-loopback deployments require qualified private networking/TLS |
+| `RESULT_QUERY_CACHE_DIR` | Required dedicated disposable directory; must be empty or carry the service's ownership marker |
+| `RESULT_QUERY_CACHE_DISK_BYTES` | 20 GiB of admitted query files; small bounded preparation manifests are additional control overhead |
+| `RESULT_QUERY_CACHE_MEMORY_BYTES` | 2 GiB admission estimate for indexes, lookup structures, offsets and HDF5 caches; not a measured RSS guarantee |
+| `RESULT_QUERY_CACHE_ENTRIES` | 8 total ready/preparing/failed entries; bounds file handles and queued preparations |
+| `RESULT_QUERY_CONCURRENCY` | 4 active request permits, retained through blocking reads even after HTTP disconnect |
+
+At most two preparations download concurrently. Resident immutable sets are
+LRU-evicted only when no active request pins them. Downloads are size/hash
+verified in temporary directories, renamed into their ready location and
+structurally validated before cache admission. Preparation returns HTTP 202 with
+`Retry-After: 2`; failed preparation returns a bounded unavailable state with a
+30-second retry delay. It never enqueues a calculation. Cache startup takes an
+exclusive directory lock and removes only this explicitly owned cache's leftover
+temporary sets; arbitrary non-empty directories are refused. Restart may be cold.
+
+`GET /health` contains only service liveness. `POST /internal/results/query`
+requires `x-query-timestamp` (Unix seconds) and `x-query-signature` (lowercase hex
+HMAC-SHA256 over UTF-8 `<timestamp>.<exact-request-body>`). The service accepts a
+maximum 30-second clock difference and a 64-KiB request body. Edge must authenticate
+the actor and resolve current Database publication/member authorization **before
+every signed request**, including cache hits and subsequent pages. The signed
+body is the short-lived exact-scope descriptor; a browser cursor is not an
+authorization credential. This protocol does not independently grant publication
+rights to the service's S3 account. Keep the internal route inaccessible to
+untrusted direct clients and never expose existing solver HTTP routes through it.
+
+```json
+{
+  "schemaVersion": "result.query.request.v1",
+  "publicationId": "<uuid>",
+  "artifact": {
+    "schemaVersion": "tiangong.query-artifact.v1",
+    "artifactId": "<uuid>",
+    "manifestSha256": "<64 lowercase hex>",
+    "manifestByteSize": 1234
+  },
+  "process": { "id": "<uuid>", "version": "01.00.000" },
+  "query": { "kind": "lci", "limit": 100, "cursor": null, "filter": null }
+}
+```
+
+Query kinds are `overview`, `lcia` and `lci`. LCIA returns frozen impact/value
+pairs for one exact process. LCI pages return `{item,amount}` records and an opaque
+signed `nextCursor`; the cursor binds manifest hash, publication, exact process,
+filter and sparse offset. Limits are 1–1000 items, 256 filter bytes, 4096 cursor
+bytes and a 2-MiB response. LCI filters match frozen item metadata case-insensitively;
+a request scans at most 10,000 nonzero entries and may return an empty page with
+a continuation cursor. `nonzeroCount` is the unfiltered complete row count, not a
+filtered total. Arbitrary row IDs, URLs, paths and full-library scans are absent.
+Finite multi-process comparison remains a bounded consumer composition of exact
+single-process reads until separately qualified; no global ranking contract is
+introduced by this service.
+
+Successful responses carry `result.query.response.v1`, exact publication/artifact
+identities, source process and data. Invalid signatures return 401; invalid request
+shape 400; request capacity 429; unavailable preparation 503; missing source/layer,
+invalid cursor or unreadable numeric data 422. Diagnostic responses contain stable
+codes, not private paths, credentials or source payloads. Edge maps these into
+product states without converting any failure into zero or recalculation.
+
 ## 6. 幂等与请求缓存（建议约束）
 
 - `worker_jobs.idempotency_key` / `worker_jobs.request_hash`：同一业务请求重试时复用，避免重复创建 canonical worker job。

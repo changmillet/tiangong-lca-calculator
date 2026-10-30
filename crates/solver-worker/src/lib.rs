@@ -464,6 +464,7 @@ pub mod portal_lcia_projection;
 pub mod queue;
 pub mod readiness;
 pub mod resource;
+pub mod result_query;
 pub mod review_quality_diagnostic_runner;
 pub mod review_submit_gate;
 pub mod scope_closure;

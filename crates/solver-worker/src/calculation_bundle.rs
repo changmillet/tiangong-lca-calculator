@@ -1,4 +1,5 @@
 pub mod exports;
+pub mod query_artifact;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
