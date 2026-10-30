@@ -84,6 +84,8 @@ Keep these constraints in mind before editing `crates/solver-core/**` or worker 
 | `crates/solver-worker/src/storage.rs` | S3-compatible object operations plus byte-capped, hash-verified, cancellable file download/upload primitives |
 | `crates/solver-worker/src/snapshot_artifacts.rs` | numerical HDF5 envelope, Review projections, release-metadata/source-closure descriptor chain, and legacy graph/v1 readers |
 | `crates/solver-worker/src/calculation_bundle.rs` | canonical content-addressed Calculation Bundle shards and frozen method axis; optional exports live in `calculation_bundle/exports.rs` |
+| `crates/solver-worker/src/calculation_bundle/query_artifact/**` and `src/bin/result_artifact_builder.rs` | Separate hash-verified Bundle-to-HDF5 projection, exact frozen axes, dense LCIA / CSR LCI and independent upload retry; no solver invocation |
+| `crates/solver-worker/src/result_query/**` and `src/bin/result_query_service.rs` | Independent signed read service, bounded local immutable cache and exact-process pagination; no queue or database startup |
 | `crates/solver-worker/src/calculation_contract.rs` and `src/bin/calculation_contract.rs` | Worker-owned numerical descriptor/digest and explicit CAS activation; generic storage/orchestration consume only opaque identity |
 | `crates/solver-worker/src/lcia_nonregional.rs` and `lcia_nonregional_defaults.json` | source-bound nonregional default selection; exact Flow versions; no geographic eligibility or method-coverage admission |
 | `scripts/build_lcia_nonregional_defaults.py` and `scripts/lcia_nonregional_sources.json` | read-only original XML/cache multiset verification and deterministic preparation of additive defaults |
