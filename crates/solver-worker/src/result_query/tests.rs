@@ -294,3 +294,152 @@ async fn read(State(state): State<MockStore>, uri: Uri) -> Response {
         None => StatusCode::NOT_FOUND.into_response(),
     }
 }
+
+async fn final_objects() -> (
+    Server,
+    ObjectStoreClient,
+    Arc<AtomicUsize>,
+    QueryArtifactRef,
+) {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/final-result-v2/lci-lcia");
+    let reference: QueryArtifactRef =
+        serde_json::from_slice(&std::fs::read(root.join("artifact-ref.json")).unwrap()).unwrap();
+    let manifest =
+        query_artifact::ArtifactManifest::read(&root.join("manifest.json"), &reference).unwrap();
+    let mut files = BTreeMap::new();
+    for name in manifest
+        .files()
+        .iter()
+        .map(|file| file.name.as_str())
+        .chain([query_artifact::MANIFEST_NAME])
+    {
+        files.insert(
+            format!("/bucket/prefix/{}/{name}", reference.relative_prefix()),
+            std::fs::read(root.join(name)).unwrap(),
+        );
+    }
+    let calls = Arc::new(AtomicUsize::new(0));
+    let server = serve(
+        Router::new()
+            .fallback(read)
+            .with_state(Arc::new((files, calls.clone()))),
+    )
+    .await;
+    let store = ObjectStoreClient::new(
+        &server.url,
+        "test-region",
+        "bucket",
+        "prefix",
+        "test-key",
+        "test-secret",
+        None,
+    )
+    .unwrap();
+    (server, store, calls, reference)
+}
+async fn signed_post(client: &reqwest::Client, url: &str, request: &Value) -> reqwest::Response {
+    let bytes = serde_json::to_vec(request).unwrap();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    client
+        .post(url)
+        .headers(headers(&bytes, now))
+        .body(bytes)
+        .send()
+        .await
+        .unwrap()
+}
+#[tokio::test]
+async fn final_http_cache_and_cursor_preserve_result_scope_and_hide_ancestors() {
+    let (_objects, store, calls, reference) = final_objects().await;
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path(), store, cache::CacheLimits::default()).unwrap();
+    let server = serve(router(
+        Service::new(cache.clone(), SECRET.to_vec(), 2).unwrap(),
+    ))
+    .await;
+    let client = reqwest::Client::new();
+    let url = format!("{}/internal/results/query-v2", server.url);
+    let mut request = json!({"schemaVersion":"result.query.request.v2","scope":{"kind":"publication","publicationId":Uuid::from_u128(99)},"artifact":reference,"result":{"uuid":"00000000-0000-4000-8000-000000000001","version":"01.00.000"},"query":{"kind":"lci","limit":1,"cursor":null,"filter":null}});
+    assert_eq!(
+        client
+            .post(&url)
+            .json(&request)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    let mut wrong = request.clone();
+    wrong["artifact"]["schemaVersion"] = json!(query_artifact::FORMAT);
+    assert_eq!(
+        signed_post(&client, &url, &wrong).await.status(),
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(calls.load(Ordering::Relaxed), 0);
+    assert_eq!(
+        signed_post(&client, &url, &request).await.status(),
+        StatusCode::ACCEPTED
+    );
+    let active = ready(&cache, &reference).await;
+    let response = signed_post(&client, &url, &request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body: Value = response.json().await.unwrap();
+    assert_eq!(body["data"]["items"][0]["amount"], 2.7);
+    assert_eq!(body["schemaVersion"], "result.query.response.v2");
+    assert_eq!(
+        body["reader"]["schemaVersion"],
+        "tiangong.final-result-reader.v1"
+    );
+    assert_eq!(
+        body["reader"]["executableSha256"],
+        crate::calculation_bundle::sha256_file(&std::env::current_exe().unwrap()).unwrap()
+    );
+    assert!(body["data"]["result"].get("sources").is_none());
+    assert!(body["data"]["result"].get("contentHash").is_none());
+    let token = body["data"]["nextCursor"].clone();
+    assert!(token.is_string());
+    request["query"]["cursor"] = token;
+    let response = signed_post(&client, &url, &request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.json::<Value>().await.unwrap()["data"]["items"][0]["amount"],
+        -3.0
+    );
+    for (pointer, value) in [
+        ("/scope/publicationId", json!(Uuid::from_u128(100))),
+        ("/result/version", json!("01.00.001")),
+        ("/query/filter", json!("CN")),
+        (
+            "/scope",
+            json!({"kind":"readiness","releaseRunId":Uuid::from_u128(101),"selectionHash":"a".repeat(64)}),
+        ),
+    ] {
+        let mut changed = request.clone();
+        *changed.pointer_mut(pointer).unwrap() = value;
+        assert_eq!(
+            signed_post(&client, &url, &changed).await.status(),
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    request["query"] = json!({"kind":"overview"});
+    request["scope"] = json!({"kind":"readiness","releaseRunId":Uuid::from_u128(101),"selectionHash":"a".repeat(64)});
+    assert_eq!(
+        signed_post(&client, &url, &request).await.status(),
+        StatusCode::OK
+    );
+    request["result"]["uuid"] = json!("00000000-0000-4000-8000-000000000080");
+    assert_eq!(
+        signed_post(&client, &url, &request).await.status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    let mut wrong_ref = reference.clone();
+    wrong_ref.schema_version = query_artifact::FORMAT.to_owned();
+    assert!(cache.get(wrong_ref).await.is_err());
+    assert_eq!(calls.load(Ordering::Relaxed), 6); // one complete five-file artifact, one manifest
+    drop(active);
+}

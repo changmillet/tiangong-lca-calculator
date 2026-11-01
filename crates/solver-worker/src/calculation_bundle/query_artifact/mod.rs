@@ -1,8 +1,11 @@
-//! Immutable numeric query projections of completed Calculation Bundles.
+//! Explicit legacy Calculation Bundle and Release-owned final Result query artifacts.
 //! This module never invokes a solver or reads mutable authoring data.
 mod builder;
+pub mod final_result;
 mod reader;
 mod source;
+mod supported;
+pub use supported::{ArtifactManifest, ArtifactReader};
 pub mod transport;
 pub use builder::{BuiltQueryArtifact, build};
 pub use reader::{InventoryValue, LciPage, QueryReader};
@@ -76,7 +79,10 @@ pub struct QueryArtifactRef {
 }
 impl QueryArtifactRef {
     pub fn validate(&self) -> anyhow::Result<()> {
-        anyhow::ensure!(self.schema_version == FORMAT, "unsupported query format");
+        anyhow::ensure!(
+            matches!(self.schema_version.as_str(), FORMAT | final_result::FORMAT),
+            "unsupported query format"
+        );
         super::validate_sha256(&self.manifest_sha256, "query manifest hash")?;
         anyhow::ensure!(
             self.manifest_byte_size > 0 && self.manifest_byte_size <= MAX_MANIFEST_BYTES,

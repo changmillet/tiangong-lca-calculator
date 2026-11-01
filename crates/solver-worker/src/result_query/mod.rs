@@ -1,5 +1,6 @@
 //! Authenticated result-only service; no solver state, queue or database startup.
 pub mod cache;
+mod final_result;
 use crate::calculation_bundle::query_artifact::{MAX_PAGE_SIZE, QueryArtifactRef, QueryReader};
 use axum::{
     Json, Router,
@@ -31,6 +32,7 @@ const SIGNATURE_MAX_AGE_SECONDS: u64 = 30;
 pub struct Service {
     cache: Arc<Cache>,
     secret: Vec<u8>,
+    reader_executable_sha256: String,
     queries: Arc<Semaphore>,
 }
 impl Service {
@@ -46,6 +48,9 @@ impl Service {
         Ok(Arc::new(Self {
             cache,
             secret,
+            reader_executable_sha256: crate::calculation_bundle::sha256_file(
+                &std::env::current_exe()?,
+            )?,
             queries: Arc::new(Semaphore::new(concurrency)),
         }))
     }
@@ -94,6 +99,7 @@ pub fn router(service: Arc<Service>) -> Router {
             get(|| async { Json(json!({"status":"ok","service":"result-query"})) }),
         )
         .route("/internal/results/query", post(query))
+        .route("/internal/results/query-v2", post(final_result::query))
         .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
         .with_state(service)
 }
@@ -139,7 +145,14 @@ async fn query(State(service): State<Arc<Service>>, headers: HeaderMap, bytes: B
             .reader
             .lock()
             .map_err(|_| anyhow::anyhow!("reader lock failed"))?;
-        execute(&reader, &service.secret, &request)
+        match &*reader {
+            crate::calculation_bundle::query_artifact::ArtifactReader::Legacy(reader) => {
+                execute(reader, &service.secret, &request)
+            }
+            crate::calculation_bundle::query_artifact::ArtifactReader::Final(_) => {
+                anyhow::bail!("v1 request cannot read a final Result artifact")
+            }
+        }
     })
     .await;
     match response {
@@ -157,6 +170,10 @@ async fn query(State(service): State<Arc<Service>>, headers: HeaderMap, bytes: B
 }
 
 fn validate_query(request: &QueryRequest) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        request.artifact.schema_version == crate::calculation_bundle::query_artifact::FORMAT,
+        "v1 query requires v1 artifact"
+    );
     let version = request.process.version.as_bytes();
     anyhow::ensure!(
         version.len() == 9

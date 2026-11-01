@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-29
-lastReviewedCommit: "52f67da79911232ebaac3601a3abd656bd04eeae"
-lastReviewedNote: "Worker #345: reviewed documentation-only provider intent clarification against current main; retained Worker #315 bounded claim transport, reconciliation, handler fencing and validation guidance. Conflict resolution changes review metadata only."
+lastReviewedAt: 2026-11-01
+lastReviewedCommit: a447227f11ec864fb82840128c9199b8cfa535d5
+lastReviewedNote: "Worker #350: verified Release-owned final Result v2 reader, bounded signed cache/query protocol, actual compressed producer fixtures and scoped libz-sys fix; v1 calculation and Portal projection semantics retained."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -84,8 +84,8 @@ Keep these constraints in mind before editing `crates/solver-core/**` or worker 
 | `crates/solver-worker/src/storage.rs` | S3-compatible object operations plus byte-capped, hash-verified, cancellable file download/upload primitives |
 | `crates/solver-worker/src/snapshot_artifacts.rs` | numerical HDF5 envelope, Review projections, release-metadata/source-closure descriptor chain, and legacy graph/v1 readers |
 | `crates/solver-worker/src/calculation_bundle.rs` | canonical content-addressed Calculation Bundle shards and frozen method axis; optional exports live in `calculation_bundle/exports.rs` |
-| `crates/solver-worker/src/calculation_bundle/query_artifact/**` and `src/bin/result_artifact_builder.rs` | Separate hash-verified Bundle-to-HDF5 projection, exact frozen axes, dense LCIA / CSR LCI and independent upload retry; no solver invocation |
-| `crates/solver-worker/src/result_query/**` and `src/bin/result_query_service.rs` | Independent signed read service, bounded local immutable cache and exact-process pagination; no queue or database startup |
+| `crates/solver-worker/src/calculation_bundle/query_artifact/**` and `src/bin/result_artifact_builder.rs` | Retained v1 Bundle projection plus explicit v2 reader for Release-owned final Result HDF5; exact frozen axes, dense LCIA / CSR LCI, no solver invocation |
+| `crates/solver-worker/src/result_query/**` and `src/bin/result_query_service.rs` | Independent signed v1 Process/v2 Result reads, bounded immutable cache, scope-bound pagination and restricted staging probes; no queue or database startup |
 | `crates/solver-worker/src/calculation_contract.rs` and `src/bin/calculation_contract.rs` | Worker-owned numerical descriptor/digest and explicit CAS activation; generic storage/orchestration consume only opaque identity |
 | `crates/solver-worker/src/lcia_nonregional.rs` and `lcia_nonregional_defaults.json` | source-bound nonregional default selection; exact Flow versions; no geographic eligibility or method-coverage admission |
 | `scripts/build_lcia_nonregional_defaults.py` and `scripts/lcia_nonregional_sources.json` | read-only original XML/cache multiset verification and deterministic preparation of additive defaults |

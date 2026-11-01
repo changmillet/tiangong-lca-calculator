@@ -4,8 +4,8 @@ use super::super::{
     bundle_content_hash,
 };
 use super::{
-    BuildLimits, BuiltQueryArtifact, MANIFEST_NAME, MAX_MANIFEST_BYTES, QueryArtifactRef,
-    QueryManifest, reader::validate_manifest,
+    ArtifactManifest, ArtifactReader, BuildLimits, BuiltQueryArtifact, MANIFEST_NAME,
+    MAX_MANIFEST_BYTES, QueryArtifactRef,
 };
 use crate::storage::{ObjectStoreClient, ObjectTransferOptions};
 use std::{
@@ -109,10 +109,10 @@ pub async fn upload_directory(
     root: &Path,
     reference: &QueryArtifactRef,
 ) -> anyhow::Result<QueryArtifactRef> {
-    let reader = super::QueryReader::open(root, reference)?;
+    let reader = ArtifactReader::open(root, reference)?;
     reader.validate_values()?;
     let prefix = reference.relative_prefix();
-    for file in &reader.manifest.files {
+    for file in reader.files() {
         store
             .upload_object_key_file(
                 &store.prefixed_object_key(&format!("{prefix}/{}", file.name))?,
@@ -141,7 +141,7 @@ pub async fn download_manifest(
     store: &ObjectStoreClient,
     reference: &QueryArtifactRef,
     root: &Path,
-) -> anyhow::Result<QueryManifest> {
+) -> anyhow::Result<ArtifactManifest> {
     reference.validate()?;
     download(
         store,
@@ -152,18 +152,16 @@ pub async fn download_manifest(
         root,
     )
     .await?;
-    let manifest = serde_json::from_reader(File::open(root.join(MANIFEST_NAME))?)?;
-    validate_manifest(&manifest, reference)?;
-    Ok(manifest)
+    ArtifactManifest::read(&root.join(MANIFEST_NAME), reference)
 }
 
 pub async fn download_files(
     store: &ObjectStoreClient,
     reference: &QueryArtifactRef,
-    manifest: &QueryManifest,
+    manifest: &ArtifactManifest,
     root: &Path,
 ) -> anyhow::Result<()> {
-    for file in &manifest.files {
+    for file in manifest.files() {
         download(
             store,
             &reference.relative_prefix(),

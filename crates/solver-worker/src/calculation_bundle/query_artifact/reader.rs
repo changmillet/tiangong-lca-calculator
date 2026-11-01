@@ -230,6 +230,7 @@ pub(super) fn validate_manifest(
 ) -> anyhow::Result<()> {
     anyhow::ensure!(
         manifest.schema_version == FORMAT
+            && reference.schema_version == FORMAT
             && manifest.artifact_id == reference.artifact_id
             && (1..=MAX_AXIS_ENTRIES).contains(&manifest.process_count)
             && manifest.impact_count <= MAX_IMPACTS
