@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-02
-lastReviewedCommit: d9028e91d549023852dcfb5d37d40faadae3a217
-lastReviewedNote: "Worker #353: reviewed offline Study P0 profile, opaque existing calculation identity, common benchmark and qualification limits; production solver, admission and Result contracts unchanged."
+lastReviewedAt: 2026-11-03
+lastReviewedCommit: 7db69aa724bf3030426e10bf5c2cd5db72d7cdc5
+lastReviewedNote: "Worker #355: source Study compiler and local native executor; legacy snapshot identity unchanged; hosted source/job authority remains W06."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -594,3 +594,11 @@ With the published Toolkit 0.3.4 binary, run `TIDAS_BIN=/exact/tidas cargo test 
 Worker #320 phase one requires bundle/export regressions (no eager downloads, default Parquet, CSV actual escaped byte and row boundaries, hashes/counts, cancellation, audit byte reuse), typed upload 413 classification, full `make check`, paired Database/Edge/Platform tests, and original 17,524-process / 25-method non-production qualification. Prove export failure leaves calculated query values readable and repeated reads create no successor jobs. Preserve the independent 438,100-value baseline; never upload private fixtures to GitHub.
 
 Phase-one original full-library execution receipts are retained in [`../validation/2026-10-16-calculation-exports-phase1.json`](../validation/2026-10-16-calculation-exports-phase1.json): each exported member has size/hash/count proof; the independent Parquet-to-CSV row comparison, 413/no-successor/readiness checks, explicit recovery and live authorization/audit reuse retain their bounded outputs. They describe isolated execution, not production acceptance. LCIA CSV/XLSX and Parquet conversion must observe cancellation during record traversal, after work has started.
+
+### Study explicit compiler
+
+Run `cargo test -p solver-worker --lib study -- --nocapture`, followed by the hard fmt/clippy gates. `study_compile --source <absoluteSourceInput> --static-cache <trusted public asset root> --output <privatePreparedArtifact> --result <privateResult>` performs actual TIDAS source parsing, verified static/default factor selection and native solve. The static root contains `lciamethods/cache_manifest.json`. Source JSON and raw acquisition packets may contain private source/owner data; keep them task-owned outside Git. Derived artifacts omit actor/owner IDs and raw source documents.
+
+The [Study compiler contract](contracts/study-compiler-contract.md) defines bounds and exact proof limits. Record source/artifact byte hashes, compiler/calculation identity, toolchain/native setup, elapsed/resource measurements and findings. The task-authored one-node cement model is not proof of a hosted LifecycleModel exporter or source acquisition. W06 must independently validate the actual issuer/job/artifact chain and prove subprocess cancellation, lease loss and late-result fencing.
+
+Study numerical/resource regression checks include the smallest f64 subnormal with allocation before normalization, opposite-sign sub-epsilon connections, explicit final underflow/overflow rejection, and repeated same-source allocation metadata expansion rejected by preflight before instance cloning.

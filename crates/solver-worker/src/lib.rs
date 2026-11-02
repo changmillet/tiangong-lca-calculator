@@ -481,3 +481,5 @@ pub mod tidas_cli;
 pub mod tidas_process_semantics;
 pub mod types;
 pub mod worker_jobs;
+
+pub mod study;

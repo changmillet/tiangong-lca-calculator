@@ -185,6 +185,20 @@ impl SolverService {
         }
     }
 
+    /// Creates an opt-in exact-zero matrix policy for a separately versioned consumer.
+    /// Existing constructors retain their historical 1e-15 pruning threshold.
+    #[must_use]
+    pub fn with_exact_zero_policy(
+        capacity_bytes: usize,
+        admission_fill_in_multiplier: f64,
+    ) -> Self {
+        Self {
+            cache: FactorizationCache::with_capacity(capacity_bytes),
+            builder: DataBuilder::new(0.0),
+            admission_fill_in_multiplier: admission_fill_in_multiplier.max(1.0),
+        }
+    }
+
     /// Returns cache handle.
     #[must_use]
     pub fn cache(&self) -> &FactorizationCache {

@@ -25,9 +25,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: 2026-11-02
-lastReviewedCommit: 8446715273c3653f2a234f9846cd087802fa51b0
-lastReviewedNote: "Worker #353: reviewed offline Study P0 profile, opaque existing calculation identity, common benchmark and qualification limits; production solver, admission and Result contracts unchanged."
+lastReviewedAt: 2026-11-03
+lastReviewedCommit: 7db69aa724bf3030426e10bf5c2cd5db72d7cdc5
+lastReviewedNote: "Worker #355: source Study compiler and local native executor; legacy snapshot identity unchanged; hosted source/job authority remains W06."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -799,3 +799,7 @@ wait through a database outage, while avoiding an indefinitely pending query.
 Existing heartbeat and result fencing still apply. Cancelling/shutting down the
 caller discards its socket; any already committed leases follow the existing
 server expiry/reclaim policy. No process-wide restart watchdog is introduced.
+
+## Study compiler boundary
+
+[Study compiler contract](agents/contracts/study-compiler-contract.md) owns the callable explicit-connection source compiler, native executor and `lca.study-prepared-input.v1` / `lca.study-result.v1`. This does not add a hosted Study queue family or change ordinary snapshot payloads, calculation fingerprints or cache keys. W06 must bind authorized immutable acquisition, resolver-issued eligibility, owned-job leases and actual artifact bytes before runtime admission; asserted offline JSON is not a trusted completion.
