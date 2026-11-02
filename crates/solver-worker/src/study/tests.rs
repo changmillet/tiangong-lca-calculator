@@ -1,0 +1,817 @@
+#![allow(clippy::needless_pass_by_value, clippy::field_reassign_with_default)]
+use super::compile::{Factor, VerifiedMethods};
+use super::{contracts::*, *};
+use serde_json::{Value, json};
+
+fn document(kind: &str, id: &str, value: Value) -> Document {
+    let json = value.to_string();
+    Document {
+        kind: kind.into(),
+        state_code: 100,
+        owner_actor_id: None,
+        identity: DatasetRef {
+            id: id.into(),
+            version: "1".into(),
+        },
+        sha256: sha256(json.as_bytes()),
+        json,
+    }
+}
+fn reference(id: &str) -> Value {
+    json!({"@refObjectId":id,"@version":"1"})
+}
+fn raw_exchange(id: &str, flow: &str, direction: &str, amount: f64) -> Value {
+    json!({"@dataSetInternalID":id,"referenceToFlowDataSet":reference(flow),"exchangeDirection":direction,"resultingAmount":amount})
+}
+fn process(id: &str, exchanges: Vec<Value>) -> Document {
+    document(
+        "process",
+        id,
+        json!({"processDataSet":{"processInformation":{"dataSetInformation":{"common:UUID":id},"quantitativeReference":{"referenceToReferenceFlow":"p"}},"administrativeInformation":{"publicationAndOwnership":{"common:dataSetVersion":"1"}},"exchanges":{"exchange":exchanges}}}),
+    )
+}
+fn model(instances: Value) -> Document {
+    document(
+        "lifecyclemodel",
+        "model",
+        json!({"lifeCycleModelDataSet":{"lifeCycleModelInformation":{"dataSetInformation":{"common:UUID":"model"},"quantitativeReference":{"referenceToReferenceProcess":"a"},"technology":{"processes":{"processInstance":instances}}},"administrativeInformation":{"publicationAndOwnership":{"common:dataSetVersion":"1"}}}}),
+    )
+}
+fn instance(id: &str, process: &str, connections: Value) -> Value {
+    json!({"@dataSetInternalID":id,"referenceToProcess":reference(process),"connections":{"outputExchange":connections}})
+}
+fn connection(flow: &str, target: &str) -> Value {
+    json!({"@flowUUID":flow,"@version":"1","downstreamProcess":{"@id":target,"@flowUUID":flow,"@version":"1"}})
+}
+fn methods() -> VerifiedMethods {
+    VerifiedMethods {
+        axes: vec![MethodAxis {
+            id: "method".into(),
+            version: "1".into(),
+            unit: "impact".into(),
+        }],
+        factors: vec![vec![Factor {
+            flow: DatasetRef {
+                id: "emission".into(),
+                version: "1".into(),
+            },
+            direction: "Output".into(),
+            value: 2.0,
+        }]],
+        source_hash: "synthetic-methods".into(),
+    }
+}
+fn input(mut processes: Vec<Document>, model: Document, flows: &[&str]) -> SourceInput {
+    processes.push(model);
+    for id in flows {
+        processes.push(document("flow",id,json!({"flowDataSet":{"flowInformation":{"dataSetInformation":{"common:UUID":id},"quantitativeReference":{"referenceToReferenceFlowProperty":"0"}},"administrativeInformation":{"publicationAndOwnership":{"common:dataSetVersion":"1"}},"flowProperties":{"flowProperty":{"@dataSetInternalID":"0","meanValue":"1","referenceToFlowPropertyDataSet":reference("mass")}},"modellingAndValidation":{"LCIMethod":{"typeOfDataSet":if *id=="emission"{"Elementary flow"}else{"Product flow"}}}}})));
+    }
+    processes.push(document("flowproperty","mass",json!({"flowPropertyDataSet":{"flowPropertiesInformation":{"dataSetInformation":{"common:UUID":"mass"},"quantitativeReference":{"referenceToReferenceUnitGroup":reference("kg")}},"administrativeInformation":{"publicationAndOwnership":{"common:dataSetVersion":"1"}}}})));
+    processes.push(document("unitgroup","kg",json!({"unitGroupDataSet":{"unitGroupInformation":{"dataSetInformation":{"common:UUID":"kg"},"quantitativeReference":{"referenceToReferenceUnit":"0"}},"administrativeInformation":{"publicationAndOwnership":{"common:dataSetVersion":"1"}},"units":{"unit":{"@dataSetInternalID":"0","name":"kg","meanValue":"1"}}}})));
+    SourceInput {
+        schema_version: SOURCE_SCHEMA.into(),
+        actor_id: None,
+        origin: DatasetRef {
+            id: "model".into(),
+            version: "1".into(),
+        },
+        documents: processes,
+        method_refs: vec![DatasetRef {
+            id: "method".into(),
+            version: "1".into(),
+        }],
+        cutoffs: vec![],
+        overrides: vec![],
+        study_binding: None,
+        quality_findings: vec![],
+    }
+}
+fn prepare_source(source: &SourceInput) -> PreparedInput {
+    prepare(
+        &serde_json::to_vec(source).unwrap(),
+        &methods(),
+        &Bounds::default(),
+    )
+    .unwrap()
+}
+fn single() -> SourceInput {
+    input(
+        vec![process(
+            "process",
+            vec![
+                raw_exchange("p", "product", "Output", 2.0),
+                raw_exchange("e", "emission", "Output", 10.0),
+            ],
+        )],
+        model(json!([instance("a", "process", json!([]))])),
+        &["product", "emission"],
+    )
+}
+#[test]
+fn source_to_core_and_frozen_replay() {
+    let p = prepare_source(&single());
+    let r = execute(&p).unwrap();
+    assert_eq!(r.x, vec![1.0]);
+    assert_eq!(r.g, vec![5.0]);
+    assert_eq!(r.h, vec![10.0]);
+    let bytes = artifact_bytes(&p).unwrap();
+    let frozen = decode_prepared(&bytes, &sha256(&bytes), &Bounds::default()).unwrap();
+    assert_eq!(execute(&frozen).unwrap().h, r.h);
+    assert!(decode_prepared(&bytes, &"0".repeat(64), &Bounds::default()).is_err());
+}
+#[test]
+fn cycle_is_simultaneous_and_same_source_instances_remain_distinct() {
+    let pa = process(
+        "pa",
+        vec![
+            raw_exchange("p", "product-a", "Output", 1.0),
+            raw_exchange("i", "product-b", "Input", 0.2),
+            raw_exchange("e", "emission", "Output", 2.0),
+        ],
+    );
+    let pb = process(
+        "pb",
+        vec![
+            raw_exchange("p", "product-b", "Output", 1.0),
+            raw_exchange("i", "product-a", "Input", 0.1),
+            raw_exchange("e", "emission", "Output", 3.0),
+        ],
+    );
+    let s = input(
+        vec![pa, pb],
+        model(json!([
+            instance("a", "pa", connection("product-a", "b")),
+            instance("b", "pb", connection("product-b", "a"))
+        ])),
+        &["product-a", "product-b", "emission"],
+    );
+    let r = execute(&prepare_source(&s)).unwrap();
+    assert!((r.x[0] - 50.0 / 49.0).abs() < 1e-12);
+    assert!((r.x[1] - 10.0 / 49.0).abs() < 1e-12);
+    assert!((r.g[0] - 130.0 / 49.0).abs() < 1e-12);
+    let mut s = single();
+    s.documents.retain(|d| d.kind != "lifecyclemodel");
+    s.documents.push(model(json!([
+        instance("a", "process", json!([])),
+        instance("b", "process", json!([]))
+    ])));
+    let p = prepare_source(&s);
+    assert_eq!(p.numeric.views.len(), 2);
+    assert_eq!(execute(&p).unwrap().x, vec![1.0, 0.0]);
+}
+#[test]
+fn self_reuse_and_input_reference() {
+    let p = process(
+        "process",
+        vec![
+            raw_exchange("p", "product", "Output", 1.0),
+            raw_exchange("i", "product", "Input", 0.2),
+            raw_exchange("e", "emission", "Output", 4.0),
+        ],
+    );
+    let s = input(
+        vec![p],
+        model(json!([instance(
+            "a",
+            "process",
+            connection("product", "a")
+        )])),
+        &["product", "emission"],
+    );
+    let r = execute(&prepare_source(&s)).unwrap();
+    assert_eq!(r.x, vec![1.25]);
+    assert_eq!(r.g, vec![5.0]);
+    let mut s = single();
+    let index = s
+        .documents
+        .iter()
+        .position(|d| d.kind == "process")
+        .unwrap();
+    s.documents[index] = process(
+        "process",
+        vec![
+            raw_exchange("p", "product", "Input", 2.0),
+            raw_exchange("e", "emission", "Output", 10.0),
+        ],
+    );
+    let p = prepare_source(&s);
+    assert_eq!(p.numeric.reference.pivot, -1.0);
+    assert_eq!(execute(&p).unwrap().g, vec![5.0]);
+}
+#[test]
+fn bounds_hashes_overrides_and_strict_parsing() {
+    let source = single();
+    let bytes = serde_json::to_vec(&source).unwrap();
+    let mut bound = Bounds::default();
+    bound.max_source_bytes = 1;
+    assert!(prepare(&bytes, &methods(), &bound).is_err());
+    bound = Bounds::default();
+    bound.max_documents = 1;
+    assert!(prepare(&bytes, &methods(), &bound).is_err());
+    bound = Bounds::default();
+    bound.max_dense_cells = 1;
+    assert!(prepare(&bytes, &methods(), &bound).is_err());
+    let first = prepare_source(&source);
+    let mut changed = source.clone();
+    changed.documents.reverse();
+    assert_eq!(prepare_source(&changed).model_hash, first.model_hash);
+    changed.overrides.push(AmountOverride {
+        path: "/instances/a/exchanges/e/amount".into(),
+        value: 0.0,
+    });
+    let second = prepare_source(&changed);
+    assert_ne!(second.model_hash, first.model_hash);
+    assert_eq!(execute(&second).unwrap().h, vec![0.0]);
+    changed.overrides[0].path = "/exchanges/e/amount".into();
+    assert!(
+        prepare(
+            &serde_json::to_vec(&changed).unwrap(),
+            &methods(),
+            &Bounds::default()
+        )
+        .is_err()
+    );
+    let mut unknown = serde_json::to_value(source).unwrap();
+    unknown["runtimeEnabled"] = json!(true);
+    assert!(serde_json::from_value::<SourceInput>(unknown).is_err());
+}
+#[test]
+fn missing_factor_is_not_known_zero() {
+    let mut m = methods();
+    m.factors[0].clear();
+    let p = prepare(
+        &serde_json::to_vec(&single()).unwrap(),
+        &m,
+        &Bounds::default(),
+    )
+    .unwrap();
+    assert_eq!(p.coverage.len(), 1);
+    assert!(!execute(&p).unwrap().complete_lcia_scores);
+    m.factors[0].push(Factor {
+        flow: DatasetRef {
+            id: "emission".into(),
+            version: "1".into(),
+        },
+        direction: "Output".into(),
+        value: 0.0,
+    });
+    let p = prepare(
+        &serde_json::to_vec(&single()).unwrap(),
+        &m,
+        &Bounds::default(),
+    )
+    .unwrap();
+    assert_eq!(p.coverage.len(), 0);
+    assert_eq!(execute(&p).unwrap().h, vec![0.0]);
+}
+
+fn allocation(p: f64, q: f64) -> Value {
+    json!({"allocation":[{"@internalReferenceToCoProduct":"p","@allocatedFraction":p},{"@internalReferenceToCoProduct":"q","@allocatedFraction":q}]})
+}
+#[test]
+fn product_views_select_target_and_never_reapply_allocation_to_pivot() {
+    let mut burden = raw_exchange("e", "emission", "Output", 10.0);
+    burden["allocations"] = allocation(60.0, 40.0);
+    let pa = process(
+        "pa",
+        vec![
+            raw_exchange("p", "product-p", "Output", 2.0),
+            raw_exchange("q", "product-q", "Output", 1.0),
+            burden,
+        ],
+    );
+    let pb = process(
+        "pb",
+        vec![
+            raw_exchange("p", "final", "Output", 1.0),
+            raw_exchange("i", "product-q", "Input", 1.0),
+        ],
+    );
+    let mut s = input(
+        vec![pa, pb],
+        model(json!([
+            instance("a", "pa", connection("product-q", "b")),
+            instance("b", "pb", json!([]))
+        ])),
+        &["product-p", "product-q", "final", "emission"],
+    );
+    let p = prepare_source(&s);
+    let r = execute(&p).unwrap();
+    assert!((r.g[0] - 3.0).abs() < 1e-12);
+    let doc = s
+        .documents
+        .iter_mut()
+        .find(|d| d.kind == "lifecyclemodel")
+        .unwrap();
+    let mut raw: Value = serde_json::from_str(&doc.json).unwrap();
+    raw["lifeCycleModelDataSet"]["lifeCycleModelInformation"]["quantitativeReference"]["referenceToReferenceProcess"] =
+        json!("b");
+    *doc = document("lifecyclemodel", "model", raw);
+    let p = prepare_source(&s);
+    let r = execute(&p).unwrap();
+    assert!((r.g[0] - 4.0).abs() < 1e-12);
+    assert_eq!(p.numeric.views.len(), 3);
+}
+#[test]
+fn zero_allocations_negative_inventory_and_invalid_sources() {
+    let mut emission = raw_exchange("e", "emission", "Output", 999.0);
+    emission["allocations"] = allocation(0.0, 100.0);
+    let mut s = input(
+        vec![process(
+            "process",
+            vec![
+                raw_exchange("p", "product", "Output", 1.0),
+                raw_exchange("q", "q", "Output", 1.0),
+                emission,
+            ],
+        )],
+        model(json!([instance("a", "process", json!([]))])),
+        &["product", "q", "emission"],
+    );
+    s.cutoffs.push(Cutoff {
+        port: Port {
+            instance_id: "a".into(),
+            exchange_id: "q".into(),
+        },
+        reason: "Boundary coproduct".into(),
+    });
+    assert_eq!(execute(&prepare_source(&s)).unwrap().g, vec![0.0]);
+    let mut s = single();
+    let i = s
+        .documents
+        .iter()
+        .position(|d| d.kind == "process")
+        .unwrap();
+    s.documents[i] = process(
+        "process",
+        vec![
+            raw_exchange("p", "product", "Output", 2.0),
+            raw_exchange("e", "emission", "Output", -2.0),
+        ],
+    );
+    assert_eq!(execute(&prepare_source(&s)).unwrap().g, vec![-1.0]);
+    s.documents[i].sha256 = "0".repeat(64);
+    assert!(
+        prepare(
+            &serde_json::to_vec(&s).unwrap(),
+            &methods(),
+            &Bounds::default()
+        )
+        .is_err()
+    );
+    for consumption in [1.0, 2.0] {
+        let s = input(
+            vec![process(
+                "process",
+                vec![
+                    raw_exchange("p", "product", "Output", 1.0),
+                    raw_exchange("i", "product", "Input", consumption),
+                    raw_exchange("e", "emission", "Output", 1.0),
+                ],
+            )],
+            model(json!([instance(
+                "a",
+                "process",
+                connection("product", "a")
+            )])),
+            &["product", "emission"],
+        );
+        assert!(execute(&prepare_source(&s)).is_err());
+    }
+    let mut s = single();
+    let i = s
+        .documents
+        .iter()
+        .position(|d| d.kind == "process")
+        .unwrap();
+    s.documents[i] = process(
+        "process",
+        vec![
+            raw_exchange("p", "product", "Output", 0.0),
+            raw_exchange("e", "emission", "Output", 1.0),
+        ],
+    );
+    assert!(
+        prepare(
+            &serde_json::to_vec(&s).unwrap(),
+            &methods(),
+            &Bounds::default()
+        )
+        .is_err()
+    );
+}
+#[test]
+fn qualification_upper_instance_envelope_uses_actual_core() {
+    let mut burden = raw_exchange("e", "emission", "Output", 2.0);
+    burden["allocations"] = allocation(50.0, 50.0);
+    let mut consumption = raw_exchange("i", "q", "Input", 0.1);
+    consumption["allocations"] = allocation(50.0, 50.0);
+    let p = process(
+        "process",
+        vec![
+            raw_exchange("p", "product", "Output", 1.0),
+            raw_exchange("q", "q", "Output", 1.0),
+            burden,
+            consumption,
+        ],
+    );
+    let ids = (0..64)
+        .map(|i| {
+            if i == 0 {
+                "a".into()
+            } else {
+                format!("node{i}")
+            }
+        })
+        .collect::<Vec<String>>();
+    let instances = ids
+        .iter()
+        .enumerate()
+        .map(|(index, id)| instance(id, "process", connection("q", &ids[(index + 1) % 64])))
+        .collect::<Vec<_>>();
+    let s = input(
+        vec![p],
+        model(json!(instances)),
+        &["product", "q", "emission"],
+    );
+    let p = prepare_source(&s);
+    assert_eq!(p.numeric.views.len(), 128);
+    let result = execute(&p).unwrap();
+    assert!(result.max_residual < 1e-12);
+    assert!(result.elapsed_millis < 30_000);
+    eprintln!(
+        "study bound qualification: instances=64 views=128 artifactBytes={} nativeElapsedMillis={} residual={}",
+        artifact_bytes(&p).unwrap().len(),
+        result.elapsed_millis,
+        result.max_residual
+    );
+}
+#[test]
+fn semantic_digest_domain_golden_and_reordering() {
+    let v = json!({"b":[1,2],"a":"é"});
+    assert_eq!(
+        semantic_hash("study.identity-golden.v1", &v).unwrap(),
+        "6523e3c81404d0bec7aa5cd50d15f436bec821c6f14fc48701480af41771b564"
+    );
+    assert_ne!(
+        semantic_hash("study.other.v1", &v).unwrap(),
+        semantic_hash("study.identity-golden.v1", &v).unwrap()
+    );
+    let p = prepare_source(&single());
+    if let Ok(path) = std::env::var("STUDY_PREPARED_OUTPUT") {
+        assert!(std::path::Path::new(&path).is_absolute());
+        std::fs::write(path, artifact_bytes(&p).unwrap()).unwrap();
+    }
+}
+
+#[test]
+fn repeated_source_instances_have_independent_nonzero_demands() {
+    let pa = process(
+        "supplier",
+        vec![
+            raw_exchange("p", "product", "Output", 1.0),
+            raw_exchange("e", "emission", "Output", 3.0),
+        ],
+    );
+    let pr = process(
+        "root",
+        vec![
+            raw_exchange("p", "final", "Output", 1.0),
+            raw_exchange("i1", "product", "Input", 1.0),
+            raw_exchange("i2", "product", "Input", 2.0),
+        ],
+    );
+    let edge = |exchange: &str| json!({"@flowUUID":"product","@version":"1","downstreamProcess":{"@id":"r","@flowUUID":"product","@version":"1","@exchangeId":exchange}});
+    let mut m = model(json!([
+        instance("a", "supplier", edge("i1")),
+        instance("b", "supplier", edge("i2")),
+        instance("r", "root", json!([]))
+    ]));
+    let mut raw: Value = serde_json::from_str(&m.json).unwrap();
+    raw["lifeCycleModelDataSet"]["lifeCycleModelInformation"]["quantitativeReference"]["referenceToReferenceProcess"] =
+        json!("r");
+    m = document("lifecyclemodel", "model", raw);
+    let s = input(vec![pa, pr], m, &["product", "final", "emission"]);
+    let r = execute(&prepare_source(&s)).unwrap();
+    assert_eq!(r.x, vec![1.0, 2.0, 1.0]);
+    assert_eq!(r.g, vec![9.0]);
+    assert_eq!(r.h, vec![18.0]);
+}
+#[test]
+fn exact_units_versions_direction_and_unknown_overrides_fail_closed() {
+    let source = single();
+    for direction in ["Input", "Output"] {
+        let mut m = methods();
+        m.factors[0][0].direction = direction.into();
+        m.factors[0][0].flow.version = "other".into();
+        let p = prepare(
+            &serde_json::to_vec(&source).unwrap(),
+            &m,
+            &Bounds::default(),
+        )
+        .unwrap();
+        assert_eq!(p.coverage.len(), 1);
+    }
+    let mut bad = source.clone();
+    let doc = bad
+        .documents
+        .iter_mut()
+        .find(|d| d.kind == "unitgroup")
+        .unwrap();
+    let mut raw: Value = serde_json::from_str(&doc.json).unwrap();
+    raw["unitGroupDataSet"]["units"]["unit"]["meanValue"] = json!("1000");
+    *doc = document("unitgroup", "kg", raw);
+    assert!(
+        prepare(
+            &serde_json::to_vec(&bad).unwrap(),
+            &methods(),
+            &Bounds::default()
+        )
+        .is_err()
+    );
+    let mut bad = source.clone();
+    bad.documents
+        .iter_mut()
+        .find(|d| d.kind == "flow")
+        .unwrap()
+        .identity
+        .version = "other".into();
+    assert!(
+        prepare(
+            &serde_json::to_vec(&bad).unwrap(),
+            &methods(),
+            &Bounds::default()
+        )
+        .is_err()
+    );
+    for path in [
+        "/parameters/energy/value",
+        "/providers/a",
+        "/instances/a/exchanges/p/amount",
+    ] {
+        let mut bad = source.clone();
+        bad.overrides.push(AmountOverride {
+            path: path.into(),
+            value: 1.0,
+        });
+        assert!(
+            prepare(
+                &serde_json::to_vec(&bad).unwrap(),
+                &methods(),
+                &Bounds::default()
+            )
+            .is_err()
+        );
+    }
+    let mut expanded = Bounds::default();
+    expanded.max_views = 129;
+    assert!(prepare(&serde_json::to_vec(&source).unwrap(), &methods(), &expanded).is_err());
+}
+
+#[test]
+fn resolver_state_assertions_are_enforced_but_not_authorization_receipts() {
+    for state in [20, 101, 120, 199] {
+        let mut s = single();
+        s.documents[0].state_code = state;
+        assert!(
+            prepare(
+                &serde_json::to_vec(&s).unwrap(),
+                &methods(),
+                &Bounds::default()
+            )
+            .is_err()
+        );
+    }
+    let mut s = single();
+    s.documents[0].state_code = 0;
+    s.documents[0].owner_actor_id = Some("owner".into());
+    assert!(
+        prepare(
+            &serde_json::to_vec(&s).unwrap(),
+            &methods(),
+            &Bounds::default()
+        )
+        .is_err()
+    );
+    s.actor_id = Some("other".into());
+    assert!(
+        prepare(
+            &serde_json::to_vec(&s).unwrap(),
+            &methods(),
+            &Bounds::default()
+        )
+        .is_err()
+    );
+    s.actor_id = Some("owner".into());
+    let p = prepare_source(&s);
+    assert!(
+        !String::from_utf8(artifact_bytes(&p).unwrap())
+            .unwrap()
+            .contains("ownerActorId")
+    );
+}
+#[test]
+fn scenario_input_identity_binds_definition_and_explicit_override_provenance() {
+    let mut s = single();
+    s.study_binding = Some(StudyBinding {
+        study_revision_id: "revision".into(),
+        study_revision_content_hash: "a".repeat(64),
+        definition: Definition {
+            goal: "goal".into(),
+            functional_unit: FunctionalUnit {
+                amount: "2".into(),
+                unit: "kg".into(),
+                reference_flow_id: "product".into(),
+            },
+            system_boundary: "declared".into(),
+            method_refs: vec![MethodRef {
+                r#type: "datasetRevision".into(),
+                dataset_type: "lciamethod".into(),
+                id: "method".into(),
+                version: "1".into(),
+            }],
+            assumptions: vec![],
+        },
+    });
+    let first = prepare_source(&s);
+    assert_eq!(execute(&first).unwrap().g, vec![10.0]);
+    assert!(first.input_hash.is_some());
+    s.documents.reverse();
+    let reordered = prepare_source(&s);
+    assert_eq!(reordered.model_hash, first.model_hash);
+    assert_eq!(reordered.input_hash, first.input_hash);
+    s.study_binding.as_mut().unwrap().definition.goal = "new goal".into();
+    let second = prepare_source(&s);
+    assert_eq!(second.model_hash, first.model_hash);
+    assert_ne!(second.input_hash, first.input_hash);
+    s.overrides.push(AmountOverride {
+        path: "/instances/a/exchanges/e/amount".into(),
+        value: 10.0,
+    });
+    let third = prepare_source(&s);
+    assert_ne!(third.model_hash, second.model_hash);
+    assert_eq!(third.numeric.b, second.numeric.b);
+}
+
+#[test]
+fn tiny_finite_inventory_is_preserved_under_large_characterization() {
+    let mut s = single();
+    let doc = s
+        .documents
+        .iter_mut()
+        .find(|d| d.kind == "process")
+        .unwrap();
+    *doc = process(
+        "process",
+        vec![
+            raw_exchange("p", "product", "Output", 1.0),
+            raw_exchange("e", "emission", "Output", 1e-16),
+        ],
+    );
+    let mut m = methods();
+    m.factors[0][0].value = 1e16;
+    let p = prepare(&serde_json::to_vec(&s).unwrap(), &m, &Bounds::default()).unwrap();
+    let r = execute(&p).unwrap();
+    assert_eq!(r.g, vec![1e-16]);
+    assert!((r.h[0] - 1.0).abs() < 1e-12);
+}
+
+#[test]
+fn aggregate_overflow_is_rejected_during_preparation() {
+    let mut s = single();
+    let doc = s
+        .documents
+        .iter_mut()
+        .find(|d| d.kind == "process")
+        .unwrap();
+    *doc = process(
+        "process",
+        vec![
+            raw_exchange("p", "product", "Output", 1.0),
+            raw_exchange("e1", "emission", "Output", 1e308),
+            raw_exchange("e2", "emission", "Output", 1e308),
+        ],
+    );
+    let error = prepare(
+        &serde_json::to_vec(&s).unwrap(),
+        &methods(),
+        &Bounds::default(),
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("aggregate_overflow"));
+}
+#[test]
+fn allocation_marker_strings_and_empty_declarations_cannot_enable_product_view() {
+    for declaration in [
+        json!({"allocation":{},"note":"@internalReferenceToCoProduct"}),
+        json!({"allocation":{}}),
+    ] {
+        let mut q = raw_exchange("q", "q", "Output", 1.0);
+        q["allocations"] = declaration;
+        let pa = process(
+            "pa",
+            vec![
+                raw_exchange("p", "product", "Output", 1.0),
+                q,
+                raw_exchange("e", "emission", "Output", 10.0),
+            ],
+        );
+        let pb = process(
+            "pb",
+            vec![
+                raw_exchange("p", "final", "Output", 1.0),
+                raw_exchange("i", "q", "Input", 1.0),
+            ],
+        );
+        let s = input(
+            vec![pa, pb],
+            model(json!([
+                instance("a", "pa", connection("q", "b")),
+                instance("b", "pb", json!([]))
+            ])),
+            &["product", "q", "final", "emission"],
+        );
+        assert!(
+            prepare(
+                &serde_json::to_vec(&s).unwrap(),
+                &methods(),
+                &Bounds::default()
+            )
+            .is_err()
+        );
+    }
+}
+#[test]
+fn legacy_core_constructor_keeps_its_threshold() {
+    use solver_core::{
+        ModelSparseData, NumericOptions, SolveOptions, SolverService, SparseTriplet,
+    };
+    let data = ModelSparseData {
+        model_version: uuid::Uuid::new_v4(),
+        process_count: 1,
+        flow_count: 1,
+        impact_count: 1,
+        technosphere_entries: vec![],
+        biosphere_entries: vec![SparseTriplet {
+            row: 0,
+            col: 0,
+            value: 1e-16,
+        }],
+        characterization_factors: vec![SparseTriplet {
+            row: 0,
+            col: 0,
+            value: 1e16,
+        }],
+    };
+    let old = SolverService::new();
+    old.prepare(&data, NumericOptions::default()).unwrap();
+    assert_eq!(
+        old.solve_one(
+            data.model_version,
+            NumericOptions::default(),
+            &[1.0],
+            SolveOptions::default()
+        )
+        .unwrap()
+        .h
+        .unwrap(),
+        vec![0.0]
+    );
+    let study = SolverService::with_exact_zero_policy(1024 * 1024, 8.0);
+    study.prepare(&data, NumericOptions::default()).unwrap();
+    assert_eq!(
+        study
+            .solve_one(
+                data.model_version,
+                NumericOptions::default(),
+                &[1.0],
+                SolveOptions::default()
+            )
+            .unwrap()
+            .h
+            .unwrap(),
+        vec![1.0]
+    );
+}
+
+#[test]
+fn one_method_category_cannot_select_multiple_versions() {
+    let mut s = single();
+    s.method_refs.push(DatasetRef {
+        id: "method".into(),
+        version: "2".into(),
+    });
+    let mut m = methods();
+    m.axes.push(MethodAxis {
+        id: "method".into(),
+        version: "2".into(),
+        unit: "impact".into(),
+    });
+    m.factors.push(m.factors[0].clone());
+    assert!(
+        prepare(&serde_json::to_vec(&s).unwrap(), &m, &Bounds::default())
+            .unwrap_err()
+            .to_string()
+            .contains("duplicate_method")
+    );
+}

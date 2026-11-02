@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-02
-lastReviewedCommit: d9028e91d549023852dcfb5d37d40faadae3a217
-lastReviewedNote: "Worker #353: reviewed offline Study P0 profile, opaque existing calculation identity, common benchmark and qualification limits; production solver, admission and Result contracts unchanged."
+lastReviewedAt: 2026-11-03
+lastReviewedCommit: 5f9a1c5e4d930858039d593c82c3500d862d8ce8
+lastReviewedNote: "Worker #355: source Study compiler and local native executor; legacy snapshot identity unchanged; hosted source/job authority remains W06."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -274,3 +274,7 @@ Use this rule:
 ## Local Docpact Push Gate
 
 This repository has a versioned local `pre-push` hook under `.githooks/pre-push` that delegates to `scripts/docpact-gate.sh` and then runs `make check`. The gate resolves the CLI through `scripts/docpact`, so local agent shells do not need bare `docpact` on `PATH`. The hook is the local guard for docpact config validation, enforced doc-governance linting, and worker runtime tests; the GitHub `ci` workflow runs for pull requests targeting `main` and also supports manual dispatch.
+
+### Study explicit model compiler
+
+`src/study` is under `crates/solver-worker`: strict source/normalized/input/result contracts, exact TIDAS document resolution, instance/product-view compiler and existing sparse core execution. Its artifact and semantic identities are separate from ordinary snapshot Process columns. See [the contract](contracts/study-compiler-contract.md). `study_compile` is a local source compiler/executor, not a hosted source exporter or job adapter.
