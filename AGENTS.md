@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-01
-lastReviewedCommit: a447227f11ec864fb82840128c9199b8cfa535d5
-lastReviewedNote: "Worker #350: verified Release-owned final Result v2 reader, bounded signed cache/query protocol, actual compressed producer fixtures and scoped libz-sys fix; v1 calculation and Portal projection semantics retained."
+lastReviewedAt: 2026-11-02
+lastReviewedCommit: d9028e91d549023852dcfb5d37d40faadae3a217
+lastReviewedNote: "Worker #353: reviewed offline Study P0 profile, opaque existing calculation identity, common benchmark and qualification limits; production solver, admission and Result contracts unchanged."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md
@@ -79,6 +79,7 @@ Start here when the task may change what the compute stack does.
 | `docs/agents/contracts/portal-lcia-projection-contract.md` | V3-only typed LCIA projection records, cross-language hashes, bounded staging, lease fencing, and package binding | public Portal reads, durable database schema, or Release approval behavior |
 | `README.md` | repo landing context, operator setup, and runtime overview | machine-readable routing or lint semantics |
 | `docs/lca-api-contract.md` | shared jobs/results/payload/status contract for consumers | branch policy, proof matrix, or edge/frontend implementation details |
+| `docs/agents/contracts/study-p0-calculation-profile.md` | offline Study P0 profile, opaque numerical identity reference, common benchmark and pilot qualification boundaries | production Study compiler/API, dataset authorization or scientific certification |
 | `docs/scope-closure-contract.md` | certificate-grade closure traversal, frozen-release validation, artifacts, scan reuse, and build evidence binding | durable database schema or Edge/Next presentation behavior |
 | `docs/matrix-readiness-report-contract.md` | worker-owned matrix-readiness CLI and report artifact schema, blocker/finding codes, next_action semantics, and policy surface | HTTP endpoint contract or edge request/auth behavior |
 | `docs/review-quality-diagnostic-contract.md` | worker-owned Review Admin manual diagnostic job, joint pending-review matrix, informational outcome/finding schema, and compatibility boundary | Edge HTTP API, persistence schema, or Next Review Admin UX |

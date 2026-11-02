@@ -25,9 +25,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: 2026-11-01
-lastReviewedCommit: a447227f11ec864fb82840128c9199b8cfa535d5
-lastReviewedNote: "Worker #350: verified Release-owned final Result v2 reader, bounded signed cache/query protocol, actual compressed producer fixtures and scoped libz-sys fix; v1 calculation and Portal projection semantics retained."
+lastReviewedAt: 2026-11-02
+lastReviewedCommit: d9028e91d549023852dcfb5d37d40faadae3a217
+lastReviewedNote: "Worker #353: reviewed offline Study P0 profile, opaque existing calculation identity, common benchmark and qualification limits; production solver, admission and Result contracts unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -44,6 +44,14 @@ related:
 ---
 
 # LCA API Contract (Snapshot-First)
+
+The [Study P0 calculation profile](agents/contracts/study-p0-calculation-profile.md)
+defines an offline qualification baseline only; it adds no runtime job or API.
+Study consumers bind the existing Worker-issued `lca.calculation-contract.v1`
+fingerprint using `calculationContractRef: {kind: "calculation_contract", schema:
+"lca.calculation-contract.v1", sha256: <Worker-issued digest>}`. This reference
+does not modify descriptor bytes, introduce an artifact ID, or transfer numerical
+ownership to consumers.
 
 本文档定义本项目当前可用的作业/结果契约，供 Edge Function 与前端共用。
 

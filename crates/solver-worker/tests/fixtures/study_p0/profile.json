@@ -1,0 +1,54 @@
+{
+  "schema": "lca.study-p0-profile.v1",
+  "profileId": "lca.study-deterministic-p0.v1",
+  "owner": "worker",
+  "runtimeEnabled": false,
+  "qualificationScope": "offline-core-and-semantics-baseline",
+  "engineId": "solver-worker",
+  "digestRule": "SHA-256 of calculation_contract::descriptor().as_bytes(); lowercase hexadecimal; no consumer reserialization",
+  "sourceBaseline": {
+    "worker": "d9028e91d549023852dcfb5d37d40faadae3a217",
+    "cli": "67f9eba655ea56fd352a6df795feeec6536a59a9",
+    "platform": "bc864b9fc0b69e3eb3cc22d5f507664f697bf81c"
+  },
+  "semantics": {
+    "system": "(I-A)x=y; g=Bx; h=Cg",
+    "allocation": "tidas-reference-allocation-v5",
+    "linking": "signed-flow-balance-v1",
+    "lciaSelection": "lcia.nonregional-source-defaults.v1",
+    "missingFactor": "incomplete_coverage_not_zero",
+    "identity": "exact source/Flow revision and reference-unit evidence; no guessed conversion",
+    "instances": "instance identity is distinct from source Process identity",
+    "biosphere": "gross source amount; Input/Output alone does not flip sign"
+  },
+  "tolerances": {
+    "absolute": "1/1000000000",
+    "relative": "1/1000000000",
+    "residual": "1/1000000000000"
+  },
+  "businessPilot": {
+    "status": "not_qualified",
+    "candidate": "historical-cement-shaft-kiln",
+    "requiredEvidence": [
+      "functional unit and explicit system boundary",
+      "exact source, support and method revisions plus byte hashes",
+      "licensed data/export disclosure",
+      "explicit background binding or declared justified exclusions",
+      "independent reviewed inventory and result expectations",
+      "actual model-compiler and consumer qualification"
+    ]
+  },
+  "nonGoals": [
+    "new production solver or policy",
+    "Study runtime admission",
+    "model compiler equivalence",
+    "production deployment",
+    "full LCA or scientific certification"
+  ],
+  "calculationContractRefShape": {
+    "kind": "calculation_contract",
+    "schema": "lca.calculation-contract.v1",
+    "sha256Encoding": "lowercase-hex-64",
+    "hashOwner": "worker"
+  }
+}
