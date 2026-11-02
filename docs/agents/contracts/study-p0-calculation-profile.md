@@ -74,7 +74,7 @@ This P0 contract grants no authority to activate a descriptor or execute a job.
 The fixture schemas `lca.study-p0-benchmarks.v1` and
 `lca.study-p0-real-inventory.v1` are offline test/evidence formats. Neither is a
 production ModelInput, normalized Model IR, ModelRef producer or public API input.
-A future model-preparation operation must receive a qualified Worker-produced
+Consumers of a successful model-preparation operation must receive a qualified Worker-produced
 model reference; source-document hashes in these examples cannot substitute for
 that identity. Worker owns the future normalized-model schema and hash semantics;
 Edge/Database only transport, authorize and bind the issued reference. An
@@ -87,6 +87,7 @@ The preparation protocol must preserve the following distinct identity domains:
 | Exact LifecycleModel source identity | Existing dataset/export service issues the authorized source; W05 Worker verifies the exact id/version and schema | If an immutable authorized source artifact is used, its content hash is SHA-256 of its exact bytes. Origin dataset id/version is bound separately. A CLI/API response wrapper, fallback version or client-reserialized object is not an issued source artifact. Without a qualified resolver/export producer this input path is unavailable. |
 | Draft Scenario source generation/hash | W03 Database and W04 Edge own the Study revision/CAS protocol; W05 validates the exact frozen input it receives | Binds one same-Study draft generation/content and base reference. It is a revision precondition, not an already compiled model. |
 | Completed preparation `modelRef.contentHash` | W05 Worker is the sole algorithm/schema owner and trusted completion issuer | Binds the formally qualified normalized model, exact source closure, numerical profile and calculation identity under W05's versioned executable model-hash rule. P0 has not issued that rule or any real modelRef; a source hash cannot manufacture completion. |
+| Scenario preparation `inputHash` / Run frozen input identity | W05 Worker issues the identity; W03 Database and W04 Edge bind it unchanged | Binds the frozen StudyRevision definition, functional unit, exact methodRefs, Scenario overrides, effective model/source closure, profile and calculation identity under the qualified input contract. A ready Scenario preparation must issue it; a base LifecycleModel preparation may leave it null. Run admission requires exact equality with its selected ready preparation. CLI cannot invent it from a request body or artifact bytes. |
 | Prepared input artifact content hash | Worker issues the frozen prepared input artifact; existing artifact/storage protocol verifies byte integrity | SHA-256 of the exact persisted artifact bytes with its own type/schema, byte size and authorization. This is transport/content integrity, distinct from normalized-model semantic identity. |
 | `calculationContractRef.sha256` | Existing Worker `calculation_contract::fingerprint()` | Hashes the existing exact numerical descriptor bytes, as specified above; it identifies calculation semantics, not a model or input artifact. |
 
