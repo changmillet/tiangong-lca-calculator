@@ -17,6 +17,8 @@ checkPaths:
   - crates/solver-worker/tests/fixtures/study_p0/**
   - scripts/check_study_p0_benchmarks.py
   - scripts/test_study_p0_benchmarks.py
+  - scripts/check_study_p0_cement.py
+  - scripts/test_study_p0_cement.py
   - Makefile
 lastReviewedAt: 2026-11-02
 lastReviewedCommit: d9028e91d549023852dcfb5d37d40faadae3a217
@@ -68,6 +70,49 @@ also separate from the executable calculation identity. Edge owns public
 transport and authorization; Database owns immutable persistence and reference
 binding; Worker owns descriptor contents, hash generation and numerical rules.
 This P0 contract grants no authority to activate a descriptor or execute a job.
+
+The fixture schemas `lca.study-p0-benchmarks.v1` and
+`lca.study-p0-real-inventory.v1` are offline test/evidence formats. Neither is a
+production ModelInput, normalized Model IR, ModelRef producer or public API input.
+A future model-preparation operation must receive a qualified Worker-produced
+model reference; source-document hashes in these examples cannot substitute for
+that identity. Worker owns the future normalized-model schema and hash semantics;
+Edge/Database only transport, authorize and bind the issued reference. An
+unavailable producer must remain an explicit unavailable capability.
+
+The preparation protocol must preserve the following distinct identity domains:
+
+| Reference / digest | Issuer and verification owner | Meaning and issuance gate |
+| --- | --- | --- |
+| Exact LifecycleModel source identity | Existing dataset/export service issues the authorized source; W05 Worker verifies the exact id/version and schema | If an immutable authorized source artifact is used, its content hash is SHA-256 of its exact bytes. Origin dataset id/version is bound separately. A CLI/API response wrapper, fallback version or client-reserialized object is not an issued source artifact. Without a qualified resolver/export producer this input path is unavailable. |
+| Draft Scenario source generation/hash | W03 Database and W04 Edge own the Study revision/CAS protocol; W05 validates the exact frozen input it receives | Binds one same-Study draft generation/content and base reference. It is a revision precondition, not an already compiled model. |
+| Completed preparation `modelRef.contentHash` | W05 Worker is the sole algorithm/schema owner and trusted completion issuer | Binds the formally qualified normalized model, exact source closure, numerical profile and calculation identity under W05's versioned executable model-hash rule. P0 has not issued that rule or any real modelRef; a source hash cannot manufacture completion. |
+| Prepared input artifact content hash | Worker issues the frozen prepared input artifact; existing artifact/storage protocol verifies byte integrity | SHA-256 of the exact persisted artifact bytes with its own type/schema, byte size and authorization. This is transport/content integrity, distinct from normalized-model semantic identity. |
+| `calculationContractRef.sha256` | Existing Worker `calculation_contract::fingerprint()` | Hashes the existing exact numerical descriptor bytes, as specified above; it identifies calculation semantics, not a model or input artifact. |
+
+Even equal hexadecimal digest strings cannot cross these typed domains.
+Edge/Database store and compare the correct typed references and accept a
+completed preparation only from the trusted Worker completion path. They do
+not infer `modelRef` from a source ref or choose a normalization algorithm.
+The existing `source-fingerprint:v5` identifies snapshot/cache inputs; it is
+not a LifecycleModel source digest or prepared model identity. Likewise, the
+internal `calculation_evidence::canonical_json_sha256` helper is not by itself
+a published Study source/prepared-model hash protocol.
+
+W03 persistence and W04 API can implement the structural protocol and explicit
+unavailable states in P0. Actual ready preparation, bound Scenario freeze,
+StudyRevision resolution and execution depend on the W05 qualified compiler /
+model producer and W06 job integration. W07 CLI must observe these capability
+and readiness gates. This contract does not declare W03–W06 independently
+executable while the required producer is absent.
+
+Study method bindings use exact `methodRefs` arrays because each current
+LCIAMethod represents one impact indicator. The public API owns the array shape,
+uniqueness and frozen ordering; Worker verifies exact method versions and source
+evidence before numerical execution. A two-indicator request therefore binds two
+LCIAMethod references, not a guessed multi-category method or summed alternative
+factors. This reference shape changes no ordinary production LCIA selection or
+missing-factor policy.
 
 ## Frozen numerical semantics
 
@@ -182,6 +227,86 @@ functional unit, scope, source/support/method identity, background binding or
 justified exclusions, dataset disclosure and independent inventory/result
 expectations, followed by actual compiler/consumer execution. Synthetic tests
 and the historical candidate cannot be used as substitutes for that receipt.
+
+### Separate current public numerical example
+
+`real-cement-gate-to-gate.json` is a minimal projection of an independently read
+**exact** public Process `dcffcc2b@01.01.000`, its nine exact public Flows and four
+exact public reference FlowProperty/UnitGroup documents. It is distinct from the
+historical `00.01.005` candidate above: a historical request that falls back to
+the current version is not exact-version evidence. The retained hashes cover
+source dataset JSON, excluding API wrappers and account metadata, using the
+explicit encoding recorded in the projection. These local source-evidence
+digests are not Worker calculation fingerprints, snapshot identities or ModelRef
+hashes. All public-state observations are facts at acquisition time, not ongoing
+authorization or deployment attestations.
+
+The declared numerical basis is 1000 kg of 42.5 MPa shaft-kiln cement in
+Heilongjiang, reference year 2008. Four product inputs remain outside the selected
+gate-to-gate direct-inventory boundary; no background provider is fabricated.
+Electricity resolves to **MJ** through the exact reference-unit chain; its
+357.48 amount is not silently treated as kWh. Four reported elementary outputs
+remain visible, including uncharacterized particles > PM10.
+
+| Method / exact version | Selected source defaults | Independently derived direct characterized amount per 1000 kg | Uncharacterized outputs |
+| --- | --- | --- | --- |
+| Climate change `6209b35f@01.00.000` | Fossil CO2 = 1 | `1092.8 * 1 = 1092.8 kg CO2 equivalents` | Particles, SO2, NOx; coverage 1/4 |
+| Acidification `b5c611c6@01.04.000` | SO2 = 1.31; NOx = 0.74 | `0.4662*1.31 + 1.602*0.74 = 1.796202 mol H+ equivalents` | Particles, CO2; coverage 2/4 |
+
+Both outputs are characterized contributions/subtotals with
+`incomplete_coverage_not_zero`, not complete LCIA category scores. For
+acidification each Flow has 37 source alternatives; one absent/blank-location
+source default is selected and bound to the existing Worker prepared-default
+record. Regional alternatives are never added together. Source method XML,
+static bundle/list/factor hashes and default-record identities are recorded;
+the checker can verify them against read-only originals and the pinned cache.
+
+The Process declares free use and no dataset copyright. This describes its data
+declaration; it does not assert rights to the original paper or all support
+assets. The sample contains no paper, complete source payload, owner user ID,
+OAuth identity receipt, token or session. Citation provenance is the Process's
+reference, not an independently acquired original paper. The verified closure
+is the active **numerical reference-support** subset, not a complete
+administrative/source/attachment closure.
+
+Quality findings remain explicit: the numeric reference is 1000 kg but its
+comment says 1 kg; the API state is public `100` while the embedded source
+workflow label says “Final draft for internal review”; dust uses a size proxy;
+eight non-reference exchanges have `Missing unimportant` derivation status.
+The calculation preserves declared values and records these discrepancies;
+it does not repair them through inference or qualify the scientific scale,
+representativeness, full LCA, policy recommendations or business acceptance.
+
+The independent checker verifies inventory/support consistency, exact rational
+contribution equations and the explicit unknowns. Its optional source mode
+compares the minimal projection to a separately retained read-only acquisition
+packet and public method assets without printing or copying the packet. A
+successful source check establishes this bounded evidence chain, not a hosted
+Worker run or production model-compiler qualification.
+
+### Qualified legacy-stage execution evidence
+
+The 2026-11-02 coordinated check used isolated consumer checkouts and frozen
+Node 24.19 / pnpm 11.24 dependencies. Platform
+`0cf171f2a80155b37a3a2d971b41dc0dae281aac` passed 72 matrix-suite tests and 24
+`util_calculate` tests selected for the materialization contract. CLI
+`67f9eba655ea56fd352a6df795feeec6536a59a9` passed 26 tests across the auto-build,
+allocation-conservation and boundary-projection suites after its normal build.
+These consumer executions were performed by the root coordinator; an initial
+CLI invocation before build was a setup failure, not qualified product evidence.
+
+Worker additionally consumed the actual Platform export through
+`WORKER_PLATFORM_ALLOCATION_FIXTURE` and passed
+`platform_materialized_allocations_preserve_signed_balances`. The export SHA-256
+is `e22c97cf6b43c253cb09da6922d783e4a9d1896148eb0198efdd562d17d05400`.
+Compared with the retained Worker fixture
+`edb7a1d268fdd5891cde547c8964b014cc1ac8ab15123259a04f79489adf6582`,
+its 17 JSON differences are 16 added `dataDerivationTypeStatus` fields and one
+removed stale `LCIAResult` key; numeric exchange leaves are unchanged. This
+qualifies that limited materialized-Process handoff and the named legacy tests.
+It does not establish a unified compiler, full-model equivalence or a Study
+runtime qualification. Root Issue/PR records retain the coordinated execution
+and artifact evidence.
 
 ## Verification
 

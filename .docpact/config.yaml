@@ -367,6 +367,10 @@ rules:
         kind: independent-oracle
       - path: scripts/test_study_p0_benchmarks.py
         kind: qualification
+      - path: scripts/check_study_p0_cement.py
+        kind: source-projection-verification
+      - path: scripts/test_study_p0_cement.py
+        kind: qualification
     requiredDocs:
       - path: docs/agents/contracts/study-p0-calculation-profile.md
         mode: review_or_update

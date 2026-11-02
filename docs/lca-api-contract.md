@@ -26,7 +26,7 @@ checkPaths:
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: 2026-11-02
-lastReviewedCommit: d9028e91d549023852dcfb5d37d40faadae3a217
+lastReviewedCommit: 8446715273c3653f2a234f9846cd087802fa51b0
 lastReviewedNote: "Worker #353: reviewed offline Study P0 profile, opaque existing calculation identity, common benchmark and qualification limits; production solver, admission and Result contracts unchanged."
 related:
   - AGENTS.md

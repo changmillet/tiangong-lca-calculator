@@ -103,6 +103,31 @@ unqualified; no production payload or account access is needed for these tests.
 Retain or remove `reports/study-p0` explicitly after preserving needed evidence.
 No container, database or storage resources are created by these commands.
 
+The separate real-data projection is checked by `scripts/check_study_p0_cement.py`
+and ten negative tests, also included in `make study-p0-check`. Its direct
+characterized subtotals are not complete LCIA scores or business qualification.
+To repeat source verification, supply an explicitly retained, read-only packet
+containing `cement-process-exact.json`, the nine exact `flow-<id>-<version>.json`
+responses and `support-public/{flowproperties,unitgroups}.jsonl`. These inputs
+stay outside Git because API wrappers can contain account metadata. The checker
+prints only aggregate pass/fail scope and never copies the packet. Optional
+public method verification checks the pinned compressed/decompressed cache,
+original method XML and exact source defaults:
+
+```bash
+python3 scripts/check_study_p0_cement.py \
+  --source-packet /absolute/private/read-only-packet \
+  --static-cache /absolute/platform/public/lciamethods \
+  --data-root /absolute/data
+```
+
+Without those optional inputs the check proves only committed projection
+consistency and independent arithmetic; its output explicitly marks source
+verification as false. With them it proves the declared acquisition-packet and
+static-source binding, not a hosted runtime, full provenance closure, licensed
+paper redistribution or scientific review. Preserve the reference-scale and
+source-review-status findings rather than treating public state as review.
+
 ### HDF5 result query projections
 
 Run `cargo test -p solver-worker --lib query_artifact` and

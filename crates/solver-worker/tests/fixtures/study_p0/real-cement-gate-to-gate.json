@@ -1,0 +1,524 @@
+{
+  "schema": "lca.study-p0-real-inventory.v1",
+  "status": "bounded_numerical_example_not_business_qualified",
+  "runtimeEnabled": false,
+  "observedAt": "2026-11-02T05:26:08.502Z",
+  "scope": {
+    "boundary": "gate-to-gate direct inventory only",
+    "referenceExchangeId": "8",
+    "referenceProductAmount": "1000",
+    "referenceUnit": "kg",
+    "upstreamInputs": "four declared product inputs outside boundary; no supplier invented",
+    "excluded": [
+      "upstream extraction, fuel and electricity production",
+      "transport, use and end of life",
+      "unreported exchanges and original-paper data reconciliation"
+    ],
+    "fullLcaQualified": false,
+    "scientificReviewComplete": false
+  },
+  "source": {
+    "process": {
+      "id": "dcffcc2b-d964-46d2-94ed-0c7b3c5b0c75",
+      "requestedVersion": "01.01.000",
+      "resolvedVersion": "01.01.000",
+      "stateCode": 100,
+      "documentSha256": "ad05d598006cc2fa57d36c5e4e3d8808c87aa6932dda4faadba7c9f53ed26025"
+    },
+    "documentHashEncoding": "SHA-256 of UTF-8 JSON with sorted object keys, preserved array order, compact separators and literal Unicode; excludes API wrapper/account metadata",
+    "referenceYear": 2008,
+    "geography": "CN-HL",
+    "citationReference": {
+      "id": "69b8c8e6-2264-4083-8d14-e06eda21e01f",
+      "version": "01.00.005"
+    },
+    "citation": "Yu Miao (2008), Research on Sustainable Development of Cement Industry in Heilongjiang Province, Harbin Institute of Technology thesis",
+    "citationVerification": "Process reference only; source dataset and original paper not independently acquired here",
+    "datasetLicenseDeclaration": "Free of charge for all users and uses",
+    "datasetCopyrightDeclaration": false,
+    "licenseScope": "dataset declaration only; no permission asserted for original paper or every third-party support asset",
+    "sourceWorkflowLabel": "Final draft for internal review"
+  },
+  "flows": [
+    {
+      "id": "c431c0c3-3f5e-4b7b-af99-2ebbdcaf5f98",
+      "version": "01.01.002",
+      "stateCode": 100,
+      "documentSha256": "939abc5065ec67e652e65c07f402817006929ed7bd663be55587451098de346a",
+      "type": "Product flow",
+      "name": "limestone",
+      "referenceFlowProperty": {
+        "id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+        "version": "03.00.003"
+      },
+      "referencePropertyFactor": "1.0",
+      "referenceUnitGroup": {
+        "id": "93a60a57-a4c8-11da-a746-0800200c9a66",
+        "version": "03.00.003"
+      },
+      "referenceUnit": {
+        "id": "0",
+        "name": "kg",
+        "factor": "1.0"
+      }
+    },
+    {
+      "id": "4f19a2fe-7b3b-11dd-ad8b-0800200c9a66",
+      "version": "03.00.000",
+      "stateCode": 100,
+      "documentSha256": "173e02abf63299e978f24c0fddcf6bf534df7f8ebcc8f2edad1b6596b442e15f",
+      "type": "Product flow",
+      "name": "gypsum stone (CaSO4-dihydrate)",
+      "referenceFlowProperty": {
+        "id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+        "version": "03.00.003"
+      },
+      "referencePropertyFactor": "1",
+      "referenceUnitGroup": {
+        "id": "93a60a57-a4c8-11da-a746-0800200c9a66",
+        "version": "03.00.003"
+      },
+      "referenceUnit": {
+        "id": "0",
+        "name": "kg",
+        "factor": "1.0"
+      }
+    },
+    {
+      "id": "a2bec48b-8347-4582-8cca-fa9d09ce0ac1",
+      "version": "01.01.002",
+      "stateCode": 100,
+      "documentSha256": "732844a9fe41c63b918ea29f457ec1e503616e1921977b722bde8536f1a18d70",
+      "type": "Product flow",
+      "name": "hard coal",
+      "referenceFlowProperty": {
+        "id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+        "version": "03.00.003"
+      },
+      "referencePropertyFactor": "1",
+      "referenceUnitGroup": {
+        "id": "93a60a57-a4c8-11da-a746-0800200c9a66",
+        "version": "03.00.003"
+      },
+      "referenceUnit": {
+        "id": "0",
+        "name": "kg",
+        "factor": "1.0"
+      }
+    },
+    {
+      "id": "3d76981f-964a-4865-b588-0e067a2a1163",
+      "version": "01.01.003",
+      "stateCode": 100,
+      "documentSha256": "d0a8812bc220b6e15e860ca727afeb8bb87e29d8374410ca6456ea8a55e8dc9c",
+      "type": "Product flow",
+      "name": "Alternating current",
+      "referenceFlowProperty": {
+        "id": "93a60a56-a3c8-11da-a746-0800200c9a66",
+        "version": "03.00.003"
+      },
+      "referencePropertyFactor": "1",
+      "referenceUnitGroup": {
+        "id": "93a60a57-a3c8-11da-a746-0800200c9a66",
+        "version": "03.00.003"
+      },
+      "referenceUnit": {
+        "id": "0",
+        "name": "MJ",
+        "factor": "1.0"
+      }
+    },
+    {
+      "id": "fe0acd60-3ddc-11dd-a70a-0050c2490048",
+      "version": "03.00.004",
+      "stateCode": 100,
+      "documentSha256": "ddf77cceed21e77588618156760099000fb1e966bd9d9dde8f280ebf50c700a8",
+      "type": "Elementary flow",
+      "name": "particles (> PM10)",
+      "referenceFlowProperty": {
+        "id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+        "version": "03.00.003"
+      },
+      "referencePropertyFactor": "1.0",
+      "referenceUnitGroup": {
+        "id": "93a60a57-a4c8-11da-a746-0800200c9a66",
+        "version": "03.00.003"
+      },
+      "referenceUnit": {
+        "id": "0",
+        "name": "kg",
+        "factor": "1.0"
+      }
+    },
+    {
+      "id": "fe0acd60-3ddc-11dd-ac48-0050c2490048",
+      "version": "03.00.004",
+      "stateCode": 100,
+      "documentSha256": "b0c09129796dc9aefd85b26a921b3189281148288b2d1f70ee8ffd2e6f086e52",
+      "type": "Elementary flow",
+      "name": "sulfur dioxide",
+      "referenceFlowProperty": {
+        "id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+        "version": "03.00.003"
+      },
+      "referencePropertyFactor": "1.0",
+      "referenceUnitGroup": {
+        "id": "93a60a57-a4c8-11da-a746-0800200c9a66",
+        "version": "03.00.003"
+      },
+      "referenceUnit": {
+        "id": "0",
+        "name": "kg",
+        "factor": "1.0"
+      }
+    },
+    {
+      "id": "f79d0f8f-2b0e-49cb-bed0-b1ea0fbd8625",
+      "version": "01.00.004",
+      "stateCode": 100,
+      "documentSha256": "cb5f3c68c346c0aa44efe84a26e6604b71d4a1ecdb2511e2c12207694c7e8740",
+      "type": "Elementary flow",
+      "name": "Nitrogen oxides",
+      "referenceFlowProperty": {
+        "id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+        "version": "03.00.003"
+      },
+      "referencePropertyFactor": "1",
+      "referenceUnitGroup": {
+        "id": "93a60a57-a4c8-11da-a746-0800200c9a66",
+        "version": "03.00.003"
+      },
+      "referenceUnit": {
+        "id": "0",
+        "name": "kg",
+        "factor": "1.0"
+      }
+    },
+    {
+      "id": "08a91e70-3ddc-11dd-923d-0050c2490048",
+      "version": "03.00.004",
+      "stateCode": 100,
+      "documentSha256": "66cdcf9f109fabcebc23e98d5f4cc7610efae7ce514f549e03214ba2846d5e67",
+      "type": "Elementary flow",
+      "name": "carbon dioxide (fossil)",
+      "referenceFlowProperty": {
+        "id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+        "version": "03.00.003"
+      },
+      "referencePropertyFactor": "1.0",
+      "referenceUnitGroup": {
+        "id": "93a60a57-a4c8-11da-a746-0800200c9a66",
+        "version": "03.00.003"
+      },
+      "referenceUnit": {
+        "id": "0",
+        "name": "kg",
+        "factor": "1.0"
+      }
+    },
+    {
+      "id": "42ee0f55-74be-4591-8d7e-54c2f2e6f70d",
+      "version": "01.01.002",
+      "stateCode": 100,
+      "documentSha256": "a210f3bfde03140d4656b8bda4d7eee65441f58da7b55686459980c0abfc4926",
+      "type": "Product flow",
+      "name": "Cement, portland cement",
+      "referenceFlowProperty": {
+        "id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+        "version": "03.00.003"
+      },
+      "referencePropertyFactor": "1.0",
+      "referenceUnitGroup": {
+        "id": "93a60a57-a4c8-11da-a746-0800200c9a66",
+        "version": "03.00.003"
+      },
+      "referenceUnit": {
+        "id": "0",
+        "name": "kg",
+        "factor": "1.0"
+      }
+    }
+  ],
+  "numericSupport": {
+    "resolution": "exact id/version from public state 100 source reads",
+    "flowProperties": [
+      {
+        "id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+        "version": "03.00.003",
+        "stateCode": 100,
+        "documentSha256": "8e05b19fd93973669ee10f58a52f9065ded5673176deadcc0ac46f4ce6463d19",
+        "referenceUnitGroup": {
+          "id": "93a60a57-a4c8-11da-a746-0800200c9a66",
+          "version": "03.00.003"
+        }
+      },
+      {
+        "id": "93a60a56-a3c8-11da-a746-0800200c9a66",
+        "version": "03.00.003",
+        "stateCode": 100,
+        "documentSha256": "6681b7a20422d08035b46be567aee02b160656c6d3123c511dbe7d44279ca96a",
+        "referenceUnitGroup": {
+          "id": "93a60a57-a3c8-11da-a746-0800200c9a66",
+          "version": "03.00.003"
+        }
+      }
+    ],
+    "unitGroups": [
+      {
+        "id": "93a60a57-a4c8-11da-a746-0800200c9a66",
+        "version": "03.00.003",
+        "stateCode": 100,
+        "documentSha256": "25c26efce57a14c6e84fc5ba348b94a9907549a54f3eb9642b12a077011610f3",
+        "referenceUnit": {
+          "id": "0",
+          "name": "kg",
+          "factor": "1.0"
+        }
+      },
+      {
+        "id": "93a60a57-a3c8-11da-a746-0800200c9a66",
+        "version": "03.00.003",
+        "stateCode": 100,
+        "documentSha256": "781980f2ad6036b604221e9b729936dccf5332994b0f050b453742faf6544cbf",
+        "referenceUnit": {
+          "id": "0",
+          "name": "MJ",
+          "factor": "1.0"
+        }
+      }
+    ],
+    "fullSourceReferenceClosureVerified": false
+  },
+  "exchanges": [
+    {
+      "id": "0",
+      "direction": "Input",
+      "flow": {
+        "id": "c431c0c3-3f5e-4b7b-af99-2ebbdcaf5f98",
+        "version": "01.01.002"
+      },
+      "amount": "1137.5",
+      "unit": "kg",
+      "boundaryRole": "upstreamInputExcluded",
+      "sourceDerivationStatus": "Missing unimportant"
+    },
+    {
+      "id": "1",
+      "direction": "Input",
+      "flow": {
+        "id": "4f19a2fe-7b3b-11dd-ad8b-0800200c9a66",
+        "version": "03.00.000"
+      },
+      "amount": "59.3",
+      "unit": "kg",
+      "boundaryRole": "upstreamInputExcluded",
+      "sourceDerivationStatus": "Missing unimportant"
+    },
+    {
+      "id": "2",
+      "direction": "Input",
+      "flow": {
+        "id": "a2bec48b-8347-4582-8cca-fa9d09ce0ac1",
+        "version": "01.01.002"
+      },
+      "amount": "204.82",
+      "unit": "kg",
+      "boundaryRole": "upstreamInputExcluded",
+      "sourceDerivationStatus": "Missing unimportant"
+    },
+    {
+      "id": "3",
+      "direction": "Input",
+      "flow": {
+        "id": "3d76981f-964a-4865-b588-0e067a2a1163",
+        "version": "01.01.003"
+      },
+      "amount": "357.48",
+      "unit": "MJ",
+      "boundaryRole": "upstreamInputExcluded",
+      "sourceDerivationStatus": "Missing unimportant"
+    },
+    {
+      "id": "4",
+      "direction": "Output",
+      "flow": {
+        "id": "fe0acd60-3ddc-11dd-a70a-0050c2490048",
+        "version": "03.00.004"
+      },
+      "amount": "0.64",
+      "unit": "kg",
+      "boundaryRole": "directEmissionIncluded",
+      "sourceDerivationStatus": "Missing unimportant"
+    },
+    {
+      "id": "5",
+      "direction": "Output",
+      "flow": {
+        "id": "fe0acd60-3ddc-11dd-ac48-0050c2490048",
+        "version": "03.00.004"
+      },
+      "amount": "0.4662",
+      "unit": "kg",
+      "boundaryRole": "directEmissionIncluded",
+      "sourceDerivationStatus": "Missing unimportant"
+    },
+    {
+      "id": "6",
+      "direction": "Output",
+      "flow": {
+        "id": "f79d0f8f-2b0e-49cb-bed0-b1ea0fbd8625",
+        "version": "01.00.004"
+      },
+      "amount": "1.602",
+      "unit": "kg",
+      "boundaryRole": "directEmissionIncluded",
+      "sourceDerivationStatus": "Missing unimportant"
+    },
+    {
+      "id": "7",
+      "direction": "Output",
+      "flow": {
+        "id": "08a91e70-3ddc-11dd-923d-0050c2490048",
+        "version": "03.00.004"
+      },
+      "amount": "1092.8",
+      "unit": "kg",
+      "boundaryRole": "directEmissionIncluded",
+      "sourceDerivationStatus": "Missing unimportant"
+    },
+    {
+      "id": "8",
+      "direction": "Output",
+      "flow": {
+        "id": "42ee0f55-74be-4591-8d7e-54c2f2e6f70d",
+        "version": "01.01.002"
+      },
+      "amount": "1000.0",
+      "unit": "kg",
+      "boundaryRole": "referenceProduct",
+      "sourceDerivationStatus": "Calculated"
+    }
+  ],
+  "methodEvidence": {
+    "staticBundleManifestSha256": "e9b4e7f9a5125bb921efbffba9a4b50711f9ea982e22b500f35211884a0479c5",
+    "staticFactorManifestSha256": "40ffd33323c9882dbd0b0d9c99982bad1752e311062231bcf1f490ee96f92e96",
+    "nonregionalDefaultsSha256": "d5ed7b76d96aa6640371fdba12076e129240e01f11e360d374b65fb89f9c3373",
+    "staticListSha256": "38f4bb0c1f43589ae58798e7c6b35f7c9607861c2753c81eb16255a3225867fc",
+    "staticFactorAssetSha256": "3803be483b8b29060e031cdfe401f3c2ed02b68bcd6e0588fd467f9459d45139"
+  },
+  "methods": [
+    {
+      "id": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+      "version": "01.00.000",
+      "name": "Climate change",
+      "unit": "kg CO2 Equivalents",
+      "sourcePath": "tiangong_lca_data/lciamethods/6209b35f-9447-40b5-b68c-a1099e3674a0.xml",
+      "sourceXmlSha256": "c0fe31d3c045ae85b64bd85a3bfa41e1f246d664e8f8d463005f37dee003a5a8",
+      "selectionPolicy": "lcia.nonregional-source-defaults.v1",
+      "selectedFactors": [
+        {
+          "exchangeId": "7",
+          "flow": {
+            "id": "08a91e70-3ddc-11dd-923d-0050c2490048",
+            "version": "03.00.004"
+          },
+          "direction": "Output",
+          "value": "1.0",
+          "sourceRecordIndex": 822,
+          "sourceRecordSha256": "7b33171dca8ff17beaa79805cd4e36f24be4b87fb1f522a9f9d19e594bd1615d",
+          "sourceLocationKind": "blank",
+          "matchingAlternativeCount": 1,
+          "expectedContribution": "1092.8"
+        }
+      ],
+      "uncharacterizedExchangeIds": [
+        "4",
+        "5",
+        "6"
+      ],
+      "coverageStatus": "incomplete_coverage_not_zero",
+      "expectedCharacterizedSubtotal": "1092.8",
+      "resultKind": "direct-characterized-subtotal; not a complete LCIA category score"
+    },
+    {
+      "id": "b5c611c6-def3-11e6-bf01-fe55135034f3",
+      "version": "01.04.000",
+      "name": "Acidification",
+      "unit": "mol H+ equivalents",
+      "sourcePath": "tiangong_lca_data/lciamethods/b5c611c6-def3-11e6-bf01-fe55135034f3.xml",
+      "sourceXmlSha256": "1a09e9e8533cc6f1027f260c2672ca6f8dd231618fe81939ed1fc22d5e066f8f",
+      "selectionPolicy": "lcia.nonregional-source-defaults.v1",
+      "selectedFactors": [
+        {
+          "exchangeId": "5",
+          "flow": {
+            "id": "fe0acd60-3ddc-11dd-ac48-0050c2490048",
+            "version": "03.00.004"
+          },
+          "direction": "Output",
+          "value": "1.31",
+          "sourceRecordIndex": 207,
+          "sourceRecordSha256": "a004ed28e661cdfbc34a9d5f2c1911fa3448b389b4794a9f57e35b9e08209ff7",
+          "sourceLocationKind": "blank",
+          "matchingAlternativeCount": 37,
+          "expectedContribution": "0.610722"
+        },
+        {
+          "exchangeId": "6",
+          "flow": {
+            "id": "f79d0f8f-2b0e-49cb-bed0-b1ea0fbd8625",
+            "version": "01.00.004"
+          },
+          "direction": "Output",
+          "value": "0.74",
+          "sourceRecordIndex": 344,
+          "sourceRecordSha256": "fe1a4f50b46bd5c56ba51729ec3a911c7568207a4a87c8869142a1b83d5184a4",
+          "sourceLocationKind": "blank",
+          "matchingAlternativeCount": 37,
+          "expectedContribution": "1.18548"
+        }
+      ],
+      "uncharacterizedExchangeIds": [
+        "4",
+        "7"
+      ],
+      "coverageStatus": "incomplete_coverage_not_zero",
+      "expectedCharacterizedSubtotal": "1.796202",
+      "resultKind": "direct-characterized-subtotal; not a complete LCIA category score"
+    }
+  ],
+  "independentDerivation": [
+    "Use the declared quantitative-reference output of 1000 kg as the numerical basis; no implicit 1 kg correction",
+    "Climate known contribution: 1092.8 kg fossil CO2 * 1 kg CO2 eq/kg = 1092.8 kg CO2 eq per 1000 kg product",
+    "Acidification known subtotal: 0.4662 kg SO2 * 1.31 + 1.602 kg NOx * 0.74 = 0.610722 + 1.18548 = 1.796202 mol H+ eq per 1000 kg product",
+    "Each of 37 regional records is an alternative; select one source default for SO2 and one for NOx, never their sum",
+    "Uncharacterized flows remain unknown; none contributes an invented numerical zero"
+  ],
+  "qualityFindings": [
+    {
+      "code": "REFERENCE_COMMENT_AMOUNT_CONFLICT",
+      "observation": "Reference exchange numeric amount is 1000 kg, while its source comment describes 1 kg",
+      "disposition": "Use declared numeric reference for this arithmetic example; original scale remains a scientific review question"
+    },
+    {
+      "code": "PUBLIC_STATE_AND_SOURCE_WORKFLOW_DIFFER",
+      "observation": "Exact API read state is 100; source workflow label is Final draft for internal review",
+      "disposition": "Record both; numerical eligibility does not establish reviewed scientific quality"
+    },
+    {
+      "code": "PARTICLE_PROXY_AND_DERIVATION_STATUS",
+      "observation": "Unspecified dust is represented as particles > PM10; eight non-reference exchanges carry Missing unimportant derivation status",
+      "disposition": "Retain source interpretation and quality limitation; no completed quality review claimed"
+    },
+    {
+      "code": "NUMERIC_REFERENCE_UNITS_ONLY",
+      "observation": "Electricity Flow reference unit resolves to MJ; source electricity amount is 357.48",
+      "disposition": "Preserve 357.48 MJ; do not guess kWh or reinterpret original-paper units"
+    },
+    {
+      "code": "METHOD_COVERAGE_INCOMPLETE",
+      "observation": "Climate characterizes 1 of 4 reported elementary outputs; acidification characterizes 2 of 4",
+      "disposition": "Report characterized contributions/subtotals and explicit unknowns, not complete LCIA category totals"
+    }
+  ]
+}

@@ -9,7 +9,7 @@
   "sourceBaseline": {
     "worker": "d9028e91d549023852dcfb5d37d40faadae3a217",
     "cli": "67f9eba655ea56fd352a6df795feeec6536a59a9",
-    "platform": "bc864b9fc0b69e3eb3cc22d5f507664f697bf81c"
+    "platform": "0cf171f2a80155b37a3a2d971b41dc0dae281aac"
   },
   "semantics": {
     "system": "(I-A)x=y; g=Bx; h=Cg",
@@ -50,5 +50,13 @@
     "schema": "lca.calculation-contract.v1",
     "sha256Encoding": "lowercase-hex-64",
     "hashOwner": "worker"
+  },
+  "realInventoryExample": {
+    "schema": "lca.study-p0-real-inventory.v1",
+    "file": "real-cement-gate-to-gate.json",
+    "sourceVersion": "01.01.000",
+    "scope": "real declared inventory and direct characterized subtotals only",
+    "businessPilotQualified": false,
+    "productionModelInput": false
   }
 }

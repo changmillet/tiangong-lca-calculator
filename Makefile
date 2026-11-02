@@ -12,6 +12,8 @@ qualification-test:
 study-p0-check:
 	python3 scripts/check_study_p0_benchmarks.py
 	PYTHONPATH=scripts python3 -m unittest scripts/test_study_p0_benchmarks.py
+	python3 scripts/check_study_p0_cement.py
+	PYTHONPATH=scripts python3 -m unittest scripts/test_study_p0_cement.py
 
 study-p0-native-check: study-p0-check
 	mkdir -p reports/study-p0

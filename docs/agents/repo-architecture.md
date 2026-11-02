@@ -70,6 +70,9 @@ qualification baseline and common rational fixtures under
 allocation test do not add a production compiler or enable Study execution.
 Consumers bind the existing Worker calculation fingerprint through an opaque
 `calculationContractRef`; the profile is separate from that executable identity.
+The bounded real cement projection and read-only source/static-cache verifier
+exercise declared inventory and partial characterized arithmetic only; they are
+not production model inputs, prepared-model identities or a qualified Study run.
 
 Keep these constraints in mind before editing `crates/solver-core/**` or worker solve flows:
 
