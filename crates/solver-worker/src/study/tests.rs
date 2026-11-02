@@ -815,3 +815,134 @@ fn one_method_category_cannot_select_multiple_versions() {
             .contains("duplicate_method")
     );
 }
+
+#[test]
+fn independent_tiny_opposite_sign_link_is_representable() {
+    let s = input(
+        vec![
+            process(
+                "pa",
+                vec![
+                    raw_exchange("p", "product-a", "Output", 1e-200),
+                    raw_exchange("e", "emission", "Output", 1.0),
+                ],
+            ),
+            process(
+                "pb",
+                vec![
+                    raw_exchange("p", "product-b", "Output", 1.0),
+                    raw_exchange("i", "product-a", "Input", 1e-200),
+                ],
+            ),
+        ],
+        model(json!([
+            instance("a", "pb", json!([])),
+            instance("b", "pa", connection("product-a", "a"))
+        ])),
+        &["product-a", "product-b", "emission"],
+    );
+    let p = prepare(
+        &serde_json::to_vec(&s).unwrap(),
+        &methods(),
+        &Bounds::default(),
+    );
+    assert!(p.is_ok(), "valid link rejected: {:?}", p.err());
+    assert!((execute(&p.unwrap()).unwrap().g[0] - 1.0).abs() < 1e-12);
+}
+#[test]
+fn independent_allocation_normalization_does_not_erase_representable_inventory() {
+    let mut burden = raw_exchange("e", "emission", "Output", f64::from_bits(1));
+    burden["allocations"] = allocation(50.0, 50.0);
+    let mut s = input(
+        vec![process(
+            "pa",
+            vec![
+                raw_exchange("p", "product-p", "Output", 1e-308),
+                raw_exchange("q", "product-q", "Output", 1e-308),
+                burden,
+            ],
+        )],
+        model(json!([instance("a", "pa", json!([]))])),
+        &["product-p", "product-q", "emission"],
+    );
+    s.cutoffs.push(Cutoff {
+        port: Port {
+            instance_id: "a".into(),
+            exchange_id: "q".into(),
+        },
+        reason: "explicit boundary q".into(),
+    });
+    let mut m = methods();
+    m.factors[0][0].value = 1e16;
+    let p = prepare(&serde_json::to_vec(&s).unwrap(), &m, &Bounds::default()).unwrap();
+    let r = execute(&p).unwrap();
+    let expected = (f64::from_bits(1) / 1e-308) * 0.5 * 1e16;
+    eprintln!("B={:?} h={:?} expected={expected}", p.numeric.b, r.h);
+    assert!((r.h[0] - expected).abs() < 1e-12);
+}
+#[test]
+fn independent_repeated_allocation_metadata_exceeds_owned_envelope() {
+    let mut burden = raw_exchange("e", "emission", "Output", 10.0);
+    burden["allocations"] = allocation(50.0, 50.0);
+    burden["allocations"]["note"] = json!("x".repeat(32_768));
+    let ids = (0..64)
+        .map(|i| if i == 0 { "a".into() } else { format!("n{i}") })
+        .collect::<Vec<String>>();
+    let mut s = input(
+        vec![process(
+            "pa",
+            vec![
+                raw_exchange("p", "product-p", "Output", 1.0),
+                raw_exchange("q", "product-q", "Output", 1.0),
+                burden,
+            ],
+        )],
+        model(json!(
+            ids.iter()
+                .map(|id| instance(id, "pa", json!([])))
+                .collect::<Vec<_>>()
+        )),
+        &["product-p", "product-q", "emission"],
+    );
+    for id in &ids {
+        s.cutoffs.push(Cutoff {
+            port: Port {
+                instance_id: id.clone(),
+                exchange_id: "q".into(),
+            },
+            reason: "explicit boundary q".into(),
+        });
+    }
+    let mut bounds = Bounds::default();
+    bounds.max_owned_bytes = 1024 * 1024;
+    let bytes = serde_json::to_vec(&s).unwrap();
+    let error = prepare(&bytes, &methods(), &bounds).unwrap_err();
+    assert!(
+        error.to_string().contains("source_expansion_memory_limit"),
+        "unexpected preflight error: {error}"
+    );
+}
+
+#[test]
+fn normalization_preserves_finite_extremes_and_rejects_final_range_loss() {
+    use super::compile::normalized_amount;
+    let value = normalized_amount(1e308, 1e-308, 1e-308).unwrap();
+    assert!((value / 1e308 - 1.0).abs() < 1e-15);
+    assert_eq!(
+        normalized_amount(f64::MIN_POSITIVE, f64::from_bits(1), f64::MIN_POSITIVE).unwrap(),
+        f64::from_bits(1)
+    );
+    assert!(
+        normalized_amount(f64::from_bits(1), 0.5, 1.0)
+            .unwrap_err()
+            .to_string()
+            .contains("underflow")
+    );
+    assert!(
+        normalized_amount(f64::MAX, 1.0, f64::MIN_POSITIVE)
+            .unwrap_err()
+            .to_string()
+            .contains("overflow")
+    );
+    assert_eq!(normalized_amount(f64::from_bits(1), 0.0, 1.0).unwrap(), 0.0);
+}

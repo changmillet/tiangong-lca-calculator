@@ -225,6 +225,10 @@ pub fn prepare(
         bytes.len() <= bounds.max_source_bytes,
         "study_source_bytes_limit"
     );
+    ensure!(
+        bytes.len().saturating_mul(8) <= bounds.max_owned_bytes,
+        "study_owned_memory_limit"
+    );
     let source: SourceInput = serde_json::from_slice(bytes)?;
     ensure!(
         !methods.axes.is_empty() && methods.axes.len() <= bounds.max_methods,
@@ -252,7 +256,8 @@ pub fn prepare(
             == source.method_refs.len(),
         "study_duplicate_method"
     );
-    let model = source::normalize(&source, bounds)?;
+    let (model, normalized_owned_bytes) =
+        source::normalize(&source, bounds, bytes.len().saturating_mul(8))?;
     let mut ports = BTreeMap::new();
     for i in &model.instances {
         let p = Port {
@@ -279,7 +284,7 @@ pub fn prepare(
         let s = signed_coefficient(direction(&supplier.direction), supplier.amount)?;
         let c = signed_coefficient(direction(&consumer.direction), consumer.amount)?;
         ensure!(
-            s * c < 0.0 || c == 0.0,
+            (s != 0.0 && s.is_sign_positive() != c.is_sign_positive()) || c == 0.0,
             "study_connection_direction_mismatch"
         );
         ports.insert(key(&e.supplier), e.supplier.clone());
@@ -324,6 +329,7 @@ pub fn prepare(
         bytes
             .len()
             .saturating_mul(8)
+            .saturating_add(normalized_owned_bytes)
             .saturating_add(cells.saturating_mul(64))
             <= bounds.max_owned_bytes,
         "study_owned_memory_limit"
@@ -335,17 +341,12 @@ pub fn prepare(
     for (column, v) in views.iter().enumerate() {
         let i = instance(&model, &v.port)?;
         let pivot = exchange(&model, &v.port)?;
-        let scale = normalize_reference_coefficient(signed_coefficient(
-            direction(&pivot.direction),
-            pivot.amount,
-        )?)?
-        .scale;
         let shares = fractions(i, &v.port.exchange_id)?;
         for (e, share) in i.exchanges.iter().zip(shares) {
             if e.id == v.port.exchange_id {
                 continue;
             }
-            let value = e.amount * share * scale;
+            let value = normalized_amount(e.amount, share, pivot.amount.abs())?;
             ensure!(value.is_finite(), "study_nonfinite_coefficient");
             if e.kind == "Elementary flow" {
                 let row = inventory_axes
@@ -489,6 +490,55 @@ pub fn prepare(
         "study_compile_time_limit"
     );
     Ok(input)
+}
+/// Evaluate amount*share/pivot without overflowing or erasing a finite intermediate.
+/// Final values below the smallest subnormal or above finite f64 are rejected.
+pub(super) fn normalized_amount(amount: f64, share: f64, pivot: f64) -> anyhow::Result<f64> {
+    ensure!(
+        amount.is_finite() && share.is_finite() && share >= 0.0 && pivot.is_finite() && pivot > 0.0,
+        "study_invalid_normalization"
+    );
+    if amount == 0.0 || share == 0.0 {
+        return Ok(0.0);
+    }
+    let (a, ae) = binary_parts(amount.abs());
+    let (b, be) = binary_parts(share);
+    let (p, pe) = binary_parts(pivot);
+    let mut mantissa = (a * b) / p;
+    let mut exponent = ae + be - pe;
+    if mantissa >= 2.0 {
+        mantissa *= 0.5;
+        exponent += 1;
+    } else if mantissa < 1.0 {
+        mantissa *= 2.0;
+        exponent -= 1;
+    }
+    ensure!(exponent >= -1074, "study_normalization_underflow");
+    ensure!(exponent <= 1023, "study_normalization_overflow");
+    let power = if exponent >= -1022 {
+        f64::from_bits(u64::try_from(exponent + 1023)? << 52)
+    } else {
+        f64::from_bits(1u64 << u32::try_from(exponent + 1074)?)
+    };
+    let value = mantissa * power;
+    ensure!(value.is_finite(), "study_normalization_overflow");
+    ensure!(value != 0.0, "study_normalization_underflow");
+    Ok(value.copysign(amount))
+}
+fn binary_parts(value: f64) -> (f64, i32) {
+    let bits = value.to_bits();
+    let fraction = bits & ((1u64 << 52) - 1);
+    let encoded = i32::try_from((bits >> 52) & 0x7ff).expect("eleven-bit exponent");
+    if encoded != 0 {
+        (f64::from_bits((1023u64 << 52) | fraction), encoded - 1023)
+    } else {
+        let highest = fraction.ilog2();
+        let normalized = fraction << (52 - highest);
+        (
+            f64::from_bits((1023u64 << 52) | (normalized & ((1u64 << 52) - 1))),
+            i32::try_from(highest).expect("mantissa exponent") - 1074,
+        )
+    }
 }
 fn triplets(matrix: &[Vec<f64>]) -> anyhow::Result<Vec<SparseTriplet>> {
     let mut result = Vec::new();

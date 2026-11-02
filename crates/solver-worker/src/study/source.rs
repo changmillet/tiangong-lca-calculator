@@ -121,7 +121,11 @@ fn port_for_flow(
     })
 }
 #[allow(clippy::too_many_lines)]
-pub(super) fn normalize(source: &SourceInput, bounds: &Bounds) -> anyhow::Result<NormalizedModel> {
+pub(super) fn normalize(
+    source: &SourceInput,
+    bounds: &Bounds,
+    base_owned_bytes: usize,
+) -> anyhow::Result<(NormalizedModel, usize)> {
     ensure!(
         source.schema_version == SOURCE_SCHEMA,
         "study_source_schema"
@@ -187,6 +191,25 @@ pub(super) fn normalize(source: &SourceInput, bounds: &Bounds) -> anyhow::Result
         !raw_instances.is_empty() && raw_instances.len() <= bounds.max_instances,
         "study_instance_limit"
     );
+    // Preflight every expansion while documents are borrowed, before copying any per-instance
+    // allocation metadata. The estimate covers normalized AST clones and hash/JSON staging.
+    let mut expanded_bytes = 0usize;
+    for raw in &raw_instances {
+        let process = reference(&raw["referenceToProcess"])?;
+        let size = encoded_size(lookup(&docs, "process", &process)?)?;
+        expanded_bytes = expanded_bytes
+            .checked_add(size)
+            .context("study_source_expansion_overflow")?;
+        ensure!(
+            expanded_bytes <= bounds.max_artifact_bytes,
+            "study_source_expansion_artifact_limit"
+        );
+        ensure!(
+            base_owned_bytes.saturating_add(expanded_bytes.saturating_mul(32))
+                <= bounds.max_owned_bytes,
+            "study_source_expansion_memory_limit"
+        );
+    }
     let mut instances = Vec::new();
     let mut ids = BTreeSet::new();
     let mut count = 0;
@@ -403,22 +426,44 @@ pub(super) fn normalize(source: &SourceInput, bounds: &Bounds) -> anyhow::Result
     let mut findings = source.quality_findings.clone();
     findings.sort();
     findings.dedup();
-    Ok(NormalizedModel {
-        schema_version: "lca.study-normalized-model.v1".into(),
-        origin: source.origin.clone(),
-        reference,
-        instances,
-        connections,
-        cutoffs,
-        overrides: {
-            let mut values = source.overrides.clone();
-            values.sort_by(|a, b| a.path.cmp(&b.path));
-            values
+    Ok((
+        NormalizedModel {
+            schema_version: "lca.study-normalized-model.v1".into(),
+            origin: source.origin.clone(),
+            reference,
+            instances,
+            connections,
+            cutoffs,
+            overrides: {
+                let mut values = source.overrides.clone();
+                values.sort_by(|a, b| a.path.cmp(&b.path));
+                values
+            },
+            source_documents: identities,
+            quality_findings: findings,
         },
-        source_documents: identities,
-        quality_findings: findings,
-    })
+        expanded_bytes.saturating_mul(32),
+    ))
 }
 fn id_for(instance: &Instance) -> String {
     instance.id.clone()
+}
+
+fn encoded_size(value: &Value) -> anyhow::Result<usize> {
+    struct Counter(usize);
+    impl std::io::Write for Counter {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 = self
+                .0
+                .checked_add(bytes.len())
+                .ok_or_else(|| std::io::Error::other("study_source_expansion_overflow"))?;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut counter = Counter(0);
+    serde_json::to_writer(&mut counter, value)?;
+    Ok(counter.0)
 }

@@ -18,7 +18,7 @@ checkPaths:
   - crates/solver-worker/src/bin/study_compile.rs
   - docs/agents/contracts/study-compiler-contract.md
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 5f9a1c5e4d930858039d593c82c3500d862d8ce8
+lastReviewedCommit: 7db69aa724bf3030426e10bf5c2cd5db72d7cdc5
 lastReviewedNote: "Worker #355: explicit source-model compiler and local native execution; hosted source acquisition, task authority and producer admission remain W06."
 related:
   - study-p0-calculation-profile.md
@@ -97,6 +97,13 @@ are unsupported. Every nonzero unconnected non-reference technosphere exchange
 requires an explicit located cutoff or declared supply boundary. Cutoff reasons
 remain frozen evidence; no provider inference is performed.
 
+Allocation/normalization evaluates amount times share divided by the absolute
+pivot using binary mantissa/exponent decomposition. Intermediate underflow or
+overflow must not erase a representable normalized value. A final nonzero value
+below the smallest f64 subnormal, or above finite f64, is rejected explicitly.
+Opposite-sign connection checks compare nonzero signs directly, never a product
+whose magnitude could underflow or overflow.
+
 Unit handling supports only exact reference FlowProperty/UnitGroup chains whose
 reference factors are exactly one. Incompatible versions, missing support,
 non-reference conversions or label-based conversions fail. Elementary B uses
@@ -149,8 +156,14 @@ Default hard maxima: 4 MiB source, 512 documents, 64 instances, 128 views,
 4096 exchanges, 25 methods, 32768 matrix nonzeros, 131072 dense cells, 4 MiB
 prepared artifact, 256 MiB estimated owned compiler/matrix allocation and 30s
 phase budget. Smaller limits are supported; requests cannot raise the ceiling.
-Allocation admission estimates source bytes times eight plus dense cells times
-64, in addition to source/count/cell/NNZ caps. This estimate is not an RSS claim
+Allocation admission estimates source bytes times eight, expanded per-instance
+Process JSON bytes times 32 (including allocation metadata and normalization/hash
+staging), plus dense cells times 64. A streaming counting writer preflights the
+aggregate expanded Process bytes against the artifact ceiling and owned-memory
+budget **before any per-instance inventory/allocation cloning**. The matrix
+admission includes that retained normalized estimate rather than checking the
+stages as separate independent budgets. These conservative estimates are in
+addition to source/count/cell/NNZ caps. This estimate is not an RSS claim
 for native libraries or the separately verified static-bundle loader. W06 must
 apply the process/total RSS, download, upload, concurrency and temp-space bounds.
 The initial API/DB artifact transfer ceiling is the same 4 MiB. A larger original
