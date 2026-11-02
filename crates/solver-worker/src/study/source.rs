@@ -149,7 +149,7 @@ pub(super) fn normalize(
             sha256(doc.json.as_bytes()) == doc.sha256,
             "study_source_document_hash"
         );
-        let value: Value = serde_json::from_str(&doc.json)?;
+        let value: Value = super::json::from_str(&doc.json)?;
         let (root, info) = match doc.kind.as_str() {
             "lifecyclemodel" => ("lifeCycleModelDataSet", "lifeCycleModelInformation"),
             "process" => ("processDataSet", "processInformation"),

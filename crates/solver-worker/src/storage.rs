@@ -31,6 +31,12 @@ type HmacSha256 = Hmac<Sha256>;
 const EMPTY_PAYLOAD_SHA256: &str =
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
+#[derive(Debug, thiserror::Error)]
+#[error("object download failed status={status}")]
+pub struct ObjectDownloadError {
+    pub status: StatusCode,
+}
+
 /// S3-compatible object storage client using path-style URL uploads.
 #[derive(Debug, Clone)]
 pub struct ObjectStoreClient {
@@ -232,6 +238,27 @@ impl ObjectStoreClient {
                 .redirect(reqwest::redirect::Policy::none())
                 .build()?,
         })
+    }
+
+    /// Opaque reconciliation authority binding; excludes signing secrets and session tokens.
+    #[must_use]
+    pub fn authority_fingerprint(&self) -> String {
+        sha256_hex(
+            format!(
+                "study.storage-authority.v1\0{}\0{}\0{}\0{}",
+                self.endpoint, self.region, self.bucket, self.access_key_id
+            )
+            .as_bytes(),
+        )
+    }
+
+    /// Service-only Study namespace uses the same configured S3 authority, with no caller bucket.
+    #[must_use]
+    pub fn study_artifacts(&self) -> Self {
+        let mut client = self.clone();
+        "study-artifacts".clone_into(&mut client.bucket);
+        client.prefix.clear();
+        client
     }
 
     /// Uploads bytes to object storage and returns object URL.
@@ -1231,10 +1258,10 @@ fn require_download_success(response: reqwest::Response) -> anyhow::Result<reqwe
     } else {
         // Do not include response bodies or URLs: presigned query values and
         // credentials can be reflected by an upstream error or redirect.
-        Err(anyhow::anyhow!(
-            "object download failed status={}",
-            response.status()
-        ))
+        Err(ObjectDownloadError {
+            status: response.status(),
+        }
+        .into())
     }
 }
 

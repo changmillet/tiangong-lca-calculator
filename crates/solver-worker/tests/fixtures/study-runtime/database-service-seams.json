@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "lca.study-database-service-seams.v1",
+  "databaseOwner": "tiangong-lca/database#895",
+  "observedProject": "owned-local-study894",
+  "observedAt": "2026-11-02T23:18:18.391081+00:00",
+  "sourceFileSha256": {
+    "supabase/migrations/20261102165824_study_durable_runtime_v1.sql": "15f84410813118cc777ca1dc09103c833b0dec77d519b3d4f81a1959a2e7f302",
+    "supabase/migrations/20261102215839_study_task_admission_v1.sql": "cb0918b33cb6dede64d8337fcbfc6ef8efa768825c74ade6106c41141567b0ea"
+  },
+  "functions": [
+    {
+      "name": "svc_study_model_preparation_complete_v1",
+      "result": "jsonb",
+      "schema": "api",
+      "arguments": "p_preparation_id uuid, p_job_id uuid, p_lease_token uuid, p_completion jsonb, p_idempotency_key text",
+      "actorExecute": false,
+      "argumentNames": [
+        "p_preparation_id",
+        "p_job_id",
+        "p_lease_token",
+        "p_completion",
+        "p_idempotency_key"
+      ],
+      "serviceExecute": true,
+      "identityArguments": "p_preparation_id uuid, p_job_id uuid, p_lease_token uuid, p_completion jsonb, p_idempotency_key text"
+    },
+    {
+      "name": "svc_study_model_preparation_read_input_v1",
+      "result": "jsonb",
+      "schema": "api",
+      "arguments": "p_preparation_id uuid, p_job_id uuid, p_lease_token uuid",
+      "actorExecute": false,
+      "argumentNames": [
+        "p_preparation_id",
+        "p_job_id",
+        "p_lease_token"
+      ],
+      "serviceExecute": true,
+      "identityArguments": "p_preparation_id uuid, p_job_id uuid, p_lease_token uuid"
+    },
+    {
+      "name": "svc_study_run_complete_v1",
+      "result": "jsonb",
+      "schema": "api",
+      "arguments": "p_run_id uuid, p_job_id uuid, p_lease_token uuid, p_completion jsonb, p_idempotency_key text",
+      "actorExecute": false,
+      "argumentNames": [
+        "p_run_id",
+        "p_job_id",
+        "p_lease_token",
+        "p_completion",
+        "p_idempotency_key"
+      ],
+      "serviceExecute": true,
+      "identityArguments": "p_run_id uuid, p_job_id uuid, p_lease_token uuid, p_completion jsonb, p_idempotency_key text"
+    },
+    {
+      "name": "svc_study_run_read_input_v1",
+      "result": "jsonb",
+      "schema": "api",
+      "arguments": "p_run_id uuid, p_job_id uuid, p_lease_token uuid",
+      "actorExecute": false,
+      "argumentNames": [
+        "p_run_id",
+        "p_job_id",
+        "p_lease_token"
+      ],
+      "serviceExecute": true,
+      "identityArguments": "p_run_id uuid, p_job_id uuid, p_lease_token uuid"
+    },
+    {
+      "name": "svc_study_source_acquisition_read_input_v1",
+      "result": "jsonb",
+      "schema": "api",
+      "arguments": "p_acquisition_id uuid, p_job_id uuid, p_lease_token uuid",
+      "actorExecute": false,
+      "argumentNames": [
+        "p_acquisition_id",
+        "p_job_id",
+        "p_lease_token"
+      ],
+      "serviceExecute": true,
+      "identityArguments": "p_acquisition_id uuid, p_job_id uuid, p_lease_token uuid"
+    },
+    {
+      "name": "svc_study_source_record_v1",
+      "result": "jsonb",
+      "schema": "api",
+      "arguments": "p_acquisition_id uuid, p_job_id uuid, p_lease_token uuid, p_completion jsonb, p_idempotency_key text",
+      "actorExecute": false,
+      "argumentNames": [
+        "p_acquisition_id",
+        "p_job_id",
+        "p_lease_token",
+        "p_completion",
+        "p_idempotency_key"
+      ],
+      "serviceExecute": true,
+      "identityArguments": "p_acquisition_id uuid, p_job_id uuid, p_lease_token uuid, p_completion jsonb, p_idempotency_key text"
+    },
+    {
+      "name": "svc_study_task_fail_v1",
+      "result": "jsonb",
+      "schema": "api",
+      "arguments": "p_resource_type text, p_resource_id uuid, p_job_id uuid, p_lease_token uuid, p_error_code text, p_idempotency_key text",
+      "actorExecute": false,
+      "argumentNames": [
+        "p_resource_type",
+        "p_resource_id",
+        "p_job_id",
+        "p_lease_token",
+        "p_error_code",
+        "p_idempotency_key"
+      ],
+      "serviceExecute": true,
+      "identityArguments": "p_resource_type text, p_resource_id uuid, p_job_id uuid, p_lease_token uuid, p_error_code text, p_idempotency_key text"
+    },
+    {
+      "name": "svc_study_task_reconcile_v1",
+      "result": "jsonb",
+      "schema": "api",
+      "arguments": "p_resource_type text, p_resource_id uuid, p_job_id uuid, p_lease_token uuid, p_idempotency_key text, p_artifact_id uuid DEFAULT NULL::uuid",
+      "actorExecute": false,
+      "argumentNames": [
+        "p_resource_type",
+        "p_resource_id",
+        "p_job_id",
+        "p_lease_token",
+        "p_idempotency_key",
+        "p_artifact_id"
+      ],
+      "serviceExecute": true,
+      "identityArguments": "p_resource_type text, p_resource_id uuid, p_job_id uuid, p_lease_token uuid, p_idempotency_key text, p_artifact_id uuid"
+    }
+  ]
+}

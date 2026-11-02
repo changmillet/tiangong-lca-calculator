@@ -37,7 +37,7 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 7db69aa724bf3030426e10bf5c2cd5db72d7cdc5
+lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
 lastReviewedNote: "Worker #355: source Study compiler and local native executor; legacy snapshot identity unchanged; hosted source/job authority remains W06."
 related:
   - ../../AGENTS.md
@@ -278,3 +278,7 @@ This repository has a versioned local `pre-push` hook under `.githooks/pre-push`
 ### Study explicit model compiler
 
 `src/study` is under `crates/solver-worker`: strict source/normalized/input/result contracts, exact TIDAS document resolution, instance/product-view compiler and existing sparse core execution. Its artifact and semantic identities are separate from ordinary snapshot Process columns. See [the contract](contracts/study-compiler-contract.md). `study_compile` is a local source compiler/executor, not a hosted source exporter or job adapter.
+
+### Study owned runtime
+
+`study::runtime` branches from the existing calculator solver queue, using service-owned source/read/completion RPCs and private Study Storage. `study_native` isolates preload/compile/solve; `runtime_process` supervises kill/reap and sampled RSS. Scenario uses frozen base factors and inherited base overrides; no live factor/background reload. See [runtime authority, cleanup and qualification](contracts/study-runtime-contract.md).

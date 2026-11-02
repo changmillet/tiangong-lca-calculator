@@ -34,6 +34,49 @@ pub struct VerifiedMethods {
     pub(super) source_hash: String,
 }
 impl VerifiedMethods {
+    /// Recover exact selected factors/known-zero coverage from a verified immutable input.
+    /// Scenario amount edits preserve the inventory universe; no live factor lookup is performed.
+    pub fn from_frozen(input: &PreparedInput, refs: &[DatasetRef]) -> anyhow::Result<Self> {
+        validate_execution(input)?;
+        let mut axes = Vec::new();
+        let mut factors = Vec::new();
+        let mut seen = BTreeSet::new();
+        for reference in refs {
+            ensure!(seen.insert(reference.id.clone()), "study_duplicate_method");
+            let (index, metadata) = input
+                .numeric
+                .method_axes
+                .iter()
+                .enumerate()
+                .find(|(_, a)| a.id == reference.id && a.version == reference.version)
+                .context("study_frozen_method_unavailable")?;
+            axes.push(metadata.clone());
+            let mut selected = Vec::new();
+            for (column, inventory) in input.numeric.inventory_axes.iter().enumerate() {
+                if !input
+                    .coverage
+                    .iter()
+                    .any(|gap| gap.method == *reference && gap.inventory_index == column)
+                {
+                    selected.push(Factor {
+                        flow: inventory.flow.clone(),
+                        direction: inventory.direction.clone(),
+                        value: input.numeric.c[index][column],
+                    });
+                }
+            }
+            factors.push(selected);
+        }
+        ensure!(
+            !refs.is_empty() && refs.len() <= input.limits.max_methods,
+            "study_method_limit"
+        );
+        Ok(Self {
+            axes,
+            factors,
+            source_hash: input.method_source_hash.clone(),
+        })
+    }
     pub fn from_static(
         bundle: &VerifiedStaticLciaBundle,
         refs: &[DatasetRef],
@@ -229,7 +272,7 @@ pub fn prepare(
         bytes.len().saturating_mul(8) <= bounds.max_owned_bytes,
         "study_owned_memory_limit"
     );
-    let source: SourceInput = serde_json::from_slice(bytes)?;
+    let source: SourceInput = super::json::from_slice(bytes)?;
     ensure!(
         !methods.axes.is_empty() && methods.axes.len() <= bounds.max_methods,
         "study_method_limit"

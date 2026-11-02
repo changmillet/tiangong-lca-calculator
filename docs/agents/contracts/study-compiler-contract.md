@@ -18,7 +18,7 @@ checkPaths:
   - crates/solver-worker/src/bin/study_compile.rs
   - docs/agents/contracts/study-compiler-contract.md
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 7db69aa724bf3030426e10bf5c2cd5db72d7cdc5
+lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
 lastReviewedNote: "Worker #355: explicit source-model compiler and local native execution; hosted source acquisition, task authority and producer admission remain W06."
 related:
   - study-p0-calculation-profile.md
@@ -224,3 +224,6 @@ This is a proposed transport extension, not an issued additional reference or
 permission for consumers to synthesize one. Admitting it requires coordinated
 API/Database version qualification; the current typed core reference cannot be
 relabeled, globally replaced or silently recanonicalized.
+
+
+The owned runtime is specified separately in [study-runtime-contract.md](study-runtime-contract.md). Study artifact/source/IPC decoding uses the bounded exact-f64 codec in `study/json.rs`; ordinary serde_json float parsing is not changed. Decimal normalized matrices and nested allocation numbers must retain original f64 bits across serialization, decoding and semantic rehash, as well as pass integer-only fixtures.

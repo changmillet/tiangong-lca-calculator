@@ -43,7 +43,7 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 7db69aa724bf3030426e10bf5c2cd5db72d7cdc5
+lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
 lastReviewedNote: "Worker #355: source Study compiler and local native executor; legacy snapshot identity unchanged; hosted source/job authority remains W06."
 related:
   - .docpact/config.yaml
@@ -79,6 +79,7 @@ Start here when the task may change what the compute stack does.
 | `docs/agents/contracts/portal-lcia-projection-contract.md` | V3-only typed LCIA projection records, cross-language hashes, bounded staging, lease fencing, and package binding | public Portal reads, durable database schema, or Release approval behavior |
 | `README.md` | repo landing context, operator setup, and runtime overview | machine-readable routing or lint semantics |
 | `docs/lca-api-contract.md` | shared jobs/results/payload/status contract for consumers | branch policy, proof matrix, or edge/frontend implementation details |
+| `docs/agents/contracts/study-runtime-contract.md` | owned Study source/preparation/Run handlers, private RPC/artifact/child protocols and qualification boundaries | actor/API permissions, automatic deployment or scientific certification |
 | `docs/agents/contracts/study-compiler-contract.md` | bounded explicit Study source compiler, frozen model/input/result formats and local native executor; hosted job/source admission remains W06 | API authorization, source-export issuer or business/scientific qualification |
 | `docs/agents/contracts/study-p0-calculation-profile.md` | offline Study P0 profile, opaque numerical identity reference, common benchmark and pilot qualification boundaries | production Study compiler/API, dataset authorization or scientific certification |
 | `docs/scope-closure-contract.md` | certificate-grade closure traversal, frozen-release validation, artifacts, scan reuse, and build evidence binding | durable database schema or Edge/Next presentation behavior |

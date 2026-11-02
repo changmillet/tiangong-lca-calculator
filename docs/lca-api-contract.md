@@ -26,7 +26,7 @@ checkPaths:
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 7db69aa724bf3030426e10bf5c2cd5db72d7cdc5
+lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
 lastReviewedNote: "Worker #355: source Study compiler and local native executor; legacy snapshot identity unchanged; hosted source/job authority remains W06."
 related:
   - AGENTS.md
@@ -803,3 +803,7 @@ server expiry/reclaim policy. No process-wide restart watchdog is introduced.
 ## Study compiler boundary
 
 [Study compiler contract](agents/contracts/study-compiler-contract.md) owns the callable explicit-connection source compiler, native executor and `lca.study-prepared-input.v1` / `lca.study-result.v1`. This does not add a hosted Study queue family or change ordinary snapshot payloads, calculation fingerprints or cache keys. W06 must bind authorized immutable acquisition, resolver-issued eligibility, owned-job leases and actual artifact bytes before runtime admission; asserted offline JSON is not a trusted completion.
+
+## Study owned task adapter
+
+[Study runtime contract](agents/contracts/study-runtime-contract.md) defines the existing `worker_jobs` calculator handlers for source acquisition, preparation and Run. Successful domain callbacks already commit the generic `lca.study-job-receipt.v1` minimal receipt; numeric/source data remains in verified private artifacts. Actor/lease/disclosure authority is Database/Edge-owned, not asserted compiler JSON. Local monotonic deadlines never veto DB-authoritative leases using host UTC.

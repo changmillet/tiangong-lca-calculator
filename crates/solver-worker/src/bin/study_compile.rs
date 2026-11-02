@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
         "study_source_bytes_limit"
     );
     let bytes = std::fs::read(args.source)?;
-    let source: SourceInput = serde_json::from_slice(&bytes)?;
+    let source: SourceInput = solver_worker::study::json::from_slice(&bytes)?;
     let request = solver_worker::calculation_evidence::method_factor_source_contract_fixture();
     let bundle = load_verified_static_lcia_bundle(
         &TrustedStaticCacheSource::Directory(args.static_cache),

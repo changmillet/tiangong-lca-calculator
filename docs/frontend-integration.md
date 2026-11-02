@@ -20,8 +20,8 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/edge-function-integration.md
   - docs/review-quality-diagnostic-contract.md
-lastReviewedAt: "2026-09-15"
-lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedAt: 2026-11-03
+lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
 lastReviewedNote: "Worker #289: reviewed with no content change. Frontend interaction, polling, result reading, idempotency and Review Admin consumption are unaffected; Result display stays out of scope and no frontend change is required by the exact-100 numerical policy."
 related:
   - AGENTS.md

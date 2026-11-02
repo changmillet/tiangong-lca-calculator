@@ -37,7 +37,7 @@ pub fn decode_prepared(
         sha256(bytes) == expected_sha256,
         "study_artifact_hash_mismatch"
     );
-    let value: PreparedInput = serde_json::from_slice(bytes)?;
+    let value: PreparedInput = super::json::from_slice(bytes)?;
     ensure!(
         value.schema_version == INPUT_SCHEMA
             && value.compiler_version == COMPILER

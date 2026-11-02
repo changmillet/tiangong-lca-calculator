@@ -25,8 +25,8 @@ checkPaths:
   - crates/solver-worker/src/worker_jobs.rs
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-11-01
-lastReviewedCommit: a447227f11ec864fb82840128c9199b8cfa535d5
+lastReviewedAt: 2026-11-03
+lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
 lastReviewedNote: "Worker #350: verified Release-owned final Result v2 reader, bounded signed cache/query protocol, actual compressed producer fixtures and scoped libz-sys fix; v1 calculation and Portal projection semantics retained."
 related:
   - ../../../AGENTS.md
