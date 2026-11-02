@@ -1,8 +1,8 @@
 version: 1
 layout: repo
-lastReviewedAt: "2026-10-30"
-lastReviewedCommit: "e9bff51aeccd4d756c1749718f97a303ab86cd97"
-lastReviewedNote: "Worker #345: reviewed documentation-only provider intent clarification against current main; retained Worker #315 bounded claim transport, reconciliation, handler fencing and validation guidance. Conflict resolution changes review metadata only."
+lastReviewedAt: "2026-11-01"
+lastReviewedCommit: "a447227f11ec864fb82840128c9199b8cfa535d5"
+lastReviewedNote: "Worker #350: verified Release-owned final Result v2 reader, bounded signed cache/query protocol, actual compressed producer fixtures and scoped libz-sys fix; v1 calculation and Portal projection semantics retained."
 
 # Keep deterministic governance facts here.
 # AGENTS.md remains the repo contract entrypoint.

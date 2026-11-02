@@ -2391,7 +2391,7 @@ fn sha256_bytes(bytes: &[u8]) -> String {
     hex::encode(hasher.finalize())
 }
 
-fn sha256_file(path: &Path) -> anyhow::Result<String> {
+pub(crate) fn sha256_file(path: &Path) -> anyhow::Result<String> {
     let mut reader = BufReader::new(File::open(path)?);
     let mut hasher = Sha256::new();
     let mut buffer = vec![0_u8; 64 * 1024];
@@ -2405,7 +2405,7 @@ fn sha256_file(path: &Path) -> anyhow::Result<String> {
     Ok(hex::encode(hasher.finalize()))
 }
 
-fn validate_sha256(value: &str, field: &str) -> anyhow::Result<()> {
+pub(crate) fn validate_sha256(value: &str, field: &str) -> anyhow::Result<()> {
     if value.len() == 64
         && value
             .bytes()
@@ -2419,7 +2419,7 @@ fn validate_sha256(value: &str, field: &str) -> anyhow::Result<()> {
     }
 }
 
-fn validate_version(value: &str, field: &str) -> anyhow::Result<()> {
+pub(crate) fn validate_version(value: &str, field: &str) -> anyhow::Result<()> {
     let bytes = value.as_bytes();
     if bytes.len() == 9
         && bytes[2] == b'.'

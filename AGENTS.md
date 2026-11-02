@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-29
-lastReviewedCommit: "52f67da79911232ebaac3601a3abd656bd04eeae"
-lastReviewedNote: "Worker #345: reviewed documentation-only provider intent clarification against current main; retained Worker #315 bounded claim transport, reconciliation, handler fencing and validation guidance. Conflict resolution changes review metadata only."
+lastReviewedAt: 2026-11-01
+lastReviewedCommit: a447227f11ec864fb82840128c9199b8cfa535d5
+lastReviewedNote: "Worker #350: verified Release-owned final Result v2 reader, bounded signed cache/query protocol, actual compressed producer fixtures and scoped libz-sys fix; v1 calculation and Portal projection semantics retained."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md
@@ -182,7 +182,7 @@ Route those tasks to:
 - public numerical eligibility is exactly `state_code = 100`; the reserved publication segment `100..=199` is a reserved metadata range and never a computation capability or generic display grant, so unknown or newly reserved public states fail closed. Owner draft `0` is admitted only by the versioned `public_plus_owner_draft` scope for the row's own actor, and the dedicated Review Admin diagnostic (`20` plus public `100`) is the single intentional numeric exception
 - a published Result Process (`120`) is never a numerical root, provider or matrix axis, is not exposed through generic product reads, references or exports, and never leaves the platform inside a product export package; its only readback is the authorization-bound Database publication receipt. Every newly built numerical snapshot records `numerical_policy_version = public-numerical-state-100-excluding-result-120:v1` in its artifact config and in the server-authored READY `process_filter`; new compute execution and reuse require that exact marker, while historical artifacts stay byte-identical and readable
 - optional Calculation Bundle exports use an independent `lca.calculation_export` job, default to Parquet, and never block calculation readiness; CSV parts are row/byte bounded and audit reuses canonical files
-- `result_artifact_builder` produces optional immutable numeric HDF5 query projections from completed Calculation Bundles; `result_query_service` runs independently with signed exact-scope requests and a bounded disposable cache. Database/Edge own publication authorization; standard Result/Model materialization and ZIPs remain in Release/Toolkit. See `docs/lca-api-contract.md` section 5.4.
+- `result_artifact_builder` retains legacy v1 Calculation Bundle HDF5 projections; Release owns final processed Result HDF5 v2 generation and paired ZIP orchestration through Toolkit. `result_query_service` reads both explicit formats independently with signed exact-scope requests and a bounded disposable cache. Database/Edge own publication and staging-readiness authorization. See `docs/lca-api-contract.md` section 5.4.
 - solve result persistence is S3-only; `lca_results` stores artifact metadata and diagnostics, not inline payloads
 - snapshots never persist fresh `CompiledGraph` IR: ordinary numerical artifacts bind separate v2 release metadata and content-addressed v1 source closure, while Review baseline/overlay persist consumer-owned projections; Calculation Bundle sidecars load only during bundle materialization, legacy numerical payloads remain readable even when their compiler metadata schema has drifted, and compatible legacy graph/v1 evidence remains read-compatible
 - queue enqueue and protected writes must stay on service-side paths; do not move them to frontend clients or authenticated direct table writes

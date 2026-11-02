@@ -25,9 +25,9 @@ checkPaths:
   - crates/solver-worker/src/worker_jobs.rs
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
-lastReviewedAt: 2026-10-30
-lastReviewedCommit: e9bff51aeccd4d756c1749718f97a303ab86cd97
-lastReviewedNote: "Worker #339: calculation semantics and descriptor ownership remain in Worker; pinned requests and artifact reuse validate opaque identity while historical evidence, provider rules and data-quality policy remain independent."
+lastReviewedAt: 2026-11-01
+lastReviewedCommit: a447227f11ec864fb82840128c9199b8cfa535d5
+lastReviewedNote: "Worker #350: verified Release-owned final Result v2 reader, bounded signed cache/query protocol, actual compressed producer fixtures and scoped libz-sys fix; v1 calculation and Portal projection semantics retained."
 related:
   - ../../../AGENTS.md
   - ../../../.docpact/config.yaml

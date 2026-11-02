@@ -1,5 +1,5 @@
 use crate::{
-    calculation_bundle::query_artifact::{QueryArtifactRef, QueryReader, transport},
+    calculation_bundle::query_artifact::{ArtifactReader, QueryArtifactRef, transport},
     storage::ObjectStoreClient,
 };
 use std::{
@@ -31,7 +31,7 @@ impl Default for CacheLimits {
 
 pub struct CachedArtifact {
     // Handles close before the temporary directory is released, including on Windows.
-    pub reader: Mutex<QueryReader>,
+    pub reader: Mutex<ArtifactReader>,
     _directory: tempfile::TempDir,
     disk_bytes: u64,
     memory_bytes: u64,
@@ -135,7 +135,8 @@ impl Cache {
         let clock = state.clock;
         if let Some(entry) = state.entries.get_mut(&key) {
             anyhow::ensure!(
-                entry.reference.manifest_byte_size == reference.manifest_byte_size,
+                entry.reference.manifest_byte_size == reference.manifest_byte_size
+                    && entry.reference.schema_version == reference.schema_version,
                 "cached manifest receipt mismatch"
             );
             entry.used = clock;
@@ -196,14 +197,15 @@ impl Cache {
         let staging = directory.path().join("staging");
         std::fs::create_dir(&staging)?;
         let manifest = transport::download_manifest(&self.store, reference, &staging).await?;
-        let disk = manifest
-            .files
-            .iter()
-            .try_fold(reference.manifest_byte_size, |sum, file| {
-                sum.checked_add(file.byte_size)
-                    .ok_or_else(|| anyhow::anyhow!("cache disk size overflow"))
-            })?;
-        let metadata = manifest.files.iter().try_fold(0_u64, |sum, file| {
+        let disk =
+            manifest
+                .files()
+                .iter()
+                .try_fold(reference.manifest_byte_size, |sum, file| {
+                    sum.checked_add(file.byte_size)
+                        .ok_or_else(|| anyhow::anyhow!("cache disk size overflow"))
+                })?;
+        let metadata = manifest.files().iter().try_fold(0_u64, |sum, file| {
             sum.checked_add(file.plain_byte_size.unwrap_or(0))
                 .ok_or_else(|| anyhow::anyhow!("cache metadata size overflow"))
         })?;
@@ -211,7 +213,7 @@ impl Cache {
         let memory = metadata
             .checked_mul(32)
             .and_then(|bytes| {
-                bytes.checked_add(manifest.process_count as u64 * 256 + 32 * 1024 * 1024)
+                bytes.checked_add(manifest.row_count() as u64 * 256 + 32 * 1024 * 1024)
             })
             .ok_or_else(|| anyhow::anyhow!("cache memory size overflow"))?;
         self.reserve(key, disk, memory).await?;
@@ -221,7 +223,7 @@ impl Cache {
         let reference = reference.clone();
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
-            let reader = QueryReader::open(&ready, &reference)?;
+            let reader = ArtifactReader::open(&ready, &reference)?;
             Ok(CachedArtifact {
                 reader: Mutex::new(reader),
                 _directory: directory,

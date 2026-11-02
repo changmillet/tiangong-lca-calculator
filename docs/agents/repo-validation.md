@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-10-29
-lastReviewedCommit: "52f67da79911232ebaac3601a3abd656bd04eeae"
-lastReviewedNote: "Worker #345: reviewed documentation-only provider intent clarification against current main; retained Worker #315 bounded claim transport, reconciliation, handler fencing and validation guidance. Conflict resolution changes review metadata only."
+lastReviewedAt: 2026-11-01
+lastReviewedCommit: a447227f11ec864fb82840128c9199b8cfa535d5
+lastReviewedNote: "Worker #350: verified Release-owned final Result v2 reader, bounded signed cache/query protocol, actual compressed producer fixtures and scoped libz-sys fix; v1 calculation and Portal projection semantics retained."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -76,6 +76,21 @@ Treat the last two commands as non-negotiable hard gates after code changes.
 
 Run `cargo test -p solver-worker --lib query_artifact` and
 `cargo test -p solver-worker --lib result_query` plus the default baseline.
+The v2 fixture under `crates/solver-worker/tests/fixtures/final-result-v2` is
+produced by the actual Release encoder, not by Worker. Preserve its canonical
+inputs, file/manifest receipts and independent expected negative, sub-epsilon,
+zero and exact-version values. The reader must reject cross-format receipts,
+corrupt files/indexes and duplicate CSR columns across page boundaries. Loopback
+v2 tests cover signature-before-storage, precise Result identity, publication vs
+privileged-readiness cursor binding, filter/version changes, withheld ancestor
+metadata and cache format conflicts. Readiness responses bind the actual running
+executable digest. These tests do not prove consumer authorization or deployment.
+
+`libz-sys` 1.1.31 is required by the qualified lock for native compressed readback:
+1.1.24 disabled default allocators when HDF5 selected only static/zlib features.
+Do not replace these cross-process compressed fixtures with same-process
+write/read-only tests; optional compression can otherwise hide this failure.
+
 Canonical fixtures cover zero/negative/sub-epsilon bit parity, multiple versions,
 258 processes across the 256-row boundary, directional/location CSR pagination,
 missing/duplicate/out-of-range records, decompression/output budgets and corrupt
