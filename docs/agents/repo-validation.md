@@ -42,7 +42,7 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 5f9a1c5e4d930858039d593c82c3500d862d8ce8
+lastReviewedCommit: 7db69aa724bf3030426e10bf5c2cd5db72d7cdc5
 lastReviewedNote: "Worker #355: source Study compiler and local native executor; legacy snapshot identity unchanged; hosted source/job authority remains W06."
 related:
   - ../../AGENTS.md
@@ -600,3 +600,5 @@ Phase-one original full-library execution receipts are retained in [`../validati
 Run `cargo test -p solver-worker --lib study -- --nocapture`, followed by the hard fmt/clippy gates. `study_compile --source <absoluteSourceInput> --static-cache <trusted public asset root> --output <privatePreparedArtifact> --result <privateResult>` performs actual TIDAS source parsing, verified static/default factor selection and native solve. The static root contains `lciamethods/cache_manifest.json`. Source JSON and raw acquisition packets may contain private source/owner data; keep them task-owned outside Git. Derived artifacts omit actor/owner IDs and raw source documents.
 
 The [Study compiler contract](contracts/study-compiler-contract.md) defines bounds and exact proof limits. Record source/artifact byte hashes, compiler/calculation identity, toolchain/native setup, elapsed/resource measurements and findings. The task-authored one-node cement model is not proof of a hosted LifecycleModel exporter or source acquisition. W06 must independently validate the actual issuer/job/artifact chain and prove subprocess cancellation, lease loss and late-result fencing.
+
+Study numerical/resource regression checks include the smallest f64 subnormal with allocation before normalization, opposite-sign sub-epsilon connections, explicit final underflow/overflow rejection, and repeated same-source allocation metadata expansion rejected by preflight before instance cloning.
