@@ -1,8 +1,8 @@
 version: 1
 layout: repo
-lastReviewedAt: "2026-11-01"
-lastReviewedCommit: "a447227f11ec864fb82840128c9199b8cfa535d5"
-lastReviewedNote: "Worker #350: verified Release-owned final Result v2 reader, bounded signed cache/query protocol, actual compressed producer fixtures and scoped libz-sys fix; v1 calculation and Portal projection semantics retained."
+lastReviewedAt: "2026-11-02"
+lastReviewedCommit: "d9028e91d549023852dcfb5d37d40faadae3a217"
+lastReviewedNote: "Worker #353: reviewed offline Study P0 profile, opaque existing calculation identity, common benchmark and qualification limits; production solver, admission and Result contracts unchanged."
 
 # Keep deterministic governance facts here.
 # AGENTS.md remains the repo contract entrypoint.
@@ -19,6 +19,7 @@ catalog:
         - docs/agents/dependency-maintenance.md
         - docs/agents/contracts/scope-closure-memory-and-result-contract.md
         - docs/agents/contracts/portal-lcia-projection-contract.md
+        - docs/agents/contracts/study-p0-calculation-profile.md
       workspaceIntegrationRequired: true
 
 ownership:
@@ -90,6 +91,7 @@ coverage:
     - docs/agents/dependency-maintenance.md
     - docs/agents/contracts/scope-closure-memory-and-result-contract.md
     - docs/agents/contracts/portal-lcia-projection-contract.md
+    - docs/agents/contracts/study-p0-calculation-profile.md
     - docs/agents/contracts/*.schema.json
     - docs/lca-api-contract.md
     - docs/scope-closure-contract.md
@@ -227,6 +229,9 @@ routing:
       paths:
         - scripts/**
         - tools/bw25-validator/**
+        - crates/solver-worker/tests/study_p0_benchmarks.rs
+        - crates/solver-worker/tests/fixtures/study_p0/**
+        - docs/agents/contracts/study-p0-calculation-profile.md
     edge-api-boundary:
       paths:
         - docs/lca-api-contract.md
@@ -278,6 +283,7 @@ docInventory:
     - docs/agents/dependency-maintenance.md
     - docs/agents/contracts/scope-closure-memory-and-result-contract.md
     - docs/agents/contracts/portal-lcia-projection-contract.md
+    - docs/agents/contracts/study-p0-calculation-profile.md
     - docs/lca-api-contract.md
     - docs/scope-closure-contract.md
     - docs/matrix-readiness-report-contract.md
@@ -347,6 +353,32 @@ rules:
       - path: .docpact/config.yaml
         mode: review_or_update
     reason: Repo landing text should stay aligned with the current contract and AI entry surface.
+  - id: worker-study-p0-contract
+    scope: repo
+    repo: worker
+    triggers:
+      - path: docs/agents/contracts/study-p0-calculation-profile.md
+        kind: calculation-profile
+      - path: crates/solver-worker/tests/study_p0_benchmarks.rs
+        kind: qualification
+      - path: crates/solver-worker/tests/fixtures/study_p0/**
+        kind: qualification-fixture
+      - path: scripts/check_study_p0_benchmarks.py
+        kind: independent-oracle
+      - path: scripts/test_study_p0_benchmarks.py
+        kind: qualification
+      - path: scripts/check_study_p0_cement.py
+        kind: source-projection-verification
+      - path: scripts/test_study_p0_cement.py
+        kind: qualification
+    requiredDocs:
+      - path: docs/agents/contracts/study-p0-calculation-profile.md
+        mode: review_or_update
+      - path: docs/agents/repo-validation.md
+        mode: review_or_update
+      - path: docs/lca-api-contract.md
+        mode: review_or_update
+    reason: Offline Study profile, opaque Worker identity, independent expectations and proof limitations must remain aligned.
   - id: worker-runtime-contract
     scope: repo
     repo: worker

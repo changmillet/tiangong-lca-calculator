@@ -1,0 +1,617 @@
+{
+  "schema": "lca.study-p0-benchmarks.v1",
+  "profileId": "lca.study-deterministic-p0.v1",
+  "dataClassification": "synthetic-numerical-qualification-only",
+  "systems": [
+    {
+      "id": "two-node-cycle",
+      "covers": [
+        "cycle"
+      ],
+      "activities": [
+        {
+          "instanceId": "a",
+          "sourceProcessId": "source-a",
+          "sourceVersion": "01.00.000"
+        },
+        {
+          "instanceId": "b",
+          "sourceProcessId": "source-b",
+          "sourceVersion": "01.00.000"
+        }
+      ],
+      "A": [
+        [
+          "0",
+          "1/10"
+        ],
+        [
+          "1/5",
+          "0"
+        ]
+      ],
+      "B": [
+        [
+          "2",
+          "3"
+        ],
+        [
+          "0",
+          "4"
+        ]
+      ],
+      "C": [
+        [
+          "1",
+          "0"
+        ],
+        [
+          "0",
+          "2"
+        ]
+      ],
+      "y": [
+        "1",
+        "0"
+      ],
+      "expected": {
+        "x": [
+          "50/49",
+          "10/49"
+        ],
+        "g": [
+          "130/49",
+          "40/49"
+        ],
+        "h": [
+          "130/49",
+          "80/49"
+        ]
+      },
+      "derivation": [
+        "a-b/10=1; b-a/5=0 => a=50/49, b=10/49",
+        "g=(2a+3b,4b); h=(g0,2g1)"
+      ]
+    },
+    {
+      "id": "self-reuse",
+      "covers": [
+        "cycle"
+      ],
+      "activities": [
+        {
+          "instanceId": "a",
+          "sourceProcessId": "source-a",
+          "sourceVersion": "01.00.000"
+        }
+      ],
+      "A": [
+        [
+          "1/5"
+        ]
+      ],
+      "B": [
+        [
+          "4"
+        ]
+      ],
+      "C": [
+        [
+          "3"
+        ]
+      ],
+      "y": [
+        "1"
+      ],
+      "expected": {
+        "x": [
+          "5/4"
+        ],
+        "g": [
+          "5"
+        ],
+        "h": [
+          "15"
+        ]
+      },
+      "derivation": [
+        "(1-1/5)a=1 => a=5/4; g=4a=5; h=3g=15"
+      ]
+    },
+    {
+      "id": "repeated-source-independent-instances",
+      "covers": [
+        "instance-repetition"
+      ],
+      "activities": [
+        {
+          "instanceId": "left",
+          "sourceProcessId": "same-source",
+          "sourceVersion": "01.00.000"
+        },
+        {
+          "instanceId": "right",
+          "sourceProcessId": "same-source",
+          "sourceVersion": "01.00.000"
+        }
+      ],
+      "A": [
+        [
+          "0",
+          "0"
+        ],
+        [
+          "0",
+          "0"
+        ]
+      ],
+      "B": [
+        [
+          "3",
+          "3"
+        ]
+      ],
+      "C": [
+        [
+          "2"
+        ]
+      ],
+      "y": [
+        "1",
+        "2"
+      ],
+      "expected": {
+        "x": [
+          "1",
+          "2"
+        ],
+        "g": [
+          "9"
+        ],
+        "h": [
+          "18"
+        ]
+      },
+      "derivation": [
+        "left=1, right=2; source identity does not merge matrix axes",
+        "g=3*1+3*2=9; h=2*9=18"
+      ]
+    },
+    {
+      "id": "negative-inventory-known-zero",
+      "covers": [
+        "explicit-negative-inventory",
+        "known-zero-factor"
+      ],
+      "activities": [
+        {
+          "instanceId": "a",
+          "sourceProcessId": "source-a",
+          "sourceVersion": "01.00.000"
+        }
+      ],
+      "A": [
+        [
+          "0"
+        ]
+      ],
+      "B": [
+        [
+          "-2"
+        ],
+        [
+          "3"
+        ]
+      ],
+      "C": [
+        [
+          "1",
+          "0"
+        ],
+        [
+          "0",
+          "2"
+        ]
+      ],
+      "y": [
+        "1"
+      ],
+      "expected": {
+        "x": [
+          "1"
+        ],
+        "g": [
+          "-2",
+          "3"
+        ],
+        "h": [
+          "-2",
+          "6"
+        ]
+      },
+      "derivation": [
+        "a=1; explicit negative source amount remains -2; Input/Output does not itself flip biosphere sign",
+        "explicit C[0,1]=0 is known zero; missing factors are a separate diagnostic case"
+      ]
+    }
+  ],
+  "allocationCases": [
+    {
+      "id": "coproduct-p",
+      "covers": [
+        "coproduct-allocation"
+      ],
+      "reference": "p",
+      "exchanges": [
+        {
+          "@dataSetInternalID": "p",
+          "exchangeDirection": "Output",
+          "resultingAmount": "2"
+        },
+        {
+          "@dataSetInternalID": "q",
+          "exchangeDirection": "Output",
+          "resultingAmount": "1"
+        },
+        {
+          "@dataSetInternalID": "emission",
+          "exchangeDirection": "Output",
+          "resultingAmount": "10",
+          "allocations": {
+            "allocation": [
+              {
+                "@internalReferenceToCoProduct": "p",
+                "@allocatedFraction": 60
+              },
+              {
+                "@internalReferenceToCoProduct": "q",
+                "@allocatedFraction": 40
+              }
+            ]
+          }
+        },
+        {
+          "@dataSetInternalID": "material",
+          "exchangeDirection": "Input",
+          "resultingAmount": "20",
+          "allocations": {
+            "allocation": [
+              {
+                "@internalReferenceToCoProduct": "p",
+                "@allocatedFraction": 30
+              },
+              {
+                "@internalReferenceToCoProduct": "q",
+                "@allocatedFraction": 70
+              }
+            ]
+          }
+        }
+      ],
+      "expectedFractions": [
+        "1",
+        "1",
+        "3/5",
+        "3/10"
+      ],
+      "expectedPivot": "1",
+      "expectedNormalizedSigned": [
+        "1",
+        "1/2",
+        "3",
+        "-3"
+      ],
+      "derivation": "P pivot=2; emission=10*(60/100)/2=3; input=-20*(30/100)/2=-3"
+    },
+    {
+      "id": "coproduct-q",
+      "covers": [
+        "coproduct-allocation"
+      ],
+      "reference": "q",
+      "exchanges": [
+        {
+          "@dataSetInternalID": "p",
+          "exchangeDirection": "Output",
+          "resultingAmount": "2"
+        },
+        {
+          "@dataSetInternalID": "q",
+          "exchangeDirection": "Output",
+          "resultingAmount": "1"
+        },
+        {
+          "@dataSetInternalID": "emission",
+          "exchangeDirection": "Output",
+          "resultingAmount": "10",
+          "allocations": {
+            "allocation": [
+              {
+                "@internalReferenceToCoProduct": "p",
+                "@allocatedFraction": 60
+              },
+              {
+                "@internalReferenceToCoProduct": "q",
+                "@allocatedFraction": 40
+              }
+            ]
+          }
+        },
+        {
+          "@dataSetInternalID": "material",
+          "exchangeDirection": "Input",
+          "resultingAmount": "20",
+          "allocations": {
+            "allocation": [
+              {
+                "@internalReferenceToCoProduct": "p",
+                "@allocatedFraction": 30
+              },
+              {
+                "@internalReferenceToCoProduct": "q",
+                "@allocatedFraction": 70
+              }
+            ]
+          }
+        }
+      ],
+      "expectedFractions": [
+        "1",
+        "1",
+        "2/5",
+        "7/10"
+      ],
+      "expectedPivot": "1",
+      "expectedNormalizedSigned": [
+        "2",
+        "1",
+        "4",
+        "-14"
+      ],
+      "derivation": "Q pivot=1; emission=10*(40/100)=4; input=-20*(70/100)=-14"
+    },
+    {
+      "id": "input-treatment-reference",
+      "covers": [
+        "input-reference"
+      ],
+      "reference": "service",
+      "exchanges": [
+        {
+          "@dataSetInternalID": "service",
+          "exchangeDirection": "Input",
+          "resultingAmount": "2"
+        },
+        {
+          "@dataSetInternalID": "emission",
+          "exchangeDirection": "Output",
+          "resultingAmount": "10"
+        }
+      ],
+      "expectedFractions": [
+        "1",
+        "1"
+      ],
+      "expectedPivot": "-1",
+      "expectedNormalizedSigned": [
+        "-1",
+        "5"
+      ],
+      "derivation": "reference=-2 => scale=1/2 and pivot=-1; emission=10/2=5 per service unit"
+    },
+    {
+      "id": "explicit-and-sparse-zero",
+      "covers": [
+        "zero-share"
+      ],
+      "reference": "p",
+      "exchanges": [
+        {
+          "@dataSetInternalID": "p",
+          "exchangeDirection": "Output",
+          "resultingAmount": "1"
+        },
+        {
+          "@dataSetInternalID": "q",
+          "exchangeDirection": "Output",
+          "resultingAmount": "1"
+        },
+        {
+          "@dataSetInternalID": "explicit",
+          "exchangeDirection": "Input",
+          "resultingAmount": "999",
+          "allocations": {
+            "allocation": [
+              {
+                "@internalReferenceToCoProduct": "p",
+                "@allocatedFraction": 0
+              },
+              {
+                "@internalReferenceToCoProduct": "q",
+                "@allocatedFraction": 100
+              }
+            ]
+          }
+        },
+        {
+          "@dataSetInternalID": "sparse",
+          "exchangeDirection": "Output",
+          "resultingAmount": "777",
+          "allocations": {
+            "allocation": [
+              {
+                "@internalReferenceToCoProduct": "q",
+                "@allocatedFraction": 100
+              }
+            ]
+          }
+        }
+      ],
+      "expectedFractions": [
+        "1",
+        "1",
+        "0",
+        "0"
+      ],
+      "expectedPivot": "1",
+      "expectedNormalizedSigned": [
+        "1",
+        "1",
+        "0",
+        "0"
+      ],
+      "derivation": "0% explicit P share and omitted P in closed Q=100% vector both give exactly zero attributed burden"
+    }
+  ],
+  "diagnosticCases": [
+    {
+      "id": "flow-revision-mismatch",
+      "covers": [
+        "flow-version"
+      ],
+      "left": {
+        "id": "flow-a",
+        "version": "01.00.000",
+        "unit": {
+          "flowPropertyId": "mass",
+          "flowPropertyVersion": "01.00.000",
+          "unitGroupId": "mass-units",
+          "unitGroupVersion": "01.00.000",
+          "referenceUnitId": "kg"
+        }
+      },
+      "right": {
+        "id": "flow-a",
+        "version": "02.00.000",
+        "unit": {
+          "flowPropertyId": "mass",
+          "flowPropertyVersion": "01.00.000",
+          "unitGroupId": "mass-units",
+          "unitGroupVersion": "01.00.000",
+          "referenceUnitId": "kg"
+        }
+      },
+      "expected": "flow_version_mismatch"
+    },
+    {
+      "id": "unit-identity-mismatch",
+      "covers": [
+        "unit-version"
+      ],
+      "left": {
+        "id": "flow-a",
+        "version": "01.00.000",
+        "unit": {
+          "flowPropertyId": "mass",
+          "flowPropertyVersion": "01.00.000",
+          "unitGroupId": "mass-units",
+          "unitGroupVersion": "01.00.000",
+          "referenceUnitId": "kg"
+        }
+      },
+      "right": {
+        "id": "flow-a",
+        "version": "01.00.000",
+        "unit": {
+          "flowPropertyId": "mass",
+          "flowPropertyVersion": "01.00.000",
+          "unitGroupId": "mass-units",
+          "unitGroupVersion": "02.00.000",
+          "referenceUnitId": "kg"
+        }
+      },
+      "expected": "unit_identity_mismatch"
+    },
+    {
+      "id": "missing-reference-unit",
+      "covers": [
+        "unit-missing"
+      ],
+      "left": {
+        "id": "flow-a",
+        "version": "01.00.000",
+        "unit": null
+      },
+      "right": {
+        "id": "flow-a",
+        "version": "01.00.000",
+        "unit": {
+          "flowPropertyId": "mass",
+          "flowPropertyVersion": "01.00.000",
+          "unitGroupId": "mass-units",
+          "unitGroupVersion": "01.00.000",
+          "referenceUnitId": "kg"
+        }
+      },
+      "expected": "reference_unit_missing"
+    },
+    {
+      "id": "missing-factor",
+      "covers": [
+        "missing-factor"
+      ],
+      "inventory": {
+        "flow": "co2",
+        "version": "01.00.000",
+        "direction": "Output"
+      },
+      "factor": null,
+      "expected": "incomplete_coverage_not_zero"
+    },
+    {
+      "id": "factor-revision-mismatch",
+      "covers": [
+        "missing-factor",
+        "flow-version"
+      ],
+      "inventory": {
+        "flow": "co2",
+        "version": "02.00.000",
+        "direction": "Output"
+      },
+      "factor": {
+        "flow": "co2",
+        "version": "01.00.000",
+        "direction": "Output",
+        "value": "1"
+      },
+      "expected": "incomplete_coverage_not_zero"
+    },
+    {
+      "id": "factor-direction-mismatch",
+      "covers": [
+        "missing-factor"
+      ],
+      "inventory": {
+        "flow": "co2",
+        "version": "01.00.000",
+        "direction": "Input"
+      },
+      "factor": {
+        "flow": "co2",
+        "version": "01.00.000",
+        "direction": "Output",
+        "value": "1"
+      },
+      "expected": "incomplete_coverage_not_zero"
+    },
+    {
+      "id": "explicit-zero-factor",
+      "covers": [
+        "known-zero-factor"
+      ],
+      "inventory": {
+        "flow": "co2",
+        "version": "01.00.000",
+        "direction": "Output"
+      },
+      "factor": {
+        "flow": "co2",
+        "version": "01.00.000",
+        "direction": "Output",
+        "value": "0"
+      },
+      "expected": "characterized_zero"
+    }
+  ]
+}

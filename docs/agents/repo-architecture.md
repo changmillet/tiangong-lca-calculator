@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-01
-lastReviewedCommit: a447227f11ec864fb82840128c9199b8cfa535d5
-lastReviewedNote: "Worker #350: verified Release-owned final Result v2 reader, bounded signed cache/query protocol, actual compressed producer fixtures and scoped libz-sys fix; v1 calculation and Portal projection semantics retained."
+lastReviewedAt: 2026-11-02
+lastReviewedCommit: d9028e91d549023852dcfb5d37d40faadae3a217
+lastReviewedNote: "Worker #353: reviewed offline Study P0 profile, opaque existing calculation identity, common benchmark and qualification limits; production solver, admission and Result contracts unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -63,6 +63,16 @@ This repo is a Rust workspace with three core layers:
 The runtime solves sparse systems asynchronously and keeps heavy compute out of the API layer.
 
 ## Core Solver Invariants
+
+The [Study P0 profile](contracts/study-p0-calculation-profile.md) owns an offline
+qualification baseline and common rational fixtures under
+`crates/solver-worker/tests/fixtures/study_p0`. Its Python oracle and Rust core /
+allocation test do not add a production compiler or enable Study execution.
+Consumers bind the existing Worker calculation fingerprint through an opaque
+`calculationContractRef`; the profile is separate from that executable identity.
+The bounded real cement projection and read-only source/static-cache verifier
+exercise declared inventory and partial characterized arithmetic only; they are
+not production model inputs, prepared-model identities or a qualified Study run.
 
 Keep these constraints in mind before editing `crates/solver-core/**` or worker solve flows:
 

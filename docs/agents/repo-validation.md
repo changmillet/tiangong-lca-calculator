@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-01
-lastReviewedCommit: a447227f11ec864fb82840128c9199b8cfa535d5
-lastReviewedNote: "Worker #350: verified Release-owned final Result v2 reader, bounded signed cache/query protocol, actual compressed producer fixtures and scoped libz-sys fix; v1 calculation and Portal projection semantics retained."
+lastReviewedAt: 2026-11-02
+lastReviewedCommit: d9028e91d549023852dcfb5d37d40faadae3a217
+lastReviewedNote: "Worker #353: reviewed offline Study P0 profile, opaque existing calculation identity, common benchmark and qualification limits; production solver, admission and Result contracts unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -71,6 +71,62 @@ cargo fmt --all -- --check
 ```
 
 Treat the last two commands as non-negotiable hard gates after code changes.
+
+### Study P0 offline qualification
+
+The Worker-owned [P0 profile](contracts/study-p0-calculation-profile.md) is an
+offline baseline with `runtimeEnabled=false`. Run the independent exact oracle
+and its adversarial checks with `make study-p0-check` (also included in `make
+check` and the Rust CI workflow). The scripts use only the Python standard
+library. `make study-p0-native-check` additionally runs the existing Rust
+core/allocation test and validates its fresh native result file, stopping if
+either fails. The equivalent commands, followed by focused legacy-stage checks:
+
+```bash
+mkdir -p reports/study-p0
+STUDY_P0_NATIVE_OUTPUT="$PWD/reports/study-p0/native.json" cargo test -p solver-worker --test study_p0_benchmarks
+python3 scripts/check_study_p0_benchmarks.py --native-results reports/study-p0/native.json
+cargo test -p solver-worker --lib tidas_process_semantics
+cargo test -p solver-worker --lib signed_flow
+cargo test -p solver-worker --bin snapshot_builder allocation_
+cargo test -p solver-worker --bin snapshot_builder factor_coverage_
+cargo test -p solver-worker --bin snapshot_builder release_metadata_
+cargo test -p solver-worker --bin snapshot_builder nonregional_
+```
+
+Record the actual command, source revision, toolchain and native-library setup.
+The small core and allocation cases do not qualify a Study model compiler or
+business pilot. Offline diagnostic expectations are not evidence that a new
+runtime request path rejects those inputs. The existing snapshot tests cover
+their own parser/coverage/metadata stage. The historical cement candidate remains
+unqualified; no production payload or account access is needed for these tests.
+Retain or remove `reports/study-p0` explicitly after preserving needed evidence.
+No container, database or storage resources are created by these commands.
+
+The separate real-data projection is checked by `scripts/check_study_p0_cement.py`
+and ten negative tests, also included in `make study-p0-check`. Its direct
+characterized subtotals are not complete LCIA scores or business qualification.
+To repeat source verification, supply an explicitly retained, read-only packet
+containing `cement-process-exact.json`, the nine exact `flow-<id>-<version>.json`
+responses and `support-public/{flowproperties,unitgroups}.jsonl`. These inputs
+stay outside Git because API wrappers can contain account metadata. The checker
+prints only aggregate pass/fail scope and never copies the packet. Optional
+public method verification checks the pinned compressed/decompressed cache,
+original method XML and exact source defaults:
+
+```bash
+python3 scripts/check_study_p0_cement.py \
+  --source-packet /absolute/private/read-only-packet \
+  --static-cache /absolute/platform/public/lciamethods \
+  --data-root /absolute/data
+```
+
+Without those optional inputs the check proves only committed projection
+consistency and independent arithmetic; its output explicitly marks source
+verification as false. With them it proves the declared acquisition-packet and
+static-source binding, not a hosted runtime, full provenance closure, licensed
+paper redistribution or scientific review. Preserve the reference-scale and
+source-review-status findings rather than treating public state as review.
 
 ### HDF5 result query projections
 

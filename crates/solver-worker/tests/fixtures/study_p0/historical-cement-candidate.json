@@ -1,0 +1,56 @@
+{
+  "schema": "lca.study-p0-pilot-candidate.v1",
+  "status": "not_qualified",
+  "sourceRepository": "tiangong-lca/data",
+  "sourceCommit": "367642d7994e0e75188e7e241fb2a4b85ffff62f",
+  "process": {
+    "id": "dcffcc2b-d964-46d2-94ed-0c7b3c5b0c75",
+    "version": "00.01.005",
+    "name": "Portland cement 42.5MPa; shaft kiln; historical China 2008",
+    "referenceExchange": "8",
+    "referenceAmount": "1000",
+    "referenceMassUnit": "kg (support identity remains unqualified)"
+  },
+  "provenance": {
+    "sourceId": "69b8c8e6-2264-4083-8d14-e06eda21e01f",
+    "citation": "Yu Miao (2008), Research on Sustainable Development of Cement Industry in Heilongjiang Province, Harbin Institute of Technology thesis",
+    "datasetLicenseDeclaration": "Free of charge for all users and uses",
+    "datasetCopyrightDeclaration": false,
+    "repositoryLicense": "MIT",
+    "paperRedistributionPermission": "not established; no paper or production payload embedded"
+  },
+  "observedSupportClosure": {
+    "files": 30,
+    "missingLocalFiles": 0,
+    "declaredReferenceVersionMismatches": 26,
+    "counts": {
+      "processes": 1,
+      "flows": 9,
+      "flowproperties": 7,
+      "unitgroups": 4,
+      "sources": 4,
+      "contacts": 5
+    }
+  },
+  "blockingExamples": [
+    {
+      "from": "flows/42ee0f55-74be-4591-8d7e-54c2f2e6f70d.xml",
+      "to": "flowproperties/93a60a56-a3c8-11da-a746-0800200b9a66.xml",
+      "requested": "00.00.000",
+      "available": "03.00.003"
+    },
+    {
+      "from": "flows/890a70b7-b677-4e2a-8a1b-7d017e0a10ae.xml",
+      "to": "flowproperties/93a60a56-a3c8-11da-a746-0800200c9a66.xml",
+      "requested": "03.00.000",
+      "available": "03.00.003"
+    }
+  ],
+  "remainingQualification": [
+    "obtain exact version support closure; do not silently rewrite historical references",
+    "bind explicit background suppliers or approve a justified restricted boundary",
+    "freeze method bundle, licensing/disclosure and independently reviewed result expectations",
+    "qualify actual compiled model through supported consumer and runtime"
+  ],
+  "limits": "Historical local XML investigation only. URI existence is not exact-version closure, supplier coverage, science acceptance, active production state or deployment proof. Current platform exports are a separate source identity."
+}
