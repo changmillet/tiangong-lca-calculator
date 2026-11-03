@@ -2,7 +2,7 @@ use super::*;
 use crate::study::analysis_contracts::NativeFiles;
 use crate::study::{artifact_bytes, execute, tests::analysis_prepared};
 
-fn service(prepared: Vec<PreparedInput>) -> (ServiceInput, Vec<VerifiedRun>) {
+pub(in crate::study) fn service(prepared: Vec<PreparedInput>) -> (ServiceInput, Vec<VerifiedRun>) {
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../tests/fixtures/study-analysis/service-seams.json"
     ))

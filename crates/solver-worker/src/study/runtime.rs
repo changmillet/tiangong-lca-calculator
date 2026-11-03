@@ -219,7 +219,11 @@ async fn task_rpc(
     }
     Ok(response["data"].clone())
 }
-fn validate_location(location: &PrivateArtifact, study: Uuid, kind: &str) -> anyhow::Result<()> {
+pub(super) fn validate_location(
+    location: &PrivateArtifact,
+    study: Uuid,
+    kind: &str,
+) -> anyhow::Result<()> {
     ensure!(
         location.study_id == study
             && location.storage_bucket == BUCKET

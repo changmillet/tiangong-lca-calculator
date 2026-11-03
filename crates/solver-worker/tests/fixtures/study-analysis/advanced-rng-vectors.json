@@ -1,0 +1,41 @@
+{
+  "classification": "Independent Python standard-library HMAC oracle; reproducibility only, no entropy or certification claim",
+  "seedHex": "0000000000000000000000000000000000000000000000000000000000000000",
+  "generator": "study.uncertainty.hmac-drbg-sha256.v1",
+  "wordsHex": [
+    "82259752a4ca5b45",
+    "c759259519b3e0d5",
+    "bda66933850cf99e",
+    "a24eb21760ea9c9b",
+    "f10d428cb71f545c",
+    "d705b21801fe8180",
+    "7b06e3a950f2fed3",
+    "df5e1a0aa027a7f5",
+    "a6ac3d01fbbfb22e",
+    "8392b52a7e0d6743"
+  ],
+  "u53Integers": [
+    "4579134853650763",
+    "7013942289446524",
+    "6672717670556063",
+    "5710684128812371",
+    "8481256108385258",
+    "7565422807236560",
+    "4328624625426015",
+    "7859048218363124",
+    "5864278020028406",
+    "4629316093591980"
+  ],
+  "row3": [
+    2,
+    2,
+    1,
+    2,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2
+  ]
+}

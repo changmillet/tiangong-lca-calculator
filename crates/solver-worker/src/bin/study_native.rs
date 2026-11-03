@@ -23,6 +23,10 @@ async fn main() {
         let output = std::path::PathBuf::from(&request.output_path);
         let outcome = execute_request(request).await;
         if let Err(error) = &outcome {
+            if let Some(failure)=error.downcast_ref::<solver_worker::study::analysis_advanced_contracts::EvaluationFailure>() {
+                let _=std::fs::write(&output,serde_json::to_vec(&serde_json::json!({"schemaVersion":"lca.study-analysis-failure.v2","code":"study_advanced_invalid_evaluation","counts":failure})).expect("closed failure format"));
+                return outcome;
+            }
             let label = error.to_string();
             let kind = if label.starts_with("study_undeclared_boundary") {
                 NativeErrorKind::BoundaryUndeclared
@@ -30,11 +34,13 @@ async fn main() {
                 NativeErrorKind::NormalizationUnderflow
             } else if label.starts_with("study_normalization_overflow") {
                 NativeErrorKind::NormalizationOverflow
-            } else if label.starts_with("study_") && label.contains("_limit") {
+            } else if label.starts_with("study_") && (label.contains("_limit")||label.contains("_deadline")) {
                 NativeErrorKind::ResourceLimit
             } else if label.starts_with("study_negative_activity")
                 || label.starts_with("study_balance_residual")
                 || label.starts_with("study_nonfinite")
+                || label.starts_with("study_advanced_stat_nonfinite")
+                || label.starts_with("study_advanced_arithmetic_range")
                 || label.starts_with("study_analysis_nonfinite")
                 || label.starts_with("study_analysis_result_numeric")
                 || label.starts_with("study_analysis_result_residual")

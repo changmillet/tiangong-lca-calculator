@@ -1092,11 +1092,11 @@ fn source_decimal_strings_keep_model_identity_after_json_replay() {
 
 // Shared only by the analysis tests: actual compiler output, never a service receipt.
 #[allow(clippy::too_many_lines)]
-pub(super) fn analysis_prepared(
+pub(super) fn analysis_fixture(
     case: &str,
     change: Option<f64>,
     factor: Option<f64>,
-) -> PreparedInput {
+) -> (SourceInput, VerifiedMethods) {
     fn wire_versions(value: &mut Value) {
         match value {
             Value::Object(values) => {
@@ -1321,5 +1321,18 @@ pub(super) fn analysis_prepared(
             value,
         });
     }
-    prepare(&serde_json::to_vec(&s).unwrap(), &m, &Bounds::default()).unwrap()
+    (s, m)
+}
+pub(super) fn analysis_prepared(
+    case: &str,
+    change: Option<f64>,
+    factor: Option<f64>,
+) -> PreparedInput {
+    let (source, methods) = analysis_fixture(case, change, factor);
+    prepare(
+        &serde_json::to_vec(&source).unwrap(),
+        &methods,
+        &Bounds::default(),
+    )
+    .unwrap()
 }

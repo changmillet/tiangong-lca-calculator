@@ -1,0 +1,18 @@
+{
+  "config": {
+    "schemaVersion": "lca.study-analysis-config.v2",
+    "kind": "sensitivityOat",
+    "baselineRunId": "10000000-0000-4000-8000-000000000010",
+    "parameters": [
+      {
+        "path": "/instances/a/exchanges/e/amount",
+        "unit": "kg",
+        "baselineAmount": "10",
+        "low": "9",
+        "high": "11"
+      }
+    ]
+  },
+  "canonicalUtf8": "{\"baselineRunId\":\"10000000-0000-4000-8000-000000000010\",\"kind\":\"sensitivityOat\",\"parameters\":[{\"baselineAmount\":\"10\",\"high\":\"11\",\"low\":\"9\",\"path\":\"/instances/a/exchanges/e/amount\",\"unit\":\"kg\"}],\"schemaVersion\":\"lca.study-analysis-config.v2\"}",
+  "configHash": "b4223a3c658b034710ba3611b3f987651c2d80de2d9ada4dd881955721441609"
+}

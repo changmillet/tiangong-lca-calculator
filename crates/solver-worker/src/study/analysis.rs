@@ -15,9 +15,9 @@ use std::{collections::BTreeSet, time::Instant};
 use uuid::Uuid;
 
 pub struct VerifiedRun {
-    input: RunInput,
-    prepared: PreparedInput,
-    result: StudyResult,
+    pub(super) input: RunInput,
+    pub(super) prepared: PreparedInput,
+    pub(super) result: StudyResult,
 }
 
 pub fn config_hash(config: &AnalysisConfig) -> anyhow::Result<String> {
@@ -376,7 +376,7 @@ pub fn verify_run(
         result,
     })
 }
-fn binding(run: &VerifiedRun) -> anyhow::Result<InputBinding> {
+pub(super) fn binding(run: &VerifiedRun) -> anyhow::Result<InputBinding> {
     let row = &run.input;
     Ok(InputBinding {
         run_id: id(&row.run, "runId")?,
@@ -1029,4 +1029,4 @@ pub fn execute_native(path: &str, limits: &Bounds) -> anyhow::Result<Vec<u8>> {
 }
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;

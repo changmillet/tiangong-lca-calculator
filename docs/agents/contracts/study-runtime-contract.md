@@ -20,9 +20,9 @@ checkPaths:
   - crates/solver-worker/src/queue.rs
   - crates/solver-worker/src/storage.rs
   - docs/agents/contracts/study-runtime-contract.md
-lastReviewedAt: 2026-11-03
-lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
-lastReviewedNote: "Worker #360: reviewed frozen-result analysis contracts, source/Run binding, numeric codec and native dispatch; P1 hash semantics, current authorization and hosted/scientific qualification remain separate."
+lastReviewedAt: 2026-11-04
+lastReviewedCommit: 65986599adb3ae4da2385b476b376ac2a418cd25
+lastReviewedNote: "Worker #362: reviewed independent frozen-source W14 native profiles and v2 config/facts/input boundaries; existing P1/W08 meaning and runtime/source/lease authority remain separate from admission."
 related:
   - study-compiler-contract.md
   - ../../lca-api-contract.md
@@ -235,3 +235,13 @@ qualification. Record separate evidence for local component, real actor API,
 actual source resolver, actual Storage, native process, canonical lease/terminal
 callbacks and deployment. Root coordination retains exact source/build/receipt
 identities; no hosted deployment follows from source merge or this document.
+
+## W14 advanced native boundary
+
+The private `analyze_advanced` action consumes `lca.study-analysis-native.v2`,
+with exact frozen baseline/source files and explicit experimental BatchLimits.
+Its closed config/facts/input v2 formats and numerical interpretation live in
+[the analysis contract](study-analysis-contract.md). Aggregate native timing and
+all-or-error diagnostics do not relax the existing parent attempt, lease,
+cancellation, source rights, journal, upload or unknown-callback invariants.
+There is no implied daemon/API admission from that native component.
