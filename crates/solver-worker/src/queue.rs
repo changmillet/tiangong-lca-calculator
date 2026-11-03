@@ -387,6 +387,12 @@ pub async fn run_solver_worker_jobs_loop(
     lease_seconds: i32,
     poll_interval: std::time::Duration,
 ) -> anyhow::Result<()> {
+    if std::env::var("STUDY_RUNTIME_ENABLED").as_deref() == Ok("true") {
+        anyhow::ensure!(
+            claim_limit == 1,
+            "Study runtime requires worker_jobs claim_limit=1"
+        );
+    }
     loop {
         match claim_worker_jobs(
             &state.queue_pool,
@@ -415,6 +421,10 @@ pub async fn run_solver_worker_jobs_loop(
 
 #[allow(clippy::too_many_lines)]
 async fn process_solver_worker_job(state: &AppState, job: WorkerJob, lease_seconds: i32) {
+    if crate::study::runtime::handles(&job.job_kind) {
+        crate::study::runtime::handle(state, &job, lease_seconds).await;
+        return;
+    }
     if job.job_kind == crate::calculation_bundle::exports::JOB_KIND {
         process_calculation_export_job(state, &job, lease_seconds).await;
         return;

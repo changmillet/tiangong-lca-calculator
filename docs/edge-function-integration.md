@@ -24,8 +24,8 @@ checkPaths:
   - crates/solver-worker/src/bin/review_quality_diagnostic_runner.rs
   - crates/**
   - supabase/migrations/**
-lastReviewedAt: "2026-09-15"
-lastReviewedCommit: "e18d8b7b9c18afb683622a71eccb726f509cc97d"
+lastReviewedAt: 2026-11-03
+lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
 lastReviewedNote: "Worker #289: the package-build manifest now accepts only exact stateCode 100; the reserved segment including the published Result state fails closed before build. Enqueue, polling and service-role boundaries are unchanged."
 related:
   - AGENTS.md
@@ -243,3 +243,7 @@ payload：
 Edge/Next 必须以 report 中 `informationalOnly=true`、`affectsReviewState=false` 和 finding `workflowBlocking=false` 为准。finding `level=error` 不是工作流 `blocked`。
 
 部署上，`review_quality_diagnostic_runner` 需要与 solver worker 相同的 DB 和 S3 环境。常驻运行时使用 `REVIEW_QUALITY_POLL_MS`、`REVIEW_QUALITY_WORKER_ID` 与 `REVIEW_QUALITY_WORKER_LEASE_SECONDS`；`--once` 仅处理一条或空转退出。
+
+## Study calculator runtime
+
+The [Study owned runtime](agents/contracts/study-runtime-contract.md) consumes the three versioned IDs-only Study requests from `worker_jobs(worker_runtime=calculator,worker_queue=solver)`. Domain read/completion functions bind the actual Study/resource/job/token; success is committed exactly once by the domain callback. Edge must not expose private source authorization, raw locators or caller-issued model/input hashes. Public capability activation requires actual qualified deployed producer/assets, not fixture schema success. Native/Storage clock budgets are local monotonic; DB lease and accepted cancellation remain the publication arbiter.

@@ -42,7 +42,7 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 7db69aa724bf3030426e10bf5c2cd5db72d7cdc5
+lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
 lastReviewedNote: "Worker #355: source Study compiler and local native executor; legacy snapshot identity unchanged; hosted source/job authority remains W06."
 related:
   - ../../AGENTS.md
@@ -59,6 +59,27 @@ related:
 ---
 
 The periodic lease heartbeat timing test uses Tokio 1.50.0 paused virtual time through the dev-only `test-util` feature. The initial heartbeat and four periodic renewals remain required; production timers and missed-tick behavior are unchanged. This isolates the assertion from host scheduling while retaining cancellation tests.
+
+## Study runtime qualification boundaries
+
+Use the [Study runtime contract](contracts/study-runtime-contract.md) for the
+real actor API, source resolver, native child, Storage and fenced callback
+qualification. The sanitized PostgreSQL service-seam observation under
+`crates/solver-worker/tests/fixtures/study-runtime` checks exact producer names
+and ordered arguments; naming symmetry is not a database API contract.
+
+Keep ordinary source-to-Run receipts separate from fault-controlled cancellation
+proof. A loopback server holding an exact real LCIA asset can establish that a
+running native preload is cancelled and reaped before publication; the induced
+delay is not throughput or production timing evidence. Component RSS/kill/reap
+receipts do not establish per-job RSS measurements when terminal job records no
+longer retain intermediate heartbeat diagnostics. Production containment and
+capacity require their own evidence.
+
+The standard-library qualification helpers use `zip(..., strict=True)` and need
+Python 3.10 or later. Check the selected `python3` before `make check`; macOS's
+Apple Python 3.9 does not satisfy that language requirement. The local Study
+verification used the existing Homebrew Python 3.13 without dependency changes.
 
 ## Default Baseline
 
@@ -602,3 +623,9 @@ Run `cargo test -p solver-worker --lib study -- --nocapture`, followed by the ha
 The [Study compiler contract](contracts/study-compiler-contract.md) defines bounds and exact proof limits. Record source/artifact byte hashes, compiler/calculation identity, toolchain/native setup, elapsed/resource measurements and findings. The task-authored one-node cement model is not proof of a hosted LifecycleModel exporter or source acquisition. W06 must independently validate the actual issuer/job/artifact chain and prove subprocess cancellation, lease loss and late-result fencing.
 
 Study numerical/resource regression checks include the smallest f64 subnormal with allocation before normalization, opposite-sign sub-epsilon connections, explicit final underflow/overflow rejection, and repeated same-source allocation metadata expansion rejected by preflight before instance cloning.
+
+### Study owned runtime
+
+Run focused `cargo test -p solver-worker --lib study -- --nocapture`, fmt and hard Clippy. Build `solver-worker`, `study_native`, `study_runtime_preflight`, and `study_artifact_reconcile`. Component proof uses `study_runtime_preflight --native-bin <absolute> --directory <private existing directory> --receipt <absolute receipt>`; this tests actual linked arithmetic and resource/cancellation reaping, not source authorization.
+
+Real integration requires the Database/Edge owned Study runtime migrations and actor endpoints. Start the existing daemon with `--mode worker --queue-backend worker-jobs --worker-jobs-claim-limit 1`; use task-owned explicit DB/S3 settings, `STUDY_RUNTIME_ENABLED=true`, absolute native/temp/journal paths and a verified base cache. Never inherit a hosted environment for a local proof. Record exact actor/source/scope/export, compiler input/model/result bytes, task recovery, cancellation and callback evidence. [The runtime contract](contracts/study-runtime-contract.md) distinguishes these from component fixtures and describes unknown-outcome/cleanup handling.

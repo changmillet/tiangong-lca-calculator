@@ -1,7 +1,7 @@
 version: 1
 layout: repo
 lastReviewedAt: "2026-11-03"
-lastReviewedCommit: "7db69aa724bf3030426e10bf5c2cd5db72d7cdc5"
+lastReviewedCommit: "7a06be35061ac42bdc0e0f81a63950b63c7ede06"
 lastReviewedNote: "Worker #355: source Study compiler and local native executor; legacy snapshot identity unchanged; hosted source/job authority remains W06."
 
 # Keep deterministic governance facts here.
@@ -21,6 +21,7 @@ catalog:
         - docs/agents/contracts/portal-lcia-projection-contract.md
         - docs/agents/contracts/study-p0-calculation-profile.md
         - docs/agents/contracts/study-compiler-contract.md
+        - docs/agents/contracts/study-runtime-contract.md
       workspaceIntegrationRequired: true
 
 ownership:
@@ -94,6 +95,7 @@ coverage:
     - docs/agents/contracts/portal-lcia-projection-contract.md
     - docs/agents/contracts/study-p0-calculation-profile.md
     - docs/agents/contracts/study-compiler-contract.md
+    - docs/agents/contracts/study-runtime-contract.md
     - docs/agents/contracts/*.schema.json
     - docs/lca-api-contract.md
     - docs/scope-closure-contract.md
@@ -287,6 +289,7 @@ docInventory:
     - docs/agents/contracts/portal-lcia-projection-contract.md
     - docs/agents/contracts/study-p0-calculation-profile.md
     - docs/agents/contracts/study-compiler-contract.md
+    - docs/agents/contracts/study-runtime-contract.md
     - docs/lca-api-contract.md
     - docs/scope-closure-contract.md
     - docs/matrix-readiness-report-contract.md
@@ -356,6 +359,26 @@ rules:
       - path: .docpact/config.yaml
         mode: review_or_update
     reason: Repo landing text should stay aligned with the current contract and AI entry surface.
+  - id: worker-study-runtime-contract
+    scope: repo
+    repo: worker
+    triggers:
+      - path: crates/solver-worker/src/study/runtime*.rs
+        kind: study-runtime
+      - path: crates/solver-worker/src/bin/study_*.rs
+        kind: study-runtime-binary
+      - path: docs/agents/contracts/study-runtime-contract.md
+        kind: study-runtime-contract
+    requiredDocs:
+      - path: docs/agents/contracts/study-runtime-contract.md
+        mode: review_or_update
+      - path: docs/agents/repo-validation.md
+        mode: review_or_update
+      - path: docs/lca-api-contract.md
+        mode: review_or_update
+      - path: docs/edge-function-integration.md
+        mode: review_or_update
+    reason: Owned source authority, frozen numerical input, job leases and actual artifacts require one runtime boundary.
   - id: worker-study-compiler-contract
     scope: repo
     repo: worker

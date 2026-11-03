@@ -946,3 +946,146 @@ fn normalization_preserves_finite_extremes_and_rejects_final_range_loss() {
     );
     assert_eq!(normalized_amount(f64::from_bits(1), 0.0, 1.0).unwrap(), 0.0);
 }
+
+#[test]
+fn scenario_reuses_frozen_factors_and_distinguishes_frozen_zero_from_gap() {
+    let source = single();
+    let original = prepare_source(&source);
+    let frozen = VerifiedMethods::from_frozen(&original, &source.method_refs).unwrap();
+    let mut next = source.clone();
+    next.overrides.push(AmountOverride {
+        path: "/instances/a/exchanges/e/amount".into(),
+        value: 2.0,
+    });
+    let effective = prepare(
+        &serde_json::to_vec(&next).unwrap(),
+        &frozen,
+        &Bounds::default(),
+    )
+    .unwrap();
+    assert_eq!(execute(&effective).unwrap().h, vec![2.0]);
+    assert_eq!(effective.method_source_hash, original.method_source_hash);
+    let mut zero_methods = methods();
+    zero_methods.factors[0][0].value = 0.0;
+    let known_zero = prepare(
+        &serde_json::to_vec(&source).unwrap(),
+        &zero_methods,
+        &Bounds::default(),
+    )
+    .unwrap();
+    let frozen_zero = VerifiedMethods::from_frozen(&known_zero, &source.method_refs).unwrap();
+    assert_eq!(
+        prepare(
+            &serde_json::to_vec(&next).unwrap(),
+            &frozen_zero,
+            &Bounds::default()
+        )
+        .unwrap()
+        .coverage
+        .len(),
+        0
+    );
+    zero_methods.factors[0].clear();
+    let gap = prepare(
+        &serde_json::to_vec(&source).unwrap(),
+        &zero_methods,
+        &Bounds::default(),
+    )
+    .unwrap();
+    let frozen_gap = VerifiedMethods::from_frozen(&gap, &source.method_refs).unwrap();
+    assert_eq!(
+        prepare(
+            &serde_json::to_vec(&next).unwrap(),
+            &frozen_gap,
+            &Bounds::default()
+        )
+        .unwrap()
+        .coverage
+        .len(),
+        1
+    );
+}
+
+#[test]
+fn decimal_normalized_inventory_keeps_identity_after_json_replay() {
+    let mut source = single();
+    let doc = source
+        .documents
+        .iter_mut()
+        .find(|doc| doc.kind == "process")
+        .unwrap();
+    *doc = process(
+        "process",
+        vec![
+            raw_exchange("p", "product", "Output", 1000.0),
+            raw_exchange("e", "emission", "Output", 0.4662),
+        ],
+    );
+    let prepared = prepare_source(&source);
+    let bytes = artifact_bytes(&prepared).unwrap();
+    let decoded: PreparedInput = super::json::from_slice(&bytes).unwrap();
+    for (expected, actual) in prepared
+        .numeric
+        .b
+        .iter()
+        .flatten()
+        .zip(decoded.numeric.b.iter().flatten())
+    {
+        assert_eq!(
+            expected.to_bits(),
+            actual.to_bits(),
+            "expected={expected:?} actual={actual:?}"
+        );
+    }
+    decode_prepared(&bytes, &sha256(&bytes), &Bounds::default()).unwrap();
+}
+
+#[test]
+fn source_decimal_strings_keep_model_identity_after_json_replay() {
+    for value in [
+        "357.48", "1092.8", "1.602", "0.4662", "0.64", "1.31", "0.74",
+    ] {
+        let mut source = single();
+        let doc = source
+            .documents
+            .iter_mut()
+            .find(|doc| doc.kind == "process")
+            .unwrap();
+        let mut e = raw_exchange("e", "emission", "Output", 0.0);
+        e["resultingAmount"] = json!(value);
+        *doc = process(
+            "process",
+            vec![raw_exchange("p", "product", "Output", 1000.0), e],
+        );
+        let prepared = prepare_source(&source);
+        let bytes = artifact_bytes(&prepared).unwrap();
+        let decoded: PreparedInput = super::json::from_slice(&bytes).unwrap();
+        for (expected, actual) in prepared.model.instances[0]
+            .exchanges
+            .iter()
+            .zip(&decoded.model.instances[0].exchanges)
+        {
+            assert_eq!(
+                expected.amount.to_bits(),
+                actual.amount.to_bits(),
+                "value={value}, expected={:?} actual={:?}",
+                expected.amount,
+                actual.amount
+            );
+        }
+        for (expected, actual) in prepared
+            .numeric
+            .b
+            .iter()
+            .flatten()
+            .zip(decoded.numeric.b.iter().flatten())
+        {
+            assert_eq!(
+                expected.to_bits(),
+                actual.to_bits(),
+                "value={value}, expected={expected:?} actual={actual:?}"
+            );
+        }
+        decode_prepared(&bytes, &sha256(&bytes), &Bounds::default()).unwrap();
+    }
+}
