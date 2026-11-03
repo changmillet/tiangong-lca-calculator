@@ -108,13 +108,12 @@ async fn process_rss(pid: u32) -> anyhow::Result<u64> {
         .lines()
         .find(|s| s.starts_with("VmRSS:"))
         .context("study_rss_missing")?;
-    Ok(row
-        .split_whitespace()
+    row.split_whitespace()
         .nth(1)
         .context("study_rss_missing")?
         .parse::<u64>()?
         .checked_mul(1024)
-        .context("study_rss_overflow")?)
+        .context("study_rss_overflow")
 }
 #[cfg(target_os = "macos")]
 async fn process_rss(pid: u32) -> anyhow::Result<u64> {
