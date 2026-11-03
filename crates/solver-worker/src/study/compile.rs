@@ -664,7 +664,7 @@ pub fn execute(input: &PreparedInput) -> anyhow::Result<StudyResult> {
     })
 }
 
-fn validate_execution(input: &PreparedInput) -> anyhow::Result<()> {
+pub(super) fn validate_execution(input: &PreparedInput) -> anyhow::Result<()> {
     input.limits.validate()?;
     artifact_bytes(input)?;
     verify_identities(input)?;

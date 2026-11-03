@@ -21,8 +21,8 @@ checkPaths:
   - crates/solver-worker/src/storage.rs
   - docs/agents/contracts/study-runtime-contract.md
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
-lastReviewedNote: "Worker #356: owned runtime implementation; executable and cross-repository qualification evidence is recorded separately."
+lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
+lastReviewedNote: "Worker #360: reviewed frozen-result analysis contracts, source/Run binding, numeric codec and native dispatch; P1 hash semantics, current authorization and hosted/scientific qualification remain separate."
 related:
   - study-compiler-contract.md
   - ../../lca-api-contract.md
@@ -32,11 +32,12 @@ related:
 
 # Study owned runtime
 
-`study::runtime` dispatches three kinds from the existing calculator/solver
-`worker_jobs` loop: `study.source_acquire`, `study.model_prepare`, `study.run`.
+`study::runtime` dispatches source, preparation, Run and analysis kinds from the
+existing calculator/solver `worker_jobs` loop: `study.source_acquire`,
+`study.model_prepare`, `study.run`, `study.analysis`.
 Private payload schemas are exactly `<kind>.request.v1`; payloads contain
 `schemaVersion`, `studyId` and exactly one `acquisitionId`, `preparationId` or
-`runId`. Actor claims, source documents, source-state assertions, artifact
+`runId` or `analysisId`. Actor claims, source documents, source-state assertions, artifact
 locators, results and credentials are not accepted in job payloads.
 
 Successful domain callbacks atomically commit the artifact/domain association
@@ -45,6 +46,15 @@ The generic result is `lca.study-job-receipt.v1`, containing only schema, Study,
 resource type and resource ID; numeric/source payloads and storage paths never
 enter that shared public projection. Safe closed failure categories replace raw
 native stderr or private RPC data.
+
+The [analysis contract](study-analysis-contract.md) specifies the separate
+`lca.study-analysis-input.v1` service DTO, ordered frozen Run artifacts,
+`svc_study_analysis_read_input_v1` / `svc_study_analysis_complete_v1` signatures,
+canonical facts and comparison limits. It emits immutable `analysisFacts`,
+using this same supervised native/upload/readback/fenced completion path.
+Database must extend scoped task/failure/reconciliation/current-source rights
+and generic-route guards before admission. Merely adding a dispatch kind does
+not activate or qualify any deployment. Public API versioning stays Edge-owned.
 
 ## Authoritative inputs and export identity
 

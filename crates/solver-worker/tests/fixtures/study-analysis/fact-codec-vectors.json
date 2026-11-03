@@ -1,0 +1,390 @@
+{
+  "scope": "syntax/coverage-value equivalence only, not fact issuance or numerical truth",
+  "cases": [
+    {
+      "name": "complete number",
+      "value": {
+        "factId": "r0:h:0",
+        "kind": "impact",
+        "label": "Run 1 impact \u2014 LCIA method@01.00.000",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010"
+        ],
+        "methodRef": {
+          "id": "method",
+          "version": "01.00.000"
+        },
+        "canonicalValue": "10",
+        "unit": "impact",
+        "unitIdentity": {
+          "kind": "lcia_method_quantity",
+          "flow": null,
+          "method": {
+            "id": "method",
+            "version": "01.00.000"
+          },
+          "support": [],
+          "view": null
+        },
+        "coverage": "complete",
+        "scope": "characterized_subtotal",
+        "reasonCodes": [],
+        "subject": {
+          "view": null,
+          "inventory": null
+        }
+      },
+      "valid": true
+    },
+    {
+      "name": "partial number",
+      "value": {
+        "factId": "r0:h:0",
+        "kind": "impact",
+        "label": "Run 1 impact \u2014 LCIA method@01.00.000",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010"
+        ],
+        "methodRef": {
+          "id": "method",
+          "version": "01.00.000"
+        },
+        "canonicalValue": "10",
+        "unit": "impact",
+        "unitIdentity": {
+          "kind": "lcia_method_quantity",
+          "flow": null,
+          "method": {
+            "id": "method",
+            "version": "01.00.000"
+          },
+          "support": [],
+          "view": null
+        },
+        "coverage": "partial",
+        "scope": "characterized_subtotal",
+        "reasonCodes": [],
+        "subject": {
+          "view": null,
+          "inventory": null
+        }
+      },
+      "valid": true
+    },
+    {
+      "name": "unknown null",
+      "value": {
+        "factId": "r0:h:0",
+        "kind": "impact",
+        "label": "Run 1 impact \u2014 LCIA method@01.00.000",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010"
+        ],
+        "methodRef": {
+          "id": "method",
+          "version": "01.00.000"
+        },
+        "canonicalValue": null,
+        "unit": "impact",
+        "unitIdentity": {
+          "kind": "lcia_method_quantity",
+          "flow": null,
+          "method": {
+            "id": "method",
+            "version": "01.00.000"
+          },
+          "support": [],
+          "view": null
+        },
+        "coverage": "unknown",
+        "scope": "characterized_subtotal",
+        "reasonCodes": [],
+        "subject": {
+          "view": null,
+          "inventory": null
+        }
+      },
+      "valid": true
+    },
+    {
+      "name": "unknown cannot be zero",
+      "value": {
+        "factId": "r0:h:0",
+        "kind": "impact",
+        "label": "Run 1 impact \u2014 LCIA method@01.00.000",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010"
+        ],
+        "methodRef": {
+          "id": "method",
+          "version": "01.00.000"
+        },
+        "canonicalValue": "0",
+        "unit": "impact",
+        "unitIdentity": {
+          "kind": "lcia_method_quantity",
+          "flow": null,
+          "method": {
+            "id": "method",
+            "version": "01.00.000"
+          },
+          "support": [],
+          "view": null
+        },
+        "coverage": "unknown",
+        "scope": "characterized_subtotal",
+        "reasonCodes": [],
+        "subject": {
+          "view": null,
+          "inventory": null
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "complete cannot be null",
+      "value": {
+        "factId": "r0:h:0",
+        "kind": "impact",
+        "label": "Run 1 impact \u2014 LCIA method@01.00.000",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010"
+        ],
+        "methodRef": {
+          "id": "method",
+          "version": "01.00.000"
+        },
+        "canonicalValue": null,
+        "unit": "impact",
+        "unitIdentity": {
+          "kind": "lcia_method_quantity",
+          "flow": null,
+          "method": {
+            "id": "method",
+            "version": "01.00.000"
+          },
+          "support": [],
+          "view": null
+        },
+        "coverage": "complete",
+        "scope": "characterized_subtotal",
+        "reasonCodes": [],
+        "subject": {
+          "view": null,
+          "inventory": null
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "partial cannot be null",
+      "value": {
+        "factId": "r0:h:0",
+        "kind": "impact",
+        "label": "Run 1 impact \u2014 LCIA method@01.00.000",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010"
+        ],
+        "methodRef": {
+          "id": "method",
+          "version": "01.00.000"
+        },
+        "canonicalValue": null,
+        "unit": "impact",
+        "unitIdentity": {
+          "kind": "lcia_method_quantity",
+          "flow": null,
+          "method": {
+            "id": "method",
+            "version": "01.00.000"
+          },
+          "support": [],
+          "view": null
+        },
+        "coverage": "partial",
+        "scope": "characterized_subtotal",
+        "reasonCodes": [],
+        "subject": {
+          "view": null,
+          "inventory": null
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "negative zero",
+      "value": {
+        "factId": "r0:h:0",
+        "kind": "impact",
+        "label": "Run 1 impact \u2014 LCIA method@01.00.000",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010"
+        ],
+        "methodRef": {
+          "id": "method",
+          "version": "01.00.000"
+        },
+        "canonicalValue": "-0",
+        "unit": "impact",
+        "unitIdentity": {
+          "kind": "lcia_method_quantity",
+          "flow": null,
+          "method": {
+            "id": "method",
+            "version": "01.00.000"
+          },
+          "support": [],
+          "view": null
+        },
+        "coverage": "complete",
+        "scope": "characterized_subtotal",
+        "reasonCodes": [],
+        "subject": {
+          "view": null,
+          "inventory": null
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "trailing fractional zero",
+      "value": {
+        "factId": "r0:h:0",
+        "kind": "impact",
+        "label": "Run 1 impact \u2014 LCIA method@01.00.000",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010"
+        ],
+        "methodRef": {
+          "id": "method",
+          "version": "01.00.000"
+        },
+        "canonicalValue": "1.0",
+        "unit": "impact",
+        "unitIdentity": {
+          "kind": "lcia_method_quantity",
+          "flow": null,
+          "method": {
+            "id": "method",
+            "version": "01.00.000"
+          },
+          "support": [],
+          "view": null
+        },
+        "coverage": "complete",
+        "scope": "characterized_subtotal",
+        "reasonCodes": [],
+        "subject": {
+          "view": null,
+          "inventory": null
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "exponent plus",
+      "value": {
+        "factId": "r0:h:0",
+        "kind": "impact",
+        "label": "Run 1 impact \u2014 LCIA method@01.00.000",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010"
+        ],
+        "methodRef": {
+          "id": "method",
+          "version": "01.00.000"
+        },
+        "canonicalValue": "1e+20",
+        "unit": "impact",
+        "unitIdentity": {
+          "kind": "lcia_method_quantity",
+          "flow": null,
+          "method": {
+            "id": "method",
+            "version": "01.00.000"
+          },
+          "support": [],
+          "view": null
+        },
+        "coverage": "complete",
+        "scope": "characterized_subtotal",
+        "reasonCodes": [],
+        "subject": {
+          "view": null,
+          "inventory": null
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "canonical exponent",
+      "value": {
+        "factId": "r0:h:0",
+        "kind": "impact",
+        "label": "Run 1 impact \u2014 LCIA method@01.00.000",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010"
+        ],
+        "methodRef": {
+          "id": "method",
+          "version": "01.00.000"
+        },
+        "canonicalValue": "1e20",
+        "unit": "impact",
+        "unitIdentity": {
+          "kind": "lcia_method_quantity",
+          "flow": null,
+          "method": {
+            "id": "method",
+            "version": "01.00.000"
+          },
+          "support": [],
+          "view": null
+        },
+        "coverage": "complete",
+        "scope": "characterized_subtotal",
+        "reasonCodes": [],
+        "subject": {
+          "view": null,
+          "inventory": null
+        }
+      },
+      "valid": true
+    },
+    {
+      "name": "minimum subnormal",
+      "value": {
+        "factId": "r0:h:0",
+        "kind": "impact",
+        "label": "Run 1 impact \u2014 LCIA method@01.00.000",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010"
+        ],
+        "methodRef": {
+          "id": "method",
+          "version": "01.00.000"
+        },
+        "canonicalValue": "5e-324",
+        "unit": "impact",
+        "unitIdentity": {
+          "kind": "lcia_method_quantity",
+          "flow": null,
+          "method": {
+            "id": "method",
+            "version": "01.00.000"
+          },
+          "support": [],
+          "view": null
+        },
+        "coverage": "complete",
+        "scope": "characterized_subtotal",
+        "reasonCodes": [],
+        "subject": {
+          "view": null,
+          "inventory": null
+        }
+      },
+      "valid": true
+    }
+  ]
+}

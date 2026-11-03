@@ -18,8 +18,8 @@ checkPaths:
   - crates/solver-worker/src/bin/study_compile.rs
   - docs/agents/contracts/study-compiler-contract.md
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
-lastReviewedNote: "Worker #355: explicit source-model compiler and local native execution; hosted source acquisition, task authority and producer admission remain W06."
+lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
+lastReviewedNote: "Worker #360: reviewed frozen-result analysis contracts, source/Run binding, numeric codec and native dispatch; P1 hash semantics, current authorization and hosted/scientific qualification remain separate."
 related:
   - study-p0-calculation-profile.md
   - ../repo-validation.md
@@ -123,6 +123,11 @@ exact reference Flow/unit; ordered methods equal the frozen definition's refs.
 Base preparation has no StudyBinding/inputHash and uses unit reference demand.
 
 ## Identities and replay
+
+W08 [analysis](study-analysis-contract.md) reuses frozen P1 prepared/result
+bytes and execution validation. Its facts-only numeric strings and new config
+domain do not change any encoding, semantic hash or calculation rule below.
+No live model/factor reload is performed by the analysis path.
 
 Legacy `calculation_contract::descriptor/fingerprint` and global cache/snapshot
 semantics are unchanged. Study identities explicitly bind compiler/profile plus

@@ -1089,3 +1089,237 @@ fn source_decimal_strings_keep_model_identity_after_json_replay() {
         decode_prepared(&bytes, &sha256(&bytes), &Bounds::default()).unwrap();
     }
 }
+
+// Shared only by the analysis tests: actual compiler output, never a service receipt.
+#[allow(clippy::too_many_lines)]
+pub(super) fn analysis_prepared(
+    case: &str,
+    change: Option<f64>,
+    factor: Option<f64>,
+) -> PreparedInput {
+    fn wire_versions(value: &mut Value) {
+        match value {
+            Value::Object(values) => {
+                for (key, value) in values {
+                    if (key == "@version" || key == "common:dataSetVersion") && value == "1" {
+                        *value = json!("01.00.000");
+                    } else {
+                        wire_versions(value);
+                    }
+                }
+            }
+            Value::Array(values) => {
+                for value in values {
+                    wire_versions(value);
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut s = match case {
+        "cycle" => input(
+            vec![
+                process(
+                    "pa",
+                    vec![
+                        raw_exchange("p", "product-a", "Output", 1.0),
+                        raw_exchange("i", "product-b", "Input", 0.2),
+                        raw_exchange("e", "emission", "Output", 2.0),
+                    ],
+                ),
+                process(
+                    "pb",
+                    vec![
+                        raw_exchange("p", "product-b", "Output", 1.0),
+                        raw_exchange("i", "product-a", "Input", 0.1),
+                        raw_exchange("e", "emission", "Output", 3.0),
+                    ],
+                ),
+            ],
+            model(json!([
+                instance("a", "pa", connection("product-a", "b")),
+                instance("b", "pb", connection("product-b", "a"))
+            ])),
+            &["product-a", "product-b", "emission"],
+        ),
+        "allocation" => {
+            let mut e = raw_exchange("e", "emission", "Output", 10.0);
+            e["allocations"] = allocation(60.0, 40.0);
+            input(
+                vec![
+                    process(
+                        "pa",
+                        vec![
+                            raw_exchange("p", "product-p", "Output", 2.0),
+                            raw_exchange("q", "product-q", "Output", 1.0),
+                            e,
+                        ],
+                    ),
+                    process(
+                        "pb",
+                        vec![
+                            raw_exchange("p", "final", "Output", 1.0),
+                            raw_exchange("i", "product-q", "Input", 1.0),
+                        ],
+                    ),
+                ],
+                model(json!([
+                    instance("a", "pa", connection("product-q", "b")),
+                    instance("b", "pb", json!([]))
+                ])),
+                &["product-p", "product-q", "final", "emission"],
+            )
+        }
+        "repeated" => {
+            let edge = |exchange: &str| json!({"@flowUUID":"product","@version":"1","downstreamProcess":{"@id":"r","@flowUUID":"product","@version":"1","@exchangeId":exchange}});
+            let m = model(json!([
+                instance("a", "supplier", edge("i1")),
+                instance("b", "supplier", edge("i2")),
+                instance("r", "root", json!([]))
+            ]));
+            let mut raw: Value = serde_json::from_str(&m.json).unwrap();
+            raw["lifeCycleModelDataSet"]["lifeCycleModelInformation"]["quantitativeReference"]["referenceToReferenceProcess"] =
+                json!("r");
+            input(
+                vec![
+                    process(
+                        "supplier",
+                        vec![
+                            raw_exchange("p", "product", "Output", 1.0),
+                            raw_exchange("e", "emission", "Output", 3.0),
+                        ],
+                    ),
+                    process(
+                        "root",
+                        vec![
+                            raw_exchange("p", "final", "Output", 1.0),
+                            raw_exchange("i1", "product", "Input", 1.0),
+                            raw_exchange("i2", "product", "Input", 2.0),
+                        ],
+                    ),
+                ],
+                document("lifecyclemodel", "model", raw),
+                &["product", "final", "emission"],
+            )
+        }
+        "input" => input(
+            vec![process(
+                "process",
+                vec![
+                    raw_exchange("p", "product", "Input", 2.0),
+                    raw_exchange("e", "emission", "Output", 10.0),
+                ],
+            )],
+            model(json!([instance("a", "process", json!([]))])),
+            &["product", "emission"],
+        ),
+        "envelope" => {
+            let mut burden = raw_exchange("e", "emission", "Output", 2.0);
+            burden["allocations"] = allocation(50.0, 50.0);
+            let mut consumption = raw_exchange("i", "q", "Input", 0.1);
+            consumption["allocations"] = allocation(50.0, 50.0);
+            let p = process(
+                "process",
+                vec![
+                    raw_exchange("p", "product", "Output", 1.0),
+                    raw_exchange("q", "q", "Output", 1.0),
+                    burden,
+                    consumption,
+                ],
+            );
+            let ids = (0..64)
+                .map(|i| {
+                    if i == 0 {
+                        "a".to_owned()
+                    } else {
+                        format!("node{i}")
+                    }
+                })
+                .collect::<Vec<_>>();
+            let instances = ids
+                .iter()
+                .enumerate()
+                .map(|(i, id)| instance(id, "process", connection("q", &ids[(i + 1) % 64])))
+                .collect::<Vec<_>>();
+            input(
+                vec![p],
+                model(json!(instances)),
+                &["product", "q", "emission"],
+            )
+        }
+        "partial" => input(
+            vec![process(
+                "process",
+                vec![
+                    raw_exchange("p", "product", "Output", 2.0),
+                    raw_exchange("e", "emission", "Output", 10.0),
+                    raw_exchange("e2", "emission", "Input", 4.0),
+                ],
+            )],
+            model(json!([instance("a", "process", json!([]))])),
+            &["product", "emission"],
+        ),
+        "tiny" => input(
+            vec![process(
+                "process",
+                vec![
+                    raw_exchange("p", "product", "Output", 1.0),
+                    raw_exchange("e", "emission", "Output", f64::from_bits(1)),
+                ],
+            )],
+            model(json!([instance("a", "process", json!([]))])),
+            &["product", "emission"],
+        ),
+        _ => single(),
+    };
+    let mut m = methods();
+    // Give exported W08 consumer fixtures real P1 version syntax before either
+    // compiler or executor sees them. Never rewrite a produced artifact/hash.
+    for document in &mut s.documents {
+        document.identity.version = "01.00.000".into();
+        let mut raw: Value = serde_json::from_str(&document.json).unwrap();
+        wire_versions(&mut raw);
+        document.json = serde_json::to_string(&raw).unwrap();
+        document.sha256 = sha256(document.json.as_bytes());
+    }
+    s.origin.version = "01.00.000".into();
+    for reference in &mut s.method_refs {
+        reference.version = "01.00.000".into();
+    }
+    m.axes[0].version = "01.00.000".into();
+    m.factors[0][0].flow.version = "01.00.000".into();
+    m.source_hash = sha256(b"synthetic analysis method fixture; not a published dataset");
+    if let Some(factor) = factor {
+        m.factors[0][0].value = factor;
+    } else {
+        m.factors[0].clear();
+    }
+    let base = prepare(&serde_json::to_vec(&s).unwrap(), &m, &Bounds::default()).unwrap();
+    s.study_binding = Some(StudyBinding {
+        study_revision_id: "10000000-0000-4000-8000-000000000002".into(),
+        study_revision_content_hash: "d".repeat(64),
+        definition: Definition {
+            goal: "Bounded numerical fixture".into(),
+            functional_unit: FunctionalUnit {
+                amount: "1".into(),
+                unit: base.numeric.reference.unit.clone(),
+                reference_flow_id: base.numeric.reference.flow.id.clone(),
+            },
+            system_boundary: "explicit".into(),
+            method_refs: vec![MethodRef {
+                r#type: "datasetRevision".into(),
+                dataset_type: "lciamethod".into(),
+                id: "method".into(),
+                version: "01.00.000".into(),
+            }],
+            assumptions: vec![],
+        },
+    });
+    if let Some(value) = change {
+        s.overrides.push(AmountOverride {
+            path: "/instances/a/exchanges/e/amount".into(),
+            value,
+        });
+    }
+    prepare(&serde_json::to_vec(&s).unwrap(), &m, &Bounds::default()).unwrap()
+}

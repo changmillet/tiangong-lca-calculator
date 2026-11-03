@@ -37,8 +37,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
-lastReviewedNote: "Worker #355: source Study compiler and local native executor; legacy snapshot identity unchanged; hosted source/job authority remains W06."
+lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
+lastReviewedNote: "Worker #360: reviewed frozen-result analysis contracts, source/Run binding, numeric codec and native dispatch; P1 hash semantics, current authorization and hosted/scientific qualification remain separate."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -61,6 +61,11 @@ This repo is a Rust workspace with three core layers:
 - `crates/solver-worker`
 
 The runtime solves sparse systems asynchronously and keeps heavy compute out of the API layer.
+
+`study/analysis.rs` verifies frozen prepared/result pairs and emits Worker-owned
+contribution/comparison facts through the existing Study native runtime. Its
+config/facts schemas are separate from P1 model/input/calculation identities;
+report authorization, persistence and signed export stay with their owners.
 
 ## Core Solver Invariants
 

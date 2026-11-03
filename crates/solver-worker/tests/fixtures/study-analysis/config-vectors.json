@@ -1,0 +1,127 @@
+{
+  "scope": "schema and codec equivalence only; no numerical or authorization qualification",
+  "cases": [
+    {
+      "name": "ordered comparison",
+      "value": {
+        "schemaVersion": "lca.study-analysis-config.v1",
+        "kind": "comparison",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010",
+          "10000000-0000-4000-8000-000000000011"
+        ]
+      },
+      "valid": true,
+      "canonicalBytes": "{\"kind\":\"comparison\",\"runIds\":[\"10000000-0000-4000-8000-000000000010\",\"10000000-0000-4000-8000-000000000011\"],\"schemaVersion\":\"lca.study-analysis-config.v1\"}",
+      "configHash": "d6475229de0810eb5e9c7879686f589b3b3abdfafd90e8501f44b667c27b2b8d"
+    },
+    {
+      "name": "one Run contribution",
+      "value": {
+        "schemaVersion": "lca.study-analysis-config.v1",
+        "kind": "contribution",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010"
+        ]
+      },
+      "valid": true,
+      "canonicalBytes": "{\"kind\":\"contribution\",\"runIds\":[\"10000000-0000-4000-8000-000000000010\"],\"schemaVersion\":\"lca.study-analysis-config.v1\"}",
+      "configHash": "dbfdd40badfa83410100321504ddc56fc0bc6f81edb5b31eec1c6c809473002f"
+    },
+    {
+      "name": "unknown property",
+      "value": {
+        "schemaVersion": "lca.study-analysis-config.v1",
+        "kind": "comparison",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010",
+          "10000000-0000-4000-8000-000000000011"
+        ],
+        "untrusted": true
+      },
+      "valid": false
+    },
+    {
+      "name": "zero Runs",
+      "value": {
+        "schemaVersion": "lca.study-analysis-config.v1",
+        "kind": "comparison",
+        "runIds": []
+      },
+      "valid": false
+    },
+    {
+      "name": "comparison one Run",
+      "value": {
+        "schemaVersion": "lca.study-analysis-config.v1",
+        "kind": "comparison",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010"
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "duplicate Runs",
+      "value": {
+        "schemaVersion": "lca.study-analysis-config.v1",
+        "kind": "comparison",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010",
+          "10000000-0000-4000-8000-000000000010"
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "unknown kind",
+      "value": {
+        "schemaVersion": "lca.study-analysis-config.v1",
+        "kind": "ranking",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000010",
+          "10000000-0000-4000-8000-000000000011"
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "uppercase UUID",
+      "value": {
+        "schemaVersion": "lca.study-analysis-config.v1",
+        "kind": "comparison",
+        "runIds": [
+          "ABCDEF01-0000-4000-8000-000000000001",
+          "10000000-0000-4000-8000-000000000011"
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "bad UUID",
+      "value": {
+        "schemaVersion": "lca.study-analysis-config.v1",
+        "kind": "comparison",
+        "runIds": [
+          "not-a-uuid",
+          "10000000-0000-4000-8000-000000000011"
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "reversed order changes identity",
+      "value": {
+        "schemaVersion": "lca.study-analysis-config.v1",
+        "kind": "comparison",
+        "runIds": [
+          "10000000-0000-4000-8000-000000000011",
+          "10000000-0000-4000-8000-000000000010"
+        ]
+      },
+      "valid": true,
+      "canonicalBytes": "{\"kind\":\"comparison\",\"runIds\":[\"10000000-0000-4000-8000-000000000011\",\"10000000-0000-4000-8000-000000000010\"],\"schemaVersion\":\"lca.study-analysis-config.v1\"}",
+      "configHash": "5cad76241c413f0ba6d0610a0dd8ca2c46a09a735b09f9bf332214618c86d746"
+    }
+  ]
+}
