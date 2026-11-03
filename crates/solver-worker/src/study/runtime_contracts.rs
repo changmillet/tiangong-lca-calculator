@@ -47,6 +47,9 @@ pub enum NativeAction {
         prepared_path: String,
         prepared_sha256: String,
     },
+    Analyze {
+        analysis_path: String,
+    },
 }
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

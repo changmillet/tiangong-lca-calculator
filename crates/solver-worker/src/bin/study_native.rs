@@ -35,6 +35,11 @@ async fn main() {
             } else if label.starts_with("study_negative_activity")
                 || label.starts_with("study_balance_residual")
                 || label.starts_with("study_nonfinite")
+                || label.starts_with("study_analysis_nonfinite")
+                || label.starts_with("study_analysis_result_numeric")
+                || label.starts_with("study_analysis_result_residual")
+                || label.starts_with("study_analysis_contribution_balance")
+                || label.starts_with("study_analysis_arithmetic_underflow")
             {
                 NativeErrorKind::NumericInvalid
             } else if error.downcast_ref::<solver_core::SolverError>().is_some() {

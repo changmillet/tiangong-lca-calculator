@@ -21,8 +21,8 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/review-quality-diagnostic-contract.md
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
-lastReviewedNote: "Worker #289: reviewed with no content change. Frontend interaction, polling, result reading, idempotency and Review Admin consumption are unaffected; Result display stays out of scope and no frontend change is required by the exact-100 numerical policy."
+lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
+lastReviewedNote: "Worker #360: reviewed frozen facts, canonical values, coverage and provenance consumption; clients do not gain calculation, source or export authority."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -31,6 +31,13 @@ related:
 ---
 
 # Frontend Integration Guide
+
+Study 分析消费方通过已合格的 Edge Study 能力读取
+[Worker 事实契约](agents/contracts/study-analysis-contract.md)。保留冻结
+Run/产物/hash、单位身份、规范数值字符串、覆盖缺口和适用范围；未知值不是零，
+部分已表征小计不是完整类别分数。表格、图和结构化数字使用同一事实引用，
+不在客户端另算贡献、情景差异或推导科学优劣排名。事实可读不等于导出已签名、
+报告已审阅或底层来源已获披露授权；这些状态由各自服务契约决定。
 
 本文档给前端项目使用，目标是稳定触发 LCA 异步计算并正确展示结果。
 

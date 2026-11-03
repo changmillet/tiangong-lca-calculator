@@ -217,6 +217,9 @@ pub async fn execute_request(request: NativeRequest) -> anyhow::Result<()> {
                 &request.limits,
             )?)?
         }
+        NativeAction::Analyze { analysis_path } => {
+            super::analysis::execute_native(&analysis_path, &request.limits)?
+        }
         NativeAction::Run {
             prepared_path,
             prepared_sha256,

@@ -48,6 +48,8 @@ struct JobRequest {
     preparation_id: Option<Uuid>,
     #[serde(default)]
     run_id: Option<Uuid>,
+    #[serde(default)]
+    analysis_id: Option<Uuid>,
 }
 #[derive(Debug, thiserror::Error)]
 #[error("study_completion_outcome_unknown")]
@@ -80,7 +82,7 @@ struct OrphanReceipt {
 pub fn handles(kind: &str) -> bool {
     matches!(
         kind,
-        "study.source_acquire" | "study.model_prepare" | "study.run"
+        "study.source_acquire" | "study.model_prepare" | "study.run" | "study.analysis"
     )
 }
 fn resource_type(kind: &str) -> anyhow::Result<&'static str> {
@@ -88,6 +90,7 @@ fn resource_type(kind: &str) -> anyhow::Result<&'static str> {
         "study.source_acquire" => Ok("modelSourceAcquisition"),
         "study.model_prepare" => Ok("modelPreparation"),
         "study.run" => Ok("run"),
+        "study.analysis" => Ok("analysis"),
         _ => anyhow::bail!("study_job_kind"),
     }
 }
@@ -103,7 +106,12 @@ fn request(job: &WorkerJob) -> anyhow::Result<(JobRequest, Uuid)> {
         value.schema_version == job.payload_schema_version && job.requested_by.is_some(),
         "study_job_actor_or_schema"
     );
-    let ids = [value.acquisition_id, value.preparation_id, value.run_id];
+    let ids = [
+        value.acquisition_id,
+        value.preparation_id,
+        value.run_id,
+        value.analysis_id,
+    ];
     ensure!(
         ids.iter().filter(|v| v.is_some()).count() == 1,
         "study_job_subject"
@@ -111,7 +119,8 @@ fn request(job: &WorkerJob) -> anyhow::Result<(JobRequest, Uuid)> {
     let subject = match job.job_kind.as_str() {
         "study.source_acquire" => value.acquisition_id,
         "study.model_prepare" => value.preparation_id,
-        _ => value.run_id,
+        "study.run" => value.run_id,
+        _ => value.analysis_id,
     }
     .context("study_job_subject")?;
     Ok((value, subject))
@@ -121,6 +130,7 @@ fn input_rpc(kind: &str) -> anyhow::Result<&'static str> {
         "study.source_acquire" => Ok("svc_study_source_acquisition_read_input_v1"),
         "study.model_prepare" => Ok("svc_study_model_preparation_read_input_v1"),
         "study.run" => Ok("svc_study_run_read_input_v1"),
+        "study.analysis" => Ok("svc_study_analysis_read_input_v1"),
         _ => anyhow::bail!("study_job_kind"),
     }
 }
@@ -129,6 +139,7 @@ fn completion_rpc(kind: &str) -> anyhow::Result<&'static str> {
         "study.source_acquire" => Ok("svc_study_source_record_v1"),
         "study.model_prepare" => Ok("svc_study_model_preparation_complete_v1"),
         "study.run" => Ok("svc_study_run_complete_v1"),
+        "study.analysis" => Ok("svc_study_analysis_complete_v1"),
         _ => anyhow::bail!("study_job_kind"),
     }
 }
@@ -763,6 +774,69 @@ async fn pipeline(
                 INPUT_SCHEMA,
             )
         }
+        "study.analysis" => {
+            let data = bounded(
+                cancel,
+                deadline,
+                rpc(&state.pool, input_rpc(&job.job_kind)?, subject, job, None),
+            )
+            .await?;
+            let input: super::analysis_contracts::ServiceInput = serde_json::from_value(data)?;
+            super::analysis::validate_input(&input)?;
+            ensure!(
+                input.analysis.study_id == request.study_id
+                    && input.analysis.analysis_id == subject
+                    && input.analysis.execution.job_id == job.id,
+                "study_analysis_job_binding"
+            );
+            let mut files = vec![];
+            for (index, run) in input.runs.iter().enumerate() {
+                let prepared = work.path().join(format!("analysis-{index}-prepared.json"));
+                let result = work.path().join(format!("analysis-{index}-result.json"));
+                download(
+                    &store,
+                    &run.prepared_artifact,
+                    request.study_id,
+                    "modelInput",
+                    &prepared,
+                    cancel,
+                    deadline,
+                )
+                .await?;
+                download(
+                    &store,
+                    &run.result_artifact,
+                    request.study_id,
+                    "runResult",
+                    &result,
+                    cancel,
+                    deadline,
+                )
+                .await?;
+                files.push(super::analysis_contracts::NativeFiles {
+                    run_id: input.analysis.config.run_ids[index],
+                    prepared_path: text_path(&prepared)?,
+                    result_path: text_path(&result)?,
+                });
+            }
+            let body = json!({"profileId":input.analysis.profile_id,"configHash":input.analysis.config_hash});
+            write_json(
+                &input_file,
+                &super::analysis_contracts::NativeInput {
+                    schema_version: "lca.study-analysis-native.v1".into(),
+                    input,
+                    files,
+                },
+            )?;
+            (
+                NativeAction::Analyze {
+                    analysis_path: text_path(&input_file)?,
+                },
+                body,
+                "analysisFacts",
+                super::analysis_contracts::FACTS_SCHEMA,
+            )
+        }
         _ => {
             let data = bounded(
                 cancel,
@@ -961,9 +1035,17 @@ async fn pipeline(
             );
         }
     }
+    if artifact_kind == "analysisFacts" {
+        let output: super::analysis_contracts::FactsBundle = super::json::from_slice(&bytes)?;
+        let expected: super::analysis_contracts::NativeInput =
+            super::json::from_slice(&std::fs::read(&input_file)?)?;
+        super::analysis::validate_output(&output, &expected.input)?;
+        completion["comparability"] = super::analysis::summary(&output);
+    }
     let key = match artifact_kind {
         "modelSource" => "sourceArtifactRef",
         "modelInput" => "inputArtifactRef",
+        "analysisFacts" => "factsRef",
         _ => "resultRef",
     };
     completion[key] = serde_json::to_value(&reference)?;
@@ -1334,6 +1416,40 @@ mod tests {
         assert!(request(&value).is_err());
         value = job();
         value.requested_by = None;
+        assert!(request(&value).is_err());
+    }
+    #[test]
+    fn analysis_dispatch_uses_exact_declared_seams_and_only_one_subject() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/study-analysis/service-seams.json"
+        ))
+        .unwrap();
+        assert_eq!(resource_type("study.analysis").unwrap(), "analysis");
+        for (name, complete) in [
+            (input_rpc("study.analysis").unwrap(), false),
+            (completion_rpc("study.analysis").unwrap(), true),
+        ] {
+            let function = fixture["functions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|f| f["name"] == name)
+                .unwrap();
+            let mut arguments = vec!["p_analysis_id", "p_job_id", "p_lease_token"];
+            if complete {
+                arguments.extend(["p_completion", "p_idempotency_key"]);
+            }
+            assert_eq!(function["argumentNames"], json!(arguments));
+            assert_eq!(function["serviceExecute"], true);
+            assert_eq!(function["actorExecute"], false);
+        }
+        let mut value = job();
+        value.job_kind = "study.analysis".into();
+        value.payload_schema_version = "study.analysis.request.v1".into();
+        let subject = Uuid::new_v4();
+        value.payload = json!({"schemaVersion":"study.analysis.request.v1","studyId":Uuid::new_v4(),"analysisId":subject});
+        assert_eq!(request(&value).unwrap().1, subject);
+        value.payload["runId"] = json!(Uuid::new_v4());
         assert!(request(&value).is_err());
     }
     #[test]

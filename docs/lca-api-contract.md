@@ -26,8 +26,8 @@ checkPaths:
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
-lastReviewedNote: "Worker #355: source Study compiler and local native executor; legacy snapshot identity unchanged; hosted source/job authority remains W06."
+lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
+lastReviewedNote: "Worker #360: reviewed frozen-result analysis contracts, source/Run binding, numeric codec and native dispatch; P1 hash semantics, current authorization and hosted/scientific qualification remain separate."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -44,6 +44,12 @@ related:
 ---
 
 # LCA API Contract (Snapshot-First)
+
+The [Study analysis contract](agents/contracts/study-analysis-contract.md) adds
+the private `study.analysis` job and versioned config/facts artifacts. It consumes
+issued P1 frozen inputs/results without changing ordinary snapshot, calculation,
+missing-factor or publication semantics. Study/report actor wire versions,
+current source-rights enforcement and export signatures remain separately owned.
 
 The [Study P0 calculation profile](agents/contracts/study-p0-calculation-profile.md)
 defines an offline qualification baseline only; it adds no runtime job or API.

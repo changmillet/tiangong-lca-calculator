@@ -25,8 +25,8 @@ checkPaths:
   - crates/**
   - supabase/migrations/**
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
-lastReviewedNote: "Worker #289: the package-build manifest now accepts only exact stateCode 100; the reserved segment including the published Result state fails closed before build. Enqueue, polling and service-role boundaries are unchanged."
+lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
+lastReviewedNote: "Worker #360: reviewed frozen-result analysis contracts, source/Run binding, numeric codec and native dispatch; P1 hash semantics, current authorization and hosted/scientific qualification remain separate."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -35,6 +35,12 @@ related:
 ---
 
 # Edge Function Integration Guide
+
+Study analysis actor operations remain Edge-owned. The Worker-owned
+[analysis contract](agents/contracts/study-analysis-contract.md) defines only
+the private `study.analysis` input/completion seams and immutable numerical
+facts. Database/Edge must preserve live Study/source authorization and fenced
+artifact disclosure; a Worker facts hash is neither a grant nor an export signature.
 
 本文档给 Supabase Edge Functions 项目使用，目标是把前端请求稳定地映射到 worker 异步链路。统一任务路径是 `private.worker_jobs(worker_queue=solver)`，result/cache domain truth 由 `private.worker_jobs`、`private.lca_results` 与 `private.lca_result_cache` 承载；旧 `lca_jobs + pgmq` 生命周期已退役。
 

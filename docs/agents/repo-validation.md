@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-03
-lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
-lastReviewedNote: "Worker #355: source Study compiler and local native executor; legacy snapshot identity unchanged; hosted source/job authority remains W06."
+lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
+lastReviewedNote: "Worker #360: reviewed frozen-result analysis contracts, source/Run binding, numeric codec and native dispatch; P1 hash semantics, current authorization and hosted/scientific qualification remain separate."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -623,6 +623,50 @@ Run `cargo test -p solver-worker --lib study -- --nocapture`, followed by the ha
 The [Study compiler contract](contracts/study-compiler-contract.md) defines bounds and exact proof limits. Record source/artifact byte hashes, compiler/calculation identity, toolchain/native setup, elapsed/resource measurements and findings. The task-authored one-node cement model is not proof of a hosted LifecycleModel exporter or source acquisition. W06 must independently validate the actual issuer/job/artifact chain and prove subprocess cancellation, lease loss and late-result fencing.
 
 Study numerical/resource regression checks include the smallest f64 subnormal with allocation before normalization, opposite-sign sub-epsilon connections, explicit final underflow/overflow rejection, and repeated same-source allocation metadata expansion rejected by preflight before instance cloning.
+
+### Study analysis
+
+Run `cargo test -p solver-worker --lib study::analysis` and
+`cargo test -p solver-worker --lib analysis_dispatch_uses_exact_declared_seams`,
+then the normal full gate. The shared config/fact codec vectors under
+`tests/fixtures/study-analysis` must agree with the producer and pinned Node
+schema converter; syntax acceptance is not numerical truth or issuance.
+`service-seams.json` is an exact schema example, not an observed SQL/ACL receipt.
+
+To qualify the actual native component on its own supported host, build the
+selected binary and run the opt-in test with task-owned paths:
+
+```bash
+cargo build -p solver-worker --bin study_native
+STUDY_NATIVE_BINARY="$PWD/target/debug/study_native" \
+STUDY_ANALYSIS_QUALIFICATION_RECEIPT=/absolute/owned/component-receipt.json \
+cargo test -p solver-worker --lib analysis_native_component_and_running_cancellation -- --ignored --nocapture
+```
+
+That test uses two actual compiled/executed synthetic 64-instance/128-view
+inputs, actual native analysis bytes and a private FIFO to hold an analysis
+child during cancellation. It checks kill/reap and unchanged prior output;
+it creates no database, queue or storage resource. Record binary/source hashes,
+artifact size, elapsed time and **sampled** RSS; do not generalize one host or
+sample into production capacity/hard containment. On the task Apple Silicon
+debug run, two Runs produced520 facts /324748 bytes in157ms with18972672-byte
+sampled RSS; running cancellation reaped in1116ms. These are component-only
+measurements; the retained receipt binds the executed binary and exact scope.
+
+`STUDY_ANALYSIS_FIXTURE_DIR=/absolute/owned/fixture` with the focused
+`native_file_adapter_emits_no_private_locators_and_checks_integrity` test emits
+source prepared/result bytes, private service examples and a native request for
+consumer tests. The synthetic versions are assigned before prepare/execute;
+emitted artifacts/hashes are never repaired to fit a consumer. Do not commit
+absolute native paths, claim database issuance from these fixtures, or expose
+private service wrappers as report facts. Another binary run must verify the
+actual emitted facts against their typed reference.
+
+Real W08 qualification additionally requires exact Database/Edge source,
+current actor/source rights, `study.analysis` queue admission, both service
+function signatures/ACLs, actual stored immutable facts, cancellation/lease
+fences and post-I/O withdrawal. Coordinate a stable owned database generation
+with its owner first; no shared or hosted environment is an implicit target.
 
 ### Study owned runtime
 
