@@ -26,8 +26,8 @@ checkPaths:
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: 65986599adb3ae4da2385b476b376ac2a418cd25
-lastReviewedNote: "Worker #363: checked internal residual refinement, calculation fingerprint compatibility, unchanged consumer formats and synthetic validation."
+lastReviewedCommit: 3d3159d9f231143a51f761f895fbd3aef18d1b9b
+lastReviewedNote: "Worker #366: reviewed independent method-assessment library/offline candidate, exact source/frozen-byte checks and pending professional evidence; existing Run/runtime/API/consumer authority remains unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml

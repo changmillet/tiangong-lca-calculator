@@ -19,6 +19,14 @@ pub struct VerifiedRun {
     prepared: PreparedInput,
     result: StudyResult,
 }
+impl VerifiedRun {
+    pub(super) fn prepared(&self) -> &PreparedInput {
+        &self.prepared
+    }
+    pub(super) fn result(&self) -> &StudyResult {
+        &self.result
+    }
+}
 
 pub fn config_hash(config: &AnalysisConfig) -> anyhow::Result<String> {
     validate_config(config)?;

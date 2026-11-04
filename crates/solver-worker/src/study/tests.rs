@@ -1323,3 +1323,41 @@ pub(super) fn analysis_prepared(
     }
     prepare(&serde_json::to_vec(&s).unwrap(), &m, &Bounds::default()).unwrap()
 }
+
+// Fresh synthetic source for the independent method-assessment verifier. This
+// does not rewrite any produced fixture, Run artifact or existing hash domain.
+pub(super) fn method_assessment_source_fixture() -> SourceInput {
+    fn versions(value: &mut Value) {
+        match value {
+            Value::Object(values) => {
+                for (key, value) in values {
+                    if (key == "@version" || key == "common:dataSetVersion") && value == "1" {
+                        *value = json!("01.00.000");
+                    } else {
+                        versions(value);
+                    }
+                }
+            }
+            Value::Array(values) => {
+                for value in values {
+                    versions(value);
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut source = single();
+    for doc in &mut source.documents {
+        doc.identity.version = "01.00.000".into();
+        let mut raw: Value = serde_json::from_str(&doc.json).unwrap();
+        versions(&mut raw);
+        doc.json = serde_json::to_string(&raw).unwrap();
+        doc.sha256 = sha256(doc.json.as_bytes());
+    }
+    source.origin.version = "01.00.000".into();
+    source.method_refs = vec![DatasetRef {
+        id: "6209b35f-9447-40b5-b68c-a1099e3674a0".into(),
+        version: "01.00.000".into(),
+    }];
+    source
+}

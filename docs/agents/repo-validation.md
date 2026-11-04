@@ -43,7 +43,7 @@ checkPaths:
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-04
 lastReviewedCommit: 65986599adb3ae4da2385b476b376ac2a418cd25
-lastReviewedNote: "Worker #363: checked internal residual refinement, calculation fingerprint compatibility, unchanged consumer formats and synthetic validation."
+lastReviewedNote: "Worker #366: reviewed independent method-assessment library/offline candidate, exact source/frozen-byte checks and pending professional evidence; existing Run/runtime/API/consumer authority remains unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -92,6 +92,28 @@ cargo fmt --all -- --check
 ```
 
 Treat the last two commands as non-negotiable hard gates after code changes.
+
+### Study method assessment qualification
+
+`make study-method-check` checks the exact adopted portable source and isolated
+sixteen-primary-category arithmetic with an independent 80-digit Decimal oracle,
+plus adversarial provenance, mapping, scale, unknown-factor and decomposition
+cases. Rust tests compare the native output with that oracle-checked fixture.
+`make study-method-native-check` additionally writes fresh native output under
+`reports/study-method` and runs the independent oracle over it. The fixture is
+explicitly isolated arithmetic, never a source-complete Study or conformity case.
+No external Python package is needed for these gates.
+
+For a bounded actual replay use the [method assessment contract](contracts/study-method-assessment-contract.md)
+and exact original prepared/result/SourceSnapshot bytes plus read-only canonical
+baseline metadata. Bind all original and emitted byte hashes and retain the
+private candidate/facts outside Git. Check all twenty separate requirements,
+known cutoffs/coverage gaps and false qualification flags. Negative cases must
+reject byte/source substitutions, unknown approval/job fields and output-path
+replacement. Original artifacts must stay unchanged. The existing two-method,
+four-cutoff cement Study remains an actual incomplete/negative case; a complete
+real positive case and professional judgment are still unavailable. A successful
+offline invocation is not Database/Edge/report/authorization qualification.
 
 ### Study P0 offline qualification
 

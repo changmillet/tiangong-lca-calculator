@@ -1,0 +1,1079 @@
+{
+  "schema_version": 1,
+  "kind": "method_module_package",
+  "payload_sha256": "407314bc364e5cfeddc8a44696118ee20cc696db5e9ef93812fd02516097a0a1",
+  "payload": {
+    "schema_version": 1,
+    "kind": "method_module_projection",
+    "module_id": "method.pef-2021-ef31",
+    "module_version": "0.1.0",
+    "source_sha256": {
+      "manifest.yaml": "c02740dc5c9eb010eda5e76859005b0c444317d2384fe99b9b61e867e23509b9",
+      "module.en-US.md": "6e1eb76d2c670e3dfff7d107cc1388086511a31e6ab5be53e9c14db2bf3b2b6e",
+      "module.zh-CN.md": "559afc95801cfd31d43bc1d24d65c4936b6c76c1915a75944856cf7c11cbe4b3",
+      "source-bindings.json": "3fd9b1dc68228db3e146b6d23daac853b27b9f504f9445a0cc5a971d53257ce2",
+      "review.json": "f174c9071ceea61c32fcaae097f2e8f8e66212056f3494b1b9e0a62ab1233295"
+    },
+    "review_basis_sha256": "989391423c7f31bdf77e18ea4438fab1a27ff6708c0f44ecad8ab8813763a165",
+    "canonical_context": "# PEF method requirements and EF 3.1 source bindings\n\nThis is a reusable candidate interpretation of the complete PEF method, not a product-category PCR. The authoritative recommendation, corrigendum, EF package and conditional interim guidance remain controlling sources. The sections below retain applicability, required action, evidence and professional-judgment boundaries together. A source citation is an exact source ID plus a locator into that source. The machine check records package conformance only; no study outcome follows from it.",
+    "translation_context": "# PEF 方法要求与 EF 3.1 来源绑定\n\n本文件是对完整 PEF 方法的可复用候选解释，不是产品类别 PCR。正式建议文件、勘误、EF 数据包及有条件的临时指导仍是依据。以下章节将适用条件、要求行动、证据和专业判断边界一并保留。来源引用由准确来源 ID 与原文定位构成。机器检查仅记录包的符合性，不据此产生研究结论。",
+    "requirements": [
+      {
+        "id": "PEF-01",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §§2,3.1",
+          "eu-2026-interim:§§2.1,2.2"
+        ],
+        "canonical_markdown": "## PEF-01 — Goal, intended use and applicable category rules\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§2,3.1; eu-2026-interim:§§2.1,2.2\n\nDefine the study goal, reasons, intended application and audience, commissioner, limitations and any comparison/public communication. Identify whether a PEFCR formally developed with the Commission applies, its exact version, product boundary and validity. This common module is not a cement PEFCR and cannot establish conformity to a category rule. If none is established, use the no-PEFCR method branch and document that choice. Existence of a field is mechanically checkable; fitness of the goal and category-rule applicability requires professional judgment.",
+        "translation_markdown": "## PEF-01 — 目标、预期用途与适用类别规则\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§2,3.1; eu-2026-interim:§§2.1,2.2\n\n界定研究目标、研究原因、预期用途与受众、委托方、局限以及比较或公开传播意图。确定是否适用与欧盟委员会正式合作制定的 PEFCR，并记录其准确版本、产品边界及有效性。本通用模块不是水泥 PEFCR，不能据此认定符合类别规则。未确立适用 PEFCR 时，采用无 PEFCR 的方法分支并记录理由。字段是否存在可机械检查；目标是否恰当及类别规则是否适用需要专业判断。"
+      },
+      {
+        "id": "PEF-02",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §3.2.1"
+        ],
+        "canonical_markdown": "## PEF-02 — Function, declared unit and reference flow\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §3.2.1\n\nSpecify what function is provided, how much, how well and for how long; justify uncovered aspects, use applicable standards and SI units. Relate every inventory amount to the product quantity providing that function. For an intermediate product whose downstream functions are not determined, apply a justified declared unit (for example mass), and state the reference flow. A tonne of finished cement does not itself establish equivalent function, strength class or downstream service. Record product composition, route, performance, geography and time as applicable. Check units, identities and conversions mechanically; review whether the selected functional/declared unit and product scope are defensible.",
+        "translation_markdown": "## PEF-02 — 功能、声明单位与参考流\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §3.2.1\n\n说明提供什么功能、数量、质量水平及持续时间；说明未涵盖方面及理由，采用适用标准和 SI 单位。所有清单数量均须对应实现该功能所需的产品量。对于下游功能尚未确定的中间产品，采用有理由支持的声明单位（例如质量），并明确参考流。一吨成品水泥本身不能证明功能、强度等级或下游服务等同。按适用情况记录产品组成、生产路线、性能、地域及时间。单位、身份与换算可机械检查；功能单位或声明单位及产品范围是否合理需专业审查。"
+      },
+      {
+        "id": "PEF-03",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §§3.2.2,4.2–4.2.5"
+        ],
+        "canonical_markdown": "## PEF-03 — Boundary and life-cycle stage applicability\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§3.2.2,4.2–4.2.5\n\nMap raw-material acquisition/pre-processing, manufacturing, distribution/storage, use and end of life to the study boundary; give a consistent process diagram identifying company-specific data, co-products, by-products and wastes. For intermediate products §4.2 excludes distribution (with justified exceptions), use and end of life; justify intermediate-product status rather than applying an arbitrary gate. Raw-material extraction, processing and transport to the production facility remain upstream requirements. Purchased clinker, gypsum, fuel or electricity do not become burden-free because they enter at the foreground gate. Document every exclusion and its reason and potential significance. Category-stage applicability needs professional judgment; the diagram and inventory bindings are mechanical evidence.",
+        "translation_markdown": "## PEF-03 — 系统边界与生命周期阶段适用性\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§3.2.2,4.2–4.2.5\n\n将原料获取与预处理、制造、分销与储存、使用和寿命终结映射到研究边界；提供名称一致的过程图，标明企业特定数据、联产品、副产品和废物流。第 4.2 节对中间产品排除分销（允许有理由的例外）、使用和寿命终结；须论证中间产品身份，不能任意设定边界门槛。原料开采、加工及运至生产设施的运输仍属于上游要求。采购熟料、石膏、燃料或电力不会因进入前景厂门而免除环境负荷。记录每项排除的原因及潜在重要性。类别与阶段适用性需要专业判断；过程图和清单绑定属于可机械核查的证据。"
+      },
+      {
+        "id": "PEF-04",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §§4,4.1,4.3,6.2"
+        ],
+        "canonical_markdown": "## PEF-04 — Inventory completeness and screening\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4,4.1,4.3,6.2\n\nInventory all relevant material/energy inputs, product and waste outputs and elementary emissions for each included process, with sources, amounts, units, allocation and recursive upstream links. Resolve intermediate flows to background systems until the aggregated inventory contains elementary flows and the reference product flow. If screening is undertaken, no cut-off is allowed during screening; use available primary/secondary data and refine iteratively. Distinguish a missing observation, measured zero, missing characterisation factor and justified non-applicability. An empty list, zero-filled placeholder or completed checklist does not demonstrate completeness. Review process/input/output coverage against goal and boundary.",
+        "translation_markdown": "## PEF-04 — 清单完整性与筛查\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4,4.1,4.3,6.2\n\n对每个纳入过程编制所有相关物料与能量输入、产品与废物输出及基本排放清单，记录来源、数量、单位、分配与递归上游链接。将中间流连接到背景系统，直至聚合清单由基本流及参考产品流构成。进行筛查时，筛查阶段不得截断；采用可用的一手或二手数据并迭代完善。区分缺失观测、测得为零、缺失表征因子和有依据的不适用。空列表、填零占位或完成核对表均不能证明完整性。须依据目标和边界审查过程及输入输出覆盖。"
+      },
+      {
+        "id": "PEF-05",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §§4.6.3,4.6.4",
+          "eu-2026-interim:§2.1"
+        ],
+        "canonical_markdown": "## PEF-05 — Ordinary cut-off and data-gap exclusions are separate\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.6.3,4.6.4; eu-2026-interim:§2.1\n\nAvoid cut-offs. The ordinary §4.6.4 allowance is cumulative, up to 3.0%, with material, energy and environmental significance evidence; its further operative condition permits exclusion only for processes cumulatively accounting for less than 3.0% of material and energy flows as well as environmental impact in every impact category. Apply the foreground allowance in addition to cut-offs already included in background datasets, and disclose the evidence. Do not translate it into a mass-only rule or four arbitrary omitted upstream processes. Separately, a data-gap exclusion requires the applicable dataset hierarchy to be exhausted and the gap disclosed and reviewed as specified by its branch. The 2026 guidance does not waive investigation of EF and EL-ILCD availability. Record searches, alternatives, availability, suitability, significance and reviewer reasoning in study evidence. No module flag or dataset-unavailable assertion grants a consumer waiver.",
+        "translation_markdown": "## PEF-05 — 普通截断与数据缺口排除分别处理\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.6.3,4.6.4; eu-2026-interim:§2.1\n\n应避免截断。第 4.6.4 节的普通允许范围为累计不超过 3.0%，需具备物料、能量及环境重要性证据，其进一步操作条件仅允许排除累计占物料流、能量流以及每个影响类别环境影响均小于 3.0% 的过程。前景允许范围在背景数据集已有截断之外另行考虑，并披露证据。不得将其改为仅看质量的规则，或任意省略四项上游过程。数据缺口排除另须穷尽适用的数据集层级，并按对应分支披露和审查。2026 年指导不免除对 EF 和 EL-ILCD 数据可得性的调查。研究证据应记录检索、备选数据、可得性、适用性、重要性及审查理由。模块标记或“数据不可得”的断言不授予消费方豁免。"
+      },
+      {
+        "id": "PEF-06",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §§4.6.1,4.6.2,4.6.5.1–4.6.5.8,Tables 23–25"
+        ],
+        "canonical_markdown": "## PEF-06 — Primary activity data and representative secondary data\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.6.1,4.6.2,4.6.5.1–4.6.5.8,Tables 23–25\n\nUse product-specific company activity data for the bill of materials and manufacturing, with measured quantities, collection period, facility/technology scope and transparent aggregation. Record secondary dataset identity/version, provider, geography, temporal and technological representativeness, completeness, methodological consistency and precision/uncertainty; apply the appropriate data-needs situation. All new datasets created in the study shall be EF compliant under the ordinary rules; the interim study-level DQR/submission exception does not itself remove new-dataset obligations. Under the ordinary EF-compliant-data rules, calculate and report new-dataset and whole-study DQR from technological (TeR), time (TiR), geographical (GeR) representativeness and precision (P): DQR = (TeR + TiR + GeR + P) / 4. Apply the Data Needs Matrix to every process and report its situation: company-operated (1), not company-operated but company-specific information accessible (2), or no such access (3). Table 25 requires company-specific datasets with DQR ≤1.5 for Situation 1 and Situation 2 Option 1. Situation 2 Option 2 requires company-specific transport activity and supply-chain-specific electricity/transport replacements in disaggregated secondary EF datasets, with DQR ≤3.0 and the prescribed criterion reassessment. Situation 3 uses aggregated EF secondary datasets with DQR ≤3.0; recalculate criteria for most-relevant processes and otherwise retain original scores. The two Situation 2 options are not hierarchical. For new company datasets assess activity data and direct elementary flows separately, identify the most-relevant contributions and apply §§4.6.5.2–4.6.5.3/Tables 23–24; do not replace their representativeness evidence with a self-assigned score. For whole-study DQR, weight each criterion of all most-relevant processes by relative contribution to the single overall environmental score under §4.6.5.8, then apply the DQR formula. The 2026 non-EF-data study-DQR exceptions in PEF-07/PEF-08 apply only when their actual conditions hold; they do not make ordinary DQR optional for an all-EF study. Quantities, criterion arithmetic and metadata can be checked; suitability, data quality and representativeness require substantive assessment. Unknown data quality is not a passing score.",
+        "translation_markdown": "## PEF-06 — 一手活动数据与代表性二手数据\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.6.1,4.6.2,4.6.5.1–4.6.5.8,Tables 23–25\n\n物料清单和制造过程采用产品特定的企业活动数据，记录测量数量、收集时期、设施与技术范围及透明的汇总方法。记录二手数据集身份与版本、提供方、地理、时间和技术代表性、完整性、方法一致性及精度与不确定性，并采用适用的数据需求情形。按普通规则，研究中新建的所有数据集均须 EF 合规；临时指导关于研究层面 DQR 与提交要求的例外，本身不取消新数据集的义务。按普通 EF 合规数据规则，须依据技术代表性（TeR）、时间代表性（TiR）、地理代表性（GeR）和精度（P）计算并报告新数据集及整体研究 DQR：DQR = (TeR + TiR + GeR + P) / 4。对每个过程采用数据需求矩阵并报告所属情形：企业运行（1）、企业不运行但可获取企业特定信息（2）、或无法获取该信息（3）。表 25 要求情形 1 及情形 2 选项 1 使用 DQR ≤1.5 的企业特定数据集。情形 2 选项 2 要求在解聚的 EF 二手数据集中采用企业特定运输活动数据，并用供应链特定的电力与运输子过程替换，DQR ≤3.0，且按规定重评各项指标。情形 3 使用 DQR ≤3.0 的聚合 EF 二手数据集；对最相关过程重新计算指标，其他过程保留原评分。情形 2 的两个选项无先后优先关系。新企业数据集须分别评估活动数据与直接基本流，识别最相关贡献并采用第 4.6.5.2–4.6.5.3 节及表 23–24；不得用自报分数替代代表性证据。整体研究 DQR 须按第 4.6.5.8 节，以各最相关过程对单一环境总分的相对贡献分别加权各项指标，再采用 DQR 公式。PEF-07 与 PEF-08 中针对非 EF 数据的 2026 年研究 DQR 例外仅在实际条件满足时适用，不使全部采用 EF 数据的研究可任意省略普通 DQR。数量、指标算术及元数据可检查；适用性、质量与代表性需要实质评估。未知的数据质量不能记为合格分数。"
+      },
+      {
+        "id": "PEF-07",
+        "applicability": "without-commission-pefcr",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2026-interim:§§1,2.1"
+        ],
+        "canonical_markdown": "## PEF-07 — 2026 hierarchy without a Commission PEFCR\n\nApplicability: without-commission-pefcr\n\nCheck-kind: mixed\n\nSources: eu-2026-interim:§§1,2.1\n\nWhile the interim guidance applies, first use available EF-compliant secondary datasets. If unavailable, use EL-ILCD-compliant datasets from one unit-process database if possible, otherwise multiple process databases; disclose their use in report limitations. Only if neither EF nor EL-ILCD datasets are available may the process be excluded, with an explicit limitation. Document the actual search and reasoned selection. Include the prescribed disclaimer that author-selected non-EF datasets may hinder comparability (use exact source wording in the study report). The temporary allowance can exceed the former 10% single-score share; it does not prove equivalence. Do not calculate study DQR for such datasets unless recalculating their TeR, TiR, GeR and P under this guidance. When the study actually uses non-EF-compliant datasets, a summary, main report and annex are required, and the guidance removes the requirement to develop, make available and submit an aggregated EF-compliant dataset to the Commission. Merely following the without-PEFCR branch does not exempt an all-EF-data study from ordinary reporting/dataset requirements.",
+        "translation_markdown": "## PEF-07 — 无委员会正式 PEFCR 时的 2026 年数据层级\n\nApplicability: without-commission-pefcr\n\nCheck-kind: mixed\n\nSources: eu-2026-interim:§§1,2.1\n\n在临时指导适用期间，优先采用可用的 EF 合规二手数据集。不可得时，尽可能采用同一个单元过程数据库中的 EL-ILCD 合规数据集，否则可采用多个过程数据库，并在报告局限中披露。只有 EF 和 EL-ILCD 数据集均不可得时，才可排除该过程并明确披露局限。记录实际检索及有理由支持的选择。报告应按原文加入声明，说明作者自行选择的非 EF 数据集可能妨碍可比性。临时安排可超过此前总分占比 10% 的限制，但不证明数据等效。对于此类数据集，除非按指导重新计算其 TeR、TiR、GeR 和 P，否则不计算研究 DQR。研究实际使用非 EF 合规数据集时，仍须提供摘要、主报告与附件，指导免除了开发、公开提供并向委员会提交聚合 EF 合规数据集的要求。仅仅采用无 PEFCR 分支，不使全部采用 EF 数据的研究免于普通报告与数据集要求。"
+      },
+      {
+        "id": "PEF-08",
+        "applicability": "with-commission-pefcr",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2026-interim:§§1,2.2"
+        ],
+        "canonical_markdown": "## PEF-08 — 2026 hierarchy with a Commission PEFCR\n\nApplicability: with-commission-pefcr\n\nCheck-kind: mixed\n\nSources: eu-2026-interim:§§1,2.2\n\nFor an established applicable Commission-developed PEFCR, retain its primary-data requirements and use EF-compliant secondary data first. If its specified EF dataset is unavailable, prefer Technical Secretariat-selected EL-ILCD replacements published in its annex/corrigendum; if none are selected, the study author selects EL-ILCD data, preferably from one process database, otherwise multiple. Disclose this selection and obtain study/report-verifier validation, with the required comparability disclaimer. Do not import the no-PEFCR process-exclusion permission into this branch. Respect §2.2 DQR and report provisions and do not recalculate the representative product merely because of this guidance. Establish actual category-rule applicability before using this branch.",
+        "translation_markdown": "## PEF-08 — 适用委员会正式 PEFCR 时的 2026 年数据层级\n\nApplicability: with-commission-pefcr\n\nCheck-kind: mixed\n\nSources: eu-2026-interim:§§1,2.2\n\n已确立适用的委员会正式 PEFCR 时，保留其一手数据要求，并优先采用 EF 合规二手数据。规则指定的 EF 数据不可得时，优先采用技术秘书处选定并通过附件或勘误发布的 EL-ILCD 替代数据；未选定时，由研究作者选择 EL-ILCD 数据，尽可能来自同一过程数据库，否则可使用多个数据库。披露选择并取得研究及报告核查方的验证，加入规定的可比性声明。不得将无 PEFCR 分支的过程排除许可移植到本分支。遵守第 2.2 节的 DQR 和报告规定，不因本指导而重新计算代表性产品。采用本分支前必须确立真实的类别规则适用性。"
+      },
+      {
+        "id": "PEF-09",
+        "applicability": "all-pef",
+        "check_kind": "machine",
+        "sources": [
+          "eu-2026-interim:front matter,§1",
+          "eu-2021-2279-original:OJ identity",
+          "eu-2022-corrigendum:OJ 2022-05-23"
+        ],
+        "canonical_markdown": "## PEF-09 — Interim dates and validity\n\nApplicability: all-pef\n\nCheck-kind: machine\n\nSources: eu-2026-interim:front matter,§1; eu-2021-2279-original:OJ identity; eu-2022-corrigendum:OJ 2022-05-23\n\nKeep the 2021 recommendation identity, the authentic 23 May 2022 corrigendum and its corrected consolidated documentation distinct. The interim manuscript was completed in May 2026; its July announcement is a different event. It is recommended until the next EF database is available; the stated expectation of 2028 is not a guaranteed expiry date. Do not treat a server Last-Modified timestamp as a factor-method release. Reassess current applicability when later guidance or a new database is available.",
+        "translation_markdown": "## PEF-09 — 临时指导的日期与有效条件\n\nApplicability: all-pef\n\nCheck-kind: machine\n\nSources: eu-2026-interim:front matter,§1; eu-2021-2279-original:OJ identity; eu-2022-corrigendum:OJ 2022-05-23\n\n区分 2021 年建议文件、2022 年 5 月 23 日正式勘误以及用于查阅的修正合并文本。临时指导文稿于 2026 年 5 月完成，7 月公告是另一事件。该安排建议持续至下一版 EF 数据库可用时；预计 2028 年不是保证的到期日。服务器 Last-Modified 时间不代表表征方法发布。后续指导或新数据库可用时须重新评估适用性。"
+      },
+      {
+        "id": "PEF-10",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §4.5"
+        ],
+        "canonical_markdown": "## PEF-10 — Multifunctionality and allocation\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §4.5\n\nApply the prescribed hierarchy: avoid allocation through subdivision or system expansion where possible, then use a relevant underlying physical relationship, then another justified relationship such as economic allocation. Explain subdivision/system-expansion feasibility and causal relevance, products and co-products, allocation factors, data and sensitivity. Apply sector-specific provisions where applicable. Arithmetic closure cannot establish that a particular allocation is scientifically appropriate; arbitrary economic defaults must not replace the hierarchy.",
+        "translation_markdown": "## PEF-10 — 多功能性与分配\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §4.5\n\n采用规定的层级：尽可能通过过程细分或系统扩展避免分配，其次采用相关的基础物理关系，最后采用其他有理由支持的关系（例如经济分配）。说明细分或系统扩展的可行性、因果相关性、产品与联产品、分配系数、数据和敏感性。适用时采用行业专门规定。算术闭合不能证明某种分配科学合理；不得用任意经济默认值取代该层级。"
+      },
+      {
+        "id": "PEF-11",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §§4.4.1–4.4.7"
+        ],
+        "canonical_markdown": "## PEF-11 — Energy, transport, infrastructure and other modelling\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.4.1–4.4.7\n\nAssess the applicability of the complete §4.4 modelling requirements, including agricultural inputs, electricity hierarchy and contractual evidence, on-site generation, transport distances/modes/load/returns, capital goods, storage, sampling and use scenarios. Record a source-cited rationale for each inapplicable topic and the actual scenario/source for each applicable one. Grid geography and reporting year must match or carry justified limitations; contractual claims require their prescribed criteria. A generic electricity UUID or fuel-only foreground inventory is insufficient evidence for the upstream model.",
+        "translation_markdown": "## PEF-11 — 能源、运输、基础设施及其他建模\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.4.1–4.4.7\n\n评估第 4.4 节完整建模要求的适用性，包括农业投入、电力层级与合同证据、现场发电、运输距离与方式及载重和返程、资本品、储存、抽样和使用情景。不适用主题须记录有来源支持的理由；适用主题须记录实际情景与来源。电网地域和报告年份须匹配，否则说明局限；合同声明须满足规定条件。通用电力 UUID 或只含燃料的前景清单不足以证明上游模型完整。"
+      },
+      {
+        "id": "PEF-12",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §§4.4.8,4.4.9"
+        ],
+        "canonical_markdown": "## PEF-12 — Circularity and end-of-life conventions\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.4.8,4.4.9\n\nWhere recycled inputs, production waste, recovery/recycling, reuse, refurbishment or product end of life apply, use the relevant Circular Footprint Formula and lifetime provisions with source-bound parameters and scenarios. Intermediate-product downstream-stage exclusions do not remove treatment of foreground production waste or recycled-input burdens. Explain allocation of recycled content, energy recovery and disposal and prevent double counting. Parameter presence and mass balances are mechanical checks; quality ratios, substitution and scenario relevance need professional judgment.",
+        "translation_markdown": "## PEF-12 — 循环性与寿命终结约定\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.4.8,4.4.9\n\n涉及再生投入、生产废物、回收与再循环、再使用、翻新或产品寿命终结时，采用相关循环足迹公式及寿命规定，并绑定参数与情景来源。中间产品下游阶段排除不免除前景生产废物处理或再生投入的负荷。说明再生成分、能量回收与处置的分配，防止重复计算。参数存在性和质量平衡可机械检查；质量比、替代关系和情景相关性需要专业判断。"
+      },
+      {
+        "id": "PEF-13",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §§4.4.10,4.4.11",
+          "jrc-ef31-update:§2"
+        ],
+        "canonical_markdown": "## PEF-13 — Greenhouse gases, removals and offsets\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.4.10,4.4.11; jrc-ef31-update:§2\n\nDistinguish fossil, biogenic and land-use/land-use-change climate flows and apply their specific accounting, timing and reporting requirements. Preserve direct process emissions (including cement calcination where relevant), fuel combustion, upstream energy/material burdens and supported removals; do not invent carbon uptake or net-zero assumptions. Offsets are not deducted from PEF results. EF 3.1 uses its source-bound updated climate characterisation; the recommendation year is not the factor version. Review stock/flow boundaries and carbon balance rather than inferring validity from an emission-factor match.",
+        "translation_markdown": "## PEF-13 — 温室气体、移除与抵消\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.4.10,4.4.11; jrc-ef31-update:§2\n\n区分化石、生物源及土地利用与土地利用变化气候流，采用各自的核算、时间与报告要求。保留直接工艺排放（适用时包括水泥煅烧）、燃料燃烧、上游能源与物料负荷以及有依据的移除；不得虚构碳吸收或净零假设。碳抵消不从 PEF 结果扣除。EF 3.1 采用其绑定来源的更新气候表征；建议文件年份不是因子版本。须审查碳库与碳流边界及碳平衡，不能仅凭排放因子匹配推定有效。"
+      },
+      {
+        "id": "PEF-14",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §§3.2.3,5.1",
+          "jrc-ef31-update:Table 1",
+          "jrc-ef31-package:ILCD/lciamethods"
+        ],
+        "canonical_markdown": "## PEF-14 — All sixteen primary categories and subcategory roles\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§3.2.3,5.1; jrc-ef31-update:Table 1; jrc-ef31-package:ILCD/lciamethods\n\nApply all sixteen primary EF categories. source-bindings.json binds their exact official UUIDs, versions, units and source-member hashes, plus the nine subcategory methods. The three climate, four human-toxicity and two ecotoxicity subcategories are decompositions of their parent, not nine extra independent categories for normalisation/weighting or totals. Preserve the organic-cancer filename alias separately from its canonical XML UUID. Coverage of two selected methods cannot qualify a full PEF assessment. A legitimate known zero remains a characterised result with evidence; missing factors or unresolved mappings remain disclosed coverage gaps.",
+        "translation_markdown": "## PEF-14 — 全部十六个主类别与子类别角色\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§3.2.3,5.1; jrc-ef31-update:Table 1; jrc-ef31-package:ILCD/lciamethods\n\n应用全部十六个 EF 主类别。source-bindings.json 绑定其正式 UUID、版本、单位及来源成员哈希，并记录九个子类别方法。三个气候、四个人体毒性与两个生态毒性子类别是母类别的分解，不是用于归一化、加权或合计的另外九个独立类别。保留有机物致癌方法的文件名别名与其 XML 正式 UUID 的区别。仅覆盖两个选定方法不能认定完整 PEF 评估合格。有依据的真实零值仍是带证据的表征结果；缺失因子或未解决的映射仍属于须披露的覆盖缺口。"
+      },
+      {
+        "id": "PEF-15",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §§4.3,5.1",
+          "jrc-ef31-package:ILCD/lciamethods"
+        ],
+        "canonical_markdown": "## PEF-15 — Characterisation, flow identity and geography\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.3,5.1; jrc-ef31-package:ILCD/lciamethods\n\nClassify elementary flows to the relevant categories and characterise using the pinned EF method. Match flow UUID/version, direction, reference quantity and units, compartments and any applicable geographic factor. Keep the original source factor location, alternative count and ordinal when selecting nonregional defaults. Absent/empty location and exact cache equivalence do not establish suitability for a study geography or permission to sum alternatives. Missing factors differ from an explicitly supported zero and from justified non-applicability. Record unresolved flow mappings, unmatched factors and suitability judgments; no silent zero substitution is permitted by this guidance.",
+        "translation_markdown": "## PEF-15 — 表征、流身份与地理适用性\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.3,5.1; jrc-ef31-package:ILCD/lciamethods\n\n将基本流分类至相关影响类别并采用固定版本的 EF 方法表征。匹配流 UUID 与版本、方向、参考量和单位、环境区室及适用的地域因子。选择非区域默认值时，保留原始因子的地理位置、备选数量与顺序号。位置缺失或空值以及缓存完全相符，不能证明对研究地域适用，也不允许将所有备选因子相加。缺失因子不同于有明确依据的零值，也不同于有理由的不适用。记录未解决的流映射、未匹配因子与适用性判断；本指导不允许静默填零。"
+      },
+      {
+        "id": "PEF-16",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §5.2.1",
+          "jrc-ef31-update:§4",
+          "jrc-ef31-package:other/lookLciMethodInformation.config"
+        ],
+        "canonical_markdown": "## PEF-16 — Normalisation definitions and units\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §5.2.1; jrc-ef31-update:§4; jrc-ef31-package:other/lookLciMethodInformation.config\n\nNormalisation is mandatory: divide each characterised primary-category result by its matching normalisation factor, with compatible reference units and the source global per-capita reference basis. Bind all sixteen records to method UUID/version and reference quantity; preserve decimal source values as strings. Report characterised alongside normalised results. Do not sum unweighted normalised results, which would impose equal weighting. The method XML flags normalisation=false and weighting=false describe the characterisation datasets, not an exemption from these PEF steps. Preserve the config ecotoxicity unit typo as source evidence while using the XML/JRC-supported CTUe semantics. Numerical implementation and rounding belong to the consumer.",
+        "translation_markdown": "## PEF-16 — 归一化定义与单位\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §5.2.1; jrc-ef31-update:§4; jrc-ef31-package:other/lookLciMethodInformation.config\n\n归一化是必需步骤：将每个主类别的表征结果除以其匹配的归一化因子，保证参考单位兼容，并采用来源的全球人均参考基准。全部十六条记录须绑定方法 UUID、版本及参考量；十进制来源值以字符串保留。归一化结果须与表征结果同时报告。不得汇总未加权的归一化结果，因为那会隐含等权。方法 XML 的 normalisation=false 和 weighting=false 描述表征数据集，不免除 PEF 的这些步骤。保留配置中生态毒性单位拼写错误作为来源证据，单位语义采用 XML 与 JRC 支持的 CTUe。数值实现和舍入属于消费方职责。"
+      },
+      {
+        "id": "PEF-17",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §5.2.2 and footnote 60",
+          "jrc-ef31-package:other/lookLciMethodInformation.config"
+        ],
+        "canonical_markdown": "## PEF-17 — Weighting and single-score interpretation\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §5.2.2 and footnote 60; jrc-ef31-package:other/lookLciMethodInformation.config\n\nWeighting is mandatory. Multiply normalised primary-category results by the matching source weights; official percent weights require division by 100, whereas source-bindings.json already records fractions whose total is one. Do not divide those fractions again. Weighted categories may be aggregated to a single overall score in points, retaining characterised, normalised and weighted results side by side. Do not double-count subcategories or compare unlike declared units/scopes. Preserve the numerical scaling and score unit in consumer provenance rather than calling every dimensionless value a point or inferring public comparability from one scalar.",
+        "translation_markdown": "## PEF-17 — 加权与单一分数解释\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §5.2.2 and footnote 60; jrc-ef31-package:other/lookLciMethodInformation.config\n\n加权是必需步骤。将归一化主类别结果乘以匹配的来源权重；正式百分数权重须除以 100，而 source-bindings.json 已记录总和为一的份额，不得再次除以 100。可将加权类别汇总为以点数表示的单一总分，同时保留表征、归一化及加权结果。不得重复计入子类别，也不得比较声明单位或范围不同的结果。消费方来源记录须保留数值缩放和分数单位，不能将所有无量纲值均称为点数，或仅凭一个标量推定可公开比较。"
+      },
+      {
+        "id": "PEF-18",
+        "applicability": "all-pef",
+        "check_kind": "professional",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §§6.1–6.4"
+        ],
+        "canonical_markdown": "## PEF-18 — Robustness, hotspots and limitations\n\nApplicability: all-pef\n\nCheck-kind: professional\n\nSources: eu-2021-2279-corrected:Annex I §§6.1–6.4\n\nAssess completeness, consistency and sensitivity of boundaries, source selection, allocation and assumptions; refine the model when needed. Identify most relevant categories, stages, processes and elementary flows using the prescribed §6.3 procedures, including treatment of negative values, rather than an arbitrary top-N ranking. Draw conclusions consistent with the goal, data quality and uncertainties, and disclose limitations. Automated receipts and conformance fixtures cannot establish scientific robustness or demonstrate a complete real industry case.",
+        "translation_markdown": "## PEF-18 — 稳健性、热点与局限\n\nApplicability: all-pef\n\nCheck-kind: professional\n\nSources: eu-2021-2279-corrected:Annex I §§6.1–6.4\n\n评估边界、来源选择、分配与假设的完整性、一致性和敏感性，必要时完善模型。采用第 6.3 节规定的程序（包括负值处理）识别最相关的类别、阶段、过程和基本流，不得采用任意前 N 名排序。结论须与目标、数据质量及不确定性一致，并披露局限。自动化回执和符合性测试夹具不能证明科学稳健性，也不能证明真实行业完整案例。"
+      },
+      {
+        "id": "PEF-19",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-corrected:Annex I §§7,8",
+          "eu-2026-interim:§§1,2.1,2.2"
+        ],
+        "canonical_markdown": "## PEF-19 — Reporting, verification and claims\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§7,8; eu-2026-interim:§§1,2.1,2.2\n\nPrepare the PEF report and applicable supporting deliverables covering goal/scope, unit/boundary, inventory/data hierarchy and gaps, modelling choices, characterised/normalised/weighted results, interpretation, sensitivity and limitations. Apply the interim report/DQR/aggregated-dataset exceptions only in their documented branch. Studies disclosed to third parties require the prescribed independent verification/validation; retain verifier competence, scope, findings and statements. AI review, hashes, CI success and a module candidate/review field are not human verification, scientific approval, an EPD, or Commission approval of a cement PEFCR. Communication/comparative claims require their own applicable evidence and rules.",
+        "translation_markdown": "## PEF-19 — 报告、核查与声明\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§7,8; eu-2026-interim:§§1,2.1,2.2\n\n编制 PEF 报告和适用的配套交付物，涵盖目标与范围、单位与边界、清单与数据层级及缺口、建模选择、表征及归一化和加权结果、解释、敏感性与局限。仅在有记录的对应分支使用临时指导中的报告、DQR 和聚合数据集例外。向第三方披露的研究须接受规定的独立核查与验证，保留核查者能力、范围、发现及声明。AI 审查、哈希、CI 通过和模块候选或审查字段均不等于人工核查、科学批准、EPD 或委员会批准的水泥 PEFCR。传播及比较声明需另具适用证据与规则。"
+      },
+      {
+        "id": "PEF-20",
+        "applicability": "all-pef",
+        "check_kind": "mixed",
+        "sources": [
+          "eu-2021-2279-original:identity",
+          "eu-2022-corrigendum:identity",
+          "eu-2026-interim:copyright page",
+          "jrc-ef31-update:copyright page",
+          "jrc-ef31-package:publicationAndOwnership"
+        ],
+        "canonical_markdown": "## PEF-20 — Source rights, identity and owner separation\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-original:identity; eu-2022-corrigendum:identity; eu-2026-interim:copyright page; jrc-ef31-update:copyright page; jrc-ef31-package:publicationAndOwnership\n\nBind exact source URLs and SHA-256 identities, including original/corrigendum rather than trusting a consolidated text as authentic law. Do not generalise a report CC-BY licence to factor or background datasets; source method restrictions retain ILCD-format and owner-attribution conditions and additional owner terms. This module distributes derived requirements, identities and numerical facts, not restricted source originals or full factor tables. Its version, EU normative version, interim guidance, EF package/per-method version, study source version and consumer executable profile remain separate. PCR owns meaning and evidence requirements; consumers own executable severity, phases, numeric adoption, waivers, action policy and actual study assessment. A trusted consumer must independently pin the exact delivered artifact and reviewed Main source; self-declared package review metadata is not a trust anchor.",
+        "translation_markdown": "## PEF-20 — 来源权利、身份与职责分工\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-original:identity; eu-2022-corrigendum:identity; eu-2026-interim:copyright page; jrc-ef31-update:copyright page; jrc-ef31-package:publicationAndOwnership\n\n绑定准确的来源 URL 和 SHA-256 身份，包括原始文件与勘误，不将合并查阅文本视为正式法源。不得将报告的 CC-BY 许可推广至表征因子或背景数据；方法数据的来源限制保留 ILCD 格式、所有者署名及其附加条件。本模块分发派生要求、身份与数值事实，不包含受限原件或完整因子表。模块版本、欧盟规范版本、临时指导、EF 包与各方法版本、研究来源版本以及消费方执行配置版本彼此独立。PCR 拥有语义与证据要求；消费方拥有执行严重性、阶段、数值采纳、豁免、行动策略及实际研究评估。可信消费方须独立固定所交付制品及已审查 Main 来源的准确身份；包内自报审查元数据不是信任根。"
+      }
+    ],
+    "manifest": {
+      "schema_version": 1,
+      "id": "method.pef-2021-ef31",
+      "kind": "method_module",
+      "version": "0.1.0",
+      "status": "candidate",
+      "canonical_language": "en-US",
+      "languages": [
+        "en-US",
+        "zh-CN"
+      ],
+      "title": {
+        "en-US": "PEF method requirements and EF 3.1 source bindings",
+        "zh-CN": "PEF 方法要求与 EF 3.1 来源绑定"
+      },
+      "applicability": "product-environmental-footprint",
+      "consumer_policy_included": false,
+      "scientific_approval": false
+    },
+    "source_bindings": {
+      "schema_version": 1,
+      "normative_version": "Recommendation (EU) 2021/2279, corrected 2022-05-23",
+      "factor_package_version": "EF 3.1",
+      "interim_guidance": {
+        "manuscript_month": "2026-05",
+        "announcement_date": "2026-07-14",
+        "validity_condition": "until the next EF database is available; expected 2028 is not a fixed expiry date",
+        "without_commission_pefcr_section": "2.1",
+        "with_commission_pefcr_section": "2.2"
+      },
+      "sources": [
+        {
+          "id": "eu-2021-2279-original",
+          "role": "original-recommendation",
+          "url": "https://publications.europa.eu/resource/celex/32021H2279",
+          "sha256": "af28de0896bfcfd8d627e758c97c83fd7d4bab94f2005ce5ea2079df42da39e3",
+          "bytes": 5848991
+        },
+        {
+          "id": "eu-2021-2279-corrected",
+          "role": "corrected-consolidated-annex-I",
+          "url": "https://publications.europa.eu/resource/celex/02021H2279-20211230",
+          "sha256": "4186fa4ad9b643a5c9074629e3c7a5ca25bb23105a34f2e16f37c0788f28b877",
+          "bytes": 6487938
+        },
+        {
+          "id": "eu-2022-corrigendum",
+          "role": "authentic-May2022-corrigendum",
+          "url": "https://eur-lex.europa.eu/eli/reco/2021/2279/corrigendum/2022-05-23/oj/eng",
+          "sha256": "42445138f591d8052c0096384db30db513c11da918d0de2e9955baa33264faa7",
+          "bytes": 10881401
+        },
+        {
+          "id": "eu-2026-interim",
+          "role": "actual-interim-guidance",
+          "url": "https://publications.europa.eu/resource/cellar/8fe38f0b-4829-11f1-8095-01aa75ed71a1",
+          "sha256": "27196dfbe2205cf7a6b9df648086aa24d2037830691fdfe3d5005cc5ed760d67",
+          "bytes": 403291
+        },
+        {
+          "id": "jrc-ef31-package",
+          "role": "EF31-reference-package",
+          "url": "https://eplca.jrc.ec.europa.eu/permalink/EF3_1/EF-v3.1.zip",
+          "sha256": "18763515dd93fabaa7f46b019de30cd521b2036a75a348e5824eeec2225afb27",
+          "bytes": 206912900
+        },
+        {
+          "id": "jrc-ef31-update",
+          "role": "EF31-update-report",
+          "url": "https://publications.jrc.ec.europa.eu/repository/bitstream/JRC130796/JRC130796_01.pdf",
+          "sha256": "938d7272de6769e8d484bcfc10f8c9be3688caa4a718d298790e8df7b3a65c58",
+          "bytes": 2539914
+        }
+      ],
+      "rights": {
+        "derived_bindings": "Source identities, bibliographic metadata and numerical facts only. No original dataset, factor table or PDF is included.",
+        "reports": "JRC130796 and the 2026 guidance state CC BY 4.0 with stated exceptions; this is not a package/background dataset licence.",
+        "method_datasets": "ILCD source datasets assert copyright and conditional use/distribution/conversion retaining ILCD format, owner attribution and any additional owner terms; changes/omissions invalidate governmental recommendation. Consult exact source ownership before redistributing originals.",
+        "consolidated_text": "Documentation aid; authentic OJ recommendation and corrigendum control."
+      },
+      "normalisation_weighting_source": {
+        "package_source_id": "jrc-ef31-package",
+        "member": "EF-v3.1 (4)/other/lookLciMethodInformation.config",
+        "sha256": "14237568217d30236cb8bec43171c746162fde9aa4751f3b30d5fd49e4a3dce9",
+        "bytes": 2672,
+        "normalisation_basis": "global per-capita reference impacts; division of characterised results by corresponding NF",
+        "weight_representation": "fraction; source percentage guidance is divided by 100 once, not again for these fractions",
+        "unit_discrepancy": "Config freshwater ecotoxicity unitVal CTUitaloe is preserved as source_unit_label; official method reference quantity and JRC130796 Table 1 establish CTUe."
+      },
+      "methods": [
+        {
+          "id": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+          "version": "01.00.000",
+          "name": "Climate change",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/6209b35f-9447-40b5-b68c-a1099e3674a0.xml",
+          "source_sha256": "c0fe31d3c045ae85b64bd85a3bfa41e1f246d664e8f8d463005f37dee003a5a8",
+          "source_bytes": 593046,
+          "filename_id": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg CO2 Equivalents",
+          "source_unit_label": "kg CO2 Equivalents",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 1099
+        },
+        {
+          "id": "706261af-a357-4cc0-a50a-f3033fcbd556",
+          "version": "01.00.000",
+          "name": "Climate change-Biogenic",
+          "role": "subcategory",
+          "parent_id": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/706261af-a357-4cc0-a50a-f3033fcbd556.xml",
+          "source_sha256": "a3d8a39e8e0bacfe7f2877b2bf1886cb733b4124cddaf362a0a5e285311878e1",
+          "source_bytes": 13362,
+          "filename_id": "706261af-a357-4cc0-a50a-f3033fcbd556",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg CO2-Equivalents",
+          "source_unit_label": "kg CO2-Equivalents",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 13
+        },
+        {
+          "id": "7fce5b3a-66b8-4ce1-91e8-a925aee1f186",
+          "version": "01.00.000",
+          "name": "Climate change-Fossil",
+          "role": "subcategory",
+          "parent_id": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/7fce5b3a-66b8-4ce1-91e8-a925aee1f186.xml",
+          "source_sha256": "7925c8ad33f804723fee7a808d8bf98c8ecdca9b47a5d6f732e415137ac58991",
+          "source_bytes": 579621,
+          "filename_id": "7fce5b3a-66b8-4ce1-91e8-a925aee1f186",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg CO2 Equivalents",
+          "source_unit_label": "kg CO2 Equivalents",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 1074
+        },
+        {
+          "id": "14af9ca7-aa1d-4832-b1d9-ab05a06dcb12",
+          "version": "01.00.000",
+          "name": "Climate change-Land use and land use change",
+          "role": "subcategory",
+          "parent_id": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/14af9ca7-aa1d-4832-b1d9-ab05a06dcb12.xml",
+          "source_sha256": "f184b2f418e69aa51df17f4741674c82ff98c486d78450097140fb6e863ffe4a",
+          "source_bytes": 12917,
+          "filename_id": "14af9ca7-aa1d-4832-b1d9-ab05a06dcb12",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg CO2-Equivalents",
+          "source_unit_label": "kg CO2-Equivalents",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 12
+        },
+        {
+          "id": "2299222a-bbd8-474f-9d4f-4dd1f18aea7c",
+          "version": "01.01.000",
+          "name": "Human toxicity, cancer",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/2299222a-bbd8-474f-9d4f-4dd1f18aea7c.xml",
+          "source_sha256": "f8f23807aa68f005c4dacae10aff931c568e8a74a4faad6717438b2d2c20dc35",
+          "source_bytes": 7327813,
+          "filename_id": "2299222a-bbd8-474f-9d4f-4dd1f18aea7c",
+          "reference_quantity_id": "f65d356a-d702-4d79-850e-dd68b47bbcd9",
+          "unit_label": "CTUh",
+          "source_unit_label": "CTUh",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 13717
+        },
+        {
+          "id": "01500b74-7ffb-463e-9bd4-72f17c2263ff",
+          "version": "01.00.000",
+          "name": "Human toxicity, cancer_inorganics",
+          "role": "subcategory",
+          "parent_id": "2299222a-bbd8-474f-9d4f-4dd1f18aea7c",
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/01500b74-7ffb-463e-9bd4-72f17c2263ff.xml",
+          "source_sha256": "537c9e6a898c67e2d803991a3de9507f2ec4756bcbe5b60a211b75687a331a23",
+          "source_bytes": 214815,
+          "filename_id": "01500b74-7ffb-463e-9bd4-72f17c2263ff",
+          "reference_quantity_id": "f65d356a-d702-4d79-850e-dd68b47bbcd9",
+          "unit_label": "CTUh",
+          "source_unit_label": "CTUh",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 398
+        },
+        {
+          "id": "503699e0-eca9-4089-8bf8-e0f49c93e578",
+          "version": "01.01.000",
+          "name": "Human toxicity, cancer_organics",
+          "role": "subcategory",
+          "parent_id": "2299222a-bbd8-474f-9d4f-4dd1f18aea7c",
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/9ec743ea-6b00-400d-a53b-61547a3fc03c.xml",
+          "source_sha256": "84203510df0a0700e385cd1b08288859bff79d0127df02edb3b26882145d33c2",
+          "source_bytes": 7120521,
+          "filename_id": "9ec743ea-6b00-400d-a53b-61547a3fc03c",
+          "reference_quantity_id": "f65d356a-d702-4d79-850e-dd68b47bbcd9",
+          "unit_label": "CTUh",
+          "source_unit_label": "CTUh",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 13319
+        },
+        {
+          "id": "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8",
+          "version": "01.00.000",
+          "name": "Human toxicity, non-cancer",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8.xml",
+          "source_sha256": "d932a60f1615945df21b823f19321d80427a6eadb1b3e816f40153726b39993f",
+          "source_bytes": 24163382,
+          "filename_id": "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8",
+          "reference_quantity_id": "f65d356a-d702-4d79-850e-dd68b47bbcd9",
+          "unit_label": "CTUh",
+          "source_unit_label": "CTUh",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 43816
+        },
+        {
+          "id": "9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85",
+          "version": "01.00.000",
+          "name": "Human toxicity, non-cancer_inorganics",
+          "role": "subcategory",
+          "parent_id": "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8",
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85.xml",
+          "source_sha256": "fee7f45542a256f03faa73b406da8d40e7042be4c3719f24e0f0fdb55feace98",
+          "source_bytes": 2308298,
+          "filename_id": "9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85",
+          "reference_quantity_id": "f65d356a-d702-4d79-850e-dd68b47bbcd9",
+          "unit_label": "CTUh",
+          "source_unit_label": "CTUh",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 4317
+        },
+        {
+          "id": "8c3141e9-1f15-43b5-bff2-182e49893a46",
+          "version": "01.00.000",
+          "name": "Human toxicity, non-cancer_organics",
+          "role": "subcategory",
+          "parent_id": "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8",
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/8c3141e9-1f15-43b5-bff2-182e49893a46.xml",
+          "source_sha256": "51caa1ad49ac65822714fca432c34ec032c90101afca6cdaeccfec3ab50e10e7",
+          "source_bytes": 21863235,
+          "filename_id": "8c3141e9-1f15-43b5-bff2-182e49893a46",
+          "reference_quantity_id": "f65d356a-d702-4d79-850e-dd68b47bbcd9",
+          "unit_label": "CTUh",
+          "source_unit_label": "CTUh",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 39499
+        },
+        {
+          "id": "05316e7a-b254-4bea-9cf0-6bf33eb5c630",
+          "version": "01.00.000",
+          "name": "Ecotoxicity, freshwater",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/05316e7a-b254-4bea-9cf0-6bf33eb5c630.xml",
+          "source_sha256": "252fe760308a14b647ba2a32e8e056f9d8434235be9f1bf3b0d452afe4548cd4",
+          "source_bytes": 45631200,
+          "filename_id": "05316e7a-b254-4bea-9cf0-6bf33eb5c630",
+          "reference_quantity_id": "585d3441-af58-49c9-a5c2-1d1e5b63f8d5",
+          "unit_label": "CTUe",
+          "source_unit_label": "CTUe",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 79349
+        },
+        {
+          "id": "dacd48b5-4da5-49aa-aff4-cd5f5495c037",
+          "version": "01.00.000",
+          "name": "Ecotoxicity, freshwater-inorganics",
+          "role": "subcategory",
+          "parent_id": "05316e7a-b254-4bea-9cf0-6bf33eb5c630",
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/dacd48b5-4da5-49aa-aff4-cd5f5495c037.xml",
+          "source_sha256": "6ddbbb5a67a33caa8cbd3f6d7dc46bdce71e98830bcc73d6596a2f3b250ef26d",
+          "source_bytes": 3303245,
+          "filename_id": "dacd48b5-4da5-49aa-aff4-cd5f5495c037",
+          "reference_quantity_id": "585d3441-af58-49c9-a5c2-1d1e5b63f8d5",
+          "unit_label": "CTUe",
+          "source_unit_label": "CTUe",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 6198
+        },
+        {
+          "id": "fd530f00-9325-424a-92ef-aaac67922fd9",
+          "version": "01.00.000",
+          "name": "Ecotoxicity, freshwater-organics",
+          "role": "subcategory",
+          "parent_id": "05316e7a-b254-4bea-9cf0-6bf33eb5c630",
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/fd530f00-9325-424a-92ef-aaac67922fd9.xml",
+          "source_sha256": "9a5a23ee80ff03a673d5aa626db693a6a7554192495103bb553f0ef90d9b914a",
+          "source_bytes": 40035550,
+          "filename_id": "fd530f00-9325-424a-92ef-aaac67922fd9",
+          "reference_quantity_id": "585d3441-af58-49c9-a5c2-1d1e5b63f8d5",
+          "unit_label": "CTUe",
+          "source_unit_label": "CTUe",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 73151
+        },
+        {
+          "id": "b5c619fa-def3-11e6-bf01-fe55135034f3",
+          "version": "02.00.010",
+          "name": "Eutrophication marine",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/b5c619fa-def3-11e6-bf01-fe55135034f3.xml",
+          "source_sha256": "a681b4b9b2d853697e2e044719d43cb7eaa6b8e185af8b00bb277aa92e735301",
+          "source_bytes": 330296,
+          "filename_id": "b5c619fa-def3-11e6-bf01-fe55135034f3",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg N equivalents",
+          "source_unit_label": "kg N equivalents",
+          "intervention_locations": [
+            "RER"
+          ],
+          "impact_locations": [
+            "RER"
+          ],
+          "factor_count": 590
+        },
+        {
+          "id": "b53ec18f-7377-4ad3-86eb-cc3f4f276b2b",
+          "version": "01.00.010",
+          "name": "Eutrophication, freshwater",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/b53ec18f-7377-4ad3-86eb-cc3f4f276b2b.xml",
+          "source_sha256": "15eff61b234c7564bbd41b6dd40ed0dc6dfc0d5c1704f89d143f3dc90e82d523",
+          "source_bytes": 26005,
+          "filename_id": "b53ec18f-7377-4ad3-86eb-cc3f4f276b2b",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg P equivalents",
+          "source_unit_label": "kg P equivalents",
+          "intervention_locations": [
+            "RER"
+          ],
+          "impact_locations": [
+            "RER"
+          ],
+          "factor_count": 29
+        },
+        {
+          "id": "b5c614d2-def3-11e6-bf01-fe55135034f3",
+          "version": "01.02.009",
+          "name": "Eutrophication, terrestrial",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/b5c614d2-def3-11e6-bf01-fe55135034f3.xml",
+          "source_sha256": "72f1187a0682e186bdedf74f60fe99a1e1dafa7469141af74dfe4ea21c296992",
+          "source_bytes": 328944,
+          "filename_id": "b5c614d2-def3-11e6-bf01-fe55135034f3",
+          "reference_quantity_id": "341fd786-b2ad-4552-a762-5eafcab45dee",
+          "unit_label": "mol N equivalents",
+          "source_unit_label": "mol N equivalents",
+          "intervention_locations": [
+            "RER"
+          ],
+          "impact_locations": [
+            "RER"
+          ],
+          "factor_count": 575
+        },
+        {
+          "id": "b2ad6110-c78d-11e6-9d9d-cec0c932ce01",
+          "version": "01.00.010",
+          "name": "Resource use, fossils",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/b2ad6110-c78d-11e6-9d9d-cec0c932ce01.xml",
+          "source_sha256": "d9b4f8480a8e916e37b1403fc70e68241edbe71098e26cadc41e5f5caaa9fb93",
+          "source_bytes": 9346,
+          "filename_id": "b2ad6110-c78d-11e6-9d9d-cec0c932ce01",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200c9a66",
+          "unit_label": "MJ",
+          "source_unit_label": "MJ",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 6
+        },
+        {
+          "id": "b2ad6494-c78d-11e6-9d9d-cec0c932ce01",
+          "version": "01.00.010",
+          "name": "Resource use, minerals and metals",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/b2ad6494-c78d-11e6-9d9d-cec0c932ce01.xml",
+          "source_sha256": "903dc1764187342f518c5fc00e6519cd0082cfe207569592f77adadb18568b06",
+          "source_bytes": 31215,
+          "filename_id": "b2ad6494-c78d-11e6-9d9d-cec0c932ce01",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg Sb equivalents",
+          "source_unit_label": "kg Sb equivalents",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 48
+        },
+        {
+          "id": "b2ad66ce-c78d-11e6-9d9d-cec0c932ce01",
+          "version": "03.00.014",
+          "name": "Water use",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/b2ad66ce-c78d-11e6-9d9d-cec0c932ce01.xml",
+          "source_sha256": "f06fec854a386ecd9c2d6b2de3d735b341b9f5ac68990764a3e1fd84e91268d2",
+          "source_bytes": 1268239,
+          "filename_id": "b2ad66ce-c78d-11e6-9d9d-cec0c932ce01",
+          "reference_quantity_id": "93a60a56-a3c8-22da-a746-0800200c9a66",
+          "unit_label": "m3-world equivalents",
+          "source_unit_label": "m3-world equivalents",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 2310
+        },
+        {
+          "id": "b2ad6890-c78d-11e6-9d9d-cec0c932ce01",
+          "version": "01.00.010",
+          "name": "Land use",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/b2ad6890-c78d-11e6-9d9d-cec0c932ce01.xml",
+          "source_sha256": "94f959328235d7d68b6febea36810ab29104a14f1a1be57ae9e61c58ccb47149",
+          "source_bytes": 19397429,
+          "filename_id": "b2ad6890-c78d-11e6-9d9d-cec0c932ce01",
+          "reference_quantity_id": "01846770-4cfe-4a25-8ad9-919d8d378345",
+          "unit_label": "dimensionless (pt)",
+          "source_unit_label": "dimensionless (pt)",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 36423
+        },
+        {
+          "id": "b5c611c6-def3-11e6-bf01-fe55135034f3",
+          "version": "01.04.000",
+          "name": "Acidification",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/b5c611c6-def3-11e6-bf01-fe55135034f3.xml",
+          "source_sha256": "1a09e9e8533cc6f1027f260c2672ca6f8dd231618fe81939ed1fc22d5e066f8f",
+          "source_bytes": 523046,
+          "filename_id": "b5c611c6-def3-11e6-bf01-fe55135034f3",
+          "reference_quantity_id": "341fd786-b2ad-4552-a762-5eafcab45dee",
+          "unit_label": "mol H+ equivalents",
+          "source_unit_label": "mol H+ equivalents",
+          "intervention_locations": [
+            "RER"
+          ],
+          "impact_locations": [
+            "RER"
+          ],
+          "factor_count": 935
+        },
+        {
+          "id": "b5c629d6-def3-11e6-bf01-fe55135034f3",
+          "version": "02.00.012",
+          "name": "Ozone depletion",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/b5c629d6-def3-11e6-bf01-fe55135034f3.xml",
+          "source_sha256": "e64477a1b282ce934a9fbeb456601589fca88c3d160289dc9680d4f1d261ead4",
+          "source_bytes": 74051,
+          "filename_id": "b5c629d6-def3-11e6-bf01-fe55135034f3",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg CFC11 equivalents",
+          "source_unit_label": "kg CFC11 equivalents",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 124
+        },
+        {
+          "id": "b5c632be-def3-11e6-bf01-fe55135034f3",
+          "version": "01.00.011",
+          "name": "Ionising radiation, human health",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/b5c632be-def3-11e6-bf01-fe55135034f3.xml",
+          "source_sha256": "69f7a44f3e0682e11c882d77936b5f8f79951795ac775e3e99ea975e14e7c59e",
+          "source_bytes": 109175,
+          "filename_id": "b5c632be-def3-11e6-bf01-fe55135034f3",
+          "reference_quantity_id": "93a60a56-a3c8-17da-a746-0800200c9a66",
+          "unit_label": "kBq U235 equivalents",
+          "source_unit_label": "kBq U235 equivalents",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 189
+        },
+        {
+          "id": "b5c610fe-def3-11e6-bf01-fe55135034f3",
+          "version": "02.01.000",
+          "name": "Photochemical ozone formation - human health",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/b5c610fe-def3-11e6-bf01-fe55135034f3.xml",
+          "source_sha256": "273c43df66bfd12f7884e1c3e19d23daade5af5b96bd1d7c68802d87f7755f4a",
+          "source_bytes": 804035,
+          "filename_id": "b5c610fe-def3-11e6-bf01-fe55135034f3",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg NMVOC equivalents",
+          "source_unit_label": "kg NMVOC equivalents",
+          "intervention_locations": [
+            "RER"
+          ],
+          "impact_locations": [
+            "RER"
+          ],
+          "factor_count": 1401
+        },
+        {
+          "id": "b5c602c6-def3-11e6-bf01-fe55135034f3",
+          "version": "02.00.011",
+          "name": "EF-particulate Matter",
+          "role": "primary",
+          "parent_id": null,
+          "source_member": "EF-v3.1 (4)/ILCD/lciamethods/b5c602c6-def3-11e6-bf01-fe55135034f3.xml",
+          "source_sha256": "bbde0609351a78fe774c39d3c2a90b8cc463cf3f57d62ffbd4c4f9cb6cb5b721",
+          "source_bytes": 565117,
+          "filename_id": "b5c602c6-def3-11e6-bf01-fe55135034f3",
+          "reference_quantity_id": "01846770-4cfe-4a25-8ad9-919d8d378345",
+          "unit_label": "disease incidence",
+          "source_unit_label": "disease incidence",
+          "intervention_locations": [
+            "GLO"
+          ],
+          "impact_locations": [
+            "GLO"
+          ],
+          "factor_count": 983
+        }
+      ],
+      "normalisation_weighting": [
+        {
+          "method_id": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+          "method_version": "01.00.000",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg CO2 Equivalents",
+          "normalisation_factor": "7553.08316285117",
+          "weight_fraction": "0.2106",
+          "source_unit_label": "kg CO2 eq",
+          "source_short_description": "CC"
+        },
+        {
+          "method_id": "b5c629d6-def3-11e6-bf01-fe55135034f3",
+          "method_version": "02.00.012",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg CFC11 equivalents",
+          "normalisation_factor": "0.0523483833840181",
+          "weight_fraction": "0.0631",
+          "source_unit_label": "kg CFC-11eq",
+          "source_short_description": "ODP"
+        },
+        {
+          "method_id": "2299222a-bbd8-474f-9d4f-4dd1f18aea7c",
+          "method_version": "01.01.000",
+          "reference_quantity_id": "f65d356a-d702-4d79-850e-dd68b47bbcd9",
+          "unit_label": "CTUh",
+          "normalisation_factor": "0.0000172528976538705",
+          "weight_fraction": "0.0213",
+          "source_unit_label": "CTUh",
+          "source_short_description": "HTC"
+        },
+        {
+          "method_id": "7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8",
+          "method_version": "01.00.000",
+          "reference_quantity_id": "f65d356a-d702-4d79-850e-dd68b47bbcd9",
+          "unit_label": "CTUh",
+          "normalisation_factor": "0.000128735735008072",
+          "weight_fraction": "0.0184",
+          "source_unit_label": "CTUh",
+          "source_short_description": "HTN"
+        },
+        {
+          "method_id": "b5c602c6-def3-11e6-bf01-fe55135034f3",
+          "method_version": "02.00.011",
+          "reference_quantity_id": "01846770-4cfe-4a25-8ad9-919d8d378345",
+          "unit_label": "disease incidence",
+          "normalisation_factor": "0.000595366821125478",
+          "weight_fraction": "0.0896",
+          "source_unit_label": "Disease incidences",
+          "source_short_description": "PM"
+        },
+        {
+          "method_id": "b5c632be-def3-11e6-bf01-fe55135034f3",
+          "method_version": "01.00.011",
+          "reference_quantity_id": "93a60a56-a3c8-17da-a746-0800200c9a66",
+          "unit_label": "kBq U235 equivalents",
+          "normalisation_factor": "4220.16339014993",
+          "weight_fraction": "0.0501",
+          "source_unit_label": "kBq U235",
+          "source_short_description": "IR"
+        },
+        {
+          "method_id": "b5c610fe-def3-11e6-bf01-fe55135034f3",
+          "method_version": "02.01.000",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg NMVOC equivalents",
+          "normalisation_factor": "40.8591977347772",
+          "weight_fraction": "0.0478",
+          "source_unit_label": "kg NMVOC eq",
+          "source_short_description": "POz"
+        },
+        {
+          "method_id": "b5c611c6-def3-11e6-bf01-fe55135034f3",
+          "method_version": "01.04.000",
+          "reference_quantity_id": "341fd786-b2ad-4552-a762-5eafcab45dee",
+          "unit_label": "mol H+ equivalents",
+          "normalisation_factor": "55.5695412306019",
+          "weight_fraction": "0.062",
+          "source_unit_label": "mol H+ eq",
+          "source_short_description": "ACI"
+        },
+        {
+          "method_id": "b5c614d2-def3-11e6-bf01-fe55135034f3",
+          "method_version": "01.02.009",
+          "reference_quantity_id": "341fd786-b2ad-4552-a762-5eafcab45dee",
+          "unit_label": "mol N equivalents",
+          "normalisation_factor": "176.754999788942",
+          "weight_fraction": "0.0371",
+          "source_unit_label": "mol N eq",
+          "source_short_description": "EUt"
+        },
+        {
+          "method_id": "b53ec18f-7377-4ad3-86eb-cc3f4f276b2b",
+          "method_version": "01.00.010",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg P equivalents",
+          "normalisation_factor": "1.60685212828813",
+          "weight_fraction": "0.028",
+          "source_unit_label": "kg P eq",
+          "source_short_description": "EUf"
+        },
+        {
+          "method_id": "b5c619fa-def3-11e6-bf01-fe55135034f3",
+          "method_version": "02.00.010",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg N equivalents",
+          "normalisation_factor": "19.5451815519191",
+          "weight_fraction": "0.0296",
+          "source_unit_label": "kg N eq",
+          "source_short_description": "EUm"
+        },
+        {
+          "method_id": "05316e7a-b254-4bea-9cf0-6bf33eb5c630",
+          "method_version": "01.00.000",
+          "reference_quantity_id": "585d3441-af58-49c9-a5c2-1d1e5b63f8d5",
+          "unit_label": "CTUe",
+          "normalisation_factor": "56716.5863370596",
+          "weight_fraction": "0.0192",
+          "source_unit_label": "CTUitaloe",
+          "source_short_description": "Eto"
+        },
+        {
+          "method_id": "b2ad6890-c78d-11e6-9d9d-cec0c932ce01",
+          "method_version": "01.00.010",
+          "reference_quantity_id": "01846770-4cfe-4a25-8ad9-919d8d378345",
+          "unit_label": "dimensionless (pt)",
+          "normalisation_factor": "819498.182923031",
+          "weight_fraction": "0.0794",
+          "source_unit_label": "soil quality index",
+          "source_short_description": "Lnd"
+        },
+        {
+          "method_id": "b2ad66ce-c78d-11e6-9d9d-cec0c932ce01",
+          "method_version": "03.00.014",
+          "reference_quantity_id": "93a60a56-a3c8-22da-a746-0800200c9a66",
+          "unit_label": "m3-world equivalents",
+          "normalisation_factor": "11468.7086407597",
+          "weight_fraction": "0.0851",
+          "source_unit_label": "m3 water eq. deprived",
+          "source_short_description": "Wat"
+        },
+        {
+          "method_id": "b2ad6494-c78d-11e6-9d9d-cec0c932ce01",
+          "method_version": "01.00.010",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200b9a66",
+          "unit_label": "kg Sb equivalents",
+          "normalisation_factor": "0.0636226152369547",
+          "weight_fraction": "0.0755",
+          "source_unit_label": "kg Sb eq",
+          "source_short_description": "RMi"
+        },
+        {
+          "method_id": "b2ad6110-c78d-11e6-9d9d-cec0c932ce01",
+          "method_version": "01.00.010",
+          "reference_quantity_id": "93a60a56-a3c8-11da-a746-0800200c9a66",
+          "unit_label": "MJ",
+          "normalisation_factor": "65004.2596640165",
+          "weight_fraction": "0.0832",
+          "source_unit_label": "MJ",
+          "source_short_description": "REn"
+        }
+      ],
+      "geographical_selection": {
+        "cache_equivalence_is_suitability": false,
+        "requirements": [
+          "Bind flow UUID, flow version, direction and compartment/context before factor selection.",
+          "Retain original source factor location, ordinal and alternative count when selecting a default.",
+          "Absence or empty source location is not proof of geographical representativeness.",
+          "Review inventory geography, technology, time and regional alternatives for each relevant category.",
+          "A cache that drops locations requires separately pinned source selection evidence."
+        ]
+      },
+      "versions_must_remain_distinct": [
+        "normative recommendation/corrigendum",
+        "interim guidance",
+        "factor package and per-method version",
+        "module package",
+        "product-study source",
+        "consumer implementation/profile"
+      ]
+    },
+    "review": {
+      "schema_version": 1,
+      "records": [
+        {
+          "dimension": "source",
+          "reviewer_kind": "ai-independent",
+          "reviewer_identity": "Codex built-in subagent /root/p4_pcr_independent_review",
+          "reviewed_at": "2026-11-04",
+          "basis_sha256": "989391423c7f31bdf77e18ea4438fab1a27ff6708c0f44ecad8ab8813763a165",
+          "outcome": "no-material-findings",
+          "evidence_ref": "https://github.com/tiangong-lca/pcr/issues/165#issuecomment-6623306407"
+        },
+        {
+          "dimension": "translation",
+          "reviewer_kind": "ai-independent",
+          "reviewer_identity": "Codex built-in subagent /root/p4_pcr_independent_review",
+          "reviewed_at": "2026-11-04",
+          "basis_sha256": "989391423c7f31bdf77e18ea4438fab1a27ff6708c0f44ecad8ab8813763a165",
+          "outcome": "no-material-findings",
+          "evidence_ref": "https://github.com/tiangong-lca/pcr/issues/165#issuecomment-6623306407"
+        },
+        {
+          "dimension": "semantic",
+          "reviewer_kind": "ai-independent",
+          "reviewer_identity": "Codex built-in subagent /root/p4_pcr_independent_review",
+          "reviewed_at": "2026-11-04",
+          "basis_sha256": "989391423c7f31bdf77e18ea4438fab1a27ff6708c0f44ecad8ab8813763a165",
+          "outcome": "no-material-findings",
+          "evidence_ref": "https://github.com/tiangong-lca/pcr/issues/165#issuecomment-6623306407"
+        }
+      ],
+      "limitations": [
+        "These records cover independent automated source, bilingual translation and normative semantic review on the exact source basis; they do not approve implementation code or establish Main delivery/integration.",
+        "No human review, scientific approval, Commission cement PEFCR, EPD certification or complete industry-case qualification is established."
+      ]
+    },
+    "authored_files": {
+      "manifest.yaml": "{\n  \"schema_version\": 1,\n  \"id\": \"method.pef-2021-ef31\",\n  \"kind\": \"method_module\",\n  \"version\": \"0.1.0\",\n  \"status\": \"candidate\",\n  \"canonical_language\": \"en-US\",\n  \"languages\": [\n    \"en-US\",\n    \"zh-CN\"\n  ],\n  \"title\": {\n    \"en-US\": \"PEF method requirements and EF 3.1 source bindings\",\n    \"zh-CN\": \"PEF 方法要求与 EF 3.1 来源绑定\"\n  },\n  \"applicability\": \"product-environmental-footprint\",\n  \"consumer_policy_included\": false,\n  \"scientific_approval\": false\n}\n",
+      "module.en-US.md": "# PEF method requirements and EF 3.1 source bindings\n\nThis is a reusable candidate interpretation of the complete PEF method, not a product-category PCR. The authoritative recommendation, corrigendum, EF package and conditional interim guidance remain controlling sources. The sections below retain applicability, required action, evidence and professional-judgment boundaries together. A source citation is an exact source ID plus a locator into that source. The machine check records package conformance only; no study outcome follows from it.\n\n## PEF-01 — Goal, intended use and applicable category rules\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§2,3.1; eu-2026-interim:§§2.1,2.2\n\nDefine the study goal, reasons, intended application and audience, commissioner, limitations and any comparison/public communication. Identify whether a PEFCR formally developed with the Commission applies, its exact version, product boundary and validity. This common module is not a cement PEFCR and cannot establish conformity to a category rule. If none is established, use the no-PEFCR method branch and document that choice. Existence of a field is mechanically checkable; fitness of the goal and category-rule applicability requires professional judgment.\n\n## PEF-02 — Function, declared unit and reference flow\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §3.2.1\n\nSpecify what function is provided, how much, how well and for how long; justify uncovered aspects, use applicable standards and SI units. Relate every inventory amount to the product quantity providing that function. For an intermediate product whose downstream functions are not determined, apply a justified declared unit (for example mass), and state the reference flow. A tonne of finished cement does not itself establish equivalent function, strength class or downstream service. Record product composition, route, performance, geography and time as applicable. Check units, identities and conversions mechanically; review whether the selected functional/declared unit and product scope are defensible.\n\n## PEF-03 — Boundary and life-cycle stage applicability\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§3.2.2,4.2–4.2.5\n\nMap raw-material acquisition/pre-processing, manufacturing, distribution/storage, use and end of life to the study boundary; give a consistent process diagram identifying company-specific data, co-products, by-products and wastes. For intermediate products §4.2 excludes distribution (with justified exceptions), use and end of life; justify intermediate-product status rather than applying an arbitrary gate. Raw-material extraction, processing and transport to the production facility remain upstream requirements. Purchased clinker, gypsum, fuel or electricity do not become burden-free because they enter at the foreground gate. Document every exclusion and its reason and potential significance. Category-stage applicability needs professional judgment; the diagram and inventory bindings are mechanical evidence.\n\n## PEF-04 — Inventory completeness and screening\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4,4.1,4.3,6.2\n\nInventory all relevant material/energy inputs, product and waste outputs and elementary emissions for each included process, with sources, amounts, units, allocation and recursive upstream links. Resolve intermediate flows to background systems until the aggregated inventory contains elementary flows and the reference product flow. If screening is undertaken, no cut-off is allowed during screening; use available primary/secondary data and refine iteratively. Distinguish a missing observation, measured zero, missing characterisation factor and justified non-applicability. An empty list, zero-filled placeholder or completed checklist does not demonstrate completeness. Review process/input/output coverage against goal and boundary.\n\n## PEF-05 — Ordinary cut-off and data-gap exclusions are separate\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.6.3,4.6.4; eu-2026-interim:§2.1\n\nAvoid cut-offs. The ordinary §4.6.4 allowance is cumulative, up to 3.0%, with material, energy and environmental significance evidence; its further operative condition permits exclusion only for processes cumulatively accounting for less than 3.0% of material and energy flows as well as environmental impact in every impact category. Apply the foreground allowance in addition to cut-offs already included in background datasets, and disclose the evidence. Do not translate it into a mass-only rule or four arbitrary omitted upstream processes. Separately, a data-gap exclusion requires the applicable dataset hierarchy to be exhausted and the gap disclosed and reviewed as specified by its branch. The 2026 guidance does not waive investigation of EF and EL-ILCD availability. Record searches, alternatives, availability, suitability, significance and reviewer reasoning in study evidence. No module flag or dataset-unavailable assertion grants a consumer waiver.\n\n## PEF-06 — Primary activity data and representative secondary data\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.6.1,4.6.2,4.6.5.1–4.6.5.8,Tables 23–25\n\nUse product-specific company activity data for the bill of materials and manufacturing, with measured quantities, collection period, facility/technology scope and transparent aggregation. Record secondary dataset identity/version, provider, geography, temporal and technological representativeness, completeness, methodological consistency and precision/uncertainty; apply the appropriate data-needs situation. All new datasets created in the study shall be EF compliant under the ordinary rules; the interim study-level DQR/submission exception does not itself remove new-dataset obligations. Under the ordinary EF-compliant-data rules, calculate and report new-dataset and whole-study DQR from technological (TeR), time (TiR), geographical (GeR) representativeness and precision (P): DQR = (TeR + TiR + GeR + P) / 4. Apply the Data Needs Matrix to every process and report its situation: company-operated (1), not company-operated but company-specific information accessible (2), or no such access (3). Table 25 requires company-specific datasets with DQR ≤1.5 for Situation 1 and Situation 2 Option 1. Situation 2 Option 2 requires company-specific transport activity and supply-chain-specific electricity/transport replacements in disaggregated secondary EF datasets, with DQR ≤3.0 and the prescribed criterion reassessment. Situation 3 uses aggregated EF secondary datasets with DQR ≤3.0; recalculate criteria for most-relevant processes and otherwise retain original scores. The two Situation 2 options are not hierarchical. For new company datasets assess activity data and direct elementary flows separately, identify the most-relevant contributions and apply §§4.6.5.2–4.6.5.3/Tables 23–24; do not replace their representativeness evidence with a self-assigned score. For whole-study DQR, weight each criterion of all most-relevant processes by relative contribution to the single overall environmental score under §4.6.5.8, then apply the DQR formula. The 2026 non-EF-data study-DQR exceptions in PEF-07/PEF-08 apply only when their actual conditions hold; they do not make ordinary DQR optional for an all-EF study. Quantities, criterion arithmetic and metadata can be checked; suitability, data quality and representativeness require substantive assessment. Unknown data quality is not a passing score.\n\n## PEF-07 — 2026 hierarchy without a Commission PEFCR\n\nApplicability: without-commission-pefcr\n\nCheck-kind: mixed\n\nSources: eu-2026-interim:§§1,2.1\n\nWhile the interim guidance applies, first use available EF-compliant secondary datasets. If unavailable, use EL-ILCD-compliant datasets from one unit-process database if possible, otherwise multiple process databases; disclose their use in report limitations. Only if neither EF nor EL-ILCD datasets are available may the process be excluded, with an explicit limitation. Document the actual search and reasoned selection. Include the prescribed disclaimer that author-selected non-EF datasets may hinder comparability (use exact source wording in the study report). The temporary allowance can exceed the former 10% single-score share; it does not prove equivalence. Do not calculate study DQR for such datasets unless recalculating their TeR, TiR, GeR and P under this guidance. When the study actually uses non-EF-compliant datasets, a summary, main report and annex are required, and the guidance removes the requirement to develop, make available and submit an aggregated EF-compliant dataset to the Commission. Merely following the without-PEFCR branch does not exempt an all-EF-data study from ordinary reporting/dataset requirements.\n\n## PEF-08 — 2026 hierarchy with a Commission PEFCR\n\nApplicability: with-commission-pefcr\n\nCheck-kind: mixed\n\nSources: eu-2026-interim:§§1,2.2\n\nFor an established applicable Commission-developed PEFCR, retain its primary-data requirements and use EF-compliant secondary data first. If its specified EF dataset is unavailable, prefer Technical Secretariat-selected EL-ILCD replacements published in its annex/corrigendum; if none are selected, the study author selects EL-ILCD data, preferably from one process database, otherwise multiple. Disclose this selection and obtain study/report-verifier validation, with the required comparability disclaimer. Do not import the no-PEFCR process-exclusion permission into this branch. Respect §2.2 DQR and report provisions and do not recalculate the representative product merely because of this guidance. Establish actual category-rule applicability before using this branch.\n\n## PEF-09 — Interim dates and validity\n\nApplicability: all-pef\n\nCheck-kind: machine\n\nSources: eu-2026-interim:front matter,§1; eu-2021-2279-original:OJ identity; eu-2022-corrigendum:OJ 2022-05-23\n\nKeep the 2021 recommendation identity, the authentic 23 May 2022 corrigendum and its corrected consolidated documentation distinct. The interim manuscript was completed in May 2026; its July announcement is a different event. It is recommended until the next EF database is available; the stated expectation of 2028 is not a guaranteed expiry date. Do not treat a server Last-Modified timestamp as a factor-method release. Reassess current applicability when later guidance or a new database is available.\n\n## PEF-10 — Multifunctionality and allocation\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §4.5\n\nApply the prescribed hierarchy: avoid allocation through subdivision or system expansion where possible, then use a relevant underlying physical relationship, then another justified relationship such as economic allocation. Explain subdivision/system-expansion feasibility and causal relevance, products and co-products, allocation factors, data and sensitivity. Apply sector-specific provisions where applicable. Arithmetic closure cannot establish that a particular allocation is scientifically appropriate; arbitrary economic defaults must not replace the hierarchy.\n\n## PEF-11 — Energy, transport, infrastructure and other modelling\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.4.1–4.4.7\n\nAssess the applicability of the complete §4.4 modelling requirements, including agricultural inputs, electricity hierarchy and contractual evidence, on-site generation, transport distances/modes/load/returns, capital goods, storage, sampling and use scenarios. Record a source-cited rationale for each inapplicable topic and the actual scenario/source for each applicable one. Grid geography and reporting year must match or carry justified limitations; contractual claims require their prescribed criteria. A generic electricity UUID or fuel-only foreground inventory is insufficient evidence for the upstream model.\n\n## PEF-12 — Circularity and end-of-life conventions\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.4.8,4.4.9\n\nWhere recycled inputs, production waste, recovery/recycling, reuse, refurbishment or product end of life apply, use the relevant Circular Footprint Formula and lifetime provisions with source-bound parameters and scenarios. Intermediate-product downstream-stage exclusions do not remove treatment of foreground production waste or recycled-input burdens. Explain allocation of recycled content, energy recovery and disposal and prevent double counting. Parameter presence and mass balances are mechanical checks; quality ratios, substitution and scenario relevance need professional judgment.\n\n## PEF-13 — Greenhouse gases, removals and offsets\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.4.10,4.4.11; jrc-ef31-update:§2\n\nDistinguish fossil, biogenic and land-use/land-use-change climate flows and apply their specific accounting, timing and reporting requirements. Preserve direct process emissions (including cement calcination where relevant), fuel combustion, upstream energy/material burdens and supported removals; do not invent carbon uptake or net-zero assumptions. Offsets are not deducted from PEF results. EF 3.1 uses its source-bound updated climate characterisation; the recommendation year is not the factor version. Review stock/flow boundaries and carbon balance rather than inferring validity from an emission-factor match.\n\n## PEF-14 — All sixteen primary categories and subcategory roles\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§3.2.3,5.1; jrc-ef31-update:Table 1; jrc-ef31-package:ILCD/lciamethods\n\nApply all sixteen primary EF categories. source-bindings.json binds their exact official UUIDs, versions, units and source-member hashes, plus the nine subcategory methods. The three climate, four human-toxicity and two ecotoxicity subcategories are decompositions of their parent, not nine extra independent categories for normalisation/weighting or totals. Preserve the organic-cancer filename alias separately from its canonical XML UUID. Coverage of two selected methods cannot qualify a full PEF assessment. A legitimate known zero remains a characterised result with evidence; missing factors or unresolved mappings remain disclosed coverage gaps.\n\n## PEF-15 — Characterisation, flow identity and geography\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.3,5.1; jrc-ef31-package:ILCD/lciamethods\n\nClassify elementary flows to the relevant categories and characterise using the pinned EF method. Match flow UUID/version, direction, reference quantity and units, compartments and any applicable geographic factor. Keep the original source factor location, alternative count and ordinal when selecting nonregional defaults. Absent/empty location and exact cache equivalence do not establish suitability for a study geography or permission to sum alternatives. Missing factors differ from an explicitly supported zero and from justified non-applicability. Record unresolved flow mappings, unmatched factors and suitability judgments; no silent zero substitution is permitted by this guidance.\n\n## PEF-16 — Normalisation definitions and units\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §5.2.1; jrc-ef31-update:§4; jrc-ef31-package:other/lookLciMethodInformation.config\n\nNormalisation is mandatory: divide each characterised primary-category result by its matching normalisation factor, with compatible reference units and the source global per-capita reference basis. Bind all sixteen records to method UUID/version and reference quantity; preserve decimal source values as strings. Report characterised alongside normalised results. Do not sum unweighted normalised results, which would impose equal weighting. The method XML flags normalisation=false and weighting=false describe the characterisation datasets, not an exemption from these PEF steps. Preserve the config ecotoxicity unit typo as source evidence while using the XML/JRC-supported CTUe semantics. Numerical implementation and rounding belong to the consumer.\n\n## PEF-17 — Weighting and single-score interpretation\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §5.2.2 and footnote 60; jrc-ef31-package:other/lookLciMethodInformation.config\n\nWeighting is mandatory. Multiply normalised primary-category results by the matching source weights; official percent weights require division by 100, whereas source-bindings.json already records fractions whose total is one. Do not divide those fractions again. Weighted categories may be aggregated to a single overall score in points, retaining characterised, normalised and weighted results side by side. Do not double-count subcategories or compare unlike declared units/scopes. Preserve the numerical scaling and score unit in consumer provenance rather than calling every dimensionless value a point or inferring public comparability from one scalar.\n\n## PEF-18 — Robustness, hotspots and limitations\n\nApplicability: all-pef\n\nCheck-kind: professional\n\nSources: eu-2021-2279-corrected:Annex I §§6.1–6.4\n\nAssess completeness, consistency and sensitivity of boundaries, source selection, allocation and assumptions; refine the model when needed. Identify most relevant categories, stages, processes and elementary flows using the prescribed §6.3 procedures, including treatment of negative values, rather than an arbitrary top-N ranking. Draw conclusions consistent with the goal, data quality and uncertainties, and disclose limitations. Automated receipts and conformance fixtures cannot establish scientific robustness or demonstrate a complete real industry case.\n\n## PEF-19 — Reporting, verification and claims\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§7,8; eu-2026-interim:§§1,2.1,2.2\n\nPrepare the PEF report and applicable supporting deliverables covering goal/scope, unit/boundary, inventory/data hierarchy and gaps, modelling choices, characterised/normalised/weighted results, interpretation, sensitivity and limitations. Apply the interim report/DQR/aggregated-dataset exceptions only in their documented branch. Studies disclosed to third parties require the prescribed independent verification/validation; retain verifier competence, scope, findings and statements. AI review, hashes, CI success and a module candidate/review field are not human verification, scientific approval, an EPD, or Commission approval of a cement PEFCR. Communication/comparative claims require their own applicable evidence and rules.\n\n## PEF-20 — Source rights, identity and owner separation\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-original:identity; eu-2022-corrigendum:identity; eu-2026-interim:copyright page; jrc-ef31-update:copyright page; jrc-ef31-package:publicationAndOwnership\n\nBind exact source URLs and SHA-256 identities, including original/corrigendum rather than trusting a consolidated text as authentic law. Do not generalise a report CC-BY licence to factor or background datasets; source method restrictions retain ILCD-format and owner-attribution conditions and additional owner terms. This module distributes derived requirements, identities and numerical facts, not restricted source originals or full factor tables. Its version, EU normative version, interim guidance, EF package/per-method version, study source version and consumer executable profile remain separate. PCR owns meaning and evidence requirements; consumers own executable severity, phases, numeric adoption, waivers, action policy and actual study assessment. A trusted consumer must independently pin the exact delivered artifact and reviewed Main source; self-declared package review metadata is not a trust anchor.\n",
+      "module.zh-CN.md": "# PEF 方法要求与 EF 3.1 来源绑定\n\n本文件是对完整 PEF 方法的可复用候选解释，不是产品类别 PCR。正式建议文件、勘误、EF 数据包及有条件的临时指导仍是依据。以下章节将适用条件、要求行动、证据和专业判断边界一并保留。来源引用由准确来源 ID 与原文定位构成。机器检查仅记录包的符合性，不据此产生研究结论。\n\n## PEF-01 — 目标、预期用途与适用类别规则\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§2,3.1; eu-2026-interim:§§2.1,2.2\n\n界定研究目标、研究原因、预期用途与受众、委托方、局限以及比较或公开传播意图。确定是否适用与欧盟委员会正式合作制定的 PEFCR，并记录其准确版本、产品边界及有效性。本通用模块不是水泥 PEFCR，不能据此认定符合类别规则。未确立适用 PEFCR 时，采用无 PEFCR 的方法分支并记录理由。字段是否存在可机械检查；目标是否恰当及类别规则是否适用需要专业判断。\n\n## PEF-02 — 功能、声明单位与参考流\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §3.2.1\n\n说明提供什么功能、数量、质量水平及持续时间；说明未涵盖方面及理由，采用适用标准和 SI 单位。所有清单数量均须对应实现该功能所需的产品量。对于下游功能尚未确定的中间产品，采用有理由支持的声明单位（例如质量），并明确参考流。一吨成品水泥本身不能证明功能、强度等级或下游服务等同。按适用情况记录产品组成、生产路线、性能、地域及时间。单位、身份与换算可机械检查；功能单位或声明单位及产品范围是否合理需专业审查。\n\n## PEF-03 — 系统边界与生命周期阶段适用性\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§3.2.2,4.2–4.2.5\n\n将原料获取与预处理、制造、分销与储存、使用和寿命终结映射到研究边界；提供名称一致的过程图，标明企业特定数据、联产品、副产品和废物流。第 4.2 节对中间产品排除分销（允许有理由的例外）、使用和寿命终结；须论证中间产品身份，不能任意设定边界门槛。原料开采、加工及运至生产设施的运输仍属于上游要求。采购熟料、石膏、燃料或电力不会因进入前景厂门而免除环境负荷。记录每项排除的原因及潜在重要性。类别与阶段适用性需要专业判断；过程图和清单绑定属于可机械核查的证据。\n\n## PEF-04 — 清单完整性与筛查\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4,4.1,4.3,6.2\n\n对每个纳入过程编制所有相关物料与能量输入、产品与废物输出及基本排放清单，记录来源、数量、单位、分配与递归上游链接。将中间流连接到背景系统，直至聚合清单由基本流及参考产品流构成。进行筛查时，筛查阶段不得截断；采用可用的一手或二手数据并迭代完善。区分缺失观测、测得为零、缺失表征因子和有依据的不适用。空列表、填零占位或完成核对表均不能证明完整性。须依据目标和边界审查过程及输入输出覆盖。\n\n## PEF-05 — 普通截断与数据缺口排除分别处理\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.6.3,4.6.4; eu-2026-interim:§2.1\n\n应避免截断。第 4.6.4 节的普通允许范围为累计不超过 3.0%，需具备物料、能量及环境重要性证据，其进一步操作条件仅允许排除累计占物料流、能量流以及每个影响类别环境影响均小于 3.0% 的过程。前景允许范围在背景数据集已有截断之外另行考虑，并披露证据。不得将其改为仅看质量的规则，或任意省略四项上游过程。数据缺口排除另须穷尽适用的数据集层级，并按对应分支披露和审查。2026 年指导不免除对 EF 和 EL-ILCD 数据可得性的调查。研究证据应记录检索、备选数据、可得性、适用性、重要性及审查理由。模块标记或“数据不可得”的断言不授予消费方豁免。\n\n## PEF-06 — 一手活动数据与代表性二手数据\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.6.1,4.6.2,4.6.5.1–4.6.5.8,Tables 23–25\n\n物料清单和制造过程采用产品特定的企业活动数据，记录测量数量、收集时期、设施与技术范围及透明的汇总方法。记录二手数据集身份与版本、提供方、地理、时间和技术代表性、完整性、方法一致性及精度与不确定性，并采用适用的数据需求情形。按普通规则，研究中新建的所有数据集均须 EF 合规；临时指导关于研究层面 DQR 与提交要求的例外，本身不取消新数据集的义务。按普通 EF 合规数据规则，须依据技术代表性（TeR）、时间代表性（TiR）、地理代表性（GeR）和精度（P）计算并报告新数据集及整体研究 DQR：DQR = (TeR + TiR + GeR + P) / 4。对每个过程采用数据需求矩阵并报告所属情形：企业运行（1）、企业不运行但可获取企业特定信息（2）、或无法获取该信息（3）。表 25 要求情形 1 及情形 2 选项 1 使用 DQR ≤1.5 的企业特定数据集。情形 2 选项 2 要求在解聚的 EF 二手数据集中采用企业特定运输活动数据，并用供应链特定的电力与运输子过程替换，DQR ≤3.0，且按规定重评各项指标。情形 3 使用 DQR ≤3.0 的聚合 EF 二手数据集；对最相关过程重新计算指标，其他过程保留原评分。情形 2 的两个选项无先后优先关系。新企业数据集须分别评估活动数据与直接基本流，识别最相关贡献并采用第 4.6.5.2–4.6.5.3 节及表 23–24；不得用自报分数替代代表性证据。整体研究 DQR 须按第 4.6.5.8 节，以各最相关过程对单一环境总分的相对贡献分别加权各项指标，再采用 DQR 公式。PEF-07 与 PEF-08 中针对非 EF 数据的 2026 年研究 DQR 例外仅在实际条件满足时适用，不使全部采用 EF 数据的研究可任意省略普通 DQR。数量、指标算术及元数据可检查；适用性、质量与代表性需要实质评估。未知的数据质量不能记为合格分数。\n\n## PEF-07 — 无委员会正式 PEFCR 时的 2026 年数据层级\n\nApplicability: without-commission-pefcr\n\nCheck-kind: mixed\n\nSources: eu-2026-interim:§§1,2.1\n\n在临时指导适用期间，优先采用可用的 EF 合规二手数据集。不可得时，尽可能采用同一个单元过程数据库中的 EL-ILCD 合规数据集，否则可采用多个过程数据库，并在报告局限中披露。只有 EF 和 EL-ILCD 数据集均不可得时，才可排除该过程并明确披露局限。记录实际检索及有理由支持的选择。报告应按原文加入声明，说明作者自行选择的非 EF 数据集可能妨碍可比性。临时安排可超过此前总分占比 10% 的限制，但不证明数据等效。对于此类数据集，除非按指导重新计算其 TeR、TiR、GeR 和 P，否则不计算研究 DQR。研究实际使用非 EF 合规数据集时，仍须提供摘要、主报告与附件，指导免除了开发、公开提供并向委员会提交聚合 EF 合规数据集的要求。仅仅采用无 PEFCR 分支，不使全部采用 EF 数据的研究免于普通报告与数据集要求。\n\n## PEF-08 — 适用委员会正式 PEFCR 时的 2026 年数据层级\n\nApplicability: with-commission-pefcr\n\nCheck-kind: mixed\n\nSources: eu-2026-interim:§§1,2.2\n\n已确立适用的委员会正式 PEFCR 时，保留其一手数据要求，并优先采用 EF 合规二手数据。规则指定的 EF 数据不可得时，优先采用技术秘书处选定并通过附件或勘误发布的 EL-ILCD 替代数据；未选定时，由研究作者选择 EL-ILCD 数据，尽可能来自同一过程数据库，否则可使用多个数据库。披露选择并取得研究及报告核查方的验证，加入规定的可比性声明。不得将无 PEFCR 分支的过程排除许可移植到本分支。遵守第 2.2 节的 DQR 和报告规定，不因本指导而重新计算代表性产品。采用本分支前必须确立真实的类别规则适用性。\n\n## PEF-09 — 临时指导的日期与有效条件\n\nApplicability: all-pef\n\nCheck-kind: machine\n\nSources: eu-2026-interim:front matter,§1; eu-2021-2279-original:OJ identity; eu-2022-corrigendum:OJ 2022-05-23\n\n区分 2021 年建议文件、2022 年 5 月 23 日正式勘误以及用于查阅的修正合并文本。临时指导文稿于 2026 年 5 月完成，7 月公告是另一事件。该安排建议持续至下一版 EF 数据库可用时；预计 2028 年不是保证的到期日。服务器 Last-Modified 时间不代表表征方法发布。后续指导或新数据库可用时须重新评估适用性。\n\n## PEF-10 — 多功能性与分配\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §4.5\n\n采用规定的层级：尽可能通过过程细分或系统扩展避免分配，其次采用相关的基础物理关系，最后采用其他有理由支持的关系（例如经济分配）。说明细分或系统扩展的可行性、因果相关性、产品与联产品、分配系数、数据和敏感性。适用时采用行业专门规定。算术闭合不能证明某种分配科学合理；不得用任意经济默认值取代该层级。\n\n## PEF-11 — 能源、运输、基础设施及其他建模\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.4.1–4.4.7\n\n评估第 4.4 节完整建模要求的适用性，包括农业投入、电力层级与合同证据、现场发电、运输距离与方式及载重和返程、资本品、储存、抽样和使用情景。不适用主题须记录有来源支持的理由；适用主题须记录实际情景与来源。电网地域和报告年份须匹配，否则说明局限；合同声明须满足规定条件。通用电力 UUID 或只含燃料的前景清单不足以证明上游模型完整。\n\n## PEF-12 — 循环性与寿命终结约定\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.4.8,4.4.9\n\n涉及再生投入、生产废物、回收与再循环、再使用、翻新或产品寿命终结时，采用相关循环足迹公式及寿命规定，并绑定参数与情景来源。中间产品下游阶段排除不免除前景生产废物处理或再生投入的负荷。说明再生成分、能量回收与处置的分配，防止重复计算。参数存在性和质量平衡可机械检查；质量比、替代关系和情景相关性需要专业判断。\n\n## PEF-13 — 温室气体、移除与抵消\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.4.10,4.4.11; jrc-ef31-update:§2\n\n区分化石、生物源及土地利用与土地利用变化气候流，采用各自的核算、时间与报告要求。保留直接工艺排放（适用时包括水泥煅烧）、燃料燃烧、上游能源与物料负荷以及有依据的移除；不得虚构碳吸收或净零假设。碳抵消不从 PEF 结果扣除。EF 3.1 采用其绑定来源的更新气候表征；建议文件年份不是因子版本。须审查碳库与碳流边界及碳平衡，不能仅凭排放因子匹配推定有效。\n\n## PEF-14 — 全部十六个主类别与子类别角色\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§3.2.3,5.1; jrc-ef31-update:Table 1; jrc-ef31-package:ILCD/lciamethods\n\n应用全部十六个 EF 主类别。source-bindings.json 绑定其正式 UUID、版本、单位及来源成员哈希，并记录九个子类别方法。三个气候、四个人体毒性与两个生态毒性子类别是母类别的分解，不是用于归一化、加权或合计的另外九个独立类别。保留有机物致癌方法的文件名别名与其 XML 正式 UUID 的区别。仅覆盖两个选定方法不能认定完整 PEF 评估合格。有依据的真实零值仍是带证据的表征结果；缺失因子或未解决的映射仍属于须披露的覆盖缺口。\n\n## PEF-15 — 表征、流身份与地理适用性\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§4.3,5.1; jrc-ef31-package:ILCD/lciamethods\n\n将基本流分类至相关影响类别并采用固定版本的 EF 方法表征。匹配流 UUID 与版本、方向、参考量和单位、环境区室及适用的地域因子。选择非区域默认值时，保留原始因子的地理位置、备选数量与顺序号。位置缺失或空值以及缓存完全相符，不能证明对研究地域适用，也不允许将所有备选因子相加。缺失因子不同于有明确依据的零值，也不同于有理由的不适用。记录未解决的流映射、未匹配因子与适用性判断；本指导不允许静默填零。\n\n## PEF-16 — 归一化定义与单位\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §5.2.1; jrc-ef31-update:§4; jrc-ef31-package:other/lookLciMethodInformation.config\n\n归一化是必需步骤：将每个主类别的表征结果除以其匹配的归一化因子，保证参考单位兼容，并采用来源的全球人均参考基准。全部十六条记录须绑定方法 UUID、版本及参考量；十进制来源值以字符串保留。归一化结果须与表征结果同时报告。不得汇总未加权的归一化结果，因为那会隐含等权。方法 XML 的 normalisation=false 和 weighting=false 描述表征数据集，不免除 PEF 的这些步骤。保留配置中生态毒性单位拼写错误作为来源证据，单位语义采用 XML 与 JRC 支持的 CTUe。数值实现和舍入属于消费方职责。\n\n## PEF-17 — 加权与单一分数解释\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §5.2.2 and footnote 60; jrc-ef31-package:other/lookLciMethodInformation.config\n\n加权是必需步骤。将归一化主类别结果乘以匹配的来源权重；正式百分数权重须除以 100，而 source-bindings.json 已记录总和为一的份额，不得再次除以 100。可将加权类别汇总为以点数表示的单一总分，同时保留表征、归一化及加权结果。不得重复计入子类别，也不得比较声明单位或范围不同的结果。消费方来源记录须保留数值缩放和分数单位，不能将所有无量纲值均称为点数，或仅凭一个标量推定可公开比较。\n\n## PEF-18 — 稳健性、热点与局限\n\nApplicability: all-pef\n\nCheck-kind: professional\n\nSources: eu-2021-2279-corrected:Annex I §§6.1–6.4\n\n评估边界、来源选择、分配与假设的完整性、一致性和敏感性，必要时完善模型。采用第 6.3 节规定的程序（包括负值处理）识别最相关的类别、阶段、过程和基本流，不得采用任意前 N 名排序。结论须与目标、数据质量及不确定性一致，并披露局限。自动化回执和符合性测试夹具不能证明科学稳健性，也不能证明真实行业完整案例。\n\n## PEF-19 — 报告、核查与声明\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-corrected:Annex I §§7,8; eu-2026-interim:§§1,2.1,2.2\n\n编制 PEF 报告和适用的配套交付物，涵盖目标与范围、单位与边界、清单与数据层级及缺口、建模选择、表征及归一化和加权结果、解释、敏感性与局限。仅在有记录的对应分支使用临时指导中的报告、DQR 和聚合数据集例外。向第三方披露的研究须接受规定的独立核查与验证，保留核查者能力、范围、发现及声明。AI 审查、哈希、CI 通过和模块候选或审查字段均不等于人工核查、科学批准、EPD 或委员会批准的水泥 PEFCR。传播及比较声明需另具适用证据与规则。\n\n## PEF-20 — 来源权利、身份与职责分工\n\nApplicability: all-pef\n\nCheck-kind: mixed\n\nSources: eu-2021-2279-original:identity; eu-2022-corrigendum:identity; eu-2026-interim:copyright page; jrc-ef31-update:copyright page; jrc-ef31-package:publicationAndOwnership\n\n绑定准确的来源 URL 和 SHA-256 身份，包括原始文件与勘误，不将合并查阅文本视为正式法源。不得将报告的 CC-BY 许可推广至表征因子或背景数据；方法数据的来源限制保留 ILCD 格式、所有者署名及其附加条件。本模块分发派生要求、身份与数值事实，不包含受限原件或完整因子表。模块版本、欧盟规范版本、临时指导、EF 包与各方法版本、研究来源版本以及消费方执行配置版本彼此独立。PCR 拥有语义与证据要求；消费方拥有执行严重性、阶段、数值采纳、豁免、行动策略及实际研究评估。可信消费方须独立固定所交付制品及已审查 Main 来源的准确身份；包内自报审查元数据不是信任根。\n",
+      "source-bindings.json": "{\n  \"schema_version\": 1,\n  \"normative_version\": \"Recommendation (EU) 2021/2279, corrected 2022-05-23\",\n  \"factor_package_version\": \"EF 3.1\",\n  \"interim_guidance\": {\n    \"manuscript_month\": \"2026-05\",\n    \"announcement_date\": \"2026-07-14\",\n    \"validity_condition\": \"until the next EF database is available; expected 2028 is not a fixed expiry date\",\n    \"without_commission_pefcr_section\": \"2.1\",\n    \"with_commission_pefcr_section\": \"2.2\"\n  },\n  \"sources\": [\n    {\n      \"id\": \"eu-2021-2279-original\",\n      \"role\": \"original-recommendation\",\n      \"url\": \"https://publications.europa.eu/resource/celex/32021H2279\",\n      \"sha256\": \"af28de0896bfcfd8d627e758c97c83fd7d4bab94f2005ce5ea2079df42da39e3\",\n      \"bytes\": 5848991\n    },\n    {\n      \"id\": \"eu-2021-2279-corrected\",\n      \"role\": \"corrected-consolidated-annex-I\",\n      \"url\": \"https://publications.europa.eu/resource/celex/02021H2279-20211230\",\n      \"sha256\": \"4186fa4ad9b643a5c9074629e3c7a5ca25bb23105a34f2e16f37c0788f28b877\",\n      \"bytes\": 6487938\n    },\n    {\n      \"id\": \"eu-2022-corrigendum\",\n      \"role\": \"authentic-May2022-corrigendum\",\n      \"url\": \"https://eur-lex.europa.eu/eli/reco/2021/2279/corrigendum/2022-05-23/oj/eng\",\n      \"sha256\": \"42445138f591d8052c0096384db30db513c11da918d0de2e9955baa33264faa7\",\n      \"bytes\": 10881401\n    },\n    {\n      \"id\": \"eu-2026-interim\",\n      \"role\": \"actual-interim-guidance\",\n      \"url\": \"https://publications.europa.eu/resource/cellar/8fe38f0b-4829-11f1-8095-01aa75ed71a1\",\n      \"sha256\": \"27196dfbe2205cf7a6b9df648086aa24d2037830691fdfe3d5005cc5ed760d67\",\n      \"bytes\": 403291\n    },\n    {\n      \"id\": \"jrc-ef31-package\",\n      \"role\": \"EF31-reference-package\",\n      \"url\": \"https://eplca.jrc.ec.europa.eu/permalink/EF3_1/EF-v3.1.zip\",\n      \"sha256\": \"18763515dd93fabaa7f46b019de30cd521b2036a75a348e5824eeec2225afb27\",\n      \"bytes\": 206912900\n    },\n    {\n      \"id\": \"jrc-ef31-update\",\n      \"role\": \"EF31-update-report\",\n      \"url\": \"https://publications.jrc.ec.europa.eu/repository/bitstream/JRC130796/JRC130796_01.pdf\",\n      \"sha256\": \"938d7272de6769e8d484bcfc10f8c9be3688caa4a718d298790e8df7b3a65c58\",\n      \"bytes\": 2539914\n    }\n  ],\n  \"rights\": {\n    \"derived_bindings\": \"Source identities, bibliographic metadata and numerical facts only. No original dataset, factor table or PDF is included.\",\n    \"reports\": \"JRC130796 and the 2026 guidance state CC BY 4.0 with stated exceptions; this is not a package/background dataset licence.\",\n    \"method_datasets\": \"ILCD source datasets assert copyright and conditional use/distribution/conversion retaining ILCD format, owner attribution and any additional owner terms; changes/omissions invalidate governmental recommendation. Consult exact source ownership before redistributing originals.\",\n    \"consolidated_text\": \"Documentation aid; authentic OJ recommendation and corrigendum control.\"\n  },\n  \"normalisation_weighting_source\": {\n    \"package_source_id\": \"jrc-ef31-package\",\n    \"member\": \"EF-v3.1 (4)/other/lookLciMethodInformation.config\",\n    \"sha256\": \"14237568217d30236cb8bec43171c746162fde9aa4751f3b30d5fd49e4a3dce9\",\n    \"bytes\": 2672,\n    \"normalisation_basis\": \"global per-capita reference impacts; division of characterised results by corresponding NF\",\n    \"weight_representation\": \"fraction; source percentage guidance is divided by 100 once, not again for these fractions\",\n    \"unit_discrepancy\": \"Config freshwater ecotoxicity unitVal CTUitaloe is preserved as source_unit_label; official method reference quantity and JRC130796 Table 1 establish CTUe.\"\n  },\n  \"methods\": [\n    {\n      \"id\": \"6209b35f-9447-40b5-b68c-a1099e3674a0\",\n      \"version\": \"01.00.000\",\n      \"name\": \"Climate change\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/6209b35f-9447-40b5-b68c-a1099e3674a0.xml\",\n      \"source_sha256\": \"c0fe31d3c045ae85b64bd85a3bfa41e1f246d664e8f8d463005f37dee003a5a8\",\n      \"source_bytes\": 593046,\n      \"filename_id\": \"6209b35f-9447-40b5-b68c-a1099e3674a0\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg CO2 Equivalents\",\n      \"source_unit_label\": \"kg CO2 Equivalents\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 1099\n    },\n    {\n      \"id\": \"706261af-a357-4cc0-a50a-f3033fcbd556\",\n      \"version\": \"01.00.000\",\n      \"name\": \"Climate change-Biogenic\",\n      \"role\": \"subcategory\",\n      \"parent_id\": \"6209b35f-9447-40b5-b68c-a1099e3674a0\",\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/706261af-a357-4cc0-a50a-f3033fcbd556.xml\",\n      \"source_sha256\": \"a3d8a39e8e0bacfe7f2877b2bf1886cb733b4124cddaf362a0a5e285311878e1\",\n      \"source_bytes\": 13362,\n      \"filename_id\": \"706261af-a357-4cc0-a50a-f3033fcbd556\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg CO2-Equivalents\",\n      \"source_unit_label\": \"kg CO2-Equivalents\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 13\n    },\n    {\n      \"id\": \"7fce5b3a-66b8-4ce1-91e8-a925aee1f186\",\n      \"version\": \"01.00.000\",\n      \"name\": \"Climate change-Fossil\",\n      \"role\": \"subcategory\",\n      \"parent_id\": \"6209b35f-9447-40b5-b68c-a1099e3674a0\",\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/7fce5b3a-66b8-4ce1-91e8-a925aee1f186.xml\",\n      \"source_sha256\": \"7925c8ad33f804723fee7a808d8bf98c8ecdca9b47a5d6f732e415137ac58991\",\n      \"source_bytes\": 579621,\n      \"filename_id\": \"7fce5b3a-66b8-4ce1-91e8-a925aee1f186\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg CO2 Equivalents\",\n      \"source_unit_label\": \"kg CO2 Equivalents\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 1074\n    },\n    {\n      \"id\": \"14af9ca7-aa1d-4832-b1d9-ab05a06dcb12\",\n      \"version\": \"01.00.000\",\n      \"name\": \"Climate change-Land use and land use change\",\n      \"role\": \"subcategory\",\n      \"parent_id\": \"6209b35f-9447-40b5-b68c-a1099e3674a0\",\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/14af9ca7-aa1d-4832-b1d9-ab05a06dcb12.xml\",\n      \"source_sha256\": \"f184b2f418e69aa51df17f4741674c82ff98c486d78450097140fb6e863ffe4a\",\n      \"source_bytes\": 12917,\n      \"filename_id\": \"14af9ca7-aa1d-4832-b1d9-ab05a06dcb12\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg CO2-Equivalents\",\n      \"source_unit_label\": \"kg CO2-Equivalents\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 12\n    },\n    {\n      \"id\": \"2299222a-bbd8-474f-9d4f-4dd1f18aea7c\",\n      \"version\": \"01.01.000\",\n      \"name\": \"Human toxicity, cancer\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/2299222a-bbd8-474f-9d4f-4dd1f18aea7c.xml\",\n      \"source_sha256\": \"f8f23807aa68f005c4dacae10aff931c568e8a74a4faad6717438b2d2c20dc35\",\n      \"source_bytes\": 7327813,\n      \"filename_id\": \"2299222a-bbd8-474f-9d4f-4dd1f18aea7c\",\n      \"reference_quantity_id\": \"f65d356a-d702-4d79-850e-dd68b47bbcd9\",\n      \"unit_label\": \"CTUh\",\n      \"source_unit_label\": \"CTUh\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 13717\n    },\n    {\n      \"id\": \"01500b74-7ffb-463e-9bd4-72f17c2263ff\",\n      \"version\": \"01.00.000\",\n      \"name\": \"Human toxicity, cancer_inorganics\",\n      \"role\": \"subcategory\",\n      \"parent_id\": \"2299222a-bbd8-474f-9d4f-4dd1f18aea7c\",\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/01500b74-7ffb-463e-9bd4-72f17c2263ff.xml\",\n      \"source_sha256\": \"537c9e6a898c67e2d803991a3de9507f2ec4756bcbe5b60a211b75687a331a23\",\n      \"source_bytes\": 214815,\n      \"filename_id\": \"01500b74-7ffb-463e-9bd4-72f17c2263ff\",\n      \"reference_quantity_id\": \"f65d356a-d702-4d79-850e-dd68b47bbcd9\",\n      \"unit_label\": \"CTUh\",\n      \"source_unit_label\": \"CTUh\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 398\n    },\n    {\n      \"id\": \"503699e0-eca9-4089-8bf8-e0f49c93e578\",\n      \"version\": \"01.01.000\",\n      \"name\": \"Human toxicity, cancer_organics\",\n      \"role\": \"subcategory\",\n      \"parent_id\": \"2299222a-bbd8-474f-9d4f-4dd1f18aea7c\",\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/9ec743ea-6b00-400d-a53b-61547a3fc03c.xml\",\n      \"source_sha256\": \"84203510df0a0700e385cd1b08288859bff79d0127df02edb3b26882145d33c2\",\n      \"source_bytes\": 7120521,\n      \"filename_id\": \"9ec743ea-6b00-400d-a53b-61547a3fc03c\",\n      \"reference_quantity_id\": \"f65d356a-d702-4d79-850e-dd68b47bbcd9\",\n      \"unit_label\": \"CTUh\",\n      \"source_unit_label\": \"CTUh\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 13319\n    },\n    {\n      \"id\": \"7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8\",\n      \"version\": \"01.00.000\",\n      \"name\": \"Human toxicity, non-cancer\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8.xml\",\n      \"source_sha256\": \"d932a60f1615945df21b823f19321d80427a6eadb1b3e816f40153726b39993f\",\n      \"source_bytes\": 24163382,\n      \"filename_id\": \"7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8\",\n      \"reference_quantity_id\": \"f65d356a-d702-4d79-850e-dd68b47bbcd9\",\n      \"unit_label\": \"CTUh\",\n      \"source_unit_label\": \"CTUh\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 43816\n    },\n    {\n      \"id\": \"9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85\",\n      \"version\": \"01.00.000\",\n      \"name\": \"Human toxicity, non-cancer_inorganics\",\n      \"role\": \"subcategory\",\n      \"parent_id\": \"7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8\",\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85.xml\",\n      \"source_sha256\": \"fee7f45542a256f03faa73b406da8d40e7042be4c3719f24e0f0fdb55feace98\",\n      \"source_bytes\": 2308298,\n      \"filename_id\": \"9d1d43a2-e1aa-4c16-acd4-3dd8a6a2fb85\",\n      \"reference_quantity_id\": \"f65d356a-d702-4d79-850e-dd68b47bbcd9\",\n      \"unit_label\": \"CTUh\",\n      \"source_unit_label\": \"CTUh\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 4317\n    },\n    {\n      \"id\": \"8c3141e9-1f15-43b5-bff2-182e49893a46\",\n      \"version\": \"01.00.000\",\n      \"name\": \"Human toxicity, non-cancer_organics\",\n      \"role\": \"subcategory\",\n      \"parent_id\": \"7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8\",\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/8c3141e9-1f15-43b5-bff2-182e49893a46.xml\",\n      \"source_sha256\": \"51caa1ad49ac65822714fca432c34ec032c90101afca6cdaeccfec3ab50e10e7\",\n      \"source_bytes\": 21863235,\n      \"filename_id\": \"8c3141e9-1f15-43b5-bff2-182e49893a46\",\n      \"reference_quantity_id\": \"f65d356a-d702-4d79-850e-dd68b47bbcd9\",\n      \"unit_label\": \"CTUh\",\n      \"source_unit_label\": \"CTUh\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 39499\n    },\n    {\n      \"id\": \"05316e7a-b254-4bea-9cf0-6bf33eb5c630\",\n      \"version\": \"01.00.000\",\n      \"name\": \"Ecotoxicity, freshwater\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/05316e7a-b254-4bea-9cf0-6bf33eb5c630.xml\",\n      \"source_sha256\": \"252fe760308a14b647ba2a32e8e056f9d8434235be9f1bf3b0d452afe4548cd4\",\n      \"source_bytes\": 45631200,\n      \"filename_id\": \"05316e7a-b254-4bea-9cf0-6bf33eb5c630\",\n      \"reference_quantity_id\": \"585d3441-af58-49c9-a5c2-1d1e5b63f8d5\",\n      \"unit_label\": \"CTUe\",\n      \"source_unit_label\": \"CTUe\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 79349\n    },\n    {\n      \"id\": \"dacd48b5-4da5-49aa-aff4-cd5f5495c037\",\n      \"version\": \"01.00.000\",\n      \"name\": \"Ecotoxicity, freshwater-inorganics\",\n      \"role\": \"subcategory\",\n      \"parent_id\": \"05316e7a-b254-4bea-9cf0-6bf33eb5c630\",\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/dacd48b5-4da5-49aa-aff4-cd5f5495c037.xml\",\n      \"source_sha256\": \"6ddbbb5a67a33caa8cbd3f6d7dc46bdce71e98830bcc73d6596a2f3b250ef26d\",\n      \"source_bytes\": 3303245,\n      \"filename_id\": \"dacd48b5-4da5-49aa-aff4-cd5f5495c037\",\n      \"reference_quantity_id\": \"585d3441-af58-49c9-a5c2-1d1e5b63f8d5\",\n      \"unit_label\": \"CTUe\",\n      \"source_unit_label\": \"CTUe\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 6198\n    },\n    {\n      \"id\": \"fd530f00-9325-424a-92ef-aaac67922fd9\",\n      \"version\": \"01.00.000\",\n      \"name\": \"Ecotoxicity, freshwater-organics\",\n      \"role\": \"subcategory\",\n      \"parent_id\": \"05316e7a-b254-4bea-9cf0-6bf33eb5c630\",\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/fd530f00-9325-424a-92ef-aaac67922fd9.xml\",\n      \"source_sha256\": \"9a5a23ee80ff03a673d5aa626db693a6a7554192495103bb553f0ef90d9b914a\",\n      \"source_bytes\": 40035550,\n      \"filename_id\": \"fd530f00-9325-424a-92ef-aaac67922fd9\",\n      \"reference_quantity_id\": \"585d3441-af58-49c9-a5c2-1d1e5b63f8d5\",\n      \"unit_label\": \"CTUe\",\n      \"source_unit_label\": \"CTUe\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 73151\n    },\n    {\n      \"id\": \"b5c619fa-def3-11e6-bf01-fe55135034f3\",\n      \"version\": \"02.00.010\",\n      \"name\": \"Eutrophication marine\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/b5c619fa-def3-11e6-bf01-fe55135034f3.xml\",\n      \"source_sha256\": \"a681b4b9b2d853697e2e044719d43cb7eaa6b8e185af8b00bb277aa92e735301\",\n      \"source_bytes\": 330296,\n      \"filename_id\": \"b5c619fa-def3-11e6-bf01-fe55135034f3\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg N equivalents\",\n      \"source_unit_label\": \"kg N equivalents\",\n      \"intervention_locations\": [\n        \"RER\"\n      ],\n      \"impact_locations\": [\n        \"RER\"\n      ],\n      \"factor_count\": 590\n    },\n    {\n      \"id\": \"b53ec18f-7377-4ad3-86eb-cc3f4f276b2b\",\n      \"version\": \"01.00.010\",\n      \"name\": \"Eutrophication, freshwater\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/b53ec18f-7377-4ad3-86eb-cc3f4f276b2b.xml\",\n      \"source_sha256\": \"15eff61b234c7564bbd41b6dd40ed0dc6dfc0d5c1704f89d143f3dc90e82d523\",\n      \"source_bytes\": 26005,\n      \"filename_id\": \"b53ec18f-7377-4ad3-86eb-cc3f4f276b2b\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg P equivalents\",\n      \"source_unit_label\": \"kg P equivalents\",\n      \"intervention_locations\": [\n        \"RER\"\n      ],\n      \"impact_locations\": [\n        \"RER\"\n      ],\n      \"factor_count\": 29\n    },\n    {\n      \"id\": \"b5c614d2-def3-11e6-bf01-fe55135034f3\",\n      \"version\": \"01.02.009\",\n      \"name\": \"Eutrophication, terrestrial\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/b5c614d2-def3-11e6-bf01-fe55135034f3.xml\",\n      \"source_sha256\": \"72f1187a0682e186bdedf74f60fe99a1e1dafa7469141af74dfe4ea21c296992\",\n      \"source_bytes\": 328944,\n      \"filename_id\": \"b5c614d2-def3-11e6-bf01-fe55135034f3\",\n      \"reference_quantity_id\": \"341fd786-b2ad-4552-a762-5eafcab45dee\",\n      \"unit_label\": \"mol N equivalents\",\n      \"source_unit_label\": \"mol N equivalents\",\n      \"intervention_locations\": [\n        \"RER\"\n      ],\n      \"impact_locations\": [\n        \"RER\"\n      ],\n      \"factor_count\": 575\n    },\n    {\n      \"id\": \"b2ad6110-c78d-11e6-9d9d-cec0c932ce01\",\n      \"version\": \"01.00.010\",\n      \"name\": \"Resource use, fossils\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/b2ad6110-c78d-11e6-9d9d-cec0c932ce01.xml\",\n      \"source_sha256\": \"d9b4f8480a8e916e37b1403fc70e68241edbe71098e26cadc41e5f5caaa9fb93\",\n      \"source_bytes\": 9346,\n      \"filename_id\": \"b2ad6110-c78d-11e6-9d9d-cec0c932ce01\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200c9a66\",\n      \"unit_label\": \"MJ\",\n      \"source_unit_label\": \"MJ\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 6\n    },\n    {\n      \"id\": \"b2ad6494-c78d-11e6-9d9d-cec0c932ce01\",\n      \"version\": \"01.00.010\",\n      \"name\": \"Resource use, minerals and metals\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/b2ad6494-c78d-11e6-9d9d-cec0c932ce01.xml\",\n      \"source_sha256\": \"903dc1764187342f518c5fc00e6519cd0082cfe207569592f77adadb18568b06\",\n      \"source_bytes\": 31215,\n      \"filename_id\": \"b2ad6494-c78d-11e6-9d9d-cec0c932ce01\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg Sb equivalents\",\n      \"source_unit_label\": \"kg Sb equivalents\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 48\n    },\n    {\n      \"id\": \"b2ad66ce-c78d-11e6-9d9d-cec0c932ce01\",\n      \"version\": \"03.00.014\",\n      \"name\": \"Water use\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/b2ad66ce-c78d-11e6-9d9d-cec0c932ce01.xml\",\n      \"source_sha256\": \"f06fec854a386ecd9c2d6b2de3d735b341b9f5ac68990764a3e1fd84e91268d2\",\n      \"source_bytes\": 1268239,\n      \"filename_id\": \"b2ad66ce-c78d-11e6-9d9d-cec0c932ce01\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-22da-a746-0800200c9a66\",\n      \"unit_label\": \"m3-world equivalents\",\n      \"source_unit_label\": \"m3-world equivalents\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 2310\n    },\n    {\n      \"id\": \"b2ad6890-c78d-11e6-9d9d-cec0c932ce01\",\n      \"version\": \"01.00.010\",\n      \"name\": \"Land use\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/b2ad6890-c78d-11e6-9d9d-cec0c932ce01.xml\",\n      \"source_sha256\": \"94f959328235d7d68b6febea36810ab29104a14f1a1be57ae9e61c58ccb47149\",\n      \"source_bytes\": 19397429,\n      \"filename_id\": \"b2ad6890-c78d-11e6-9d9d-cec0c932ce01\",\n      \"reference_quantity_id\": \"01846770-4cfe-4a25-8ad9-919d8d378345\",\n      \"unit_label\": \"dimensionless (pt)\",\n      \"source_unit_label\": \"dimensionless (pt)\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 36423\n    },\n    {\n      \"id\": \"b5c611c6-def3-11e6-bf01-fe55135034f3\",\n      \"version\": \"01.04.000\",\n      \"name\": \"Acidification\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/b5c611c6-def3-11e6-bf01-fe55135034f3.xml\",\n      \"source_sha256\": \"1a09e9e8533cc6f1027f260c2672ca6f8dd231618fe81939ed1fc22d5e066f8f\",\n      \"source_bytes\": 523046,\n      \"filename_id\": \"b5c611c6-def3-11e6-bf01-fe55135034f3\",\n      \"reference_quantity_id\": \"341fd786-b2ad-4552-a762-5eafcab45dee\",\n      \"unit_label\": \"mol H+ equivalents\",\n      \"source_unit_label\": \"mol H+ equivalents\",\n      \"intervention_locations\": [\n        \"RER\"\n      ],\n      \"impact_locations\": [\n        \"RER\"\n      ],\n      \"factor_count\": 935\n    },\n    {\n      \"id\": \"b5c629d6-def3-11e6-bf01-fe55135034f3\",\n      \"version\": \"02.00.012\",\n      \"name\": \"Ozone depletion\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/b5c629d6-def3-11e6-bf01-fe55135034f3.xml\",\n      \"source_sha256\": \"e64477a1b282ce934a9fbeb456601589fca88c3d160289dc9680d4f1d261ead4\",\n      \"source_bytes\": 74051,\n      \"filename_id\": \"b5c629d6-def3-11e6-bf01-fe55135034f3\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg CFC11 equivalents\",\n      \"source_unit_label\": \"kg CFC11 equivalents\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 124\n    },\n    {\n      \"id\": \"b5c632be-def3-11e6-bf01-fe55135034f3\",\n      \"version\": \"01.00.011\",\n      \"name\": \"Ionising radiation, human health\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/b5c632be-def3-11e6-bf01-fe55135034f3.xml\",\n      \"source_sha256\": \"69f7a44f3e0682e11c882d77936b5f8f79951795ac775e3e99ea975e14e7c59e\",\n      \"source_bytes\": 109175,\n      \"filename_id\": \"b5c632be-def3-11e6-bf01-fe55135034f3\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-17da-a746-0800200c9a66\",\n      \"unit_label\": \"kBq U235 equivalents\",\n      \"source_unit_label\": \"kBq U235 equivalents\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 189\n    },\n    {\n      \"id\": \"b5c610fe-def3-11e6-bf01-fe55135034f3\",\n      \"version\": \"02.01.000\",\n      \"name\": \"Photochemical ozone formation - human health\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/b5c610fe-def3-11e6-bf01-fe55135034f3.xml\",\n      \"source_sha256\": \"273c43df66bfd12f7884e1c3e19d23daade5af5b96bd1d7c68802d87f7755f4a\",\n      \"source_bytes\": 804035,\n      \"filename_id\": \"b5c610fe-def3-11e6-bf01-fe55135034f3\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg NMVOC equivalents\",\n      \"source_unit_label\": \"kg NMVOC equivalents\",\n      \"intervention_locations\": [\n        \"RER\"\n      ],\n      \"impact_locations\": [\n        \"RER\"\n      ],\n      \"factor_count\": 1401\n    },\n    {\n      \"id\": \"b5c602c6-def3-11e6-bf01-fe55135034f3\",\n      \"version\": \"02.00.011\",\n      \"name\": \"EF-particulate Matter\",\n      \"role\": \"primary\",\n      \"parent_id\": null,\n      \"source_member\": \"EF-v3.1 (4)/ILCD/lciamethods/b5c602c6-def3-11e6-bf01-fe55135034f3.xml\",\n      \"source_sha256\": \"bbde0609351a78fe774c39d3c2a90b8cc463cf3f57d62ffbd4c4f9cb6cb5b721\",\n      \"source_bytes\": 565117,\n      \"filename_id\": \"b5c602c6-def3-11e6-bf01-fe55135034f3\",\n      \"reference_quantity_id\": \"01846770-4cfe-4a25-8ad9-919d8d378345\",\n      \"unit_label\": \"disease incidence\",\n      \"source_unit_label\": \"disease incidence\",\n      \"intervention_locations\": [\n        \"GLO\"\n      ],\n      \"impact_locations\": [\n        \"GLO\"\n      ],\n      \"factor_count\": 983\n    }\n  ],\n  \"normalisation_weighting\": [\n    {\n      \"method_id\": \"6209b35f-9447-40b5-b68c-a1099e3674a0\",\n      \"method_version\": \"01.00.000\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg CO2 Equivalents\",\n      \"normalisation_factor\": \"7553.08316285117\",\n      \"weight_fraction\": \"0.2106\",\n      \"source_unit_label\": \"kg CO2 eq\",\n      \"source_short_description\": \"CC\"\n    },\n    {\n      \"method_id\": \"b5c629d6-def3-11e6-bf01-fe55135034f3\",\n      \"method_version\": \"02.00.012\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg CFC11 equivalents\",\n      \"normalisation_factor\": \"0.0523483833840181\",\n      \"weight_fraction\": \"0.0631\",\n      \"source_unit_label\": \"kg CFC-11eq\",\n      \"source_short_description\": \"ODP\"\n    },\n    {\n      \"method_id\": \"2299222a-bbd8-474f-9d4f-4dd1f18aea7c\",\n      \"method_version\": \"01.01.000\",\n      \"reference_quantity_id\": \"f65d356a-d702-4d79-850e-dd68b47bbcd9\",\n      \"unit_label\": \"CTUh\",\n      \"normalisation_factor\": \"0.0000172528976538705\",\n      \"weight_fraction\": \"0.0213\",\n      \"source_unit_label\": \"CTUh\",\n      \"source_short_description\": \"HTC\"\n    },\n    {\n      \"method_id\": \"7cfdcfcf-b222-4b26-888a-a55f9fbf7ac8\",\n      \"method_version\": \"01.00.000\",\n      \"reference_quantity_id\": \"f65d356a-d702-4d79-850e-dd68b47bbcd9\",\n      \"unit_label\": \"CTUh\",\n      \"normalisation_factor\": \"0.000128735735008072\",\n      \"weight_fraction\": \"0.0184\",\n      \"source_unit_label\": \"CTUh\",\n      \"source_short_description\": \"HTN\"\n    },\n    {\n      \"method_id\": \"b5c602c6-def3-11e6-bf01-fe55135034f3\",\n      \"method_version\": \"02.00.011\",\n      \"reference_quantity_id\": \"01846770-4cfe-4a25-8ad9-919d8d378345\",\n      \"unit_label\": \"disease incidence\",\n      \"normalisation_factor\": \"0.000595366821125478\",\n      \"weight_fraction\": \"0.0896\",\n      \"source_unit_label\": \"Disease incidences\",\n      \"source_short_description\": \"PM\"\n    },\n    {\n      \"method_id\": \"b5c632be-def3-11e6-bf01-fe55135034f3\",\n      \"method_version\": \"01.00.011\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-17da-a746-0800200c9a66\",\n      \"unit_label\": \"kBq U235 equivalents\",\n      \"normalisation_factor\": \"4220.16339014993\",\n      \"weight_fraction\": \"0.0501\",\n      \"source_unit_label\": \"kBq U235\",\n      \"source_short_description\": \"IR\"\n    },\n    {\n      \"method_id\": \"b5c610fe-def3-11e6-bf01-fe55135034f3\",\n      \"method_version\": \"02.01.000\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg NMVOC equivalents\",\n      \"normalisation_factor\": \"40.8591977347772\",\n      \"weight_fraction\": \"0.0478\",\n      \"source_unit_label\": \"kg NMVOC eq\",\n      \"source_short_description\": \"POz\"\n    },\n    {\n      \"method_id\": \"b5c611c6-def3-11e6-bf01-fe55135034f3\",\n      \"method_version\": \"01.04.000\",\n      \"reference_quantity_id\": \"341fd786-b2ad-4552-a762-5eafcab45dee\",\n      \"unit_label\": \"mol H+ equivalents\",\n      \"normalisation_factor\": \"55.5695412306019\",\n      \"weight_fraction\": \"0.062\",\n      \"source_unit_label\": \"mol H+ eq\",\n      \"source_short_description\": \"ACI\"\n    },\n    {\n      \"method_id\": \"b5c614d2-def3-11e6-bf01-fe55135034f3\",\n      \"method_version\": \"01.02.009\",\n      \"reference_quantity_id\": \"341fd786-b2ad-4552-a762-5eafcab45dee\",\n      \"unit_label\": \"mol N equivalents\",\n      \"normalisation_factor\": \"176.754999788942\",\n      \"weight_fraction\": \"0.0371\",\n      \"source_unit_label\": \"mol N eq\",\n      \"source_short_description\": \"EUt\"\n    },\n    {\n      \"method_id\": \"b53ec18f-7377-4ad3-86eb-cc3f4f276b2b\",\n      \"method_version\": \"01.00.010\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg P equivalents\",\n      \"normalisation_factor\": \"1.60685212828813\",\n      \"weight_fraction\": \"0.028\",\n      \"source_unit_label\": \"kg P eq\",\n      \"source_short_description\": \"EUf\"\n    },\n    {\n      \"method_id\": \"b5c619fa-def3-11e6-bf01-fe55135034f3\",\n      \"method_version\": \"02.00.010\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg N equivalents\",\n      \"normalisation_factor\": \"19.5451815519191\",\n      \"weight_fraction\": \"0.0296\",\n      \"source_unit_label\": \"kg N eq\",\n      \"source_short_description\": \"EUm\"\n    },\n    {\n      \"method_id\": \"05316e7a-b254-4bea-9cf0-6bf33eb5c630\",\n      \"method_version\": \"01.00.000\",\n      \"reference_quantity_id\": \"585d3441-af58-49c9-a5c2-1d1e5b63f8d5\",\n      \"unit_label\": \"CTUe\",\n      \"normalisation_factor\": \"56716.5863370596\",\n      \"weight_fraction\": \"0.0192\",\n      \"source_unit_label\": \"CTUitaloe\",\n      \"source_short_description\": \"Eto\"\n    },\n    {\n      \"method_id\": \"b2ad6890-c78d-11e6-9d9d-cec0c932ce01\",\n      \"method_version\": \"01.00.010\",\n      \"reference_quantity_id\": \"01846770-4cfe-4a25-8ad9-919d8d378345\",\n      \"unit_label\": \"dimensionless (pt)\",\n      \"normalisation_factor\": \"819498.182923031\",\n      \"weight_fraction\": \"0.0794\",\n      \"source_unit_label\": \"soil quality index\",\n      \"source_short_description\": \"Lnd\"\n    },\n    {\n      \"method_id\": \"b2ad66ce-c78d-11e6-9d9d-cec0c932ce01\",\n      \"method_version\": \"03.00.014\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-22da-a746-0800200c9a66\",\n      \"unit_label\": \"m3-world equivalents\",\n      \"normalisation_factor\": \"11468.7086407597\",\n      \"weight_fraction\": \"0.0851\",\n      \"source_unit_label\": \"m3 water eq. deprived\",\n      \"source_short_description\": \"Wat\"\n    },\n    {\n      \"method_id\": \"b2ad6494-c78d-11e6-9d9d-cec0c932ce01\",\n      \"method_version\": \"01.00.010\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200b9a66\",\n      \"unit_label\": \"kg Sb equivalents\",\n      \"normalisation_factor\": \"0.0636226152369547\",\n      \"weight_fraction\": \"0.0755\",\n      \"source_unit_label\": \"kg Sb eq\",\n      \"source_short_description\": \"RMi\"\n    },\n    {\n      \"method_id\": \"b2ad6110-c78d-11e6-9d9d-cec0c932ce01\",\n      \"method_version\": \"01.00.010\",\n      \"reference_quantity_id\": \"93a60a56-a3c8-11da-a746-0800200c9a66\",\n      \"unit_label\": \"MJ\",\n      \"normalisation_factor\": \"65004.2596640165\",\n      \"weight_fraction\": \"0.0832\",\n      \"source_unit_label\": \"MJ\",\n      \"source_short_description\": \"REn\"\n    }\n  ],\n  \"geographical_selection\": {\n    \"cache_equivalence_is_suitability\": false,\n    \"requirements\": [\n      \"Bind flow UUID, flow version, direction and compartment/context before factor selection.\",\n      \"Retain original source factor location, ordinal and alternative count when selecting a default.\",\n      \"Absence or empty source location is not proof of geographical representativeness.\",\n      \"Review inventory geography, technology, time and regional alternatives for each relevant category.\",\n      \"A cache that drops locations requires separately pinned source selection evidence.\"\n    ]\n  },\n  \"versions_must_remain_distinct\": [\n    \"normative recommendation/corrigendum\",\n    \"interim guidance\",\n    \"factor package and per-method version\",\n    \"module package\",\n    \"product-study source\",\n    \"consumer implementation/profile\"\n  ]\n}\n",
+      "review.json": "{\n  \"schema_version\": 1,\n  \"records\": [\n    {\n      \"dimension\": \"source\",\n      \"reviewer_kind\": \"ai-independent\",\n      \"reviewer_identity\": \"Codex built-in subagent /root/p4_pcr_independent_review\",\n      \"reviewed_at\": \"2026-11-04\",\n      \"basis_sha256\": \"989391423c7f31bdf77e18ea4438fab1a27ff6708c0f44ecad8ab8813763a165\",\n      \"outcome\": \"no-material-findings\",\n      \"evidence_ref\": \"https://github.com/tiangong-lca/pcr/issues/165#issuecomment-6623306407\"\n    },\n    {\n      \"dimension\": \"translation\",\n      \"reviewer_kind\": \"ai-independent\",\n      \"reviewer_identity\": \"Codex built-in subagent /root/p4_pcr_independent_review\",\n      \"reviewed_at\": \"2026-11-04\",\n      \"basis_sha256\": \"989391423c7f31bdf77e18ea4438fab1a27ff6708c0f44ecad8ab8813763a165\",\n      \"outcome\": \"no-material-findings\",\n      \"evidence_ref\": \"https://github.com/tiangong-lca/pcr/issues/165#issuecomment-6623306407\"\n    },\n    {\n      \"dimension\": \"semantic\",\n      \"reviewer_kind\": \"ai-independent\",\n      \"reviewer_identity\": \"Codex built-in subagent /root/p4_pcr_independent_review\",\n      \"reviewed_at\": \"2026-11-04\",\n      \"basis_sha256\": \"989391423c7f31bdf77e18ea4438fab1a27ff6708c0f44ecad8ab8813763a165\",\n      \"outcome\": \"no-material-findings\",\n      \"evidence_ref\": \"https://github.com/tiangong-lca/pcr/issues/165#issuecomment-6623306407\"\n    }\n  ],\n  \"limitations\": [\n    \"These records cover independent automated source, bilingual translation and normative semantic review on the exact source basis; they do not approve implementation code or establish Main delivery/integration.\",\n    \"No human review, scientific approval, Commission cement PEFCR, EPD certification or complete industry-case qualification is established.\"\n  ]\n}\n"
+    }
+  }
+}

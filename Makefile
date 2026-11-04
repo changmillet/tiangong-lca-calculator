@@ -1,4 +1,4 @@
-.PHONY: fmt fmt-check qualification-test study-p0-check study-p0-native-check clippy test check
+.PHONY: fmt fmt-check qualification-test study-p0-check study-p0-native-check study-method-check study-method-native-check clippy test check
 
 fmt:
 	cargo fmt --all
@@ -20,10 +20,19 @@ study-p0-native-check: study-p0-check
 	STUDY_P0_NATIVE_OUTPUT="$(CURDIR)/reports/study-p0/native.json" cargo test -p solver-worker --test study_p0_benchmarks
 	python3 scripts/check_study_p0_benchmarks.py --native-results reports/study-p0/native.json
 
+study-method-check:
+	python3 scripts/check_study_method_assessment.py
+	PYTHONPATH=scripts python3 -m unittest scripts/test_study_method_assessment.py
+
+study-method-native-check: study-method-check
+	mkdir -p reports/study-method
+	STUDY_METHOD_ARITHMETIC_OUTPUT="$(CURDIR)/reports/study-method/arithmetic.json" cargo test -p solver-worker --lib source_ordered_mixed_arithmetic
+	python3 scripts/check_study_method_assessment.py --native-results reports/study-method/arithmetic.json
+
 clippy:
 	cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 test:
 	cargo test --workspace --all-features
 
-check: fmt-check qualification-test study-p0-check clippy test
+check: fmt-check qualification-test study-p0-check study-method-check clippy test

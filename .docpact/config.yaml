@@ -23,6 +23,7 @@ catalog:
         - docs/agents/contracts/study-compiler-contract.md
         - docs/agents/contracts/study-runtime-contract.md
         - docs/agents/contracts/study-analysis-contract.md
+        - docs/agents/contracts/study-method-assessment-contract.md
       workspaceIntegrationRequired: true
 
 ownership:
@@ -293,6 +294,7 @@ docInventory:
     - docs/agents/contracts/study-compiler-contract.md
     - docs/agents/contracts/study-runtime-contract.md
     - docs/agents/contracts/study-analysis-contract.md
+    - docs/agents/contracts/study-method-assessment-contract.md
     - docs/lca-api-contract.md
     - docs/scope-closure-contract.md
     - docs/matrix-readiness-report-contract.md
@@ -362,6 +364,32 @@ rules:
       - path: .docpact/config.yaml
         mode: review_or_update
     reason: Repo landing text should stay aligned with the current contract and AI entry surface.
+  - id: worker-study-method-assessment-contract
+    scope: repo
+    repo: worker
+    triggers:
+      - path: crates/solver-worker/src/study/method_assessment*
+        kind: source-bound-method-assessment
+      - path: crates/solver-worker/src/study/method_assessment/**
+        kind: assessment-source-and-predicates
+      - path: crates/solver-worker/src/study/method_assets/**
+        kind: independently-adopted-method-package
+      - path: crates/solver-worker/tests/fixtures/study-method-assessment/**
+        kind: assessment-source-and-arithmetic-fixtures
+      - path: crates/solver-worker/src/bin/study_method_assess.rs
+        kind: offline-method-candidate
+      - path: scripts/*study_method*.py
+        kind: independent-assessment-oracle
+      - path: docs/agents/contracts/study-method-*.schema.json
+        kind: assessment-schema
+      - path: docs/agents/contracts/study-method-assessment-contract.md
+        kind: assessment-contract
+    requiredDocs:
+      - path: docs/agents/contracts/study-method-assessment-contract.md
+        mode: review_or_update
+      - path: docs/agents/repo-validation.md
+        mode: review_or_update
+    reason: Exact method source adoption, frozen numerical predicates and explicit pending professional judgments need a separate assessment contract without changing legacy Run semantics.
   - id: worker-study-analysis-contract
     scope: repo
     repo: worker

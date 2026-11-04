@@ -38,7 +38,7 @@ checkPaths:
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-03
 lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
-lastReviewedNote: "Worker #360: reviewed frozen-result analysis contracts, source/Run binding, numeric codec and native dispatch; P1 hash semantics, current authorization and hosted/scientific qualification remain separate."
+lastReviewedNote: "Worker #366: reviewed independent method-assessment library/offline candidate, exact source/frozen-byte checks and pending professional evidence; existing Run/runtime/API/consumer authority remains unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -68,6 +68,12 @@ config/facts schemas are separate from P1 model/input/calculation identities;
 report authorization, persistence and signed export stay with their owners.
 
 ## Core Solver Invariants
+
+The [source-bound method assessment](contracts/study-method-assessment-contract.md)
+is a separate initial library and offline candidate family. Its independently
+pinned PCR module and verified frozen source/C evidence do not register a queue
+job or broaden existing API/report versions. Professional judgments and actual
+complete-industry-study acceptance remain separately pending.
 
 The [Study P0 profile](contracts/study-p0-calculation-profile.md) owns an offline
 qualification baseline and common rational fixtures under

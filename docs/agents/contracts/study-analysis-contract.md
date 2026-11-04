@@ -18,9 +18,9 @@ checkPaths:
   - crates/solver-worker/src/study/runtime*.rs
   - crates/solver-worker/tests/fixtures/study-analysis/**
   - docs/agents/contracts/study-analysis*.schema.json
-lastReviewedAt: 2026-11-03
-lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
-lastReviewedNote: "Worker #360: W08 frozen-result analysis, separate config/facts codec and fenced native job; no P1 numerical/hash or publication-policy change."
+lastReviewedAt: 2026-11-04
+lastReviewedCommit: 3d3159d9f231143a51f761f895fbd3aef18d1b9b
+lastReviewedNote: "Worker #366: reviewed independent method-assessment library/offline candidate, exact source/frozen-byte checks and pending professional evidence; existing Run/runtime/API/consumer authority remains unchanged."
 related:
   - study-runtime-contract.md
   - study-compiler-contract.md

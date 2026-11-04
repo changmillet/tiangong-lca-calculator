@@ -24,9 +24,9 @@ checkPaths:
   - crates/solver-worker/src/bin/review_quality_diagnostic_runner.rs
   - crates/**
   - supabase/migrations/**
-lastReviewedAt: 2026-11-03
-lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
-lastReviewedNote: "Worker #360: reviewed frozen-result analysis contracts, source/Run binding, numeric codec and native dispatch; P1 hash semantics, current authorization and hosted/scientific qualification remain separate."
+lastReviewedAt: 2026-11-04
+lastReviewedCommit: 3d3159d9f231143a51f761f895fbd3aef18d1b9b
+lastReviewedNote: "Worker #366: reviewed independent method-assessment library/offline candidate, exact source/frozen-byte checks and pending professional evidence; existing Run/runtime/API/consumer authority remains unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
