@@ -20,7 +20,7 @@ checkPaths:
   - crates/solver-worker/tests/fixtures/study-analysis/**
   - docs/agents/contracts/study-analysis*.schema.json
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: 942ab3f6e01822ddc99998ee04305c4bd2867c4d
+lastReviewedCommit: e39b20fe99173ea95d072273bdd06ce1ec3ce840
 lastReviewedNote: "Worker #362: reviewed independent frozen-source W14 native profiles and v2 config/facts/input boundaries; existing P1/W08 meaning and runtime/source/lease authority remain separate from admission."
 related:
   - study-runtime-contract.md
@@ -439,4 +439,14 @@ ordered arguments, public completed record, complete private read-input example
 and exact synthetic facts registration. `catalog-{oat,uniform,empirical}.json`
 and corresponding full facts are producer goldens. They establish component
 schema/numerical examples only. Database and Edge must agree and qualify these
-seams before daemon wiring or capability admission.
+seams before actual capability admission. The daemon now implements the agreed distinct advanced seams under the separate default-off admission described in the runtime contract; actual Database/Edge/native qualification remains required.
+
+
+Cross-owner canonical spelling fixtures preserve 27 boundary vectors and 4096
+finite IEEE-754 bit patterns from deterministic xorshift64 (seed
+`0x6c63612d73747564`, shifts 13/7/17). Expected strings were generated from the
+unchanged owner `canonical_number` function linked to the same locked serde_json
+implementation. They validate Node/SQL interoperability, not scientific numbers
+or a change to P1 hashing. PostgreSQL shortest notation alone is not equivalent
+(e.g. the binary value canonically spelled `1e23`); config hashes always bind
+supplied strings unchanged after validation.

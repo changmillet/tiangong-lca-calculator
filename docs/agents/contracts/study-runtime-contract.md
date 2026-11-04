@@ -21,7 +21,7 @@ checkPaths:
   - crates/solver-worker/src/storage.rs
   - docs/agents/contracts/study-runtime-contract.md
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: 942ab3f6e01822ddc99998ee04305c4bd2867c4d
+lastReviewedCommit: e39b20fe99173ea95d072273bdd06ce1ec3ce840
 lastReviewedNote: "Worker #362: reviewed independent frozen-source W14 native profiles and v2 config/facts/input boundaries; existing P1/W08 meaning and runtime/source/lease authority remain separate from admission."
 related:
   - study-compiler-contract.md
@@ -34,7 +34,7 @@ related:
 
 `study::runtime` dispatches source, preparation, Run and analysis kinds from the
 existing calculator/solver `worker_jobs` loop: `study.source_acquire`,
-`study.model_prepare`, `study.run`, `study.analysis`.
+`study.model_prepare`, `study.run`, `study.analysis`, `study.analysis_advanced`.
 Private payload schemas are exactly `<kind>.request.v1`; payloads contain
 `schemaVersion`, `studyId` and exactly one `acquisitionId`, `preparationId` or
 `runId` or `analysisId`. Actor claims, source documents, source-state assertions, artifact
@@ -154,7 +154,7 @@ component readiness, native preload/work, upload, readback and callback attempts
 The initial heartbeat is bounded by that same deadline; it cannot hold a claimed attempt indefinitely before native work starts. Failure acknowledgements use the same deadline-aware exact retry protocol. No new callback is initiated after that budget; an exhausted attempt leaves terminal readback/recovery to the canonical job lifecycle. A callback already dispatched
 when the client times out may have committed under a valid DB lease: its outcome
 is unknown, not remotely aborted. Identical callback retries recover the
-original receipt. Unknown outcomes retain objects and ownership receipts and do
+original receipt. Once any dispatched attempt is ambiguous, a later authorization or lease rejection cannot prove that the earlier attempt did not commit; the outcome stays unknown until success or scoped authoritative reconciliation. A first explicit rejection remains a known rejection. Unknown outcomes retain objects and ownership receipts and do
 not trigger a contradictory generic terminal write. Accepted cancellation,
 expired lease or takeover remains the atomic DB publication fence.
 
@@ -245,3 +245,28 @@ Its closed config/facts/input v2 formats and numerical interpretation live in
 all-or-error diagnostics do not relax the existing parent attempt, lease,
 cancellation, source rights, journal, upload or unknown-callback invariants.
 There is no implied daemon/API admission from that native component.
+
+
+### Explicit advanced daemon admission
+
+The separate advanced job now uses the agreed Database #909 / Edge #553
+`svc_study_analysis_advanced_read_input_v1` and
+`svc_study_analysis_advanced_complete_v1` seams. The read DTO is input.v2;
+completion is facts.v2 without W08 comparability. The parent binds exact
+Study/analysis/job, downloads the original source snapshot and baseline
+prepared/result through their issued private capabilities, and sends only
+those verified files to `analyze_advanced`. No live source or factor reload
+is introduced. After native execution, the parent validates the complete
+facts catalog, frozen identities and effective limits before the existing
+journal/upload/readback/fenced completion protocol.
+
+Admission additionally requires `STUDY_ADVANCED_ENABLED=true`, explicit positive
+`STUDY_ADVANCED_MAX_PARAMETERS` and `STUDY_ADVANCED_MAX_EVALUATIONS` (at least
+three, including the baseline reproduction). Missing or malformed values reject
+only advanced jobs; deterministic handlers retain their admission contract.
+The service/operator must bind these limits to actual qualification evidence;
+no default advanced capacity is advertised. The DB configuration independently
+limits public admission. The existing whole-attempt deadline, native aggregate
+budget, artifact/RSS limits, single claim, cancellation and unknown-outcome
+retention remain unchanged. Code wiring and local fixture tests do not qualify
+the actual installed SQL/Storage/actor pipeline or a hosted deployment.
