@@ -220,6 +220,9 @@ pub async fn execute_request(request: NativeRequest) -> anyhow::Result<()> {
         NativeAction::AnalyzeAdvanced { analysis_path } => {
             super::analysis_advanced::execute_native(&analysis_path, &request.limits)?
         }
+        NativeAction::AssessMethod { assessment_path } => {
+            super::method_assessment::execute_native(&assessment_path, &request.limits).await?
+        }
         NativeAction::Analyze { analysis_path } => {
             super::analysis::execute_native(&analysis_path, &request.limits)?
         }

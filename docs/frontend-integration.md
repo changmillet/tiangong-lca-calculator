@@ -21,8 +21,8 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/review-quality-diagnostic-contract.md
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: c01f9f6
-lastReviewedNote: "Worker #366: reviewed exact method job/context/evidence/catalog interfaces and pre-publication schema completion; current source/actor/lease/runtime/report qualification remains separately required. Existing numerical families are retained."
+lastReviewedCommit: accb92f
+lastReviewedNote: "Worker #366: reviewed separately gated method daemon/native budgets, exact source/context rechecks, purpose-bound completion and formal reconciliation; actual Database, actor/Storage/report and complete industry/professional qualification remain required."
 related:
   - AGENTS.md
   - .docpact/config.yaml

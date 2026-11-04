@@ -376,6 +376,39 @@ struct SnapshotMetadata {
     observed_at: String,
 }
 
+pub(super) fn validate_metadata_binding(
+    input: &super::super::method_assessment_contracts::ServiceInput,
+) -> anyhow::Result<()> {
+    let meta: SnapshotMetadata = serde_json::from_value(input.source_snapshot.clone())?;
+    let origin = meta
+        .origin_ref
+        .as_object()
+        .context("study_method_snapshot_origin")?;
+    ensure!(
+        !meta.snapshot_id.is_nil()
+            && meta.study_id == input.assessment.study_id
+            && meta.digest_scope == "artifact_bytes_sha256"
+            && serde_json::to_value(meta.source_artifact_ref)?
+                == serde_json::to_value(&input.source_artifact.artifact_ref)?
+            && origin.len() == 4
+            && meta.origin_ref["type"] == "datasetRevision"
+            && meta.origin_ref["datasetType"] == "lifecyclemodel"
+            && origin
+                .get("id")
+                .and_then(Value::as_str)
+                .is_some_and(|v| super::bounded(v, 128))
+            && origin
+                .get("version")
+                .and_then(Value::as_str)
+                .is_some_and(|v| super::bounded(v, 64))
+            && super::bounded(&meta.license_ref, 2048)
+            && super::bounded(&meta.issuer_id, 256)
+            && chrono::DateTime::parse_from_rfc3339(&meta.observed_at).is_ok(),
+        "study_method_snapshot_metadata_binding"
+    );
+    Ok(())
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct SourceProof {
     pub source: SourceInput,

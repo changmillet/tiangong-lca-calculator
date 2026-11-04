@@ -19,8 +19,8 @@ checkPaths:
   - scripts/*study_method*.py
   - docs/agents/contracts/study-method-*.schema.json
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: c01f9f6
-lastReviewedNote: "Worker #366: reviewed exact method job/context/evidence/catalog interfaces and pre-publication schema completion; current source/actor/lease/runtime/report qualification remains separately required. Existing numerical families are retained."
+lastReviewedCommit: accb92f
+lastReviewedNote: "Worker #366: reviewed separately gated method daemon/native budgets, exact source/context rechecks, purpose-bound completion and formal reconciliation; actual Database, actor/Storage/report and complete industry/professional qualification remain required."
 related:
   - study-analysis-contract.md
   - study-compiler-contract.md
@@ -181,17 +181,17 @@ Output creation is exclusive, bounded and private on Unix; existing paths are
 never overwritten. An incomplete write remains for explicit operator handling.
 Its receipt is an offline candidate receipt, not a service completion receipt.
 
-## Later owned runtime and consumer work
+## Owned runtime and consumer qualification
 
-Proposed job `study.method_assessment`, payload
-`study.method_assessment.request.v1`, and distinct `methodAssessment` resource
-require explicit Database/Edge agreement. Proposed private read/completion seams
-are `svc_study_method_assessment_read_input_v1` and
-`svc_study_method_assessment_complete_v1`. Do not register/advertise them from this
-initial milestone. Current source/actor/client/lease, cancellation, unknown-outcome
-retention, artifact bytes and report disclosure must be qualified through their
-owners before hosted admission. Do not widen V5 or use an offline CLI as service,
-API, Database, report or complete #366/#2181 acceptance.
+The Worker adapter now implements the separate method job and private native
+boundary described by [the runtime contract](study-runtime-contract.md). It
+expects the exact source-bound service interfaces frozen below. Database/Edge
+adoption and actual actor/job/Storage qualification are separate owner work;
+source code, offline invocation and private metadata are insufficient to enable
+or advertise a deployment. V5 and the existing deterministic Run contract stay
+unchanged. Current source/actor/client/lease, cancellation, unknown-outcome
+retention, artifact bytes and report disclosure require cross-owner tests before
+hosted admission. The real positive/professional acceptance remains unmet.
 
 ## Frozen service adoption interfaces
 

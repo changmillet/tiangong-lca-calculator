@@ -21,8 +21,8 @@ checkPaths:
   - crates/solver-worker/src/storage.rs
   - docs/agents/contracts/study-runtime-contract.md
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: c01f9f6
-lastReviewedNote: "Worker #366: reviewed exact method job/context/evidence/catalog interfaces and pre-publication schema completion; current source/actor/lease/runtime/report qualification remains separately required. Existing numerical families are retained."
+lastReviewedCommit: accb92f
+lastReviewedNote: "Worker #366: reviewed separately gated method daemon/native budgets, exact source/context rechecks, purpose-bound completion and formal reconciliation; actual Database, actor/Storage/report and complete industry/professional qualification remain required."
 related:
   - study-compiler-contract.md
   - ../../lca-api-contract.md
@@ -34,10 +34,12 @@ related:
 
 `study::runtime` dispatches source, preparation, Run and analysis kinds from the
 existing calculator/solver `worker_jobs` loop: `study.source_acquire`,
-`study.model_prepare`, `study.run`, `study.analysis`, `study.analysis_advanced`.
+`study.model_prepare`, `study.run`, `study.analysis`, `study.analysis_advanced`,
+`study.method_assessment`.
 Private payload schemas are exactly `<kind>.request.v1`; payloads contain
 `schemaVersion`, `studyId` and exactly one `acquisitionId`, `preparationId` or
-`runId` or `analysisId`. Actor claims, source documents, source-state assertions, artifact
+`runId` or `analysisId` or `assessmentId`. Method payloads have exactly schema,
+Study and assessment IDs; old payloads still reject `assessmentId`. Actor claims, source documents, source-state assertions, artifact
 locators, results and credentials are not accepted in job payloads.
 
 Successful domain callbacks atomically commit the artifact/domain association
@@ -270,3 +272,39 @@ limits public admission. The existing whole-attempt deadline, native aggregate
 budget, artifact/RSS limits, single claim, cancellation and unknown-outcome
 retention remain unchanged. Code wiring and local fixture tests do not qualify
 the actual installed SQL/Storage/actor pipeline or a hosted deployment.
+
+
+## Method-assessment daemon boundary
+
+The separate default-off method job expects the frozen interfaces in the
+[method contract](study-method-assessment-contract.md). Native action
+`assess_method` consumes private native.v1 and the distinct job-context.v1
+wrapper without widening its inner assessment-input.v1. The parent binds
+Study/assessment/job and admitted selected-factor ceiling to its independently
+configured `STUDY_METHOD_MAX_SELECTED_FACTOR_RECORDS`; `STUDY_METHOD_ENABLED=true`
+and a positive ceiling at most8192 are both required. Missing settings reject
+only method jobs. New job admission remains independently Database-owned.
+
+The Worker downloads the three exact SourceSnapshot/prepared/result private
+artifacts, then resolves the same current context again before native execution.
+Pinned method loading and frozen-source re-preparation run inside the existing
+supervised native process, with the selected-factor bound checked before source
+expansion. These verification steps create no new deterministic Run or source
+snapshot and do not replace the original frozen method/calculation identities.
+The whole-attempt deadline/RSS/cancellation/kill-and-reap policy remains in force.
+
+The parent verifies registered facts purpose, all25 category identities, all20
+requirement/professional states, exact scalar catalog, N/W availability and
+original baseline references. It reauthorizes through input resolution again
+before upload. Method completion carries actual selected-factor record count
+(including missing-factor records) and exact immutable facts ref. Only this
+family uses its distinct read/complete/fail/reconcile RPCs. A completion success
+must return the exact method record/job/config/artifact; malformed success is
+ambiguous and retains the original journal through the sticky-unknown retry
+protocol. Formal reconciliation checks the exact completed record before
+retiring a method upload journal. No actor/source permission is renewed by it.
+
+Local source/fixture/native proof does not establish actual Database issuance,
+OAuth/Storage/report consumers, supported-host method capacity or a complete
+industry positive. Those remain independently required through the tracked
+cross-owner cohort. No migration or source merge enables this capability.

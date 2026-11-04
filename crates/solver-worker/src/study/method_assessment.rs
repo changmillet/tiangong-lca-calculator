@@ -2,6 +2,7 @@
 mod catalog;
 mod module;
 mod normalisation;
+mod runtime;
 mod service;
 mod source;
 use super::{
@@ -20,6 +21,7 @@ use super::{
     semantic_hash,
 };
 use anyhow::{Context, ensure};
+pub use runtime::execute_native;
 use serde_json::Value;
 pub use service::{validate_context, validate_evidence_body, validate_registered_output};
 pub use source::TrustedMethods;

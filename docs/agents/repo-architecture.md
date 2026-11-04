@@ -37,8 +37,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: c01f9f6
-lastReviewedNote: "Worker #366: reviewed exact method job/context/evidence/catalog interfaces and pre-publication schema completion; current source/actor/lease/runtime/report qualification remains separately required. Existing numerical families are retained."
+lastReviewedCommit: accb92f
+lastReviewedNote: "Worker #366: reviewed separately gated method daemon/native budgets, exact source/context rechecks, purpose-bound completion and formal reconciliation; actual Database, actor/Storage/report and complete industry/professional qualification remain required."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -296,4 +296,4 @@ This repository has a versioned local `pre-push` hook under `.githooks/pre-push`
 
 ### Study owned runtime
 
-`study::runtime` branches from the existing calculator solver queue, using service-owned source/read/completion RPCs and private Study Storage. `study_native` isolates preload/compile/solve; `runtime_process` supervises kill/reap and sampled RSS. Scenario uses frozen base factors and inherited base overrides; no live factor/background reload. See [runtime authority, cleanup and qualification](contracts/study-runtime-contract.md).
+`study::runtime` branches from the existing calculator solver queue, using service-owned source/read/completion RPCs and private Study Storage. Separate default-off method jobs use `method_runtime_contracts` and supervised method native execution; evidence recording and method scalars remain distinct from professional approval. `study_native` isolates preload/compile/solve; `runtime_process` supervises kill/reap and sampled RSS. Scenario uses frozen base factors and inherited base overrides; no live factor/background reload. See [runtime authority, cleanup and qualification](contracts/study-runtime-contract.md).

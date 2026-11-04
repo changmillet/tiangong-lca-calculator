@@ -46,6 +46,9 @@ async fn main() {
                 || label.starts_with("study_analysis_result_residual")
                 || label.starts_with("study_analysis_contribution_balance")
                 || label.starts_with("study_analysis_arithmetic_underflow")
+                || label.starts_with("study_method_normalisation_range")
+                || label.starts_with("study_method_weighted_range")
+                || label.starts_with("study_method_aggregation_range")
             {
                 NativeErrorKind::NumericInvalid
             } else if error.downcast_ref::<solver_core::SolverError>().is_some() {

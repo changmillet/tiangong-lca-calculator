@@ -53,7 +53,8 @@ pub fn validate_context(context: &JobContext) -> anyhow::Result<()> {
             && context.budget.max_facts_bytes == MAX_FACTS_BYTES,
         "study_method_job_budget"
     );
-    super::validate_input(&context.input)
+    super::validate_input(&context.input)?;
+    super::source::validate_metadata_binding(&context.input)
 }
 
 /// This rechecks the output's frozen identities, values, statuses and scalar catalog without

@@ -26,8 +26,8 @@ checkPaths:
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: c01f9f6
-lastReviewedNote: "Worker #366: reviewed exact method job/context/evidence/catalog interfaces and pre-publication schema completion; current source/actor/lease/runtime/report qualification remains separately required. Existing numerical families are retained."
+lastReviewedCommit: accb92f
+lastReviewedNote: "Worker #366: reviewed separately gated method daemon/native budgets, exact source/context rechecks, purpose-bound completion and formal reconciliation; actual Database, actor/Storage/report and complete industry/professional qualification remain required."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -50,6 +50,13 @@ the private `study.analysis` job and versioned config/facts artifacts. It consum
 issued P1 frozen inputs/results without changing ordinary snapshot, calculation,
 missing-factor or publication semantics. Study/report actor wire versions,
 current source-rights enforcement and export signatures remain separately owned.
+
+The [method assessment contract](agents/contracts/study-method-assessment-contract.md)
+adds the independent `study.method_assessment` family, exact source/evidence
+bindings, twenty separate requirement/professional states and a bounded scalar
+catalog. Its default-off runtime preserves original deterministic artifacts;
+public V6, report projection, current permissions and scientific qualification
+remain owned and tested independently. Source code does not activate a server.
 
 The [Study P0 calculation profile](agents/contracts/study-p0-calculation-profile.md)
 defines an offline qualification baseline only; it adds no runtime job or API.
