@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-03
-lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
-lastReviewedNote: "Worker #360: reviewed frozen-result analysis contracts, source/Run binding, numeric codec and native dispatch; P1 hash semantics, current authorization and hosted/scientific qualification remain separate."
+lastReviewedAt: 2026-11-04
+lastReviewedCommit: 65986599adb3ae4da2385b476b376ac2a418cd25
+lastReviewedNote: "Worker #363: checked internal residual refinement, calculation fingerprint compatibility, unchanged consumer formats and synthetic validation."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
