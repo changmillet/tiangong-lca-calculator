@@ -752,19 +752,17 @@ mod tests {
                         );
                     }
                 };
-                if let Err(error) = &probe {
-                    if error.is::<LinuxMissingVmRss>()
-                        && qualification_try_wait(&mut child, pid, peak)
-                            .await?
-                            .is_none()
-                    {
-                        let observed = Instant::now();
-                        let status = match reconcile_exit(
-                            &mut child,
-                            &CancellationToken::default(),
-                            deadline,
-                        )
-                        .await
+                if probe
+                    .as_ref()
+                    .is_err_and(|error| error.is::<LinuxMissingVmRss>())
+                    && qualification_try_wait(&mut child, pid, peak)
+                        .await?
+                        .is_none()
+                {
+                    let observed = Instant::now();
+                    let status =
+                        match reconcile_exit(&mut child, &CancellationToken::default(), deadline)
+                            .await
                         {
                             Ok(status) => status,
                             Err(code) => {
@@ -778,14 +776,12 @@ mod tests {
                                 .await);
                             }
                         };
-                        let proof =
-                            exited(status, pid, peak, &CancellationToken::default(), deadline)?;
-                        assert!(proof.reaped);
-                        assert_eq!(proof.peak_rss_bytes, peak);
-                        assert_pid_reaped(pid);
-                        log_exit_race_proof(&proof, samples, observed, attempt)?;
-                        return Ok(());
-                    }
+                    let proof = exited(status, pid, peak, &CancellationToken::default(), deadline)?;
+                    assert!(proof.reaped);
+                    assert_eq!(proof.peak_rss_bytes, peak);
+                    assert_pid_reaped(pid);
+                    log_exit_race_proof(&proof, samples, observed, attempt)?;
+                    return Ok(());
                 }
                 if let Some(status) = qualification_try_wait(&mut child, pid, peak).await? {
                     assert!(status.success());
