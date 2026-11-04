@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-05
-lastReviewedCommit: 30edb3eaa07cf1bf5f4b17740d41cab4c27c54e3
-lastReviewedNote: "Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged."
+lastReviewedCommit: 818b5e00a37f56637f6418ead692ab430c1fdbc1
+lastReviewedNote: "Worker #366: reviewed the hash-bound all-inventory complete-sixteen reachability limit and measured synthetic native capacity. Runtime, schemas, source pins, historical Run coverage and professional qualification remain unchanged. Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged. Combined review adopts exact Main f74dfdba1d0f8aa7b87930ca344b2213e21b5f05 into method source 818b5e00a37f56637f6418ead692ab430c1fdbc1; method structural N/W limits and separate actor/cohort/professional qualification remain in force."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -92,6 +92,54 @@ cargo fmt --all -- --check
 ```
 
 Treat the last two commands as non-negotiable hard gates after code changes.
+
+### Study method assessment qualification
+
+`make study-method-check` checks the exact adopted portable source and isolated
+sixteen-primary-category arithmetic with an independent 80-digit Decimal oracle,
+plus adversarial provenance, mapping, scale, unknown-factor and decomposition
+cases. Rust tests compare the native output with that oracle-checked fixture.
+`make study-method-native-check` additionally writes fresh native output under
+`reports/study-method` and runs the independent oracle over it. The fixture is
+explicitly isolated arithmetic, never a source-complete Study or conformity case.
+No external Python package is needed for these gates.
+
+For a bounded actual replay use the [method assessment contract](contracts/study-method-assessment-contract.md)
+and exact original prepared/result/SourceSnapshot bytes plus read-only canonical
+baseline metadata. Bind all original and emitted byte hashes and retain the
+private candidate/facts outside Git. Check all twenty separate requirements,
+known cutoffs/coverage gaps and false qualification flags. Negative cases must
+reject byte/source substitutions, unknown approval/job fields and output-path
+replacement. Original artifacts must stay unchanged. The existing two-method,
+four-cutoff cement Study remains an actual incomplete/negative case; a complete
+real positive case and professional judgment are still unavailable. A successful
+offline invocation is not Database/Edge/report/authorization qualification.
+The separately gated method runtime additionally needs exact service-context,
+three-artifact download/current-rights recheck, native selected-factor budget,
+immutable publication, lost-ack retention and formal reconciliation proof.
+Run `make study-method-check` for the independent scalar/catalog oracle and
+reproducible closed schemas; actual cross-owner qualification remains separate.
+
+The 2026-11-04 bounded source/native assessment at exact source
+`6d33613e2ed969e76a9cb42ab7bf6e9a70b9e352` used a locked macOS arm64 debug
+build with SHA256
+`4f161bf96ed9f0dc1cb49c187d2b15bb65d8388856f66dc99536d8b671780b07`.
+A synthetic 25-method × 128-axis shape completed with 3,200 evidence records,
+2,129,770 facts bytes, 28.64 seconds and 202,211,328 bytes sampled peak RSS.
+A 3,199-record admitted ceiling rejected that shape before source expansion.
+The 8,175-record shape failed closed with `resource_limit`; its evidence rows
+alone cannot fit the 4 MiB envelope. The absolute 8,192-pair cap does not promise
+successful execution for every metadata/dimension combination. No supervisor
+stop was required and every owned child was reaped.
+
+These measurements use actual pinned factor values with synthetic model/unit
+support and are not source-unit suitability, hosted capacity or real-study
+qualification. The same native pipeline produced six matched factors and ten
+gaps for one axis with all sixteen primary methods; N/W remained unavailable.
+See the [structural coverage limit](contracts/study-method-assessment-contract.md#material-p1-coverage-limit)
+for why current exact-source complete-sixteen eligibility is unreachable.
+Keep server admission, byte caps, outer containment and real actor/job/Storage
+qualification separately evidenced; never replace them with this local table.
 
 ### Study P0 offline qualification
 

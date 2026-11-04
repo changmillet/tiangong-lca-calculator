@@ -21,8 +21,8 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/review-quality-diagnostic-contract.md
 lastReviewedAt: 2026-11-05
-lastReviewedCommit: 30edb3eaa07cf1bf5f4b17740d41cab4c27c54e3
-lastReviewedNote: "Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged."
+lastReviewedCommit: 818b5e00a37f56637f6418ead692ab430c1fdbc1
+lastReviewedNote: "Worker #366: reviewed Unicode evidence text/schema parity, independent UTF-8 body ceiling and retained config.v1 semantics; source/lease/runtime/report and complete industry/professional qualification remain independently required. Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged. Combined review adopts exact Main f74dfdba1d0f8aa7b87930ca344b2213e21b5f05 into method source 818b5e00a37f56637f6418ead692ab430c1fdbc1; method structural N/W limits and separate actor/cohort/professional qualification remain in force."
 related:
   - AGENTS.md
   - .docpact/config.yaml

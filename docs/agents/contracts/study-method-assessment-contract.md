@@ -1,0 +1,269 @@
+---
+title: Study source-bound method assessment contract
+docType: contract
+scope: repo
+status: active
+authoritative: true
+owner: worker
+language: en
+whenToUse:
+  - when assessing an issued frozen Study against the independently pinned PEF/EF31 source module
+whenToUpdate:
+  - when supported assessment predicates, declarations, schemas, source adoption or arithmetic changes
+checkPaths:
+  - crates/solver-worker/src/study/method_assessment*
+  - crates/solver-worker/src/study/method_assessment/**
+  - crates/solver-worker/src/study/method_assets/**
+  - crates/solver-worker/src/bin/study_method_assess.rs
+  - crates/solver-worker/tests/fixtures/study-method-assessment/**
+  - scripts/*study_method*.py
+  - docs/agents/contracts/study-method-*.schema.json
+lastReviewedAt: 2026-11-04
+lastReviewedCommit: 6d33613e2ed969e76a9cb42ab7bf6e9a70b9e352
+lastReviewedNote: "Worker #366: reviewed the hash-bound all-inventory complete-sixteen reachability limit and measured synthetic native capacity. Runtime, schemas, source pins, historical Run coverage and professional qualification remain unchanged."
+related:
+  - study-analysis-contract.md
+  - study-compiler-contract.md
+  - study-runtime-contract.md
+  - ../repo-validation.md
+---
+
+# Initial bounded assessment
+
+Worker #366 owns an independent `lca.study-method-assessment-*.v1` family and
+`lca.study-method-pef-2021-ef31-cement-intermediate.v1` executable profile. PCR
+owns the source meaning. This profile produces source-derived mechanical facts
+and explicit pending/unsupported requirements for a declared finished-cement
+intermediate product. It never issues PEF conformity, scientific, comparative,
+EPD, Commission category-rule or business approval. Existing Run/compiler,
+calculation fingerprints, factor selection and hash domains remain unchanged.
+The initial library/offline candidate is not the complete #366/#2181 delivery.
+
+## Independently adopted source
+
+The consumer pins PCR Main `51c0842c67b14ba886e2edee2846e26eefac030f`, module
+`method.pef-2021-ef31@0.1.0`, delivered artifact
+`b19ba5754b0bc20c44c8c65966bafafd5984cd74636f2c805c0fa4373f5554ad`, review basis
+`989391423c7f31bdf77e18ea4438fab1a27ff6708c0f44ecad8ab8813763a165` and exact
+source-bindings bytes. Caller-supplied package review/scientific flags, filename
+or file presence are not trust anchors. The module remains a candidate source
+interpretation without scientific study approval.
+
+The producer package payload hash uses its own ordered two-space JSON plus one
+newline. It is distinct from Study's sorted compact semantic JSON and from the
+whole delivered artifact hash. Embedded authored UTF-8 bytes, including BOMs,
+retain their own raw hashes. Runtime imports neither a sibling repository nor
+restricted XML/PDF originals. A small reviewed source bridge keeps the official
+PM XML hash and the existing data-release XML hash distinct; whitespace-equivalent
+structure never rewrites an original pin or proves rights/geographic suitability.
+
+All sixteen primary category and nine decomposition identities are source-bound,
+including exact versions/reference quantities/units and the organic-cancer
+filename alias. Source NF/weight decimal strings retain their original spelling.
+The official NF config's ecotoxicity typo remains source evidence; effective unit
+identity follows the separately bound XML/JRC quantity, not an invented conversion.
+
+## Closed request and source proof
+
+Config.v1 binds one canonical baseline Run, exact module reference, explicit
+structured declarations and requirement/evidence references. Declarations select
+the proposed product/phase/category-rule scope; software does not infer it from
+freeform goal/boundary prose. Providing an evidence reference records an unverified
+reference only. It cannot establish an EF dataset class, waiver, professional
+judgment, representativeness or approval. No category totals or arbitrary factors
+are accepted in config. `configHash` is SHA256 of UTF-8
+`study.method-assessment-config.v1`, one NUL, then sorted compact semantic JSON
+without a newline. Evidence-reference array order is preserved. The independent
+`config-identity.json` fixture pins canonical bytes/hash for consumer adoption.
+
+Input.v1 contains an assessment/job/config record, the unchanged frozen P1
+Run/revision/Scenario/preparation tuple and exact prepared/result/source private
+capabilities. `analysis::validate_input` and `analysis::verify_run` remain the
+shared frozen-pair checks through an internal verifier adapter; no W08 analysis
+or new Run is registered. The original SourceSnapshot bytes/hash, issuer/license,
+origin, observation time and exact document membership/hashes must match. Effective
+cutoffs/overrides/methods/StudyBinding come from frozen evidence. Re-preparing
+those exact documents with the actual verified pinned static bundle must recover
+the same source/model/input/C/method-source identities; there is no latest data
+or factor reload and no solver rerun.
+
+The runtime loads the existing pinned static bundle through its hash-verifying
+loader. Request-supplied `VerifiedStaticLciaBundle` metadata cannot instantiate
+the assessment's sealed trusted source object. Actual selected C entries and
+coverage are checked against the existing nonregional policy. Its policy/hash is
+not changed. Ambiguous-default provenance retains source location, ordinal,
+record hash and alternative count when the existing evidence has them. Unknown
+unique-record metadata stays explicitly unavailable. Cache equivalence, blank
+locations and matching values never prove geographic/compartment suitability.
+
+## Requirements and professional evidence
+
+Facts.v1 includes every PEF-01 through PEF-20 requirement, original source locators,
+explicit applicability/declaration state, separately scoped machine checks and
+professional status. A machine check verifies only its named predicate. Presence
+of declaration/evidence is `recorded_unverified`, not a satisfied scientific
+predicate. Professional evidence remains pending or recorded-unverified; this
+initial profile cannot manufacture a verified judgment.
+
+| Requirement | Supported machine evidence and honest limit |
+|---|---|
+| 01 goal/category rules | Exact frozen goal/definition binding and declared branch; fitness and actual Commission PEFCR applicability unverified. |
+| 02 function/unit | Exact frozen functional unit/reference-flow and unit-support binding; supported declared mass/output-product scope; strength, function and cement identity need judgment. |
+| 03 stages/boundary | Frozen process graph/connections/cutoffs and source identities; full life-cycle stage applicability/completeness unverified. |
+| 04 inventory | Actual frozen processes/exchanges/inventory axes, coverage and gaps; an empty list/zero is never proof of completeness. |
+| 05 exclusions | Screening cutoffs violate the source screening rule. Final-study cutoffs require unimplemented cumulative material/energy/all-category significance and hierarchy evidence; mark unsupported/unproven, not a claim that PEF prohibits every cutoff. Background embedded exclusions remain unknown. |
+| 06 primary/DNM/DQR | Source metadata/identities only; no self-assigned scores or document-presence pass. Situation/option suitability and whole-study contribution-weighted DQR require evidence not present in ordinary P1 artifacts. |
+| 07 no-PEFCR interim | Conditional declared branch; actual searches/availability/non-EF use/disclaimer and DQR/deliverable exceptions unverified. |
+| 08 PEFCR interim | Conditional branch; exact applicable category-rule/replacement/verifier evidence unsupported by this common profile. No imported no-PEFCR exclusion permission. |
+| 09 dates | Distinct pinned recommendation/corrigendum/interim/factor identities and conditional validity text; no fixed 2028 expiry or automatic currentness claim. |
+| 10 allocation | Actual frozen allocation structure/arithmetic evidence; hierarchy/causality/sector choice unverified. |
+| 11 modelling | Frozen source/location/time observations when explicitly present; agriculture/electricity/transport/capital/storage/scenario applicability and suitability unverified. |
+| 12 circularity | Frozen source observations only; CFF/lifetime applicability, parameters and substitution judgment unsupported/unverified. |
+| 13 climate | Selected exact climate parent/decomposition identities and source factors; no fabricated removals/offsets or inferred carbon-balance validity. |
+| 14 categories | Exact sixteen primary identities/versions and selected decompositions; no parent/subcategory double counting. Partial selected methods cannot pass full selection. |
+| 15 characterization | Exact source/C/flow/version/direction/reference-unit consistency and retained selection metadata; absent CF remains unknown; geography/compartment/unit representativeness remains unverified where source evidence is unavailable. |
+| 16 normalization | Source-bound sixteen-category numerical eligibility and NF division only; no sum of unweighted ratios; incomplete categories unavailable. |
+| 17 weighting | Source fraction weights once, ordered primary-only aggregation and explicit point-scale identity; no public-comparability judgment. |
+| 18 robustness | No arbitrary top-N surrogate; professional robustness/completeness/sensitivity judgment pending. |
+| 19 reporting/claims | Frozen numerical evidence is not a report, human verification or certification; actual report/verification/communication requirements pending. |
+| 20 rights/owners | Exact independent source and module pins and rights notices; no blanket rights or study approval from hashes, CI or candidate review. |
+
+## Material P1 coverage limit
+
+P1 treats every unmatched Method × inventory key as a gap. It intentionally does
+not convert absent CF into justified non-applicability. For the exact adopted
+factor release, complete sixteen-category values are unreachable for **every
+nonempty inventory**, not only ordinary sparse examples. A hash-bound scan of
+all 89,070 flow/direction keys found factors for at most six of the sixteen
+primary methods on any key; the all-sixteen intersection is empty. Explicit
+zero factors are included in those counts. Each inventory axis therefore has
+at least ten primary-method gaps. An unknown key has sixteen; an empty inventory
+is rejected by the compiler and is not vacuous completeness evidence.
+
+The scan binds `flow_factors.json.gz` SHA256
+`3803be483b8b29060e031cdfe401f3c2ed02b68bcd6e0588fd467f9459d45139`
+and factor manifest
+`40ffd33323c9882dbd0b0d9c99982bad1752e311062231bcf1f490ee96f92e96`.
+The retained source/native assessment evidence index is
+`3062e9302cc89c32a976d521148efb4644aac7476f6d51490edcdce3c83f0ca4`,
+recorded under Worker #366. A separately formed read-only assessment also
+recomputed the empty primary intersection from identical pinned bytes.
+
+This is a product qualification limitation, separate from missing real-study
+or professional evidence. Corrected PEF Annex I sections 5.1.1–5.1.2 classify
+flows into categories to which they contribute; they do not require every flow
+to affect every category. The current source module supplies no executable
+classification/applicability map. Any future consumer eligibility rule needs
+an independently reviewed source contract and immutable binding; absent CF
+alone must not silently become zero or justified non-applicability. This
+assessment preserves old Run/C/coverage identities. Its available arithmetic
+unit fixtures do not establish an available sixteen-category Run pipeline.
+
+The real cement pilot retains two selected methods, four upstream cutoffs and its
+actual coverage gaps. It remains negative/incomplete. The user has no complete
+real positive case available; this does not waive real positive/professional
+acceptance. Isolated arithmetic/software fixtures cannot substitute for that case.
+
+## Candidate normalization and weighting
+
+Only exact source-compatible complete values for all sixteen primary categories
+are eligible. Missing methods, wrong versions/units/source, gap/unknown values or
+unsupported selection prevent the candidate. Nine subcategories remain explicit
+decompositions and never enter N/W or totals.
+
+Compute `normalised_i = characterised_i / NF_i`, then
+`weighted_i = normalised_i * source_weight_fraction_i`, and sum only these sixteen
+weighted values in source N/W order. There is no second division by100 or sum of
+unweighted normalized values. Characterised values retain method units;
+normalized ratios have unit1 with the source global per-capita basis. Weighted
+categories and the candidate single score use an explicitly defined unscaled Pt
+identity: one Pt is the weighted sum using these fraction weights; no implicit
+mPt conversion. Intermediate nonfinite or nonzero-underflow arithmetic fails.
+Canonical output strings use the unchanged numerical facts codec. Source NF/weight
+strings, ordered mapping and scaling/basis remain in provenance.
+
+Candidate arithmetic is not a conforming PEF score or approval. The isolated
+Decimal oracle tests numerical mappings/scaling; assessment-pipeline positives
+claim only actually verified predicates. Scientific/ranking/business approval
+flags remain false, including when every software predicate passes.
+
+## Offline invocation and wire contracts
+
+The four checked-in schemas close the new config, facts, private-input and
+offline-candidate envelopes. Retained P1 nested rows keep their owner shape;
+byte/source/config verification remains necessary after schema validation.
+`study_method_assess --input <candidate.json> --prepared <original-prepared.json>
+--result <original-result.json> --source-snapshot <original-source.json>
+--static-cache <verified-cache-root> --output <new-facts.json>` consumes local
+files only. The cache root contains `lciamethods/cache_manifest.json`. It never
+issues a job, lease, source capability, actor grant or registered assessment.
+Output creation is exclusive, bounded and private on Unix; existing paths are
+never overwritten. An incomplete write remains for explicit operator handling.
+Its receipt is an offline candidate receipt, not a service completion receipt.
+
+## Owned runtime and consumer qualification
+
+The Worker adapter now implements the separate method job and private native
+boundary described by [the runtime contract](study-runtime-contract.md). It
+expects the exact source-bound service interfaces frozen below. Database/Edge
+adoption and actual actor/job/Storage qualification are separate owner work;
+source code, offline invocation and private metadata are insufficient to enable
+or advertise a deployment. V5 and the existing deterministic Run contract stay
+unchanged. Current source/actor/client/lease, cancellation, unknown-outcome
+retention, artifact bytes and report disclosure require cross-owner tests before
+hosted admission. The real positive/professional acceptance remains unmet.
+
+## Frozen service adoption interfaces
+
+Worker366 adds a local, pre-publication interface milestone for separate method
+runtime adoption. `method_runtime_contracts.rs` and the standalone
+`study-method-*.schema.json` files own the closed public record, job request,
+job-context budget, completion/failure/reconciliation, evidence body/record and
+scalar catalog entries. The synthetic `service-seams.json` binds exact proposed
+RPC names and argument order. It is not observed Database issuance; actual
+Database/Edge adoption and installed runtime qualification remain required.
+
+The job is exactly `study.method_assessment` / request.v1, with only schema,
+Study and assessment IDs. Resource `methodAssessment` never aliases Analysis.
+The job-context wrapper `lca.study-method-job-context.v1` contains the unchanged
+private assessment input.v1 plus immutable admitted `maxSelectedFactorRecords`
+and exact4MiB facts cap. Runtime must intersect the admitted ceiling with its
+independently qualified server ceiling before source expansion. A context is
+private metadata, never an actor or lease authorization receipt.
+
+The report catalog is now a required field in this unpublished facts.v1 family:
+58 stable selectors:25 characterized categories,16 source-ordered normalized
+values,16 weighted values and one candidate single score. Unavailable N/W
+selectors carry null, unknown coverage and exact producer reasons. Category
+roles, baseline/assessment IDs and complete unit/source/point identities remain
+bound. Professional states are not converted into numeric scores. This is a
+pre-publication schema completion, not a rewrite of an existing published
+artifact or a compatibility promise for the earlier offline candidate bytes.
+Those earlier private replay receipts remain attached to their original source.
+
+Evidence body `lca.study-method-evidence.v1` is a closed declaration containing
+requirementId, declaredKind, title, statement and at most32 typed citations.
+Citation kind, plain identity, version, optional content hash and locator are
+recorded without fetching a URL, reading a local path or verifying a judgment.
+Evidence field lengths count Unicode scalar values (including supplementary
+characters), reject C0/DEL/C1 controls, angle brackets and Unicode-whitespace-only
+text, and retain an independent64KiB total UTF-8 serialized-body cap. These
+evidence-text semantics do not widen the retained byte-bounded config.v1
+declaration fields. The service-issued evidence record has exact Study,
+evidence ID, artifact ref, timestamp and status `recorded_unverified`; it omits
+private actor/client lineage, which Database must retain privately. No caller
+approval, waiver, factor array, category total or professional status field is
+accepted. Nonempty config references require actual same-Study registered,
+currently authorized artifact identities through the future Database/Edge
+evidence producer. A temporary deployment ceiling of zero references does not
+complete that producer or the evidence-support scope.
+
+The new runtime schemas do not widen config.v1, P1 numerical semantics or V5.
+Edge owns the separate V6 public protocol. Method report adoption needs truthful
+`methodAssessmentFacts` provenance; existing view.v2 closes provenance to
+runResult/analysisFacts. The agreed consumer direction is distinct view.v3,
+renderer3.0.0, manifest.v4 and bundle.v4, with exact retained historical dispatch.
+Worker freezes selectors and units; Edge verifies claims and mandatory20-state
+report evidence; Platform renders supplied facts without numerical recomputation.
+
+The reviewed synthetic service fixture includes `prepared.synthetic.json`, `result.synthetic.json` and `source.synthetic.json`. The existing ignored fixture generator writes the original compiled input, native result and source packet bytes directly; their sizes and SHA-256 values must match the unchanged `service-seams.json` references. Consumers copy those bytes, not reconstructed JSON. The fixture remains synthetic transport/predicate evidence and is neither an authorized source issuance nor a real industry case.

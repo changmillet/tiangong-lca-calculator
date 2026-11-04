@@ -43,8 +43,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-05
-lastReviewedCommit: 30edb3eaa07cf1bf5f4b17740d41cab4c27c54e3
-lastReviewedNote: "Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged."
+lastReviewedCommit: 818b5e00a37f56637f6418ead692ab430c1fdbc1
+lastReviewedNote: "Worker #366: reviewed the hash-bound all-inventory complete-sixteen reachability limit and measured synthetic native capacity. Runtime, schemas, source pins, historical Run coverage and professional qualification remain unchanged. Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged. Combined review adopts exact Main f74dfdba1d0f8aa7b87930ca344b2213e21b5f05 into method source 818b5e00a37f56637f6418ead692ab430c1fdbc1; method structural N/W limits and separate actor/cohort/professional qualification remain in force."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md
@@ -80,6 +80,7 @@ Start here when the task may change what the compute stack does.
 | `README.md` | repo landing context, operator setup, and runtime overview | machine-readable routing or lint semantics |
 | `docs/lca-api-contract.md` | shared jobs/results/payload/status contract for consumers | branch policy, proof matrix, or edge/frontend implementation details |
 | `docs/agents/contracts/study-runtime-contract.md` | owned Study source/preparation/Run handlers, private RPC/artifact/child protocols and qualification boundaries | actor/API permissions, automatic deployment or scientific certification |
+| `docs/agents/contracts/study-method-assessment-contract.md` | independent pinned source-module assessment, bounded machine predicates, evidence/catalog and separately gated method runtime; actual hosted/consumer qualification remains separately required | actor authorization, report disclosure, conformity, scientific or business approval |
 | `docs/agents/contracts/study-analysis-contract.md` | frozen-result contribution/comparison facts, config/numeric codec, bounded analysis job and evidence limits | scientific ranking, report persistence, disclosure authorization or export signing |
 | `docs/agents/contracts/study-compiler-contract.md` | bounded explicit Study source compiler, frozen model/input/result formats and local native executor; hosted job/source admission remains W06 | API authorization, source-export issuer or business/scientific qualification |
 | `docs/agents/contracts/study-p0-calculation-profile.md` | offline Study P0 profile, opaque numerical identity reference, common benchmark and pilot qualification boundaries | production Study compiler/API, dataset authorization or scientific certification |

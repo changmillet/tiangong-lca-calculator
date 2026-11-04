@@ -37,8 +37,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-05
-lastReviewedCommit: 30edb3eaa07cf1bf5f4b17740d41cab4c27c54e3
-lastReviewedNote: "Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged."
+lastReviewedCommit: 818b5e00a37f56637f6418ead692ab430c1fdbc1
+lastReviewedNote: "Worker #366: reviewed the hash-bound all-inventory complete-sixteen reachability limit and measured synthetic native capacity. Runtime, schemas, source pins, historical Run coverage and professional qualification remain unchanged. Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged. Combined review adopts exact Main f74dfdba1d0f8aa7b87930ca344b2213e21b5f05 into method source 818b5e00a37f56637f6418ead692ab430c1fdbc1; method structural N/W limits and separate actor/cohort/professional qualification remain in force."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -71,6 +71,13 @@ uncertainty profiles under a single aggregate budget. The separate v2 schemas
 and native action do not operationally admit a hosted profile.
 
 ## Core Solver Invariants
+
+The [source-bound method assessment](contracts/study-method-assessment-contract.md)
+is an independent family with an offline candidate and a separately gated
+private method-job adapter. Its pinned PCR module and verified frozen source/C
+evidence do not grant job registration, actor/source rights or professional
+approval. Public API/report adoption and actual complete-industry-study
+acceptance remain separately qualified.
 
 The [Study P0 profile](contracts/study-p0-calculation-profile.md) owns an offline
 qualification baseline and common rational fixtures under
@@ -290,4 +297,4 @@ This repository has a versioned local `pre-push` hook under `.githooks/pre-push`
 
 ### Study owned runtime
 
-`study::runtime` branches from the existing calculator solver queue, using service-owned source/read/completion RPCs and private Study Storage. `study_native` isolates preload/compile/solve; `runtime_process` supervises kill/reap and sampled RSS. Scenario uses frozen base factors and inherited base overrides; no live factor/background reload. See [runtime authority, cleanup and qualification](contracts/study-runtime-contract.md).
+`study::runtime` branches from the existing calculator solver queue, using service-owned source/read/completion RPCs and private Study Storage. Separate default-off method jobs use `method_runtime_contracts` and supervised method native execution; evidence recording and method scalars remain distinct from professional approval. `study_native` isolates preload/compile/solve; `runtime_process` supervises kill/reap and sampled RSS. Scenario uses frozen base factors and inherited base overrides; no live factor/background reload. See [runtime authority, cleanup and qualification](contracts/study-runtime-contract.md).

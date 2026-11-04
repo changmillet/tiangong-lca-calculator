@@ -26,8 +26,8 @@ checkPaths:
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: 2026-11-05
-lastReviewedCommit: 30edb3eaa07cf1bf5f4b17740d41cab4c27c54e3
-lastReviewedNote: "Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged."
+lastReviewedCommit: 818b5e00a37f56637f6418ead692ab430c1fdbc1
+lastReviewedNote: "Worker #366: reviewed export of the original synthetic prepared/result/source bytes already hash-bound by the service fixture. Generator arithmetic, schema, runtime and earlier fixture bytes remain unchanged; these files grant no source or job authority. Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged. Combined review adopts exact Main f74dfdba1d0f8aa7b87930ca344b2213e21b5f05 into method source 818b5e00a37f56637f6418ead692ab430c1fdbc1; method structural N/W limits and separate actor/cohort/professional qualification remain in force."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -50,6 +50,13 @@ the private `study.analysis` job and versioned config/facts artifacts. It consum
 issued P1 frozen inputs/results without changing ordinary snapshot, calculation,
 missing-factor or publication semantics. Study/report actor wire versions,
 current source-rights enforcement and export signatures remain separately owned.
+
+The [method assessment contract](agents/contracts/study-method-assessment-contract.md)
+adds the independent `study.method_assessment` family, exact source/evidence
+bindings, twenty separate requirement/professional states and a bounded scalar
+catalog. Its default-off runtime preserves original deterministic artifacts;
+public V6, report projection, current permissions and scientific qualification
+remain owned and tested independently. Source code does not activate a server.
 
 The [Study P0 calculation profile](agents/contracts/study-p0-calculation-profile.md)
 defines an offline qualification baseline only; it adds no runtime job or API.
