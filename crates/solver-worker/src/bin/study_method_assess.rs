@@ -97,7 +97,7 @@ async fn main() -> anyhow::Result<()> {
     output.sync_all()?;
     println!(
         "{}",
-        serde_json::json!({"schemaVersion":"lca.study-method-candidate-receipt.v1","classification":"offline_candidate_not_registered_or_authorized","assessmentId":facts.assessment_id,"profileId":facts.profile_id,"factsSha256":sha256(&bytes),"byteSize":bytes.len(),"requirements":facts.requirements.len(),"normalisationWeighting":facts.candidate_normalisation_weighting.status,"outcome":facts.outcome,"pefConformityQualified":false,"scientificRankingQualified":false,"businessPilotQualified":false})
+        serde_json::json!({"schemaVersion":"lca.study-method-candidate-receipt.v1","classification":"offline_candidate_not_registered_or_authorized","candidateId":input.candidate_id,"profileId":facts.profile_id,"factsSha256":sha256(&bytes),"byteSize":bytes.len(),"requirements":facts.requirements.len(),"normalisationWeighting":facts.candidate_normalisation_weighting.status,"outcome":facts.outcome,"pefConformityQualified":false,"scientificRankingQualified":false,"businessPilotQualified":false})
     );
     Ok(())
 }

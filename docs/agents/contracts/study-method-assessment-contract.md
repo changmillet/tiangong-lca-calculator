@@ -71,7 +71,10 @@ the proposed product/phase/category-rule scope; software does not infer it from
 freeform goal/boundary prose. Providing an evidence reference records an unverified
 reference only. It cannot establish an EF dataset class, waiver, professional
 judgment, representativeness or approval. No category totals or arbitrary factors
-are accepted in config.
+are accepted in config. `configHash` is SHA256 of UTF-8
+`study.method-assessment-config.v1`, one NUL, then sorted compact semantic JSON
+without a newline. Evidence-reference array order is preserved. The independent
+`config-identity.json` fixture pins canonical bytes/hash for consumer adoption.
 
 Input.v1 contains an assessment/job/config record, the unchanged frozen P1
 Run/revision/Scenario/preparation tuple and exact prepared/result/source private

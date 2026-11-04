@@ -466,3 +466,18 @@ fn offline_candidate_has_no_job_lease_or_source_locator_and_rejects_nil_identity
     nil.source_artifact_ref.id = Uuid::nil();
     assert!(validate_candidate(&nil).is_err());
 }
+
+#[test]
+fn config_identity_matches_independent_cross_language_golden() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../tests/fixtures/study-method-assessment/config-identity.json"
+    ))
+    .unwrap();
+    let parsed: Config = serde_json::from_value(fixture["config"].clone()).unwrap();
+    assert_eq!(config_hash(&parsed).unwrap(), fixture["sha256"]);
+    assert_eq!(
+        serde_json::to_string(&serde_json::to_value(&parsed).unwrap()).unwrap(),
+        fixture["canonicalUtf8"]
+    );
+    assert_eq!(fixture["domain"], "study.method-assessment-config.v1");
+}

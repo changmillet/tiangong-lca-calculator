@@ -21,10 +21,19 @@ def near(actual, expected, code):
     parsed = Decimal(actual)
     require(parsed.is_finite(), code + '_finite')
     # This independently computed decimal target permits binary64 rounding only.
-    require(abs(parsed - expected) <= max(abs(expected), Decimal('1e-300')) * Decimal('4e-15'), code)
+    require(abs(parsed - expected) <= abs(expected) * Decimal('4e-15'), code)
+
+
+def verify_config():
+    value = json.loads((FIXTURE.parent / 'config-identity.json').read_bytes())
+    canonical = json.dumps(value['config'], ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+    require(value['domain'] == 'study.method-assessment-config.v1', 'config_domain')
+    require(value['canonicalUtf8'] == canonical, 'config_canonical_bytes')
+    require(value['sha256'] == hashlib.sha256(value['domain'].encode() + b'\0' + canonical.encode()).hexdigest(), 'config_semantic_hash')
 
 
 def verify(value):
+    verify_config()
     raw = PACKAGE.read_bytes()
     require(hashlib.sha256(raw).hexdigest() == PIN, 'module_artifact_pin')
     binding = json.loads(raw)['payload']['source_bindings']

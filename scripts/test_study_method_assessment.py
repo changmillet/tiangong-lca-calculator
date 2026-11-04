@@ -40,6 +40,9 @@ class MethodArithmeticOracle(unittest.TestCase):
         self.reject(lambda v: v['normalisationWeighting']['categories'].append(v['normalisationWeighting']['categories'][0]))
         self.reject(lambda v: next(c for c in v['inputCategories'] if c['role'] == 'primary').__setitem__('role', 'subcategory'))
 
+    def test_exact_zero_cannot_be_replaced_by_a_tiny_nonzero(self):
+        self.reject(lambda v: v['normalisationWeighting']['categories'][0].__setitem__('canonicalNormalisedValue', '1e-320'))
+
     def test_nonfinite_and_wrong_arithmetic_fail(self):
         self.reject(lambda v: v['normalisationWeighting']['categories'][1].__setitem__('canonicalNormalisedValue', 'NaN'))
         self.reject(lambda v: v['normalisationWeighting']['categories'][1].__setitem__('canonicalWeightedValue', '1'))
