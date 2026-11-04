@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: 13a749e619d7ef348e9298bb049e8c01c60e9086
-lastReviewedNote: "Worker #366: reviewed export of the original synthetic prepared/result/source bytes already hash-bound by the service fixture. Generator arithmetic, schema, runtime and earlier fixture bytes remain unchanged; these files grant no source or job authority."
+lastReviewedCommit: 6d33613e2ed969e76a9cb42ab7bf6e9a70b9e352
+lastReviewedNote: "Worker #366: reviewed the hash-bound all-inventory complete-sixteen reachability limit and measured synthetic native capacity. Runtime, schemas, source pins, historical Run coverage and professional qualification remain unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -119,6 +119,27 @@ three-artifact download/current-rights recheck, native selected-factor budget,
 immutable publication, lost-ack retention and formal reconciliation proof.
 Run `make study-method-check` for the independent scalar/catalog oracle and
 reproducible closed schemas; actual cross-owner qualification remains separate.
+
+The 2026-11-04 bounded source/native assessment at exact source
+`6d33613e2ed969e76a9cb42ab7bf6e9a70b9e352` used a locked macOS arm64 debug
+build with SHA256
+`4f161bf96ed9f0dc1cb49c187d2b15bb65d8388856f66dc99536d8b671780b07`.
+A synthetic 25-method × 128-axis shape completed with 3,200 evidence records,
+2,129,770 facts bytes, 28.64 seconds and 202,211,328 bytes sampled peak RSS.
+A 3,199-record admitted ceiling rejected that shape before source expansion.
+The 8,175-record shape failed closed with `resource_limit`; its evidence rows
+alone cannot fit the 4 MiB envelope. The absolute 8,192-pair cap does not promise
+successful execution for every metadata/dimension combination. No supervisor
+stop was required and every owned child was reaped.
+
+These measurements use actual pinned factor values with synthetic model/unit
+support and are not source-unit suitability, hosted capacity or real-study
+qualification. The same native pipeline produced six matched factors and ten
+gaps for one axis with all sixteen primary methods; N/W remained unavailable.
+See the [structural coverage limit](contracts/study-method-assessment-contract.md#material-p1-coverage-limit)
+for why current exact-source complete-sixteen eligibility is unreachable.
+Keep server admission, byte caps, outer containment and real actor/job/Storage
+qualification separately evidenced; never replace them with this local table.
 
 ### Study P0 offline qualification
 

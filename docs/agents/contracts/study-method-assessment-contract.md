@@ -19,8 +19,8 @@ checkPaths:
   - scripts/*study_method*.py
   - docs/agents/contracts/study-method-*.schema.json
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: 13a749e619d7ef348e9298bb049e8c01c60e9086
-lastReviewedNote: "Worker #366: reviewed export of the original synthetic prepared/result/source bytes already hash-bound by the service fixture. Generator arithmetic, schema, runtime and earlier fixture bytes remain unchanged; these files grant no source or job authority."
+lastReviewedCommit: 6d33613e2ed969e76a9cb42ab7bf6e9a70b9e352
+lastReviewedNote: "Worker #366: reviewed the hash-bound all-inventory complete-sixteen reachability limit and measured synthetic native capacity. Runtime, schemas, source pins, historical Run coverage and professional qualification remain unchanged."
 related:
   - study-analysis-contract.md
   - study-compiler-contract.md
@@ -131,13 +131,33 @@ initial profile cannot manufacture a verified judgment.
 ## Material P1 coverage limit
 
 P1 treats every unmatched Method × inventory key as a gap. It intentionally does
-not convert absent CF into justified non-applicability. Input-oriented resource
-methods and output-oriented impact methods make complete sixteen-category values
-unreachable for ordinary sparse nonempty inventories under this conservative
-coverage model without additional reviewed applicability evidence. This is a
-product limitation, not merely a test limitation. This assessment does not change
-old Run coverage or invent zero factors. A future reviewed consumer profile must
-bind any justified non-applicability separately before broader numerical adoption.
+not convert absent CF into justified non-applicability. For the exact adopted
+factor release, complete sixteen-category values are unreachable for **every
+nonempty inventory**, not only ordinary sparse examples. A hash-bound scan of
+all 89,070 flow/direction keys found factors for at most six of the sixteen
+primary methods on any key; the all-sixteen intersection is empty. Explicit
+zero factors are included in those counts. Each inventory axis therefore has
+at least ten primary-method gaps. An unknown key has sixteen; an empty inventory
+is rejected by the compiler and is not vacuous completeness evidence.
+
+The scan binds `flow_factors.json.gz` SHA256
+`3803be483b8b29060e031cdfe401f3c2ed02b68bcd6e0588fd467f9459d45139`
+and factor manifest
+`40ffd33323c9882dbd0b0d9c99982bad1752e311062231bcf1f490ee96f92e96`.
+The retained source/native assessment evidence index is
+`3062e9302cc89c32a976d521148efb4644aac7476f6d51490edcdce3c83f0ca4`,
+recorded under Worker #366. A separately formed read-only assessment also
+recomputed the empty primary intersection from identical pinned bytes.
+
+This is a product qualification limitation, separate from missing real-study
+or professional evidence. Corrected PEF Annex I sections 5.1.1–5.1.2 classify
+flows into categories to which they contribute; they do not require every flow
+to affect every category. The current source module supplies no executable
+classification/applicability map. Any future consumer eligibility rule needs
+an independently reviewed source contract and immutable binding; absent CF
+alone must not silently become zero or justified non-applicability. This
+assessment preserves old Run/C/coverage identities. Its available arithmetic
+unit fixtures do not establish an available sixteen-category Run pipeline.
 
 The real cement pilot retains two selected methods, four upstream cutoffs and its
 actual coverage gaps. It remains negative/incomplete. The user has no complete
