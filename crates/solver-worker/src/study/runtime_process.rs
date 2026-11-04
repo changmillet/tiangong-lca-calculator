@@ -744,17 +744,12 @@ mod tests {
                 if Instant::now() >= deadline {
                     return Err(terminate(&mut child, pid, peak, "study_job_timeout", None).await);
                 }
-                let probe = match tokio::time::timeout_at(deadline, process_rss(pid)).await {
-                    Ok(probe) => probe,
-                    Err(_) => {
-                        return Err(
-                            terminate(&mut child, pid, peak, "study_job_timeout", None).await
-                        );
-                    }
+                let Ok(probe) = tokio::time::timeout_at(deadline, process_rss(pid)).await else {
+                    return Err(terminate(&mut child, pid, peak, "study_job_timeout", None).await);
                 };
                 if probe
                     .as_ref()
-                    .is_err_and(|error| error.is::<LinuxMissingVmRss>())
+                    .is_err_and(anyhow::Error::is::<LinuxMissingVmRss>)
                     && qualification_try_wait(&mut child, pid, peak)
                         .await?
                         .is_none()
