@@ -690,7 +690,9 @@ cases also run on macOS without altering its production probe behavior. These
 prove the supported race and repair, not the cause of the historical hosted
 failure whose inner probe error was discarded. Existing advanced component
 thresholds and assertions remain required; per-case start diagnostics identify
-future failures without including private source/input bytes.
+future failures without including private source/input bytes. Explicit component
+failure output includes the closed code, probe kind, PID, sampled peak and
+reaped flag even when the test has no tracing subscriber.
 
 ### Study W14 independent advanced profiles
 

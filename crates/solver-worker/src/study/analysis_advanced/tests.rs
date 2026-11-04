@@ -595,7 +595,18 @@ async fn advanced_native_capacity_and_running_cancellation() {
             512 * 1024 * 1024,
         )
         .await
-        .unwrap();
+        .unwrap_or_else(|error| {
+            let diagnostic = if let Some(failure) = error.downcast_ref::<NativeFailure>() {
+                json!({"case":case,"uncertain":uncertain,"samples":n,"parameters":parameters,
+                    "code":failure.code,"probeKind":failure.probe_kind,"pid":failure.pid,
+                    "sampledPeakRssBytes":failure.peak_rss_bytes,"reaped":failure.reaped})
+            } else {
+                json!({"case":case,"uncertain":uncertain,"samples":n,"parameters":parameters,
+                    "code":"unclassified_native_failure"})
+            };
+            eprintln!("Study advanced native failure: {diagnostic}");
+            panic!("Study advanced native component failed; see safe diagnostic above");
+        });
         let elapsed = started.elapsed();
         let bytes = std::fs::read(&output).unwrap();
         let facts: FactsBundle = super::super::json::from_slice(&bytes).unwrap();
