@@ -20,8 +20,8 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/edge-function-integration.md
   - docs/review-quality-diagnostic-contract.md
-lastReviewedAt: 2026-11-03
-lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
+lastReviewedAt: 2026-11-04
+lastReviewedCommit: b6d97040a9e096d78146a509524a98682352ba21
 lastReviewedNote: "Worker #360: reviewed frozen facts, canonical values, coverage and provenance consumption; clients do not gain calculation, source or export authority."
 related:
   - AGENTS.md

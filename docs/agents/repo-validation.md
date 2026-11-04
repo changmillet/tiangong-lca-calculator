@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-04
-lastReviewedCommit: 65986599adb3ae4da2385b476b376ac2a418cd25
-lastReviewedNote: "Worker #363: checked internal residual refinement, calculation fingerprint compatibility, unchanged consumer formats and synthetic validation."
+lastReviewedAt: "2026-11-04"
+lastReviewedCommit: "b6d97040a9e096d78146a509524a98682352ba21"
+lastReviewedNote: "Worker #362: reviewed test-only exchange-cap multi-inventory/method capacity and explicit Linux native CI qualification; runtime/schema/hash semantics and default-off service admission are unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -673,3 +673,44 @@ with its owner first; no shared or hosted environment is an implicit target.
 Run focused `cargo test -p solver-worker --lib study -- --nocapture`, fmt and hard Clippy. Build `solver-worker`, `study_native`, `study_runtime_preflight`, and `study_artifact_reconcile`. Component proof uses `study_runtime_preflight --native-bin <absolute> --directory <private existing directory> --receipt <absolute receipt>`; this tests actual linked arithmetic and resource/cancellation reaping, not source authorization.
 
 Real integration requires the Database/Edge owned Study runtime migrations and actor endpoints. Start the existing daemon with `--mode worker --queue-backend worker-jobs --worker-jobs-claim-limit 1`; use task-owned explicit DB/S3 settings, `STUDY_RUNTIME_ENABLED=true`, absolute native/temp/journal paths and a verified base cache. Never inherit a hosted environment for a local proof. Record exact actor/source/scope/export, compiler input/model/result bytes, task recovery, cancellation and callback evidence. [The runtime contract](contracts/study-runtime-contract.md) distinguishes these from component fixtures and describes unknown-outcome/cleanup handling.
+
+### Study W14 independent advanced profiles
+
+Run `cargo test -p solver-worker --lib study::analysis_advanced` and the full
+serialized test gate. Published NIST HMAC_DRBG and independent Python profile
+vectors, analytic signed/zero/cyclic/allocation/partial controls, uniform-moment
+and whole-row dependence controls, type-7 small-N statistics, invalid-sample and
+identity/boundary negatives are required. Existing W08 and P1 suites stay intact.
+
+`STUDY_ADVANCED_FIXTURE_DIR=/absolute/task-owned/fixture` with
+`actual_native_input_fixture_export_is_opt_in_and_integrity_checked` exports
+synthetic exact source/prepared/result/private input/facts for consumer schema
+verification. Private source and service wrappers must never become report
+content or be claimed as DB-issued evidence.
+
+After building `study_native`, run
+`STUDY_NATIVE_BINARY=/absolute/study_native STUDY_ADVANCED_QUALIFICATION_RECEIPT=/absolute/task-owned/receipt.json cargo test -p solver-worker --lib advanced_native_capacity_and_running_cancellation -- --ignored --nocapture`.
+The receipt measures actual compile+solve+serialization, artifact bytes and
+sampled RSS for linear, signed, cyclic, allocated and 128-view/64-instance
+near-limit models, and actual private-input-phase cancellation/reaping. It is a
+single-host synthetic component measurement; it does not enable a hosted profile
+or establish a service ceiling. Retain exact source/binary hashes and platform.
+Native batch deadline and parent whole-attempt/lease/cancel/unknown-outcome tests
+remain separate. No Docker, database, Storage or production resources are used.
+
+
+The native capacity suite additionally builds a synthetic cyclic/allocation
+model at the 4096-exchange cap: 64 instances, 128 activity views, 61 elementary
+inventory axes and 25 distinct signed-scaled methods. It verifies complete
+coverage, the independently derived baseline `2440/19`, and a per-method
+scalar relation for every baseline and evaluation, while preserving the original prepared/result bytes. Eight-parameter
+OAT and sixteen-sample uncertainty each perform seventeen evaluations including
+the baseline. This is an exchange-limit/multi-method fixture, not proof that all
+possible dense-cell/metadata envelopes fit the deadline.
+
+The `ci` Linux x64 job builds the actual native executable and runs this explicit
+component suite with one BLAS/OpenMP thread. The receipt records platform, binary
+hash, shapes, artifact sizes, wall time and sampled RSS; its logged output is
+retained by the job. It also exercises cancellation/reaping. A passing component
+run does not activate an API or qualify actor/queue/Storage/report behavior,
+Windows service execution or byte-identical cross-platform numerical output.

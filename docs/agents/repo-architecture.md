@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-03
-lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
-lastReviewedNote: "Worker #360: reviewed frozen-result analysis contracts, source/Run binding, numeric codec and native dispatch; P1 hash semantics, current authorization and hosted/scientific qualification remain separate."
+lastReviewedAt: "2026-11-04"
+lastReviewedCommit: "b6d97040a9e096d78146a509524a98682352ba21"
+lastReviewedNote: "Worker #362: reviewed test-only exchange-cap multi-inventory/method capacity and explicit Linux native CI qualification; runtime/schema/hash semantics and default-off service admission are unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -66,6 +66,9 @@ The runtime solves sparse systems asynchronously and keeps heavy compute out of 
 contribution/comparison facts through the existing Study native runtime. Its
 config/facts schemas are separate from P1 model/input/calculation identities;
 report authorization, persistence and signed export stay with their owners.
+`study/analysis_advanced.rs` independently recompiles frozen-source OAT and bounded
+uncertainty profiles under a single aggregate budget. The separate v2 schemas
+and native action do not operationally admit a hosted profile.
 
 ## Core Solver Invariants
 

@@ -1092,11 +1092,11 @@ fn source_decimal_strings_keep_model_identity_after_json_replay() {
 
 // Shared only by the analysis tests: actual compiler output, never a service receipt.
 #[allow(clippy::too_many_lines)]
-pub(super) fn analysis_prepared(
+pub(super) fn analysis_fixture(
     case: &str,
     change: Option<f64>,
     factor: Option<f64>,
-) -> PreparedInput {
+) -> (SourceInput, VerifiedMethods) {
     fn wire_versions(value: &mut Value) {
         match value {
             Value::Object(values) => {
@@ -1213,7 +1213,7 @@ pub(super) fn analysis_prepared(
             model(json!([instance("a", "process", json!([]))])),
             &["product", "emission"],
         ),
-        "envelope" => {
+        "envelope" | "dense-envelope" => {
             let mut burden = raw_exchange("e", "emission", "Output", 2.0);
             burden["allocations"] = allocation(50.0, 50.0);
             let mut consumption = raw_exchange("i", "q", "Input", 0.1);
@@ -1273,6 +1273,81 @@ pub(super) fn analysis_prepared(
         _ => single(),
     };
     let mut m = methods();
+    if case == "dense-envelope" {
+        // 64 repeated instances * 64 exchanges reaches the actual exchange cap.
+        // All 61 elementary axes carry 25 independently identified methods;
+        // this prevents one-axis timing from standing in for dense LCIA work.
+        let original = s
+            .documents
+            .iter()
+            .find(|d| d.kind == "flow" && d.identity.id == "emission")
+            .unwrap()
+            .clone();
+        let process = s
+            .documents
+            .iter_mut()
+            .find(|d| d.kind == "process")
+            .unwrap();
+        let mut raw: Value = serde_json::from_str(&process.json).unwrap();
+        let exchanges = raw["processDataSet"]["exchanges"]["exchange"]
+            .as_array_mut()
+            .unwrap();
+        for index in 1..=60 {
+            let mut exchange = raw_exchange(
+                &format!("e{index}"),
+                &format!("emission-{index}"),
+                "Output",
+                2.0,
+            );
+            exchange["allocations"] = allocation(50.0, 50.0);
+            exchanges.push(exchange);
+        }
+        process.json = serde_json::to_string(&raw).unwrap();
+        process.sha256 = sha256(process.json.as_bytes());
+        for index in 1..=60 {
+            let id = format!("emission-{index}");
+            let mut raw: Value = serde_json::from_str(&original.json).unwrap();
+            raw["flowDataSet"]["flowInformation"]["dataSetInformation"]["common:UUID"] = json!(id);
+            s.documents.push(document("flow", &id, raw));
+        }
+        m.axes = (0..25)
+            .map(|index| MethodAxis {
+                id: if index == 0 {
+                    "method".into()
+                } else {
+                    format!("method-{index}")
+                },
+                version: "1".into(),
+                unit: "impact".into(),
+            })
+            .collect();
+        s.method_refs = m
+            .axes
+            .iter()
+            .map(|axis| DatasetRef {
+                id: axis.id.clone(),
+                version: axis.version.clone(),
+            })
+            .collect();
+        m.factors = (0..25)
+            .map(|method| {
+                (0..=60)
+                    .map(|index| Factor {
+                        flow: DatasetRef {
+                            id: if index == 0 {
+                                "emission".into()
+                            } else {
+                                format!("emission-{index}")
+                            },
+                            version: "1".into(),
+                        },
+                        direction: "Output".into(),
+                        value: (f64::from(method) + 1.0) * if method % 2 == 0 { 2.0 } else { -2.0 },
+                    })
+                    .collect()
+            })
+            .collect();
+    }
     // Give exported W08 consumer fixtures real P1 version syntax before either
     // compiler or executor sees them. Never rewrite a produced artifact/hash.
     for document in &mut s.documents {
@@ -1286,8 +1361,14 @@ pub(super) fn analysis_prepared(
     for reference in &mut s.method_refs {
         reference.version = "01.00.000".into();
     }
-    m.axes[0].version = "01.00.000".into();
-    m.factors[0][0].flow.version = "01.00.000".into();
+    for axis in &mut m.axes {
+        axis.version = "01.00.000".into();
+    }
+    for factors in &mut m.factors {
+        for factor in factors {
+            factor.flow.version = "01.00.000".into();
+        }
+    }
     m.source_hash = sha256(b"synthetic analysis method fixture; not a published dataset");
     if let Some(factor) = factor {
         m.factors[0][0].value = factor;
@@ -1306,12 +1387,16 @@ pub(super) fn analysis_prepared(
                 reference_flow_id: base.numeric.reference.flow.id.clone(),
             },
             system_boundary: "explicit".into(),
-            method_refs: vec![MethodRef {
-                r#type: "datasetRevision".into(),
-                dataset_type: "lciamethod".into(),
-                id: "method".into(),
-                version: "01.00.000".into(),
-            }],
+            method_refs: s
+                .method_refs
+                .iter()
+                .map(|reference| MethodRef {
+                    r#type: "datasetRevision".into(),
+                    dataset_type: "lciamethod".into(),
+                    id: reference.id.clone(),
+                    version: reference.version.clone(),
+                })
+                .collect(),
             assumptions: vec![],
         },
     });
@@ -1321,5 +1406,18 @@ pub(super) fn analysis_prepared(
             value,
         });
     }
-    prepare(&serde_json::to_vec(&s).unwrap(), &m, &Bounds::default()).unwrap()
+    (s, m)
+}
+pub(super) fn analysis_prepared(
+    case: &str,
+    change: Option<f64>,
+    factor: Option<f64>,
+) -> PreparedInput {
+    let (source, methods) = analysis_fixture(case, change, factor);
+    prepare(
+        &serde_json::to_vec(&source).unwrap(),
+        &methods,
+        &Bounds::default(),
+    )
+    .unwrap()
 }

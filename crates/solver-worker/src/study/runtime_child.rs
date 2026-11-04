@@ -45,7 +45,7 @@ fn snapshot(path: &str, limits: &Bounds) -> anyhow::Result<SourceSnapshot> {
     Ok(packet)
 }
 /// This merges a child draft against the cumulative frozen model, retaining unchanged overrides.
-fn merge_overrides(
+pub(super) fn merge_overrides(
     base: &[AmountOverride],
     changes: Vec<AmountOverride>,
 ) -> anyhow::Result<Vec<AmountOverride>> {
@@ -63,7 +63,7 @@ fn merge_overrides(
     }
     Ok(values.into_values().collect())
 }
-fn validate_base_source(
+pub(super) fn validate_base_source(
     base: &PreparedInput,
     source: &super::contracts::SourceInput,
 ) -> anyhow::Result<()> {
@@ -216,6 +216,9 @@ pub async fn execute_request(request: NativeRequest) -> anyhow::Result<()> {
                 &methods,
                 &request.limits,
             )?)?
+        }
+        NativeAction::AnalyzeAdvanced { analysis_path } => {
+            super::analysis_advanced::execute_native(&analysis_path, &request.limits)?
         }
         NativeAction::Analyze { analysis_path } => {
             super::analysis::execute_native(&analysis_path, &request.limits)?

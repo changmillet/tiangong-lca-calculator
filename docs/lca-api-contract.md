@@ -25,9 +25,9 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: 2026-11-04
-lastReviewedCommit: 65986599adb3ae4da2385b476b376ac2a418cd25
-lastReviewedNote: "Worker #363: checked internal residual refinement, calculation fingerprint compatibility, unchanged consumer formats and synthetic validation."
+lastReviewedAt: "2026-11-04"
+lastReviewedCommit: "b6d97040a9e096d78146a509524a98682352ba21"
+lastReviewedNote: "Worker #362: reviewed test-only exchange-cap multi-inventory/method capacity and explicit Linux native CI qualification; runtime/schema/hash semantics and default-off service admission are unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml

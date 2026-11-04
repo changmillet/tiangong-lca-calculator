@@ -17,9 +17,9 @@ checkPaths:
   - crates/solver-worker/src/study/**
   - crates/solver-worker/src/bin/study_compile.rs
   - docs/agents/contracts/study-compiler-contract.md
-lastReviewedAt: 2026-11-03
-lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
-lastReviewedNote: "Worker #360: reviewed frozen-result analysis contracts, source/Run binding, numeric codec and native dispatch; P1 hash semantics, current authorization and hosted/scientific qualification remain separate."
+lastReviewedAt: "2026-11-04"
+lastReviewedCommit: "b6d97040a9e096d78146a509524a98682352ba21"
+lastReviewedNote: "Worker #362: reviewed test-only exchange-cap multi-inventory/method capacity and explicit Linux native CI qualification; runtime/schema/hash semantics and default-off service admission are unchanged."
 related:
   - study-p0-calculation-profile.md
   - ../repo-validation.md

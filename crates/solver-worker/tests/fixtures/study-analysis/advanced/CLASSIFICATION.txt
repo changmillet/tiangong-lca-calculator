@@ -1,0 +1,9 @@
+SYNTHETIC component schema fixtures emitted by the actual Worker numerical producer.
+No API authorization, Database issuance, business Run, public dataset, licensed source,
+scientific certification, hosted capacity or cross-platform qualification is established.
+All Study/Run/job/artifact IDs are synthetic example identities. Private artifact wrappers
+are service-only transport examples, never report content. Exact source/prepared/result
+bytes remain in the task-owned component fixture; no raw source or actor credential is
+included here. The examples demonstrate config/facts/input.v2 only; no new daemon RPC or
+job admission is established by them. Facts are immutable example bytes; do not regenerate
+scientific values through JS Number, and never repair hashes to fit a consumer.
