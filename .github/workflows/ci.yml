@@ -60,6 +60,7 @@ jobs:
           OPENBLAS_NUM_THREADS: "1"
           OMP_NUM_THREADS: "1"
         run: |
+          cargo test --locked -p solver-worker --lib linux_exit_rss_race_reconciles_actual_child -- --ignored --nocapture
           cargo build --locked -p solver-worker --bin study_native
           STUDY_NATIVE_BINARY="$PWD/target/debug/study_native" \
             STUDY_ADVANCED_QUALIFICATION_RECEIPT="$RUNNER_TEMP/study-advanced-component.json" \

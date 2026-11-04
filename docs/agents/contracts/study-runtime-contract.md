@@ -20,9 +20,9 @@ checkPaths:
   - crates/solver-worker/src/queue.rs
   - crates/solver-worker/src/storage.rs
   - docs/agents/contracts/study-runtime-contract.md
-lastReviewedAt: "2026-11-04"
-lastReviewedCommit: "b6d97040a9e096d78146a509524a98682352ba21"
-lastReviewedNote: "Worker #362: reviewed test-only exchange-cap multi-inventory/method capacity and explicit Linux native CI qualification; runtime/schema/hash semantics and default-off service admission are unchanged."
+lastReviewedAt: 2026-11-05
+lastReviewedCommit: 30edb3eaa07cf1bf5f4b17740d41cab4c27c54e3
+lastReviewedNote: "Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged."
 related:
   - study-compiler-contract.md
   - ../../lca-api-contract.md
@@ -170,7 +170,17 @@ The first profile uses W05's 4 MiB source/prepared/transfer ceiling, input/model
 admission bounds, one claimed job per worker, native RSS threshold 512 MiB and
 bounded file/request sizes. RSS is sampled every 100ms: Linux `/proc`, macOS
 bounded `/bin/ps`, Windows `K32GetProcessMemoryInfo` with the documented
-`PROCESS_MEMORY_COUNTERS` layout. Probe failure fails closed. Sampling and OS
+`PROCESS_MEMORY_COUNTERS` layout. Probe failure fails closed. On Linux alone, a
+successful `/proc/PID/status` read with no `VmRSS` row can occur during exit-mm
+teardown before `try_wait` observes exit. That typed condition gets one exit
+reconciliation window of at most 100ms, capped by the original absolute deadline,
+with cancellation checked at most every 10ms while waiting. Only an observed
+successful reaped exit, still within that window and the original deadline and
+without cancellation, succeeds. Prior sampled peak RSS is retained; a live child
+at expiry is killed and awaited with the original probe-failure category. Other
+I/O, malformed RSS and platform probe failures retain immediate fail-closed
+behavior. Safe fixed probe-kind diagnostics never include raw status text,
+request paths or child stderr. Sampling and OS
 scheduling allow overshoot; this is **not a kernel hard RSS limit**. Production
 qualification must bind the actual existing container/task outer memory and
 process supervision separately. The local native component receipt does not
