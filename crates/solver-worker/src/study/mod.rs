@@ -1,5 +1,7 @@
 //! Bounded source-model compiler and executor; queue, ACL and storage belong to W06.
 pub mod analysis;
+pub mod analysis_advanced;
+pub mod analysis_advanced_contracts;
 pub mod analysis_contracts;
 mod compile;
 pub mod contracts;

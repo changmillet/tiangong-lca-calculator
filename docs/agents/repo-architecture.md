@@ -66,6 +66,9 @@ The runtime solves sparse systems asynchronously and keeps heavy compute out of 
 contribution/comparison facts through the existing Study native runtime. Its
 config/facts schemas are separate from P1 model/input/calculation identities;
 report authorization, persistence and signed export stay with their owners.
+`study/analysis_advanced.rs` independently recompiles frozen-source OAT and bounded
+uncertainty profiles under a single aggregate budget. The separate v2 schemas
+and native action do not operationally admit a hosted profile.
 
 ## Core Solver Invariants
 

@@ -82,7 +82,11 @@ struct OrphanReceipt {
 pub fn handles(kind: &str) -> bool {
     matches!(
         kind,
-        "study.source_acquire" | "study.model_prepare" | "study.run" | "study.analysis"
+        "study.source_acquire"
+            | "study.model_prepare"
+            | "study.run"
+            | "study.analysis"
+            | "study.analysis_advanced"
     )
 }
 fn resource_type(kind: &str) -> anyhow::Result<&'static str> {
@@ -90,7 +94,7 @@ fn resource_type(kind: &str) -> anyhow::Result<&'static str> {
         "study.source_acquire" => Ok("modelSourceAcquisition"),
         "study.model_prepare" => Ok("modelPreparation"),
         "study.run" => Ok("run"),
-        "study.analysis" => Ok("analysis"),
+        "study.analysis" | "study.analysis_advanced" => Ok("analysis"),
         _ => anyhow::bail!("study_job_kind"),
     }
 }
@@ -131,6 +135,7 @@ fn input_rpc(kind: &str) -> anyhow::Result<&'static str> {
         "study.model_prepare" => Ok("svc_study_model_preparation_read_input_v1"),
         "study.run" => Ok("svc_study_run_read_input_v1"),
         "study.analysis" => Ok("svc_study_analysis_read_input_v1"),
+        "study.analysis_advanced" => Ok("svc_study_analysis_advanced_read_input_v1"),
         _ => anyhow::bail!("study_job_kind"),
     }
 }
@@ -140,6 +145,7 @@ fn completion_rpc(kind: &str) -> anyhow::Result<&'static str> {
         "study.model_prepare" => Ok("svc_study_model_preparation_complete_v1"),
         "study.run" => Ok("svc_study_run_complete_v1"),
         "study.analysis" => Ok("svc_study_analysis_complete_v1"),
+        "study.analysis_advanced" => Ok("svc_study_analysis_advanced_complete_v1"),
         _ => anyhow::bail!("study_job_kind"),
     }
 }
@@ -219,7 +225,11 @@ async fn task_rpc(
     }
     Ok(response["data"].clone())
 }
-fn validate_location(location: &PrivateArtifact, study: Uuid, kind: &str) -> anyhow::Result<()> {
+pub(super) fn validate_location(
+    location: &PrivateArtifact,
+    study: Uuid,
+    kind: &str,
+) -> anyhow::Result<()> {
     ensure!(
         location.study_id == study
             && location.storage_bucket == BUCKET
@@ -386,6 +396,65 @@ struct ExecutionConfig {
     binary: PathBuf,
     orphan_dir: PathBuf,
     temp_root: PathBuf,
+}
+
+// These are operator-selected, independently qualified limits, never payload authority.
+// Missing advanced admission does not change any deterministic Study handler.
+fn advanced_batch_limits(
+    enabled: Option<&str>,
+    parameters: Option<&str>,
+    evaluations: Option<&str>,
+) -> anyhow::Result<super::analysis_advanced_contracts::BatchLimits> {
+    fn count(text: Option<&str>) -> anyhow::Result<usize> {
+        let text = text.context("study_runtime_configuration")?;
+        ensure!(
+            !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()),
+            "study_runtime_configuration"
+        );
+        let value: u32 = text.parse().context("study_runtime_configuration")?;
+        ensure!(value > 0, "study_runtime_configuration");
+        Ok(usize::try_from(value)?)
+    }
+    ensure!(enabled == Some("true"), "study_runtime_unavailable");
+    let max_parameters = count(parameters)?;
+    let max_evaluations = count(evaluations)?;
+    ensure!(max_evaluations >= 3, "study_runtime_configuration");
+    Ok(super::analysis_advanced_contracts::BatchLimits {
+        max_parameters,
+        max_evaluations,
+    })
+}
+
+fn advanced_job_binding(
+    input: &super::analysis_advanced_contracts::ServiceInput,
+    request: &JobRequest,
+    subject: Uuid,
+    job: &WorkerJob,
+    batch: &super::analysis_advanced_contracts::BatchLimits,
+) -> anyhow::Result<()> {
+    super::analysis_advanced::validate_input(input)?;
+    ensure!(
+        input.analysis.study_id == request.study_id
+            && input.analysis.analysis_id == subject
+            && input.analysis.execution.job_id == job.id,
+        "study_analysis_job_binding"
+    );
+    let evaluations = match &input.analysis.config {
+        super::analysis_advanced_contracts::Config::SensitivityOat { parameters, .. } => {
+            parameters.len().checked_mul(2)
+        }
+        super::analysis_advanced_contracts::Config::Uncertainty { sample_count, .. } => {
+            Some(*sample_count)
+        }
+    };
+    ensure!(
+        input.analysis.config.parameters().len() <= batch.max_parameters
+            && evaluations
+                .and_then(|n| n.checked_add(1))
+                .is_some_and(|n| n <= batch.max_evaluations),
+        "study_advanced_evaluation_limit"
+    );
+    Ok(())
 }
 impl ExecutionConfig {
     fn environment() -> anyhow::Result<Self> {
@@ -585,6 +654,7 @@ where
     Fut: std::future::Future<Output = anyhow::Result<Value>>,
 {
     let mut attempted = false;
+    let mut ambiguous = false;
     for attempt in 0..3 {
         let Some(remaining) = deadline
             .checked_duration_since(Instant::now())
@@ -598,8 +668,15 @@ where
         attempted = true;
         match timeout(remaining.min(Duration::from_secs(10)), invoke()).await {
             Ok(Ok(_)) => return Ok(()),
-            Ok(Err(error)) if error.is::<DomainRejected>() => return Err(error),
-            _ => {}
+            Ok(Err(error)) if error.is::<DomainRejected>() => {
+                // A later authorization/lease rejection cannot disprove an
+                // earlier committed callback whose acknowledgement was lost.
+                if ambiguous {
+                    return Err(CompletionUnknown.into());
+                }
+                return Err(error);
+            }
+            _ => ambiguous = true,
         }
         if attempt < 2 {
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -619,6 +696,19 @@ async fn pipeline(
     publishing: &AtomicBool,
     lease_seconds: i32,
 ) -> anyhow::Result<()> {
+    let advanced_batch = if job.job_kind == "study.analysis_advanced" {
+        Some(advanced_batch_limits(
+            std::env::var("STUDY_ADVANCED_ENABLED").ok().as_deref(),
+            std::env::var("STUDY_ADVANCED_MAX_PARAMETERS")
+                .ok()
+                .as_deref(),
+            std::env::var("STUDY_ADVANCED_MAX_EVALUATIONS")
+                .ok()
+                .as_deref(),
+        )?)
+    } else {
+        None
+    };
     ensure_preflight(config, deadline, cancel).await?;
     let store = state.object_store.study_artifacts();
     let work = tempfile::Builder::new()
@@ -772,6 +862,57 @@ async fn pipeline(
                 json!({"profileId":data["preparation"]["profileId"],"calculationContractRef":data["preparation"]["calculationContractRef"]}),
                 "modelInput",
                 INPUT_SCHEMA,
+            )
+        }
+        "study.analysis_advanced" => {
+            let data = bounded(
+                cancel,
+                deadline,
+                rpc(&state.pool, input_rpc(&job.job_kind)?, subject, job, None),
+            )
+            .await?;
+            let input: super::analysis_advanced_contracts::ServiceInput =
+                serde_json::from_value(data)?;
+            let batch = advanced_batch.context("study_runtime_unavailable")?;
+            advanced_job_binding(&input, request, subject, job, &batch)?;
+            let source = work.path().join("advanced-source.json");
+            let prepared = work.path().join("advanced-prepared.json");
+            let result = work.path().join("advanced-result.json");
+            for (artifact, kind, path) in [
+                (&input.source_artifact, "modelSource", &source),
+                (&input.baseline.prepared_artifact, "modelInput", &prepared),
+                (&input.baseline.result_artifact, "runResult", &result),
+            ] {
+                download(
+                    &store,
+                    artifact,
+                    request.study_id,
+                    kind,
+                    path,
+                    cancel,
+                    deadline,
+                )
+                .await?;
+            }
+            let body = json!({"profileId":input.analysis.profile_id,"configHash":input.analysis.config_hash});
+            write_json(
+                &input_file,
+                &super::analysis_advanced_contracts::NativeInput {
+                    schema_version: "lca.study-analysis-native.v2".into(),
+                    input,
+                    snapshot_path: text_path(&source)?,
+                    prepared_path: text_path(&prepared)?,
+                    result_path: text_path(&result)?,
+                    batch_limits: batch,
+                },
+            )?;
+            (
+                NativeAction::AnalyzeAdvanced {
+                    analysis_path: text_path(&input_file)?,
+                },
+                body,
+                "analysisFacts",
+                super::analysis_advanced_contracts::FACTS_SCHEMA,
             )
         }
         "study.analysis" => {
@@ -1035,7 +1176,19 @@ async fn pipeline(
             );
         }
     }
-    if artifact_kind == "analysisFacts" {
+    if artifact_schema == super::analysis_advanced_contracts::FACTS_SCHEMA {
+        let output: super::analysis_advanced_contracts::FactsBundle =
+            super::json::from_slice(&bytes)?;
+        let expected: super::analysis_advanced_contracts::NativeInput =
+            super::json::from_slice(&std::fs::read(&input_file)?)?;
+        super::analysis_advanced::validate_output(
+            &output,
+            &expected.input,
+            &std::fs::read(&expected.prepared_path)?,
+            &native.limits,
+            &expected.batch_limits,
+        )?;
+    } else if artifact_kind == "analysisFacts" {
         let output: super::analysis_contracts::FactsBundle = super::json::from_slice(&bytes)?;
         let expected: super::analysis_contracts::NativeInput =
             super::json::from_slice(&std::fs::read(&input_file)?)?;
@@ -1453,6 +1606,68 @@ mod tests {
         assert!(request(&value).is_err());
     }
     #[test]
+    fn advanced_admission_and_job_bindings_fail_closed_without_changing_old_jobs() {
+        for (enabled, parameters, evaluations) in [
+            (None, Some("8"), Some("129")),
+            (Some("false"), Some("8"), Some("129")),
+            (Some("TRUE"), Some("8"), Some("129")),
+            (Some("true"), None, Some("129")),
+            (Some("true"), Some("0"), Some("129")),
+            (Some("true"), Some("8"), Some("2")),
+            (Some("true"), Some("+8"), Some("129")),
+            (Some("true"), Some("8"), Some("4294967296")),
+        ] {
+            assert!(advanced_batch_limits(enabled, parameters, evaluations).is_err());
+        }
+        let batch = advanced_batch_limits(Some("true"), Some("8"), Some("129")).unwrap();
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/study-analysis/advanced/service-seams.json"
+        ))
+        .unwrap();
+        let input: super::super::analysis_advanced_contracts::ServiceInput =
+            serde_json::from_value(fixture["readInputResponse"]["data"].clone()).unwrap();
+        let mut value = job();
+        value.id = input.analysis.execution.job_id;
+        value.job_kind = "study.analysis_advanced".into();
+        value.payload_schema_version = "study.analysis_advanced.request.v1".into();
+        value.payload = json!({"schemaVersion":value.payload_schema_version,"studyId":input.analysis.study_id,"analysisId":input.analysis.analysis_id});
+        let (request, subject) = request(&value).unwrap();
+        advanced_job_binding(&input, &request, subject, &value, &batch).unwrap();
+        assert_eq!(resource_type(&value.job_kind).unwrap(), "analysis");
+        assert!(handles(&value.job_kind));
+        for name in [
+            input_rpc(&value.job_kind).unwrap(),
+            completion_rpc(&value.job_kind).unwrap(),
+        ] {
+            let row = fixture["functions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|f| f["name"] == name)
+                .unwrap();
+            assert_eq!(row["serviceExecute"], true);
+            assert_eq!(row["actorExecute"], false);
+            let mut args = vec!["p_analysis_id", "p_job_id", "p_lease_token"];
+            if name.contains("complete") {
+                args.extend(["p_completion", "p_idempotency_key"]);
+            }
+            assert_eq!(row["argumentNames"], json!(args));
+        }
+        value.id = Uuid::new_v4();
+        assert!(advanced_job_binding(&input, &request, subject, &value, &batch).is_err());
+        value.id = input.analysis.execution.job_id;
+        assert!(advanced_job_binding(&input, &request, Uuid::new_v4(), &value, &batch).is_err());
+        let tiny = super::super::analysis_advanced_contracts::BatchLimits {
+            max_parameters: 0,
+            max_evaluations: 2,
+        };
+        assert!(advanced_job_binding(&input, &request, subject, &value, &tiny).is_err());
+        let mut wrong_request = request;
+        wrong_request.study_id = Uuid::new_v4();
+        assert!(advanced_job_binding(&input, &wrong_request, subject, &value, &batch).is_err());
+    }
+
+    #[test]
     fn private_storage_location_is_bound_to_study_and_registered_artifact() {
         let study = Uuid::new_v4();
         let id = Uuid::new_v4();
@@ -1597,6 +1812,32 @@ mod callback_race_tests {
         assert!(error.is::<CompletionUnknown>());
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
+    #[tokio::test]
+    async fn lost_ack_then_authorization_denial_preserves_unknown_completion() {
+        let committed = AtomicBool::new(false);
+        let calls = AtomicUsize::new(0);
+        let error = complete_with_retry(Instant::now() + Duration::from_secs(2), || {
+            let call = calls.fetch_add(1, Ordering::SeqCst);
+            if call == 0 {
+                committed.store(true, Ordering::SeqCst);
+            }
+            async move {
+                if call == 0 {
+                    anyhow::bail!("simulated_committed_reply_lost");
+                }
+                Err(DomainRejected.into())
+            }
+        })
+        .await
+        .unwrap_err();
+        assert!(committed.load(Ordering::SeqCst));
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        // Both publication cleanup and top-level failure handling retain an
+        // unknown completion: no object deletion or contradictory failure RPC.
+        assert!(error.is::<CompletionUnknown>());
+        assert!(!error.is::<DomainRejected>());
+    }
+
     #[tokio::test]
     async fn identical_receipt_retry_recovers_ack_and_rejection_is_not_unknown() {
         let calls = AtomicUsize::new(0);

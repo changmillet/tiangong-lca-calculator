@@ -50,6 +50,9 @@ pub enum NativeAction {
     Analyze {
         analysis_path: String,
     },
+    AnalyzeAdvanced {
+        analysis_path: String,
+    },
 }
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

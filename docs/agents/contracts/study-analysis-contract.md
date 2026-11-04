@@ -15,6 +15,7 @@ whenToUpdate:
 checkPaths:
   - crates/solver-worker/src/study/analysis*
   - crates/solver-worker/src/study/analysis/**
+  - crates/solver-worker/src/study/analysis_advanced/**
   - crates/solver-worker/src/study/runtime*.rs
   - crates/solver-worker/tests/fixtures/study-analysis/**
   - docs/agents/contracts/study-analysis*.schema.json
@@ -191,3 +192,272 @@ silently truncated. These independent bounds do not promise that every maximum
 P1 model fits a maximum-detail analysis. RSS remains a sampled threshold, not
 hard cgroup containment or a production SLA. Qualification and actual owned
 runtime commands are listed in the validation guide.
+
+## W14 independent advanced profiles (not operationally admitted)
+
+The separate `lca.study-analysis-config.v2`, `lca.study-analysis-input.v2` and
+`lca.study-analysis-facts.v2` schemas and `analysis_advanced_contracts.rs` own
+`lca.study-sensitivity-oat.v1` and `lca.study-uncertainty-bounded.v1`. They do not
+change any W08 v1 bytes, contribution/comparison meaning or P1 identity.
+`analyze_advanced` is a distinct private native action. Source merge, native
+component proof and experimental limits do not enable a hosted job/profile.
+
+Config is a closed `kind:sensitivityOat|uncertainty` object binding one exact
+`baselineRunId` and an ordered, unique list of `{path,unit,baselineAmount,low,high}`.
+Paths are eligible nonreference exchange amounts. `low < high` and
+`low <= baselineAmount <= high` are required; width must be representable.
+Each unit string is an assertion against the actual frozen exchange, not a unit
+conversion or an authoritative identity. Facts retain the resolved exact Flow,
+direction and FlowProperty/UnitGroup support revisions separately in
+`resolvedParameters`; Method ID/version and method-source identity bind the
+result quantity. No arbitrary matrix edits, changed providers, reference-amount
+edits or evaluated expressions are accepted.
+
+Every scientific config value is a **canonical string using the v1 facts codec**
+above. Worker parses it as IEEE-754 binary64 with correctly rounded
+round-to-nearest/ties-to-even conversion and requires the exact codec spelling
+of that parsed value. Thus `"9.0"`, `"-0"`, overflowing/underflowing decimals
+and decimals that round to a different canonical spelling are rejected.
+Edge/SQL preserve and hash these strings; they must not regenerate them through
+floating point. Canonical object JSON uses the existing semantic encoder;
+`configHash=SHA256(UTF8("study.analysis-config.v2") + NUL + canonicalJSON(config))`.
+Sample-count metadata is restricted to the exactly portable u32 integer domain;
+this lexical/identity constraint is not an admitted execution ceiling.
+The cross-owner hash example is `advanced-config-vectors.json`. Config serialized
+bytes must fit the existing 262144-byte Edge request envelope; a complete request
+including other fields must independently fit that transport cap. Sample count
+and supplied empirical row count are separate resource axes.
+
+Private input contains the unchanged W08 baseline Run/revision/Scenario/
+preparation/artifact projections plus the original issued `sourceSnapshot` and
+private `sourceArtifact` wrapper. All baseline checks, current actor/client/source
+rights and exact lease/job/resource fences still apply. A wrapper or source
+`sourceAuthorization` field is not itself a grant. Worker hash/size-verifies
+exact snapshot, prepared and result bytes, verifies original source membership,
+uses `VerifiedMethods::from_frozen`, inherits cutoffs and cumulative overrides,
+and recompiles/replays the effective baseline before any evaluation. Each sample
+starts again from that same frozen source and baseline override layer. There is
+no live source/factor lookup. Evaluation identifiers are analysis-local
+`baseline` and `evaluation-0...`; none is a Run or Scenario UUID. Baseline files
+and records remain unchanged.
+
+### OAT interpretation
+
+One baseline replay and exactly two independent evaluations per ordered
+parameter are compiled/solved: low then high. Other effective amounts remain at
+the frozen baseline. Every Method output retains exact value, unit and coverage;
+no-characterized-term categories are unknown/null rather than measured zero.
+Absolute delta is endpoint minus baseline. Relative delta is
+`delta / abs(baseline)`, dimensionless, and undefined for zero or unknown
+baseline. Secant is `(highOutput-lowOutput)/(highAmount-lowAmount)` with separate
+`outputUnit` and `inputUnit`; it is range dependent and is neither a local
+derivative nor an interaction/global-sensitivity measure. Partial method
+coverage remains partial on effects and statistics.
+
+### Fixed-budget uncertainty and reproducibility
+
+`independentUniform` requires `independenceDeclared:true` and draws parameters
+in config order. `jointEmpirical` stores a nonempty rectangular table in that
+same parameter order, verifies every amount against its declared bounds, and
+samples an equal-weight **whole row with replacement** once per sample. It
+preserves exactly the supplied row dependence, never an arbitrary correlation
+matrix or an inference about source uncertainty. Repeated/constant rows retain
+their declared weight. Each design has one fixed `sampleCount >= 2`; baseline is
+not an extra stochastic sample and is excluded from summary statistics.
+
+The pinned generator is `study.uncertainty.hmac-drbg-sha256.v1`:
+
+- HMAC_DRBG SHA-256 core follows SP800-90A revision 1 section 10.1.2.
+- `seedHex` is exactly 64 lowercase hex characters, decoded to 32 bytes and
+  supplied as entropy_input; nonce is the empty byte string; personalization
+  is exact ASCII `study.uncertainty.hmac-drbg-sha256.v1` (no NUL/newline).
+- There is no reseed, prediction resistance or additional input. Every word
+  consumes a **separate Generate(8 bytes)** call and its mandatory post-generate
+  Update(empty); unused SHA-256 block bytes are discarded. Concatenating words
+  from one longer Generate call is a different stream and is prohibited.
+- The word is unsigned big-endian u64. Uniform U is `(word >> 11) / 2^53`,
+  exactly representable in [0,1). The amount is separately rounded binary64
+  `low + (high-low)*U`, without fused multiply-add, clamping or redraw. Rounding
+  may make the effective amount equal the declared high endpoint. Facts retain
+  the actual canonical effective amount; raw declarations remain in config.
+- For row count R, compute threshold=`2^64 mod R` in u128. Reject a word while
+  `word < threshold`, then select `word mod R`. Rejection consumes another
+  separate Generate(8) call. This is unbiased integer rejection, not a modulo
+  shortcut. Samples are generated in increasing index order, then parameters
+  in config order; empirical design consumes one accepted row draw per sample.
+
+The user seed is a reproducibility input, **not a claimed entropy source,
+cryptographic security guarantee or NIST/CAVP conformance certification**. Core
+proof includes NIST's published no-reseed HMAC_DRBG SHA-256 COUNT=0 vector
+(entropy+nonce, two 128-byte Generate calls; compare the second). Independent
+Python standard-library profile vectors pin 8-byte calls, words, U53 integers,
+row selection and the personalization. The algorithm sources are
+[NIST SP800-90A revision 1](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-90Ar1.pdf)
+and the [official CAVP vector archive](https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/drbg/drbgtestvectors.zip).
+Generator byte equality across platforms and native solve tolerance/replay are
+separate qualification claims; one Apple Silicon run establishes neither all
+server tuples nor identical floating-point solve bytes on other platforms.
+
+Statistics use sequential Welford mean/M2 in sample order; unbiased sample
+standard deviation is `sqrt(M2/(N-1))` and mean MCSE is `SD/sqrt(N)`. Min/max are
+sample extrema. Quantile probabilities are fixed 0.025, 0.5 and 0.975 with
+Hyndman-Fan type 7: sort observations, use zero-based `h=(N-1)*p`,
+`j=floor(h)`, `w=h-j`, then `(1-w)*x[j]+w*x[j+1]`; exact integral h returns x[j].
+The helper's N=1 rule returns its sole value; admitted uncertainty requires N>=2.
+This matches the [R type-7 definition](https://stat.ethz.ch/R-manual/R-patched/library/stats/html/quantile.html)
+without a fuzz correction. Zero sample variance produces SD=MCSE=0. A completed
+sample budget is **not convergence**, a confidence interval, distribution/tail
+precision or a scientific superiority claim. There is no precision threshold
+or adaptive stopping in this version.
+
+Every compile/solve must be finite, valid and residual-checked by the unchanged
+compiler/core. Invalid endpoints or draws abort the entire analysis; no redraw,
+silent discard, clamp or successful conditional subset is emitted. A sanitized
+native `lca.study-analysis-failure.v2` records requested/attempted/valid/invalid
+counts, `stopReason:invalid_evaluation` and the offending analysis-local ID;
+it contains no source JSON, raw native error, successful facts or business
+callback. Successful bundles have exact requested=attempted=valid, invalid=0 and
+`stopReason:fixed_budget_complete`.
+
+### Bounds and admission evidence
+
+One monotonic aggregate native budget covers decoding, verification, baseline
+recompile/replay, all evaluations, evidence, statistics and serialization, with
+pre/post evaluation checks. It never resets per evaluation; the unchanged parent
+120-second whole-attempt deadline and kill/reap/RSS/cancellation supervision
+remain independently required. Sequential work retains frozen baseline inputs,
+one working evaluation model and bounded required evidence. Config/input and
+actual serialized evidence are byte/memory checked and output never truncates. Facts retain the exact service-selected batch and
+native resource budgets in `executionLimits`, with the functional-unit cap as
+a canonical string. Parent-side output validation replays exact seeded amount/row
+assignments and binds all method/unit/coverage/parameter/finding/source metadata
+to the hash-verified frozen baseline before any future artifact registration.
+The 4 MiB artifact ceiling and existing compiler/source/calculation profiles
+remain unchanged. Per-attempt `BatchLimits` are explicit service-selected
+experiment bounds; they have no permissive runtime defaults. The test experiment
+points 8 parameters/17 evaluations and 1024 samples are **not qualified ceilings**.
+
+Read-only schema/component fixtures do not qualify daemon registration, current
+source rights, lease-loss/unknown callbacks, real UI/CLI/API/DB/native/report
+operation, Linux/Windows capacity or production containment. Those proofs and
+service-controlled limits require each owner and actual supported host before
+runtime admission. Review and exact workspace integration remain separate.
+
+### Worker-owned report scalar catalog
+
+Facts v2 requires the ordered `factCatalog` of closed `ReportFact` records.
+Every report numerical claim selects one exact artifact and `factId`; consumers
+copy its canonical value, typed context, unit identity and coverage byte-for-byte.
+They do not invent numerical scalar identities, recalculate summaries or derive
+report numbers from the raw sample matrix. An ID alone is not a global fact.
+All catalog `baselineRunId` values reference the actual frozen baseline Run;
+OAT `evaluationId` values remain analysis-local identifiers.
+
+`context.kind` is one of `parameterAmount`, `baselineOutput`, `oatOutput`,
+`oatAbsoluteDelta`, `oatRelativeDelta`, `oatSecant`, `uncertaintyStatistic`, or
+`uncertaintyQuantile`. Context retains exact parameter/method indexes, endpoint,
+evaluation IDs, statistic enum or the fixed quantile probability as appropriate.
+IDs are deterministic colon selectors compatible with the existing 128-byte
+report ID grammar, for example:
+
+- `parameter:0:low`
+- `baseline:method:0`
+- `oat:parameter:0:low:relativeDelta:method:0`
+- `oat:parameter:0:secant:method:0`
+- `uncertainty:mean:method:0`
+- `uncertainty:quantile:0.025:method:0`
+
+Catalog order is parameter index then baseline/low/high amount; baseline method
+index; then OAT parameter/method index with low output/absolute/relative, high
+output/absolute/relative, secant; or uncertainty method index with mean, unbiased
+sample SD, mean MCSE, min, max, then quantiles 0.025/0.5/0.975. For P parameters
+and M methods, complete catalogs contain `3P+M+7PM` OAT entries or `3P+M+8M`
+uncertainty entries. Individual Monte Carlo samples remain immutable typed
+artifact evidence and are deliberately absent from this report summary catalog.
+
+Parameter amount units bind the complete frozen resolved exchange Flow,
+direction and support-revision chain. Method quantity units bind exact Method
+revision and frozen result unit. Relative deltas have `unit:"1"` and
+`unitIdentity.kind:dimensionless` while retaining Method provenance separately.
+Secants have a typed Method-quantity numerator and exchange-amount denominator;
+the exact display unit is `(outputUnit)/(inputUnit)`, not a derivative claim.
+Unknown characterized values retain null/unknown and `no_characterized_terms`;
+zero-baseline relative deltas retain null, original coverage and
+`zero_baseline_relative_undefined`. Partial values remain partial. There is no
+ranking fact or hidden omission of undefined entries.
+
+The parent regenerates the complete ordered catalog from the already verified
+typed evidence and frozen unit/provenance metadata and requires exact equality.
+Missing, duplicate, reordered or extra entries, forged selectors, values, units,
+coverage and contexts fail before registration. Conservative serialized catalog
+preflight includes actual escaped method/exchange metadata and complete fixed
+field overhead; actual final byte/memory and aggregate deadline checks still
+apply. Older component receipts precede the catalog and retain their historical
+scope. New serialization measurements must bind the updated binary.
+
+### Concrete owner-coordination seams
+
+`study-analysis-record.v2.schema.json` is a concrete proposal for the Edge-owned
+V5 analysis record. It contains only analysisId, studyId, the exact independent
+profile/config/configHash, the existing Worker execution job/status vocabulary,
+and factsRef. FactsRef is nonnull exactly when execution is completed and is
+strictly `analysisFacts/lca.study-analysis-facts.v2`; no numerical comparability
+or ranking assertion is invented. `PublicAnalysisRecord` is the corresponding
+closed DTO. Public negotiation remains Edge-owned and does not register a daemon.
+
+The proposed distinct job is `study.analysis_advanced` in queue `solver`, with
+payload schema `study.analysis_advanced.request.v1` and exactly
+`{schemaVersion,studyId,analysisId}`. Resource type remains `analysis`.
+The proposed service-only functions are:
+
+- `api.svc_study_analysis_advanced_read_input_v1(p_analysis_id uuid, p_job_id uuid, p_lease_token uuid)`.
+- `api.svc_study_analysis_advanced_complete_v1(p_analysis_id uuid, p_job_id uuid, p_lease_token uuid, p_completion jsonb, p_idempotency_key text)`.
+
+Argument order is normative for the proposal. Completion is the closed
+`study-analysis-completion.v2.schema.json` / `Completion` DTO containing
+profileId, configHash, factsRef, storageBucket and storageObjectPath, with the
+existing `study:<jobUUID>:<leaseUUID>` idempotency key. Atomic current actor/client/
+source, job/lease/resource, cancellation, terminal receipt and unknown-outcome
+rules remain required; the proposal is not an installed SQL contract.
+
+Private input v2 retains its minimal six-field analysis record and unchanged
+P1 baseline Run/revision/Scenario/preparation projections and exact prepared/
+result wrappers. `sourceSnapshot` is now the closed existing P1 projection:
+snapshotId, studyId, typed LifecycleModel originRef, sourceArtifactRef,
+digestScope, licenseRef, issuerId and observedAt. Exact private `sourceArtifact`
+bytes use the original `modelSource/lca.study-source-snapshot.v1` artifact.
+Captured origin/license/issuer are checked against those exact bytes, and
+observedAt must denote the same RFC3339 instant (the stored timestamptz may
+serialize an equivalent offset lexeme).
+Authorization remains in the original DB-issued source capability and current
+service checks, never a caller-provided success or authorization boolean.
+The full private raw snapshot retains its existing protected authorization data;
+that raw packet is not a new public contract.
+
+`tests/fixtures/study-analysis/advanced/service-seams.json` supplies concrete
+ordered arguments, public completed record, complete private read-input example
+and exact synthetic facts registration. `catalog-{oat,uniform,empirical}.json`
+and corresponding full facts are producer goldens. They establish component
+schema/numerical examples only. Database and Edge must agree and qualify these
+seams before actual capability admission. The daemon now implements the agreed distinct advanced seams under the separate default-off admission described in the runtime contract; actual Database/Edge/native qualification remains required.
+
+
+Cross-owner canonical spelling fixtures preserve 27 boundary vectors and 4096
+finite IEEE-754 bit patterns from deterministic xorshift64 (seed
+`0x6c63612d73747564`, shifts 13/7/17). Expected strings were generated from the
+unchanged owner `canonical_number` function linked to the same locked serde_json
+implementation. They validate Node/SQL interoperability, not scientific numbers
+or a change to P1 hashing. PostgreSQL shortest notation alone is not equivalent
+(e.g. the binary value canonically spelled `1e23`); config hashes always bind
+supplied strings unchanged after validation.
+
+
+The additional exchange-cap synthetic fixture carries 4096 exchanges, 61 inventory
+axes, 25 method outputs and 128 views. On the selected macOS arm64 b6 native build,
+eight-parameter OAT (17 evaluations) measured 13.35 seconds / 836476 artifact
+bytes / 97304576 bytes sampled peak RSS; sixteen-sample uncertainty (17 including
+baseline) measured 17.211 seconds / 191918 bytes / 100663296 bytes sampled peak
+RSS. Its prepared artifact is 1690339 bytes. These task observations provide a
+separate dense multi-method check; the earlier one-method 129-evaluation result
+must not be generalized to this shape. Service/operator limits remain explicit
+and require the actual target's qualification, including whole-attempt overhead.

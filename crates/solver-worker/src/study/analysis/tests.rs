@@ -2,7 +2,7 @@ use super::*;
 use crate::study::analysis_contracts::NativeFiles;
 use crate::study::{artifact_bytes, execute, tests::analysis_prepared};
 
-fn service(prepared: Vec<PreparedInput>) -> (ServiceInput, Vec<VerifiedRun>) {
+pub(in crate::study) fn service(prepared: Vec<PreparedInput>) -> (ServiceInput, Vec<VerifiedRun>) {
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../tests/fixtures/study-analysis/service-seams.json"
     ))
@@ -476,4 +476,23 @@ async fn analysis_native_component_and_running_cancellation() {
         std::fs::write(path, serde_json::to_vec_pretty(&receipt).unwrap()).unwrap();
     }
     eprintln!("{receipt}");
+}
+
+#[test]
+fn canonical_number_cross_owner_parity_corpus() {
+    for source in [
+        include_str!("../../../tests/fixtures/study-analysis/canonical-number-boundaries.json"),
+        include_str!("../../../tests/fixtures/study-analysis/canonical-number-corpus.json"),
+    ] {
+        let rows: Vec<Value> = serde_json::from_str(source).unwrap();
+        for row in rows {
+            let bits = u64::from_str_radix(row["bits"].as_str().unwrap(), 16).unwrap();
+            let expected = row["canonical"].as_str().unwrap();
+            assert_eq!(canonical_number(f64::from_bits(bits)).unwrap(), expected);
+            let parsed: f64 = expected.parse().unwrap();
+            if parsed != 0.0 {
+                assert_eq!(parsed.to_bits(), bits);
+            }
+        }
+    }
 }
