@@ -82,7 +82,7 @@ not production model inputs, prepared-model identities or a qualified Study run.
 Keep these constraints in mind before editing `crates/solver-core/**` or worker solve flows:
 
 - The runtime solves the sparse system `Mx = b` with `M = I - A`; preserve that modeling contract when reshaping matrix-build code.
-- For each demand, the UMFPACK wrapper checks the compensated f64 residual of the original system. When its infinity norm exceeds machine epsilon times the demand infinity norm, one correction solve reuses the numeric factorization. The returned activity vector feeds both inventory and impact calculations. The Worker calculation fingerprint identifies this solver policy for newly built results.
+- For each demand, the UMFPACK wrapper checks the compensated f64 residual of the original system. When its infinity norm exceeds machine epsilon times the demand infinity norm, one correction solve reuses the numeric factorization. The returned activity vector feeds both inventory and impact calculations. This refines the solution of the same signed-flow equations under the existing calculation fingerprint.
 - Do not introduce explicit matrix inversion for solve paths. Reuse factorization or sparse-solve flows instead.
 - Heavy recomputation belongs in async worker jobs, not inline request handlers or API-edge adapters.
 - If a change affects factorization reuse, provider matching, or snapshot payload shape, review worker and persistence paths together.

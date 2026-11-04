@@ -27,7 +27,7 @@ checkPaths:
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: 2026-11-04
 lastReviewedCommit: 65986599adb3ae4da2385b476b376ac2a418cd25
-lastReviewedNote: "Worker #363: checked internal residual refinement, calculation fingerprint rotation, unchanged consumer formats and synthetic validation."
+lastReviewedNote: "Worker #363: checked internal residual refinement, calculation fingerprint compatibility, unchanged consumer formats and synthetic validation."
 related:
   - AGENTS.md
   - .docpact/config.yaml
