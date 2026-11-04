@@ -1,8 +1,8 @@
 version: 1
 layout: repo
 lastReviewedAt: "2026-11-04"
-lastReviewedCommit: "b6d97040a9e096d78146a509524a98682352ba21"
-lastReviewedNote: "Worker #362: reviewed test-only exchange-cap multi-inventory/method capacity and explicit Linux native CI qualification; runtime/schema/hash semantics and default-off service admission are unchanged."
+lastReviewedCommit: "b8013fe"
+lastReviewedNote: "Worker #366: reviewed existing runtime ownership and exact method contract routing for the default-off method daemon/native/source/evidence/catalog boundary; actor, Storage, report, deployment and industry/professional qualification remain separate."
 
 # Keep deterministic governance facts here.
 # AGENTS.md remains the repo contract entrypoint.

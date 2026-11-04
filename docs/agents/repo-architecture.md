@@ -73,10 +73,11 @@ and native action do not operationally admit a hosted profile.
 ## Core Solver Invariants
 
 The [source-bound method assessment](contracts/study-method-assessment-contract.md)
-is a separate initial library and offline candidate family. Its independently
-pinned PCR module and verified frozen source/C evidence do not register a queue
-job or broaden existing API/report versions. Professional judgments and actual
-complete-industry-study acceptance remain separately pending.
+is an independent family with an offline candidate and a separately gated
+private method-job adapter. Its pinned PCR module and verified frozen source/C
+evidence do not grant job registration, actor/source rights or professional
+approval. Public API/report adoption and actual complete-industry-study
+acceptance remain separately qualified.
 
 The [Study P0 profile](contracts/study-p0-calculation-profile.md) owns an offline
 qualification baseline and common rational fixtures under
