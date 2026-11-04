@@ -1568,6 +1568,7 @@
         "categories",
         "requirements",
         "candidateNormalisationWeighting",
+        "factCatalog",
         "outcome",
         "limitations",
         "pefConformityQualified",
@@ -1660,6 +1661,886 @@
         },
         "businessPilotQualified": {
           "const": false
+        },
+        "factCatalog": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/methodReportFact"
+          },
+          "minItems": 58,
+          "maxItems": 58
+        }
+      }
+    },
+    "methodFactsRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "contentHash",
+        "digestScope",
+        "byteSize",
+        "mediaType",
+        "schemaVersion"
+      ],
+      "properties": {
+        "type": {
+          "const": "methodAssessmentFacts"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "contentHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "digestScope": {
+          "const": "artifact_bytes_sha256"
+        },
+        "byteSize": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4194304
+        },
+        "mediaType": {
+          "const": "application/json"
+        },
+        "schemaVersion": {
+          "const": "lca.study-method-assessment-facts.v1"
+        }
+      }
+    },
+    "publicAssessmentRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assessmentId",
+        "studyId",
+        "profileId",
+        "config",
+        "configHash",
+        "execution",
+        "factsRef"
+      ],
+      "properties": {
+        "assessmentId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "studyId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "profileId": {
+          "const": "lca.study-method-pef-2021-ef31-cement-intermediate.v1"
+        },
+        "config": {
+          "$ref": "#/$defs/config"
+        },
+        "configHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "execution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "jobId",
+            "status"
+          ],
+          "properties": {
+            "jobId": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            "status": {
+              "enum": [
+                "queued",
+                "running",
+                "waiting",
+                "completed",
+                "blocked",
+                "stale",
+                "failed",
+                "cancelled"
+              ]
+            }
+          }
+        },
+        "factsRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/methodFactsRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "jobRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "studyId",
+        "assessmentId"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "study.method_assessment.request.v1"
+        },
+        "studyId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "assessmentId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        }
+      }
+    },
+    "methodBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxSelectedFactorRecords",
+        "maxFactsBytes"
+      ],
+      "properties": {
+        "maxSelectedFactorRecords": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "maxFactsBytes": {
+          "const": 4194304
+        }
+      }
+    },
+    "jobContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "input",
+        "budget"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "lca.study-method-job-context.v1"
+        },
+        "input": {
+          "$ref": "#/$defs/serviceInput"
+        },
+        "budget": {
+          "$ref": "#/$defs/methodBudget"
+        }
+      }
+    },
+    "methodCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profileId",
+        "configHash",
+        "selectedFactorRecordCount",
+        "factsRef",
+        "storageBucket",
+        "storageObjectPath"
+      ],
+      "properties": {
+        "profileId": {
+          "const": "lca.study-method-pef-2021-ef31-cement-intermediate.v1"
+        },
+        "configHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "selectedFactorRecordCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8192
+        },
+        "factsRef": {
+          "$ref": "#/$defs/methodFactsRef"
+        },
+        "storageBucket": {
+          "const": "study-artifacts"
+        },
+        "storageObjectPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^study/[a-f0-9-]{36}/[a-f0-9-]{36}/[A-Za-z0-9_.-]+\\.json$"
+        }
+      }
+    },
+    "failureRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resourceType",
+        "resourceId",
+        "jobId",
+        "leaseToken",
+        "errorCode",
+        "idempotencyKey"
+      ],
+      "properties": {
+        "resourceType": {
+          "const": "methodAssessment"
+        },
+        "resourceId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "jobId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "leaseToken": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "errorCode": {
+          "enum": [
+            "source_invalid",
+            "boundary_undeclared",
+            "normalization_underflow",
+            "normalization_overflow",
+            "numeric_invalid",
+            "resource_limit",
+            "model_not_solvable",
+            "native_execution_failed",
+            "job_timeout",
+            "job_lease_lost",
+            "runtime_unavailable",
+            "runtime_failed"
+          ]
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        }
+      }
+    },
+    "reconcileRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resourceType",
+        "resourceId",
+        "jobId",
+        "leaseToken",
+        "idempotencyKey",
+        "artifactId"
+      ],
+      "properties": {
+        "resourceType": {
+          "const": "methodAssessment"
+        },
+        "resourceId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "jobId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "leaseToken": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        },
+        "artifactId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "reconcileResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "resource",
+        "jobStatus"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "committed",
+            "referenced",
+            "unreferenced",
+            "pending"
+          ]
+        },
+        "resource": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "type",
+                "value"
+              ],
+              "properties": {
+                "type": {
+                  "const": "methodAssessment"
+                },
+                "value": {
+                  "$ref": "#/$defs/publicAssessmentRecord"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "jobStatus": {
+          "enum": [
+            "queued",
+            "running",
+            "waiting",
+            "completed",
+            "blocked",
+            "stale",
+            "failed",
+            "cancelled"
+          ]
+        }
+      }
+    },
+    "declaredCitation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "identity",
+        "version",
+        "contentHash",
+        "locator"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "normativeSource",
+            "datasetRevision",
+            "document",
+            "professionalRecord",
+            "otherDeclaredSource"
+          ]
+        },
+        "identity": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+        },
+        "contentHash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "locator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+        }
+      }
+    },
+    "evidenceBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "requirementId",
+        "declaredKind",
+        "title",
+        "statement",
+        "citations"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "lca.study-method-evidence.v1"
+        },
+        "requirementId": {
+          "type": "string",
+          "pattern": "^PEF-(?:0[1-9]|1[0-9]|20)$"
+        },
+        "declaredKind": {
+          "enum": [
+            "sourceRecord",
+            "applicabilityRecord",
+            "professionalRecord"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192,
+          "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/declaredCitation"
+          },
+          "minItems": 0,
+          "maxItems": 32
+        }
+      }
+    },
+    "evidenceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "evidenceId",
+        "studyId",
+        "requirementId",
+        "declaredKind",
+        "artifactRef",
+        "recordedAt",
+        "status"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "lca.study-method-evidence-record.v1"
+        },
+        "evidenceId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "studyId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "requirementId": {
+          "type": "string",
+          "pattern": "^PEF-(?:0[1-9]|1[0-9]|20)$"
+        },
+        "declaredKind": {
+          "enum": [
+            "sourceRecord",
+            "applicabilityRecord",
+            "professionalRecord"
+          ]
+        },
+        "artifactRef": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "id",
+            "contentHash",
+            "digestScope",
+            "byteSize",
+            "mediaType",
+            "schemaVersion"
+          ],
+          "properties": {
+            "type": {
+              "const": "methodEvidence"
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "contentHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "digestScope": {
+              "const": "artifact_bytes_sha256"
+            },
+            "byteSize": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65536
+            },
+            "mediaType": {
+              "const": "application/json"
+            },
+            "schemaVersion": {
+              "const": "lca.study-method-evidence.v1"
+            }
+          }
+        },
+        "recordedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "const": "recorded_unverified"
+        }
+      }
+    },
+    "methodFactContext": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "methodRef",
+            "categoryRole"
+          ],
+          "properties": {
+            "kind": {
+              "const": "characterisedCategory"
+            },
+            "methodRef": {
+              "$ref": "#/$defs/datasetRef"
+            },
+            "categoryRole": {
+              "enum": [
+                "primary",
+                "subcategory"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "methodRef"
+          ],
+          "properties": {
+            "kind": {
+              "const": "normalisedCategory"
+            },
+            "methodRef": {
+              "$ref": "#/$defs/datasetRef"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "methodRef"
+          ],
+          "properties": {
+            "kind": {
+              "const": "weightedCategory"
+            },
+            "methodRef": {
+              "$ref": "#/$defs/datasetRef"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "primaryMethods"
+          ],
+          "properties": {
+            "kind": {
+              "const": "candidateSingleScore"
+            },
+            "primaryMethods": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/datasetRef"
+              },
+              "minItems": 16,
+              "maxItems": 16
+            }
+          }
+        }
+      ]
+    },
+    "methodUnitIdentity": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "methodRef",
+            "referenceQuantityId",
+            "unit"
+          ],
+          "properties": {
+            "kind": {
+              "const": "characterised"
+            },
+            "methodRef": {
+              "$ref": "#/$defs/datasetRef"
+            },
+            "referenceQuantityId": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "methodRef",
+            "referenceQuantityId",
+            "unit",
+            "sourceNormalisationFactor",
+            "moduleArtifactSha256"
+          ],
+          "properties": {
+            "kind": {
+              "const": "normalised"
+            },
+            "methodRef": {
+              "$ref": "#/$defs/datasetRef"
+            },
+            "referenceQuantityId": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            "unit": {
+              "const": "1"
+            },
+            "sourceNormalisationFactor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+            },
+            "moduleArtifactSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "methodRef",
+            "referenceQuantityId",
+            "unit",
+            "sourceNormalisationFactor",
+            "sourceWeightFraction",
+            "pointDefinition",
+            "scalingFactor",
+            "moduleArtifactSha256"
+          ],
+          "properties": {
+            "kind": {
+              "const": "weighted"
+            },
+            "methodRef": {
+              "$ref": "#/$defs/datasetRef"
+            },
+            "referenceQuantityId": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            "unit": {
+              "const": "Pt"
+            },
+            "sourceNormalisationFactor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+            },
+            "sourceWeightFraction": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+            },
+            "pointDefinition": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048,
+              "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+            },
+            "scalingFactor": {
+              "const": "1"
+            },
+            "moduleArtifactSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "primaryMethods",
+            "unit",
+            "pointDefinition",
+            "scalingFactor",
+            "moduleArtifactSha256"
+          ],
+          "properties": {
+            "kind": {
+              "const": "candidateScore"
+            },
+            "primaryMethods": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/datasetRef"
+              },
+              "minItems": 16,
+              "maxItems": 16
+            },
+            "unit": {
+              "const": "Pt"
+            },
+            "pointDefinition": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048,
+              "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+            },
+            "scalingFactor": {
+              "const": "1"
+            },
+            "moduleArtifactSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "methodReportFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "factId",
+        "assessmentId",
+        "baselineRunId",
+        "context",
+        "methodRef",
+        "canonicalValue",
+        "unit",
+        "unitIdentity",
+        "coverage",
+        "reasonCodes"
+      ],
+      "properties": {
+        "factId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        },
+        "assessmentId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "baselineRunId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "context": {
+          "$ref": "#/$defs/methodFactContext"
+        },
+        "methodRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/datasetRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "canonicalValue": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]*[1-9])?(?:e-?[1-9][0-9]{0,2})?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+        },
+        "unitIdentity": {
+          "$ref": "#/$defs/methodUnitIdentity"
+        },
+        "coverage": {
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "reasonCodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+          },
+          "minItems": 0,
+          "maxItems": 32
         }
       }
     }

@@ -20,8 +20,8 @@ checkPaths:
   - crates/solver-worker/tests/fixtures/study-analysis/**
   - docs/agents/contracts/study-analysis*.schema.json
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: 3d3159d9f231143a51f761f895fbd3aef18d1b9b
-lastReviewedNote: "Worker #366: reviewed independent method-assessment library/offline candidate, exact source/frozen-byte checks and pending professional evidence; existing Run/runtime/API/consumer authority remains unchanged."
+lastReviewedCommit: c01f9f6
+lastReviewedNote: "Worker #366: reviewed exact method job/context/evidence/catalog interfaces and pre-publication schema completion; current source/actor/lease/runtime/report qualification remains separately required. Existing numerical families are retained."
 related:
   - study-runtime-contract.md
   - study-compiler-contract.md

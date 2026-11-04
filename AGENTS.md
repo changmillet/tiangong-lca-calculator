@@ -43,8 +43,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: 65986599adb3ae4da2385b476b376ac2a418cd25
-lastReviewedNote: "Worker #366: reviewed independent method-assessment library/offline candidate, exact source/frozen-byte checks and pending professional evidence; existing Run/runtime/API/consumer authority remains unchanged."
+lastReviewedCommit: c01f9f6
+lastReviewedNote: "Worker #366: reviewed exact method job/context/evidence/catalog interfaces and pre-publication schema completion; current source/actor/lease/runtime/report qualification remains separately required. Existing numerical families are retained."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md

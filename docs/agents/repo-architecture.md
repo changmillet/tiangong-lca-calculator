@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-03
-lastReviewedCommit: e7e416c2fc61da9520556077860823ffccecf742
-lastReviewedNote: "Worker #366: reviewed independent method-assessment library/offline candidate, exact source/frozen-byte checks and pending professional evidence; existing Run/runtime/API/consumer authority remains unchanged."
+lastReviewedAt: 2026-11-04
+lastReviewedCommit: c01f9f6
+lastReviewedNote: "Worker #366: reviewed exact method job/context/evidence/catalog interfaces and pre-publication schema completion; current source/actor/lease/runtime/report qualification remains separately required. Existing numerical families are retained."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml

@@ -1,6 +1,8 @@
 //! Read-only source-bound assessment. It never authorizes, rewrites or certifies a Study.
+mod catalog;
 mod module;
 mod normalisation;
+mod service;
 mod source;
 use super::{
     analysis, analysis_contracts as old,
@@ -19,6 +21,7 @@ use super::{
 };
 use anyhow::{Context, ensure};
 use serde_json::Value;
+pub use service::{validate_context, validate_evidence_body, validate_registered_output};
 pub use source::TrustedMethods;
 use std::collections::BTreeSet;
 use uuid::Uuid;
@@ -236,7 +239,8 @@ fn id(value: &Value, key: &str) -> anyhow::Result<Uuid> {
 fn binding(
     input: &ServiceInput,
     p: &PreparedInput,
-    proof: &source::SourceProof,
+    source_ref: &super::runtime_contracts::ArtifactRef,
+    source_origin: &DatasetRef,
 ) -> anyhow::Result<BaselineBinding> {
     let model: ModelRef = serde_json::from_value(input.baseline.run["effectiveModelRef"].clone())?;
     let validity: Validity = serde_json::from_value(input.baseline.run["validity"].clone())?;
@@ -259,8 +263,8 @@ fn binding(
         effective_model_ref: model,
         prepared_artifact_ref: input.baseline.prepared_artifact.artifact_ref.clone(),
         result_ref: input.baseline.result_artifact.artifact_ref.clone(),
-        source_snapshot_ref: proof.source_ref.clone(),
-        source_origin: proof.source_origin.clone(),
+        source_snapshot_ref: source_ref.clone(),
+        source_origin: source_origin.clone(),
         calculation_contract_ref: p.calculation_contract_ref.clone(),
         method_source_hash: p.method_source_hash.clone(),
         validity,
@@ -423,6 +427,7 @@ fn assess_common(
     methods: &TrustedMethods,
     bounds: &Bounds,
     identity_kind: &str,
+    selected_factor_limit: usize,
 ) -> anyhow::Result<FactsBundle> {
     bounds.validate()?;
     let module = module::verify(module::PACKAGE)?;
@@ -434,7 +439,7 @@ fn assess_common(
             .method_axes
             .len()
             .saturating_mul(p.numeric.inventory_axes.len())
-            <= MAX_SELECTED_FACTOR_RECORDS,
+            <= selected_factor_limit,
         "study_method_selected_factor_limit"
     );
     let r = verified.result();
@@ -465,7 +470,7 @@ fn assess_common(
         .as_ref()
         .context("study_method_definition")?
         .definition;
-    let facts = FactsBundle {
+    let mut facts = FactsBundle {
         schema_version: FACTS_SCHEMA.into(),
         profile_id: PROFILE.into(),
         assessor_version: ASSESSOR.into(),
@@ -476,7 +481,7 @@ fn assess_common(
         config_hash: input.assessment.config_hash.clone(),
         module_ref: module.reference.clone(),
         module_source_status: "candidate_source_module_exact_main_adoption_not_study_approval".into(),
-        baseline: binding(input,p,&proof)?,
+        baseline: binding(input,p,&proof.source_ref,&proof.source_origin)?,
         frozen_evidence: FrozenEvidenceSummary {
             functional_unit: definition.functional_unit.clone(),
             declared_system_boundary: definition.system_boundary.clone(),
@@ -512,12 +517,14 @@ fn assess_common(
         categories,
         requirements,
         candidate_normalisation_weighting: nw,
+        fact_catalog: vec![],
         outcome: "not_qualified_professional_and_actual_study_evidence_pending".into(),
         limitations,
         pef_conformity_qualified: false,
         scientific_ranking_qualified: false,
         business_pilot_qualified: false,
     };
+    facts.fact_catalog = catalog::build(&facts, &module)?;
     ensure!(
         serde_json::to_vec(&facts)?.len() <= bounds.max_artifact_bytes,
         "study_method_facts_byte_limit"
@@ -542,6 +549,7 @@ pub fn assess(
         methods,
         bounds,
         "private_job_metadata_not_an_authorization_receipt",
+        MAX_SELECTED_FACTOR_RECORDS,
     )
 }
 pub fn assess_candidate(
@@ -561,6 +569,28 @@ pub fn assess_candidate(
         methods,
         bounds,
         "offline_candidate_not_registered_or_authorized",
+        MAX_SELECTED_FACTOR_RECORDS,
+    )
+}
+
+pub fn assess_context(
+    context: &super::method_runtime_contracts::JobContext,
+    prepared: &[u8],
+    result: &[u8],
+    snapshot: &[u8],
+    methods: &TrustedMethods,
+    bounds: &Bounds,
+) -> anyhow::Result<FactsBundle> {
+    validate_context(context)?;
+    assess_common(
+        &context.input,
+        prepared,
+        result,
+        snapshot,
+        methods,
+        bounds,
+        "private_job_metadata_not_an_authorization_receipt",
+        context.budget.max_selected_factor_records,
     )
 }
 

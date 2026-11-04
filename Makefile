@@ -23,6 +23,9 @@ study-p0-native-check: study-p0-check
 study-method-check:
 	python3 scripts/check_study_method_assessment.py
 	PYTHONPATH=scripts python3 -m unittest scripts/test_study_method_assessment.py
+	python3 scripts/generate_study_method_runtime_schemas.py --check
+	python3 scripts/check_study_method_runtime.py
+	PYTHONPATH=scripts python3 -m unittest scripts/test_study_method_runtime.py
 
 study-method-native-check: study-method-check
 	mkdir -p reports/study-method

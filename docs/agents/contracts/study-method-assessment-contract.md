@@ -19,8 +19,8 @@ checkPaths:
   - scripts/*study_method*.py
   - docs/agents/contracts/study-method-*.schema.json
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: 3d3159d9f231143a51f761f895fbd3aef18d1b9b
-lastReviewedNote: "Worker #366: initial independent assessment contract; software source/byte consistency, professional judgment, actual study evidence, hosted admission and consumer adoption remain separate."
+lastReviewedCommit: c01f9f6
+lastReviewedNote: "Worker #366: reviewed exact method job/context/evidence/catalog interfaces and pre-publication schema completion; current source/actor/lease/runtime/report qualification remains separately required. Existing numerical families are retained."
 related:
   - study-analysis-contract.md
   - study-compiler-contract.md
@@ -192,3 +192,52 @@ initial milestone. Current source/actor/client/lease, cancellation, unknown-outc
 retention, artifact bytes and report disclosure must be qualified through their
 owners before hosted admission. Do not widen V5 or use an offline CLI as service,
 API, Database, report or complete #366/#2181 acceptance.
+
+## Frozen service adoption interfaces
+
+Worker366 adds a local, pre-publication interface milestone for separate method
+runtime adoption. `method_runtime_contracts.rs` and the standalone
+`study-method-*.schema.json` files own the closed public record, job request,
+job-context budget, completion/failure/reconciliation, evidence body/record and
+scalar catalog entries. The synthetic `service-seams.json` binds exact proposed
+RPC names and argument order. It is not observed Database issuance; actual
+Database/Edge adoption and installed runtime qualification remain required.
+
+The job is exactly `study.method_assessment` / request.v1, with only schema,
+Study and assessment IDs. Resource `methodAssessment` never aliases Analysis.
+The job-context wrapper `lca.study-method-job-context.v1` contains the unchanged
+private assessment input.v1 plus immutable admitted `maxSelectedFactorRecords`
+and exact4MiB facts cap. Runtime must intersect the admitted ceiling with its
+independently qualified server ceiling before source expansion. A context is
+private metadata, never an actor or lease authorization receipt.
+
+The report catalog is now a required field in this unpublished facts.v1 family:
+58 stable selectors:25 characterized categories,16 source-ordered normalized
+values,16 weighted values and one candidate single score. Unavailable N/W
+selectors carry null, unknown coverage and exact producer reasons. Category
+roles, baseline/assessment IDs and complete unit/source/point identities remain
+bound. Professional states are not converted into numeric scores. This is a
+pre-publication schema completion, not a rewrite of an existing published
+artifact or a compatibility promise for the earlier offline candidate bytes.
+Those earlier private replay receipts remain attached to their original source.
+
+Evidence body `lca.study-method-evidence.v1` is a closed declaration containing
+requirementId, declaredKind, title, statement and at most32 typed citations.
+Citation kind, plain identity, version, optional content hash and locator are
+recorded without fetching a URL, reading a local path or verifying a judgment.
+The body is at most64KiB. The service-issued evidence record has exact Study,
+evidence ID, artifact ref, timestamp and status `recorded_unverified`; it omits
+private actor/client lineage, which Database must retain privately. No caller
+approval, waiver, factor array, category total or professional status field is
+accepted. Nonempty config references require actual same-Study registered,
+currently authorized artifact identities through the future Database/Edge
+evidence producer. A temporary deployment ceiling of zero references does not
+complete that producer or the evidence-support scope.
+
+The new runtime schemas do not widen config.v1, P1 numerical semantics or V5.
+Edge owns the separate V6 public protocol. Method report adoption needs truthful
+`methodAssessmentFacts` provenance; existing view.v2 closes provenance to
+runResult/analysisFacts. The agreed consumer direction is distinct view.v3,
+renderer3.0.0, manifest.v4 and bundle.v4, with exact retained historical dispatch.
+Worker freezes selectors and units; Edge verifies claims and mandatory20-state
+report evidence; Platform renders supplied facts without numerical recomputation.

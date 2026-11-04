@@ -372,6 +372,8 @@ rules:
         kind: source-bound-method-assessment
       - path: crates/solver-worker/src/study/method_assessment/**
         kind: assessment-source-and-predicates
+      - path: crates/solver-worker/src/study/method_runtime_contracts.rs
+        kind: method-job-and-recording-contract
       - path: crates/solver-worker/src/study/method_assets/**
         kind: independently-adopted-method-package
       - path: crates/solver-worker/tests/fixtures/study-method-assessment/**

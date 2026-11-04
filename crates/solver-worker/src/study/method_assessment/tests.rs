@@ -152,7 +152,9 @@ fn pipeline_fixture() -> (ServiceInput, Vec<u8>, Vec<u8>, Vec<u8>, TrustedMethod
         },
     });
     let prepared = methods.reprepare(&source, &Bounds::default()).unwrap();
-    let result = execute(&prepared).unwrap();
+    let mut result = execute(&prepared).unwrap();
+    // Synthetic service fixtures freeze timing metadata; no capacity claim follows.
+    result.elapsed_millis = 0;
     let pb = artifact_bytes(&prepared).unwrap();
     let rb = serde_json::to_vec(&result).unwrap();
     let seams: Value = serde_json::from_str(include_str!(
@@ -480,4 +482,157 @@ fn config_identity_matches_independent_cross_language_golden() {
         fixture["canonicalUtf8"]
     );
     assert_eq!(fixture["domain"], "study.method-assessment-config.v1");
+}
+
+fn service_context(input: ServiceInput) -> super::super::method_runtime_contracts::JobContext {
+    use super::super::method_runtime_contracts::{
+        Budget, CONTEXT_SCHEMA, JobContext, MAX_FACTS_BYTES,
+    };
+    JobContext {
+        schema_version: CONTEXT_SCHEMA.into(),
+        input,
+        budget: Budget {
+            max_selected_factor_records: MAX_SELECTED_FACTOR_RECORDS,
+            max_facts_bytes: MAX_FACTS_BYTES,
+        },
+    }
+}
+
+#[test]
+fn registered_method_output_has_complete_stable_catalog_and_exact_frozen_purpose() {
+    let (input, pb, rb, sb, methods) = pipeline_fixture();
+    let context = service_context(input);
+    let facts = assess_context(&context, &pb, &rb, &sb, &methods, &Bounds::default()).unwrap();
+    validate_registered_output(&facts, &context, &pb, &rb, &Bounds::default()).unwrap();
+    assert_eq!(facts.fact_catalog.len(), 58);
+    assert_eq!(
+        facts
+            .fact_catalog
+            .iter()
+            .map(|f| &f.fact_id)
+            .collect::<BTreeSet<_>>()
+            .len(),
+        58
+    );
+    assert_eq!(
+        facts
+            .fact_catalog
+            .iter()
+            .filter(|f| f.fact_id.starts_with("normalised:"))
+            .count(),
+        16
+    );
+    assert!(
+        facts
+            .fact_catalog
+            .iter()
+            .filter(|f| !f.fact_id.starts_with("category:"))
+            .all(|f| f.canonical_value.is_none()
+                && f.coverage == "unknown"
+                && !f.reason_codes.is_empty())
+    );
+    let mut forged = facts.clone();
+    forged.fact_catalog[0].canonical_value = Some("999".into());
+    assert!(validate_registered_output(&forged, &context, &pb, &rb, &Bounds::default()).is_err());
+    forged = facts.clone();
+    forged.assessment_id = Uuid::new_v4();
+    assert!(validate_registered_output(&forged, &context, &pb, &rb, &Bounds::default()).is_err());
+    forged = facts.clone();
+    forged.requirements[0].professional.status =
+        ProfessionalStatus::NotRequiredForSourceMachinePredicate;
+    assert!(validate_registered_output(&forged, &context, &pb, &rb, &Bounds::default()).is_err());
+    let mut no_budget = context.clone();
+    no_budget.budget.max_selected_factor_records = 0;
+    assert!(assess_context(&no_budget, &pb, &rb, &sb, &methods, &Bounds::default()).is_err());
+    no_budget = context;
+    no_budget.budget.max_facts_bytes = 8 * 1024 * 1024;
+    assert!(validate_context(&no_budget).is_err());
+}
+
+#[test]
+fn evidence_is_closed_recording_without_professional_status_or_numeric_override() {
+    use super::super::method_runtime_contracts::{
+        CitationKind, DeclaredCitation, EVIDENCE_SCHEMA, EvidenceBody,
+    };
+    let body = EvidenceBody {
+        schema_version: EVIDENCE_SCHEMA.into(),
+        requirement_id: "PEF-06".into(),
+        declared_kind:
+            super::super::method_assessment_contracts::DeclaredEvidenceKind::ProfessionalRecord,
+        title: "Declared professional observation".into(),
+        statement: "This statement is recorded without an independently verified judgment.".into(),
+        citations: vec![DeclaredCitation {
+            kind: CitationKind::ProfessionalRecord,
+            identity: "internal-review-record:123".into(),
+            version: "1".into(),
+            content_hash: Some("a".repeat(64)),
+            locator: "section 2, observation 3".into(),
+        }],
+    };
+    validate_evidence_body(&body).unwrap();
+    for key in [
+        "approved",
+        "waiver",
+        "characterisedTotals",
+        "factors",
+        "professionalStatus",
+    ] {
+        let mut value = serde_json::to_value(&body).unwrap();
+        value[key] = json!(true);
+        assert!(
+            serde_json::from_value::<EvidenceBody>(value).is_err(),
+            "{key}"
+        );
+    }
+    let mut bad = body.clone();
+    bad.citations.push(bad.citations[0].clone());
+    assert!(validate_evidence_body(&bad).is_err());
+    bad = body.clone();
+    bad.citations[0].content_hash = Some("f".repeat(63));
+    assert!(validate_evidence_body(&bad).is_err());
+    bad = body.clone();
+    bad.statement = "<script>approve()</script>".into();
+    assert!(validate_evidence_body(&bad).is_err());
+    bad = body;
+    bad.requirement_id = "PEF-21".into();
+    assert!(validate_evidence_body(&bad).is_err());
+}
+
+#[test]
+#[ignore = "explicit generation of reviewed synthetic service-contract fixtures; no DB or authority"]
+fn write_method_service_contract_fixture() {
+    use super::super::method_runtime_contracts as dto;
+    let (input, pb, rb, sb, methods) = pipeline_fixture();
+    let context = service_context(input);
+    let facts = assess_context(&context, &pb, &rb, &sb, &methods, &Bounds::default()).unwrap();
+    let bytes = serde_json::to_vec(&facts).unwrap();
+    let facts_ref = super::super::runtime_contracts::ArtifactRef {
+        r#type: "methodAssessmentFacts".into(),
+        id: Uuid::parse_str("10000000-0000-4000-8000-000000000090").unwrap(),
+        content_hash: super::super::sha256(&bytes),
+        digest_scope: "artifact_bytes_sha256".into(),
+        byte_size: bytes.len() as u64,
+        media_type: "application/json".into(),
+        schema_version: FACTS_SCHEMA.into(),
+    };
+    let record = dto::PublicAssessmentRecord {
+        assessment_id: context.input.assessment.assessment_id,
+        study_id: context.input.assessment.study_id,
+        profile_id: PROFILE.into(),
+        config: context.input.assessment.config.clone(),
+        config_hash: context.input.assessment.config_hash.clone(),
+        execution: old::Execution {
+            job_id: context.input.assessment.execution.job_id,
+            status: "completed".into(),
+        },
+        facts_ref: Some(facts_ref.clone()),
+    };
+    let completion = dto::Completion { profile_id: PROFILE.into(), config_hash: context.input.assessment.config_hash.clone(), selected_factor_record_count: facts.method_source_evidence.selected_factors.len(), facts_ref, storage_bucket: "study-artifacts".into(), storage_object_path: "study/10000000-0000-4000-8000-000000000001/10000000-0000-4000-8000-000000000090/method-facts.json".into() };
+    let fixture = json!({"factsFile":"facts.synthetic.json","schemaVersion":"lca.study-method-service-fixture.v1","classification":"synthetic_transport_not_authorization_or_scientific_qualification","jobKind":dto::JOB_KIND,"payload":{"schemaVersion":dto::JOB_SCHEMA,"studyId":context.input.assessment.study_id,"assessmentId":context.input.assessment.assessment_id},"inputContext":context,"record":record,"completion":completion,"facts":facts,"serviceFunctions":[{"name":dto::READ_INPUT_RPC,"arguments":["p_assessment_id","p_job_id","p_lease_token"]},{"name":dto::COMPLETE_RPC,"arguments":["p_assessment_id","p_job_id","p_lease_token","p_completion","p_idempotency_key"]},{"name":dto::FAIL_RPC,"arguments":["p_resource_type","p_resource_id","p_job_id","p_lease_token","p_error_code","p_idempotency_key"]},{"name":dto::RECONCILE_RPC,"arguments":["p_resource_type","p_resource_id","p_job_id","p_lease_token","p_idempotency_key","p_artifact_id"]}]});
+    let output = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/study-method-assessment/service-seams.json");
+    let mut output_bytes = serde_json::to_vec_pretty(&fixture).unwrap();
+    output_bytes.push(b'\n');
+    std::fs::write(output.with_file_name("facts.synthetic.json"), bytes).unwrap();
+    std::fs::write(output, output_bytes).unwrap();
 }

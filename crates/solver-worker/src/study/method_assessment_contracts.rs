@@ -292,6 +292,7 @@ record!(FactsBundle {
     categories: Vec<CategoryAssessment>,
     requirements: Vec<RequirementAssessment>,
     candidate_normalisation_weighting: CandidateNormalisationWeighting,
+    fact_catalog: Vec<super::method_runtime_contracts::ReportFact>,
     outcome: String,
     limitations: Vec<String>,
     pef_conformity_qualified: bool,
