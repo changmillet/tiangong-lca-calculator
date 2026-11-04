@@ -20,9 +20,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/edge-function-integration.md
   - docs/review-quality-diagnostic-contract.md
-lastReviewedAt: 2026-11-04
-lastReviewedCommit: b6d97040a9e096d78146a509524a98682352ba21
-lastReviewedNote: "Worker #360: reviewed frozen facts, canonical values, coverage and provenance consumption; clients do not gain calculation, source or export authority."
+lastReviewedAt: 2026-11-05
+lastReviewedCommit: 30edb3eaa07cf1bf5f4b17740d41cab4c27c54e3
+lastReviewedNote: "Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml

@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: "2026-11-04"
-lastReviewedCommit: "b6d97040a9e096d78146a509524a98682352ba21"
-lastReviewedNote: "Worker #362: reviewed test-only exchange-cap multi-inventory/method capacity and explicit Linux native CI qualification; runtime/schema/hash semantics and default-off service admission are unchanged."
+lastReviewedAt: 2026-11-05
+lastReviewedCommit: 30edb3eaa07cf1bf5f4b17740d41cab4c27c54e3
+lastReviewedNote: "Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md

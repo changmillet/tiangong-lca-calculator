@@ -24,9 +24,9 @@ checkPaths:
   - crates/solver-worker/src/bin/review_quality_diagnostic_runner.rs
   - crates/**
   - supabase/migrations/**
-lastReviewedAt: 2026-11-04
-lastReviewedCommit: b6d97040a9e096d78146a509524a98682352ba21
-lastReviewedNote: "Worker #362: reviewed independent frozen-source W14 native profiles and v2 config/facts/input boundaries; existing P1/W08 meaning and runtime/source/lease authority remain separate from admission."
+lastReviewedAt: 2026-11-05
+lastReviewedCommit: 30edb3eaa07cf1bf5f4b17740d41cab4c27c54e3
+lastReviewedNote: "Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
