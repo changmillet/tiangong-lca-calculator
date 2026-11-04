@@ -17,9 +17,9 @@ checkPaths:
   - crates/solver-worker/src/study/**
   - crates/solver-worker/src/bin/study_compile.rs
   - docs/agents/contracts/study-compiler-contract.md
-lastReviewedAt: 2026-11-04
-lastReviewedCommit: 13a749e619d7ef348e9298bb049e8c01c60e9086
-lastReviewedNote: "Worker #366: reviewed export of the original synthetic prepared/result/source bytes already hash-bound by the service fixture. Generator arithmetic, schema, runtime and earlier fixture bytes remain unchanged; these files grant no source or job authority."
+lastReviewedAt: 2026-11-05
+lastReviewedCommit: 818b5e00a37f56637f6418ead692ab430c1fdbc1
+lastReviewedNote: "Worker #366: reviewed export of the original synthetic prepared/result/source bytes already hash-bound by the service fixture. Generator arithmetic, schema, runtime and earlier fixture bytes remain unchanged; these files grant no source or job authority. Worker #368: reviewed Linux missing-VmRSS exit reconciliation bounded by one sample period and the original deadline, cancellation polling, fail-closed other probe errors and kill/reap qualification. Numerical, public schema, source authority and operational admission boundaries remain unchanged. Combined review adopts exact Main f74dfdba1d0f8aa7b87930ca344b2213e21b5f05 into method source 818b5e00a37f56637f6418ead692ab430c1fdbc1; method structural N/W limits and separate actor/cohort/professional qualification remain in force."
 related:
   - study-p0-calculation-profile.md
   - ../repo-validation.md

@@ -506,6 +506,9 @@ async fn advanced_native_capacity_and_running_cancellation() {
         ("dense-envelope", false, 0, 8, 2.0),
         ("dense-envelope", true, 16, 8, 2.0),
     ] {
+        eprintln!(
+            "Study advanced native case: case={case} uncertain={uncertain} samples={n} parameters={parameters}"
+        );
         let mut f = fixture(case, None, Some(factor));
         let prepared_shape: PreparedInput = super::super::json::from_slice(&f.1).unwrap();
         if case == "dense-envelope" {
@@ -592,7 +595,18 @@ async fn advanced_native_capacity_and_running_cancellation() {
             512 * 1024 * 1024,
         )
         .await
-        .unwrap();
+        .unwrap_or_else(|error| {
+            let diagnostic = if let Some(failure) = error.downcast_ref::<NativeFailure>() {
+                json!({"case":case,"uncertain":uncertain,"samples":n,"parameters":parameters,
+                    "code":failure.code,"probeKind":failure.probe_kind,"pid":failure.pid,
+                    "sampledPeakRssBytes":failure.peak_rss_bytes,"reaped":failure.reaped})
+            } else {
+                json!({"case":case,"uncertain":uncertain,"samples":n,"parameters":parameters,
+                    "code":"unclassified_native_failure"})
+            };
+            eprintln!("Study advanced native failure: {diagnostic}");
+            panic!("Study advanced native component failed; see safe diagnostic above");
+        });
         let elapsed = started.elapsed();
         let bytes = std::fs::read(&output).unwrap();
         let facts: FactsBundle = super::super::json::from_slice(&bytes).unwrap();
@@ -631,6 +645,7 @@ async fn advanced_native_capacity_and_running_cancellation() {
         assert_eq!(std::fs::read(&result).unwrap(), f.2);
         measurements.push(json!({"case":case,"kind":if uncertain{"uncertainty"}else{"sensitivityOat"},"parameters":parameters,"evaluationsIncludingBaseline":facts.evaluations.len()+1,"artifactBytes":bytes.len(),"elapsedMillis":u64::try_from(elapsed.as_millis()).unwrap(),"sampledPeakRssBytes":proof.peak_rss_bytes,"reaped":proof.reaped,"sourceBytes":f.3.len(),"preparedBytes":f.1.len(),"views":prepared_shape.numeric.views.len(),"inventoryAxes":prepared_shape.numeric.inventory_axes.len(),"methods":prepared_shape.numeric.method_axes.len(),"exchanges":prepared_shape.model.instances.iter().map(|i|i.exchanges.len()).sum::<usize>()}));
         if case == "envelope" && uncertain {
+            eprintln!("Study advanced native case: private-input-phase-cancellation samples={n}");
             let fifo = dir.path().join("blocked.fifo");
             assert!(
                 std::process::Command::new("mkfifo")
