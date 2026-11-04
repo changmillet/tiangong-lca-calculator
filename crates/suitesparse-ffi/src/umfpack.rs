@@ -271,7 +271,30 @@ impl UmfpackFactorization {
             });
         }
 
-        let mut x = vec![0.0_f64; n];
+        let mut x = self.back_substitute(rhs)?;
+        self.refine(rhs, &mut x)?;
+        Ok(x)
+    }
+
+    fn refine(&self, rhs: &[f64], x: &mut [f64]) -> Result<(), UmfpackError> {
+        let rhs_norm = rhs.iter().fold(0.0_f64, |norm, b| norm.max(b.abs()));
+        let residual = compensated_residual(&self.matrix, rhs, x);
+        if residual.iter().all(|r| r.is_finite())
+            && residual.iter().any(|r| r.abs() > f64::EPSILON * rhs_norm)
+        {
+            let delta = self.back_substitute(&residual)?;
+            // Keep the original result if the optional update would overflow.
+            if x.iter().zip(&delta).all(|(v, d)| (v + d).is_finite()) {
+                for (value, correction) in x.iter_mut().zip(delta) {
+                    *value += correction;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn back_substitute(&self, rhs: &[f64]) -> Result<Vec<f64>, UmfpackError> {
+        let mut x = vec![0.0_f64; rhs.len()];
         let mut info = [-1.0_f64; UMFPACK_INFO_LEN];
 
         // SAFETY: numeric handle is valid for the lifetime of self, matrix/rhs buffers are valid.
@@ -311,6 +334,38 @@ impl UmfpackFactorization {
     }
 }
 
+// Accumulate b - A*x in column order on the validated, already cached CSC.
+fn compensated_residual(matrix: &CscMatrix, rhs: &[f64], x: &[f64]) -> Vec<f64> {
+    let mut sums = rhs.to_vec();
+    let mut errors = vec![0.0; rhs.len()];
+    for (&activity, bounds) in x.iter().zip(matrix.col_ptr.windows(2)) {
+        if activity == 0.0 {
+            continue;
+        }
+        let start = usize::try_from(bounds[0]).expect("validated CSC offset");
+        let end = usize::try_from(bounds[1]).expect("validated CSC offset");
+        for idx in start..end {
+            let row = usize::try_from(matrix.row_idx[idx]).expect("validated CSC row");
+            let coefficient = -matrix.values[idx];
+            let product = coefficient * activity;
+            let sum = sums[row];
+            let next = sum + product;
+            // FMA recovers the discarded product bits, Neumaier the addition bits.
+            let lost_sum = if sum.abs() >= product.abs() {
+                (sum - next) + product
+            } else {
+                (product - next) + sum
+            };
+            errors[row] += coefficient.mul_add(activity, -product) + lost_sum;
+            sums[row] = next;
+        }
+    }
+    for (sum, error) in sums.iter_mut().zip(errors) {
+        *sum += error;
+    }
+    sums
+}
+
 impl Drop for UmfpackFactorization {
     fn drop(&mut self) {
         // SAFETY: handles were allocated by UMFPACK and are freed exactly once in Drop.
@@ -328,6 +383,62 @@ mod tests {
     use approx::assert_relative_eq;
 
     use crate::{CscMatrix, UmfpackFactorization, UmfpackNumericOptions};
+
+    #[test]
+    fn residual_retains_product_and_addition_roundoff_under_cancellation() {
+        let e = f64::EPSILON;
+        let matrix = CscMatrix::new(
+            1,
+            3,
+            vec![0, 1, 2, 3],
+            vec![0, 0, 0],
+            vec![1.0 + e, 1e20, -1e20],
+        )
+        .unwrap();
+        // (1+e)(1-e) rounds to 1; adding +/-1e20 also loses the small term.
+        let residual = super::compensated_residual(&matrix, &[1.0], &[1.0 - e, 1.0, 1.0]);
+        assert_eq!(residual, vec![e * e]);
+    }
+
+    #[test]
+    fn correction_scales_with_demand_and_preserves_an_in_tolerance_solution() {
+        let matrix = CscMatrix::new(2, 2, vec![0, 1, 3], vec![0, 0, 1], vec![1., -2., 1.]).unwrap();
+        let factor =
+            UmfpackFactorization::factorize(matrix, UmfpackNumericOptions::default()).unwrap();
+        for demand in [1.0, -0.125, 1e-20] {
+            let rhs = [0.0, demand];
+            let mut x = [0.0, demand];
+            factor.refine(&rhs, &mut x).unwrap();
+            assert_eq!(
+                x.map(f64::to_bits),
+                [2.0 * demand, demand].map(f64::to_bits)
+            );
+        }
+        let mut x = [2.0 - f64::EPSILON, 1.0];
+        let original = x;
+        factor.refine(&[0.0, 1.0], &mut x).unwrap();
+        assert_eq!(x.map(f64::to_bits), original.map(f64::to_bits));
+    }
+
+    #[test]
+    fn solve_preserves_unit_activity_between_opposing_large_terms() {
+        // The last two equations fix x1 = x2 = 1. The first is
+        // x0 + 2^54*x1 - 2^54*x2 = 1, so x0 must also be 1.
+        let large = 2.0_f64.powi(54);
+        let matrix = CscMatrix::new(
+            3,
+            3,
+            vec![0, 1, 3, 5],
+            vec![0, 0, 1, 0, 2],
+            vec![1., large, 1., -large, 1.],
+        )
+        .unwrap();
+        let factor =
+            UmfpackFactorization::factorize(matrix, UmfpackNumericOptions::default()).unwrap();
+        for activity in factor.solve(&[1.; 3]).unwrap() {
+            assert_relative_eq!(activity, 1.0, epsilon = f64::EPSILON);
+        }
+    }
 
     #[test]
     fn solves_small_system() {

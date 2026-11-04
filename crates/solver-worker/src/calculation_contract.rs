@@ -11,7 +11,7 @@ pub fn descriptor() -> String {
         "source_fingerprint_schema": crate::NUMERICAL_SOURCE_FINGERPRINT_SCHEMA,
         "lcia_selection": crate::lcia_nonregional::POLICY,
         "lcia_defaults_sha256": crate::calculation_evidence::sha256_bytes(crate::lcia_nonregional::DEFAULTS),
-        "solver_semantics": "sparse-signed-flow-balance.v1"
+        "solver_semantics": "sparse-signed-flow-balance.compensated-residual.v2"
     }).to_string()
 }
 
