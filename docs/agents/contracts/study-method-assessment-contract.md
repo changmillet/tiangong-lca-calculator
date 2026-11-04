@@ -19,8 +19,8 @@ checkPaths:
   - scripts/*study_method*.py
   - docs/agents/contracts/study-method-*.schema.json
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: d72a6d1
-lastReviewedNote: "Worker #366: reviewed Unicode evidence text/schema parity, independent UTF-8 body ceiling and retained config.v1 semantics; source/lease/runtime/report and complete industry/professional qualification remain independently required."
+lastReviewedCommit: 13a749e619d7ef348e9298bb049e8c01c60e9086
+lastReviewedNote: "Worker #366: reviewed export of the original synthetic prepared/result/source bytes already hash-bound by the service fixture. Generator arithmetic, schema, runtime and earlier fixture bytes remain unchanged; these files grant no source or job authority."
 related:
   - study-analysis-contract.md
   - study-compiler-contract.md
@@ -245,3 +245,5 @@ runResult/analysisFacts. The agreed consumer direction is distinct view.v3,
 renderer3.0.0, manifest.v4 and bundle.v4, with exact retained historical dispatch.
 Worker freezes selectors and units; Edge verifies claims and mandatory20-state
 report evidence; Platform renders supplied facts without numerical recomputation.
+
+The reviewed synthetic service fixture includes `prepared.synthetic.json`, `result.synthetic.json` and `source.synthetic.json`. The existing ignored fixture generator writes the original compiled input, native result and source packet bytes directly; their sizes and SHA-256 values must match the unchanged `service-seams.json` references. Consumers copy those bytes, not reconstructed JSON. The fixture remains synthetic transport/predicate evidence and is neither an authorized source issuance nor a real industry case.

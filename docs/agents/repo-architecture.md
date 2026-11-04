@@ -37,8 +37,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: d72a6d1
-lastReviewedNote: "Worker #366: reviewed Unicode evidence text/schema parity, independent UTF-8 body ceiling and retained config.v1 semantics; source/lease/runtime/report and complete industry/professional qualification remain independently required."
+lastReviewedCommit: 13a749e619d7ef348e9298bb049e8c01c60e9086
+lastReviewedNote: "Worker #366: reviewed export of the original synthetic prepared/result/source bytes already hash-bound by the service fixture. Generator arithmetic, schema, runtime and earlier fixture bytes remain unchanged; these files grant no source or job authority."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml

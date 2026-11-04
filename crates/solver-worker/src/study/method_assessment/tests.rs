@@ -669,6 +669,11 @@ fn write_method_service_contract_fixture() {
         .join("tests/fixtures/study-method-assessment/service-seams.json");
     let mut output_bytes = serde_json::to_vec_pretty(&fixture).unwrap();
     output_bytes.push(b'\n');
+    // Export the exact original inputs already bound by the service fixture.
+    // Consumers must not reconstruct these bytes from the metadata or facts.
+    std::fs::write(output.with_file_name("prepared.synthetic.json"), pb).unwrap();
+    std::fs::write(output.with_file_name("result.synthetic.json"), rb).unwrap();
+    std::fs::write(output.with_file_name("source.synthetic.json"), sb).unwrap();
     std::fs::write(output.with_file_name("facts.synthetic.json"), bytes).unwrap();
     std::fs::write(output, output_bytes).unwrap();
 }
