@@ -26,8 +26,8 @@ checkPaths:
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: 942ab3f6e01822ddc99998ee04305c4bd2867c4d
-lastReviewedNote: "Worker #362: reviewed independent frozen-source W14 native profiles and v2 config/facts/input boundaries; existing P1/W08 meaning and runtime/source/lease authority remain separate from admission."
+lastReviewedCommit: "3d3159d9f231143a51f761f895fbd3aef18d1b9b"
+lastReviewedNote: "Worker #362/#363: retained qualified compensated-residual refinement and unchanged calculation/cache identity while reviewing the independent frozen-source catalog and v2 contracts; advanced runtime admission remains separate."
 related:
   - AGENTS.md
   - .docpact/config.yaml
