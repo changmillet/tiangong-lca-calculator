@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-04
-lastReviewedCommit: 942ab3f6e01822ddc99998ee04305c4bd2867c4d
-lastReviewedNote: "Worker #362: reviewed independent frozen-source W14 native profiles and v2 config/facts/input boundaries; existing P1/W08 meaning and runtime/source/lease authority remain separate from admission."
+lastReviewedAt: "2026-11-04"
+lastReviewedCommit: "b6d97040a9e096d78146a509524a98682352ba21"
+lastReviewedNote: "Worker #362: reviewed test-only exchange-cap multi-inventory/method capacity and explicit Linux native CI qualification; runtime/schema/hash semantics and default-off service admission are unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml

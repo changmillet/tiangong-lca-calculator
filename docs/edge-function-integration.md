@@ -25,7 +25,7 @@ checkPaths:
   - crates/**
   - supabase/migrations/**
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: 942ab3f6e01822ddc99998ee04305c4bd2867c4d
+lastReviewedCommit: b6d97040a9e096d78146a509524a98682352ba21
 lastReviewedNote: "Worker #362: reviewed independent frozen-source W14 native profiles and v2 config/facts/input boundaries; existing P1/W08 meaning and runtime/source/lease authority remain separate from admission."
 related:
   - AGENTS.md

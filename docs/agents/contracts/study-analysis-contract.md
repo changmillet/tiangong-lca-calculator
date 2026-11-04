@@ -19,9 +19,9 @@ checkPaths:
   - crates/solver-worker/src/study/runtime*.rs
   - crates/solver-worker/tests/fixtures/study-analysis/**
   - docs/agents/contracts/study-analysis*.schema.json
-lastReviewedAt: 2026-11-04
-lastReviewedCommit: e39b20fe99173ea95d072273bdd06ce1ec3ce840
-lastReviewedNote: "Worker #362: reviewed independent frozen-source W14 native profiles and v2 config/facts/input boundaries; existing P1/W08 meaning and runtime/source/lease authority remain separate from admission."
+lastReviewedAt: "2026-11-04"
+lastReviewedCommit: "b6d97040a9e096d78146a509524a98682352ba21"
+lastReviewedNote: "Worker #362: reviewed test-only exchange-cap multi-inventory/method capacity and explicit Linux native CI qualification; runtime/schema/hash semantics and default-off service admission are unchanged."
 related:
   - study-runtime-contract.md
   - study-compiler-contract.md
@@ -450,3 +450,14 @@ implementation. They validate Node/SQL interoperability, not scientific numbers
 or a change to P1 hashing. PostgreSQL shortest notation alone is not equivalent
 (e.g. the binary value canonically spelled `1e23`); config hashes always bind
 supplied strings unchanged after validation.
+
+
+The additional exchange-cap synthetic fixture carries 4096 exchanges, 61 inventory
+axes, 25 method outputs and 128 views. On the selected macOS arm64 b6 native build,
+eight-parameter OAT (17 evaluations) measured 13.35 seconds / 836476 artifact
+bytes / 97304576 bytes sampled peak RSS; sixteen-sample uncertainty (17 including
+baseline) measured 17.211 seconds / 191918 bytes / 100663296 bytes sampled peak
+RSS. Its prepared artifact is 1690339 bytes. These task observations provide a
+separate dense multi-method check; the earlier one-method 129-evaluation result
+must not be generalized to this shape. Service/operator limits remain explicit
+and require the actual target's qualification, including whole-attempt overhead.

@@ -20,9 +20,9 @@ checkPaths:
   - crates/solver-worker/src/queue.rs
   - crates/solver-worker/src/storage.rs
   - docs/agents/contracts/study-runtime-contract.md
-lastReviewedAt: 2026-11-04
-lastReviewedCommit: e39b20fe99173ea95d072273bdd06ce1ec3ce840
-lastReviewedNote: "Worker #362: reviewed independent frozen-source W14 native profiles and v2 config/facts/input boundaries; existing P1/W08 meaning and runtime/source/lease authority remain separate from admission."
+lastReviewedAt: "2026-11-04"
+lastReviewedCommit: "b6d97040a9e096d78146a509524a98682352ba21"
+lastReviewedNote: "Worker #362: reviewed test-only exchange-cap multi-inventory/method capacity and explicit Linux native CI qualification; runtime/schema/hash semantics and default-off service admission are unchanged."
 related:
   - study-compiler-contract.md
   - ../../lca-api-contract.md

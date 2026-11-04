@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-04
-lastReviewedCommit: "3d3159d9f231143a51f761f895fbd3aef18d1b9b"
-lastReviewedNote: "Worker #362/#363: retained qualified compensated-residual refinement and unchanged calculation/cache identity while reviewing the independent frozen-source catalog and v2 contracts; advanced runtime admission remains separate."
+lastReviewedAt: "2026-11-04"
+lastReviewedCommit: "b6d97040a9e096d78146a509524a98682352ba21"
+lastReviewedNote: "Worker #362: reviewed test-only exchange-cap multi-inventory/method capacity and explicit Linux native CI qualification; runtime/schema/hash semantics and default-off service admission are unchanged."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md

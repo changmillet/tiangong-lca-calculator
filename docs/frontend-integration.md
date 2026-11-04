@@ -21,7 +21,7 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/review-quality-diagnostic-contract.md
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: 942ab3f6e01822ddc99998ee04305c4bd2867c4d
+lastReviewedCommit: b6d97040a9e096d78146a509524a98682352ba21
 lastReviewedNote: "Worker #360: reviewed frozen facts, canonical values, coverage and provenance consumption; clients do not gain calculation, source or export authority."
 related:
   - AGENTS.md

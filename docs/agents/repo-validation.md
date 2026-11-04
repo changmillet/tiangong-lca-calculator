@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-04
-lastReviewedCommit: "3d3159d9f231143a51f761f895fbd3aef18d1b9b"
-lastReviewedNote: "Worker #362/#363: retained qualified compensated-residual refinement and unchanged calculation/cache identity while reviewing the independent frozen-source catalog and v2 contracts; advanced runtime admission remains separate."
+lastReviewedAt: "2026-11-04"
+lastReviewedCommit: "b6d97040a9e096d78146a509524a98682352ba21"
+lastReviewedNote: "Worker #362: reviewed test-only exchange-cap multi-inventory/method capacity and explicit Linux native CI qualification; runtime/schema/hash semantics and default-off service admission are unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -697,3 +697,20 @@ single-host synthetic component measurement; it does not enable a hosted profile
 or establish a service ceiling. Retain exact source/binary hashes and platform.
 Native batch deadline and parent whole-attempt/lease/cancel/unknown-outcome tests
 remain separate. No Docker, database, Storage or production resources are used.
+
+
+The native capacity suite additionally builds a synthetic cyclic/allocation
+model at the 4096-exchange cap: 64 instances, 128 activity views, 61 elementary
+inventory axes and 25 distinct signed-scaled methods. It verifies complete
+coverage, the independently derived baseline `2440/19`, and a per-method
+scalar relation for every baseline and evaluation, while preserving the original prepared/result bytes. Eight-parameter
+OAT and sixteen-sample uncertainty each perform seventeen evaluations including
+the baseline. This is an exchange-limit/multi-method fixture, not proof that all
+possible dense-cell/metadata envelopes fit the deadline.
+
+The `ci` Linux x64 job builds the actual native executable and runs this explicit
+component suite with one BLAS/OpenMP thread. The receipt records platform, binary
+hash, shapes, artifact sizes, wall time and sampled RSS; its logged output is
+retained by the job. It also exercises cancellation/reaping. A passing component
+run does not activate an API or qualify actor/queue/Storage/report behavior,
+Windows service execution or byte-identical cross-platform numerical output.

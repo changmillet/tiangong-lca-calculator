@@ -54,6 +54,16 @@ jobs:
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: Test
         run: cargo test --workspace --all-features
+      - name: Study advanced native component qualification
+        env:
+          RUST_TEST_THREADS: "1"
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        run: |
+          cargo build --locked -p solver-worker --bin study_native
+          STUDY_NATIVE_BINARY="$PWD/target/debug/study_native" \
+            STUDY_ADVANCED_QUALIFICATION_RECEIPT="$RUNNER_TEMP/study-advanced-component.json" \
+            cargo test --locked -p solver-worker --lib advanced_native_capacity_and_running_cancellation -- --ignored --nocapture
       - name: Queue transport fault recovery
         env:
           WORKER_CLAIM_TEST_PORT: "5432"

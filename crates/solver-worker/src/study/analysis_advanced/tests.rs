@@ -503,8 +503,26 @@ async fn advanced_native_capacity_and_running_cancellation() {
         ("envelope", false, 0, 8, 2.0),
         ("envelope", true, 64, 8, 2.0),
         ("envelope", true, 128, 8, 2.0),
+        ("dense-envelope", false, 0, 8, 2.0),
+        ("dense-envelope", true, 16, 8, 2.0),
     ] {
         let mut f = fixture(case, None, Some(factor));
+        let prepared_shape: PreparedInput = super::super::json::from_slice(&f.1).unwrap();
+        if case == "dense-envelope" {
+            assert_eq!(
+                prepared_shape
+                    .model
+                    .instances
+                    .iter()
+                    .map(|i| i.exchanges.len())
+                    .sum::<usize>(),
+                4096
+            );
+            assert_eq!(prepared_shape.numeric.inventory_axes.len(), 61);
+            assert_eq!(prepared_shape.numeric.method_axes.len(), 25);
+            assert_eq!(prepared_shape.numeric.views.len(), 128);
+            assert_eq!(prepared_shape.coverage.len(), 0);
+        }
         if parameters > 1 {
             let base: PreparedInput = super::super::json::from_slice(&f.1).unwrap();
             let mut ps = vec![];
@@ -579,10 +597,39 @@ async fn advanced_native_capacity_and_running_cancellation() {
         let bytes = std::fs::read(&output).unwrap();
         let facts: FactsBundle = super::super::json::from_slice(&bytes).unwrap();
         assert_eq!(facts.config_hash, f.0.analysis.config_hash);
+        if case == "dense-envelope" {
+            // One unit of reference activity requires a 0.05 supplier ring.
+            // Sum(x) = 1/(1-0.05); each of 61 flows has allocated burden 1,
+            // and method 0 has factor 2: h = 2440/19, independently of A/B/C.
+            let expected_baseline = 2440.0 / 19.0;
+            assert!(
+                (value(&facts.baseline_evaluation.outputs[0].canonical_value) - expected_baseline)
+                    .abs()
+                    < 1e-10
+            );
+            // Every independently constructed method is an exact signed scalar
+            // multiple of method 0, across every baseline and sampled input.
+            for evaluation in std::iter::once(&facts.baseline_evaluation).chain(&facts.evaluations)
+            {
+                assert_eq!(evaluation.outputs.len(), 25);
+                let baseline = value(&evaluation.outputs[0].canonical_value);
+                for (index, output) in evaluation.outputs.iter().enumerate() {
+                    let scalar = f64::from(u32::try_from(index + 1).unwrap())
+                        * if index % 2 == 0 { 1.0 } else { -1.0 };
+                    let expected = baseline * scalar;
+                    assert!(
+                        (value(&output.canonical_value) - expected).abs()
+                            <= 1e-10 * expected.abs().max(1.0)
+                    );
+                    assert_eq!(output.coverage, "complete");
+                }
+            }
+            assert!(!facts.business_pilot_qualified && !facts.scientific_ranking_qualified);
+        }
         assert!(proof.reaped);
         assert_eq!(std::fs::read(&prepared).unwrap(), f.1);
         assert_eq!(std::fs::read(&result).unwrap(), f.2);
-        measurements.push(json!({"case":case,"kind":if uncertain{"uncertainty"}else{"sensitivityOat"},"parameters":parameters,"evaluationsIncludingBaseline":facts.evaluations.len()+1,"artifactBytes":bytes.len(),"elapsedMillis":u64::try_from(elapsed.as_millis()).unwrap(),"sampledPeakRssBytes":proof.peak_rss_bytes,"reaped":proof.reaped,"sourceBytes":f.3.len(),"preparedBytes":f.1.len()}));
+        measurements.push(json!({"case":case,"kind":if uncertain{"uncertainty"}else{"sensitivityOat"},"parameters":parameters,"evaluationsIncludingBaseline":facts.evaluations.len()+1,"artifactBytes":bytes.len(),"elapsedMillis":u64::try_from(elapsed.as_millis()).unwrap(),"sampledPeakRssBytes":proof.peak_rss_bytes,"reaped":proof.reaped,"sourceBytes":f.3.len(),"preparedBytes":f.1.len(),"views":prepared_shape.numeric.views.len(),"inventoryAxes":prepared_shape.numeric.inventory_axes.len(),"methods":prepared_shape.numeric.method_axes.len(),"exchanges":prepared_shape.model.instances.iter().map(|i|i.exchanges.len()).sum::<usize>()}));
         if case == "envelope" && uncertain {
             let fifo = dir.path().join("blocked.fifo");
             assert!(
