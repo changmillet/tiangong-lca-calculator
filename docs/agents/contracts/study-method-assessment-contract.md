@@ -19,8 +19,8 @@ checkPaths:
   - scripts/*study_method*.py
   - docs/agents/contracts/study-method-*.schema.json
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: accb92f
-lastReviewedNote: "Worker #366: reviewed separately gated method daemon/native budgets, exact source/context rechecks, purpose-bound completion and formal reconciliation; actual Database, actor/Storage/report and complete industry/professional qualification remain required."
+lastReviewedCommit: d72a6d1
+lastReviewedNote: "Worker #366: reviewed Unicode evidence text/schema parity, independent UTF-8 body ceiling and retained config.v1 semantics; source/lease/runtime/report and complete industry/professional qualification remain independently required."
 related:
   - study-analysis-contract.md
   - study-compiler-contract.md
@@ -225,7 +225,11 @@ Evidence body `lca.study-method-evidence.v1` is a closed declaration containing
 requirementId, declaredKind, title, statement and at most32 typed citations.
 Citation kind, plain identity, version, optional content hash and locator are
 recorded without fetching a URL, reading a local path or verifying a judgment.
-The body is at most64KiB. The service-issued evidence record has exact Study,
+Evidence field lengths count Unicode scalar values (including supplementary
+characters), reject C0/DEL/C1 controls, angle brackets and Unicode-whitespace-only
+text, and retain an independent64KiB total UTF-8 serialized-body cap. These
+evidence-text semantics do not widen the retained byte-bounded config.v1
+declaration fields. The service-issued evidence record has exact Study,
 evidence ID, artifact ref, timestamp and status `recorded_unverified`; it omits
 private actor/client lineage, which Database must retain privately. No caller
 approval, waiver, factor array, category total or professional status field is

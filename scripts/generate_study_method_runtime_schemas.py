@@ -15,7 +15,7 @@ def obj(fields):
 
 
 def text(maximum, minimum=1):
-    return {'type': 'string', 'minLength': minimum, 'maxLength': maximum, 'pattern': r'^[^\u0000-\u001f\u007f<>]+$'}
+    return {'type': 'string', 'minLength': minimum, 'maxLength': maximum, 'pattern': r'^[^\u0000-\u001f\u007f-\u009f<>]+$', 'allOf': [{'pattern': r'[^\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]'}]}
 
 
 def enum(*values):

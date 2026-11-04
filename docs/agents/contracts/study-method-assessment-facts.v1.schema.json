@@ -2054,13 +2054,23 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 256,
-          "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f<>]+$",
+          "allOf": [
+            {
+              "pattern": "[^\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+            }
+          ]
         },
         "version": {
           "type": "string",
           "minLength": 1,
           "maxLength": 128,
-          "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f<>]+$",
+          "allOf": [
+            {
+              "pattern": "[^\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+            }
+          ]
         },
         "contentHash": {
           "anyOf": [
@@ -2077,7 +2087,12 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 512,
-          "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f<>]+$",
+          "allOf": [
+            {
+              "pattern": "[^\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+            }
+          ]
         }
       }
     },
@@ -2111,13 +2126,23 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 256,
-          "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f<>]+$",
+          "allOf": [
+            {
+              "pattern": "[^\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+            }
+          ]
         },
         "statement": {
           "type": "string",
           "minLength": 1,
           "maxLength": 8192,
-          "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f<>]+$",
+          "allOf": [
+            {
+              "pattern": "[^\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+            }
+          ]
         },
         "citations": {
           "type": "array",
@@ -2320,7 +2345,12 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 128,
-              "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+              "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f<>]+$",
+              "allOf": [
+                {
+                  "pattern": "[^\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+                }
+              ]
             }
           }
         },
@@ -2353,7 +2383,12 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 128,
-              "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+              "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f<>]+$",
+              "allOf": [
+                {
+                  "pattern": "[^\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+                }
+              ]
             },
             "moduleArtifactSha256": {
               "type": "string",
@@ -2393,19 +2428,34 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 128,
-              "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+              "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f<>]+$",
+              "allOf": [
+                {
+                  "pattern": "[^\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+                }
+              ]
             },
             "sourceWeightFraction": {
               "type": "string",
               "minLength": 1,
               "maxLength": 128,
-              "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+              "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f<>]+$",
+              "allOf": [
+                {
+                  "pattern": "[^\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+                }
+              ]
             },
             "pointDefinition": {
               "type": "string",
               "minLength": 1,
               "maxLength": 2048,
-              "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+              "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f<>]+$",
+              "allOf": [
+                {
+                  "pattern": "[^\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+                }
+              ]
             },
             "scalingFactor": {
               "const": "1"
@@ -2446,7 +2496,12 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 2048,
-              "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+              "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f<>]+$",
+              "allOf": [
+                {
+                  "pattern": "[^\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+                }
+              ]
             },
             "scalingFactor": {
               "const": "1"
@@ -2519,7 +2574,12 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 128,
-          "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f<>]+$",
+          "allOf": [
+            {
+              "pattern": "[^\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+            }
+          ]
         },
         "unitIdentity": {
           "$ref": "#/$defs/methodUnitIdentity"
@@ -2537,7 +2597,12 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 128,
-            "pattern": "^[^\\u0000-\\u001f\\u007f<>]+$"
+            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f<>]+$",
+            "allOf": [
+              {
+                "pattern": "[^\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+              }
+            ]
           },
           "minItems": 0,
           "maxItems": 32

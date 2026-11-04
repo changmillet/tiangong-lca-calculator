@@ -18,8 +18,8 @@ checkPaths:
   - crates/solver-worker/src/bin/study_compile.rs
   - docs/agents/contracts/study-compiler-contract.md
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: accb92f
-lastReviewedNote: "Worker #366: reviewed separately gated method daemon/native budgets, exact source/context rechecks, purpose-bound completion and formal reconciliation; actual Database, actor/Storage/report and complete industry/professional qualification remain required."
+lastReviewedCommit: d72a6d1
+lastReviewedNote: "Worker #366: reviewed Unicode evidence text/schema parity, independent UTF-8 body ceiling and retained config.v1 semantics; source/lease/runtime/report and complete industry/professional qualification remain independently required."
 related:
   - study-p0-calculation-profile.md
   - ../repo-validation.md

@@ -13,14 +13,20 @@ use super::{
 use anyhow::ensure;
 use std::collections::BTreeSet;
 
+fn evidence_text(value: &str, maximum: usize) -> bool {
+    !value.trim().is_empty()
+        && value.chars().count() <= maximum
+        && !value
+            .chars()
+            .any(|c| c.is_control() || matches!(c, '<' | '>'))
+}
+
 pub fn validate_evidence_body(value: &EvidenceBody) -> anyhow::Result<()> {
     ensure!(
         value.schema_version == EVIDENCE_SCHEMA
             && (1..=20).any(|i| value.requirement_id == format!("PEF-{i:02}"))
-            && super::bounded(&value.title, 256)
-            && super::bounded(&value.statement, 8192)
-            && !value.title.contains(['<', '>'])
-            && !value.statement.contains(['<', '>'])
+            && evidence_text(&value.title, 256)
+            && evidence_text(&value.statement, 8192)
             && value.citations.len() <= 32
             && serde_json::to_vec(value)?.len() <= MAX_EVIDENCE_BYTES,
         "study_method_evidence_body"
@@ -28,12 +34,9 @@ pub fn validate_evidence_body(value: &EvidenceBody) -> anyhow::Result<()> {
     let mut seen = BTreeSet::new();
     for citation in &value.citations {
         ensure!(
-            super::bounded(&citation.identity, 256)
-                && super::bounded(&citation.version, 128)
-                && super::bounded(&citation.locator, 512)
-                && !citation.identity.contains(['<', '>'])
-                && !citation.version.contains(['<', '>'])
-                && !citation.locator.contains(['<', '>'])
+            evidence_text(&citation.identity, 256)
+                && evidence_text(&citation.version, 128)
+                && evidence_text(&citation.locator, 512)
                 && citation
                     .content_hash
                     .as_ref()

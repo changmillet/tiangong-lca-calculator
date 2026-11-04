@@ -550,6 +550,42 @@ fn registered_method_output_has_complete_stable_catalog_and_exact_frozen_purpose
 }
 
 #[test]
+fn evidence_unicode_character_bounds_agree_with_declared_schema() {
+    use super::super::method_runtime_contracts::{
+        CitationKind, DeclaredCitation, EvidenceBody, MAX_EVIDENCE_BYTES,
+    };
+    let body: EvidenceBody = serde_json::from_value(json!({"schemaVersion":"lca.study-method-evidence.v1","requirementId":"PEF-06","declaredKind":"professionalRecord","title":"研".repeat(256),"statement":"证".repeat(8192),"citations":[]})).unwrap();
+    validate_evidence_body(&body).unwrap();
+    let mut astral = body.clone();
+    astral.title = "🔬".repeat(256);
+    validate_evidence_body(&astral).unwrap();
+    astral.title.push('🔬');
+    assert!(validate_evidence_body(&astral).is_err());
+    let mut too_large = body.clone();
+    too_large.citations = (0..32)
+        .map(|i| DeclaredCitation {
+            kind: CitationKind::Document,
+            identity: format!("{i}{}", "研".repeat(254)),
+            version: "证".repeat(128),
+            content_hash: None,
+            locator: "源".repeat(512),
+        })
+        .collect();
+    assert!(serde_json::to_vec(&too_large).unwrap().len() > MAX_EVIDENCE_BYTES);
+    assert!(validate_evidence_body(&too_large).is_err());
+    let mut wrong = body.clone();
+    wrong.title.push('研');
+    assert!(validate_evidence_body(&wrong).is_err());
+    wrong = body.clone();
+    wrong.statement.push('证');
+    assert!(validate_evidence_body(&wrong).is_err());
+    wrong = body;
+    wrong.title = "\u{0085}".into();
+    assert!(validate_evidence_body(&wrong).is_err());
+    wrong.title = " \u{3000}".into();
+    assert!(validate_evidence_body(&wrong).is_err());
+}
+#[test]
 fn evidence_is_closed_recording_without_professional_status_or_numeric_override() {
     use super::super::method_runtime_contracts::{
         CitationKind, DeclaredCitation, EVIDENCE_SCHEMA, EvidenceBody,
