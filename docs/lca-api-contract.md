@@ -26,7 +26,7 @@ checkPaths:
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: 65986599adb3ae4da2385b476b376ac2a418cd25
+lastReviewedCommit: 942ab3f6e01822ddc99998ee04305c4bd2867c4d
 lastReviewedNote: "Worker #362: reviewed independent frozen-source W14 native profiles and v2 config/facts/input boundaries; existing P1/W08 meaning and runtime/source/lease authority remain separate from admission."
 related:
   - AGENTS.md

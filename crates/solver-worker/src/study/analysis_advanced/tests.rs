@@ -26,7 +26,7 @@ fn fixture(
     source.study_binding = None;
     let packet = SourceSnapshot {
         schema_version: SNAPSHOT_SCHEMA.into(),
-        origin_ref: json!({"id":source.origin.id,"version":source.origin.version}),
+        origin_ref: json!({"type":"datasetRevision","datasetType":"lifecyclemodel","id":source.origin.id,"version":source.origin.version}),
         license_ref: "synthetic-not-a-license".into(),
         issuer_id: "synthetic-owner-fixture".into(),
         observed_at: "2026-11-04T00:00:00Z".into(),
@@ -77,7 +77,7 @@ fn fixture(
             config,
         },
         baseline: old.runs[0].clone(),
-        source_snapshot: json!({"studyId":old.analysis.study_id,"sourceArtifactRef":source_artifact.artifact_ref}),
+        source_snapshot: serde_json::from_value(json!({"snapshotId":"10000000-0000-4000-8000-000000000081","studyId":old.analysis.study_id,"originRef":packet.origin_ref,"sourceArtifactRef":source_artifact.artifact_ref,"digestScope":"artifact_bytes_sha256","licenseRef":packet.license_ref,"issuerId":packet.issuer_id,"observedAt":packet.observed_at})).unwrap(),
         source_artifact,
     };
     (input, pb, rb, sb)
@@ -271,7 +271,7 @@ fn invalid_configs_bounds_units_sources_identity_counts_and_budget_fail_closed()
             3 => f.1[10] ^= 1,
             4 => f.3[10] ^= 1,
             5 => f.0.analysis.config_hash = "0".repeat(64),
-            _ => f.0.source_snapshot["sourceArtifactRef"]["contentHash"] = json!("0".repeat(64)),
+            _ => f.0.source_snapshot.source_artifact_ref.content_hash = "0".repeat(64),
         }
         if mutate < 3 {
             rehash(&mut f.0);
@@ -436,6 +436,43 @@ fn actual_native_input_fixture_export_is_opt_in_and_integrity_checked() {
         std::fs::write(
             target.join("facts-uncertainty.json"),
             serde_json::to_vec_pretty(&facts).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            target.join("catalog-empirical.json"),
+            serde_json::to_vec_pretty(&facts.fact_catalog).unwrap(),
+        )
+        .unwrap();
+        let mut u = fixture("single", None, Some(2.0));
+        uncertainty(
+            &mut u.0,
+            Design::IndependentUniform {
+                independence_declared: true,
+            },
+            4,
+        );
+        let uniform = run(&u).unwrap();
+        std::fs::write(
+            target.join("input-uniform.json"),
+            serde_json::to_vec_pretty(&u.0).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            target.join("facts-uniform.json"),
+            serde_json::to_vec_pretty(&uniform).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            target.join("catalog-uniform.json"),
+            serde_json::to_vec_pretty(&uniform.fact_catalog).unwrap(),
+        )
+        .unwrap();
+        let oat: FactsBundle =
+            super::super::json::from_slice(&std::fs::read(target.join("facts.json")).unwrap())
+                .unwrap();
+        std::fs::write(
+            target.join("catalog-oat.json"),
+            serde_json::to_vec_pretty(&oat.fact_catalog).unwrap(),
         )
         .unwrap();
         std::fs::write(target.join("CLASSIFICATION.txt"),"Synthetic numerical component. Not API, DB, source authorization, scientific or capacity qualification. Private input/source are not report content.\n").unwrap();
@@ -747,4 +784,141 @@ fn parent_validation_rejects_consistently_forged_frozen_metadata_and_rng() {
             .to_string(),
         "study_advanced_output_rng"
     );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn report_catalog_counts_context_units_and_complete_entries_are_producer_owned() {
+    use crate::study::analysis_advanced_contracts::{FactContext, ReportUnitIdentity};
+    let batch = BatchLimits {
+        max_parameters: 4096,
+        max_evaluations: 20000,
+    };
+    for (case, change, factor) in [
+        ("single", None, Some(2.0)),
+        ("single", Some(0.0), Some(2.0)),
+        ("partial", None, Some(0.0)),
+        ("single", None, None),
+    ] {
+        let f = fixture(case, change, factor);
+        let out = run(&f).unwrap();
+        assert_eq!(out.fact_catalog.len(), 11);
+        let prepared: PreparedInput = super::super::json::from_slice(&f.1).unwrap();
+        assert!(
+            catalog::preflight_bytes(&f.0.analysis.config, &prepared).unwrap()
+                >= serde_json::to_vec(&out.fact_catalog).unwrap().len()
+        );
+        let p = &out.fact_catalog[0];
+        assert_eq!(p.fact_id, "parameter:0:baseline");
+        assert_eq!(p.baseline_run_id, out.baseline.run_id);
+        assert!(
+            matches!(&p.unit_identity,ReportUnitIdentity::ExchangeAmount{support,..} if support==&out.resolved_parameters[0].support)
+        );
+        let relative = out
+            .fact_catalog
+            .iter()
+            .find(|f| f.fact_id == "oat:parameter:0:low:relativeDelta:method:0")
+            .unwrap();
+        assert_eq!(relative.unit, "1");
+        assert!(
+            matches!(&relative.unit_identity,ReportUnitIdentity::Dimensionless{unit} if unit=="1")
+        );
+        let secant = out
+            .fact_catalog
+            .iter()
+            .find(|f| f.fact_id == "oat:parameter:0:secant:method:0")
+            .unwrap();
+        assert_eq!(secant.unit, "(impact)/(kg)");
+        assert!(
+            matches!(&secant.unit_identity,ReportUnitIdentity::Secant{numerator,denominator} if numerator.method_ref==out.baseline_evaluation.outputs[0].method_ref&&denominator.support==out.resolved_parameters[0].support)
+        );
+        if change == Some(0.0) || factor == Some(0.0) {
+            assert!(relative.canonical_value.is_none());
+            assert_eq!(
+                relative.reason_codes,
+                vec!["zero_baseline_relative_undefined"]
+            );
+        }
+        if factor.is_none() {
+            for f in out.fact_catalog.iter().filter(|f| f.method_ref.is_some()) {
+                assert!(f.canonical_value.is_none());
+                assert_eq!(f.coverage, "unknown");
+                assert_eq!(f.reason_codes, vec!["no_characterized_terms"]);
+            }
+        }
+        for mutation in 0..6 {
+            let mut changed = out.clone();
+            match mutation {
+                0 => {
+                    changed.fact_catalog.pop();
+                }
+                1 => changed.fact_catalog.push(changed.fact_catalog[0].clone()),
+                2 => changed.fact_catalog[0].canonical_value = Some("999".into()),
+                3 => changed.fact_catalog[4].unit = "kg".into(),
+                4 => {
+                    changed.fact_catalog[4].context =
+                        FactContext::BaselineOutput { method_index: 0 }
+                }
+                _ => changed.fact_catalog.swap(0, 1),
+            }
+            assert_eq!(
+                validate_output(&changed, &f.0, &f.1, &Bounds::default(), &batch)
+                    .unwrap_err()
+                    .to_string(),
+                "study_advanced_output_catalog"
+            );
+        }
+    }
+    for empirical in [false, true] {
+        let mut f = fixture("single", None, Some(2.0));
+        uncertainty(
+            &mut f.0,
+            if empirical {
+                Design::JointEmpirical {
+                    rows: vec![vec!["9".into()], vec!["11".into()]],
+                }
+            } else {
+                Design::IndependentUniform {
+                    independence_declared: true,
+                }
+            },
+            4,
+        );
+        let out = run(&f).unwrap();
+        assert_eq!(out.fact_catalog.len(), 12);
+        assert_eq!(
+            out.fact_catalog
+                .iter()
+                .filter(|f| matches!(f.context, FactContext::UncertaintyStatistic { .. }))
+                .count(),
+            5
+        );
+        assert_eq!(
+            out.fact_catalog
+                .iter()
+                .filter(|f| matches!(f.context, FactContext::UncertaintyQuantile { .. }))
+                .count(),
+            3
+        );
+        assert!(
+            !out.fact_catalog
+                .iter()
+                .any(|f| f.fact_id.contains("evaluation-"))
+        );
+    }
+}
+
+#[test]
+fn captured_source_metadata_is_closed_and_preserves_timestamp_instant() {
+    let mut f = fixture("single", None, Some(2.0));
+    f.0.source_snapshot.observed_at = "2026-11-04T08:00:00+08:00".into();
+    assert!(run(&f).is_ok());
+    f.0.source_snapshot.observed_at = "2026-11-04T08:00:01+08:00".into();
+    assert_eq!(
+        run(&f).unwrap_err().to_string(),
+        "study_advanced_snapshot_metadata"
+    );
+    let mut wire = serde_json::to_value(&f.0).unwrap();
+    wire["sourceSnapshot"]["authorized"] = json!(true);
+    assert!(serde_json::from_value::<ServiceInput>(wire).is_err());
 }

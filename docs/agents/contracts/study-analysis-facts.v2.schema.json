@@ -822,6 +822,506 @@
           "maxItems": 128
         }
       }
+    },
+    "reportFact": {
+      "type": "object",
+      "properties": {
+        "factId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        },
+        "baselineRunId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "context": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "parameterAmount"
+                  ]
+                },
+                "parameterIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "baseline",
+                    "low",
+                    "high"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "parameterIndex",
+                "role"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "baselineOutput"
+                  ]
+                },
+                "methodIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "kind",
+                "methodIndex"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "oatOutput"
+                  ]
+                },
+                "parameterIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "methodIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "endpoint": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "high"
+                  ]
+                },
+                "evaluationId": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "kind",
+                "parameterIndex",
+                "methodIndex",
+                "endpoint",
+                "evaluationId"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "oatAbsoluteDelta"
+                  ]
+                },
+                "parameterIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "methodIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "endpoint": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "high"
+                  ]
+                },
+                "evaluationId": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "kind",
+                "parameterIndex",
+                "methodIndex",
+                "endpoint",
+                "evaluationId"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "oatRelativeDelta"
+                  ]
+                },
+                "parameterIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "methodIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "endpoint": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "high"
+                  ]
+                },
+                "evaluationId": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "kind",
+                "parameterIndex",
+                "methodIndex",
+                "endpoint",
+                "evaluationId"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "oatSecant"
+                  ]
+                },
+                "parameterIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "methodIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "lowEvaluationId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "highEvaluationId": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "kind",
+                "parameterIndex",
+                "methodIndex",
+                "lowEvaluationId",
+                "highEvaluationId"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "uncertaintyStatistic"
+                  ]
+                },
+                "methodIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "statistic": {
+                  "type": "string",
+                  "enum": [
+                    "mean",
+                    "sampleStandardDeviation",
+                    "meanMcse",
+                    "minimum",
+                    "maximum"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "methodIndex",
+                "statistic"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "uncertaintyQuantile"
+                  ]
+                },
+                "methodIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "probability": {
+                  "type": "string",
+                  "enum": [
+                    "0.025",
+                    "0.5",
+                    "0.975"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "methodIndex",
+                "probability"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "methodRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/datasetRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "canonicalValue": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?(e-?[1-9][0-9]*)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unitIdentity": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "methodQuantity"
+                  ]
+                },
+                "methodRef": {
+                  "$ref": "#/$defs/datasetRef"
+                },
+                "unit": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "kind",
+                "methodRef",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "exchangeAmount"
+                  ]
+                },
+                "parameterIndex": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "flow": {
+                  "$ref": "#/$defs/datasetRef"
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "Input",
+                    "Output"
+                  ]
+                },
+                "unit": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "support": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/datasetRef"
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "parameterIndex",
+                "flow",
+                "direction",
+                "unit",
+                "support"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "dimensionless"
+                  ]
+                },
+                "unit": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "secant"
+                  ]
+                },
+                "numerator": {
+                  "type": "object",
+                  "properties": {
+                    "methodRef": {
+                      "$ref": "#/$defs/datasetRef"
+                    },
+                    "unit": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "methodRef",
+                    "unit"
+                  ],
+                  "additionalProperties": false
+                },
+                "denominator": {
+                  "type": "object",
+                  "properties": {
+                    "parameterIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "flow": {
+                      "$ref": "#/$defs/datasetRef"
+                    },
+                    "direction": {
+                      "type": "string",
+                      "enum": [
+                        "Input",
+                        "Output"
+                      ]
+                    },
+                    "unit": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "support": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/datasetRef"
+                      }
+                    }
+                  },
+                  "required": [
+                    "parameterIndex",
+                    "flow",
+                    "direction",
+                    "unit",
+                    "support"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "kind",
+                "numerator",
+                "denominator"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "coverage": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "reasonCodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "no_characterized_terms",
+              "zero_baseline_relative_undefined"
+            ]
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "factId",
+        "baselineRunId",
+        "context",
+        "methodRef",
+        "canonicalValue",
+        "unit",
+        "unitIdentity",
+        "coverage",
+        "reasonCodes"
+      ],
+      "additionalProperties": false
     }
   },
   "oneOf": [
@@ -1793,6 +2293,13 @@
             "native"
           ],
           "additionalProperties": false
+        },
+        "factCatalog": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reportFact"
+          },
+          "minItems": 1
         }
       },
       "required": [
@@ -1816,7 +2323,8 @@
         "limitations",
         "scientificRankingQualified",
         "businessPilotQualified",
-        "executionLimits"
+        "executionLimits",
+        "factCatalog"
       ],
       "additionalProperties": false
     },
@@ -2860,6 +3368,13 @@
             "native"
           ],
           "additionalProperties": false
+        },
+        "factCatalog": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reportFact"
+          },
+          "minItems": 1
         }
       },
       "required": [
@@ -2883,7 +3398,8 @@
         "limitations",
         "scientificRankingQualified",
         "businessPilotQualified",
-        "executionLimits"
+        "executionLimits",
+        "factCatalog"
       ],
       "additionalProperties": false
     }

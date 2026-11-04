@@ -320,7 +320,81 @@
       "additionalProperties": false
     },
     "sourceSnapshot": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "snapshotId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "studyId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "originRef": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "datasetRevision"
+              ]
+            },
+            "datasetType": {
+              "type": "string",
+              "enum": [
+                "lifecyclemodel"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "type",
+            "datasetType",
+            "id",
+            "version"
+          ],
+          "additionalProperties": false
+        },
+        "sourceArtifactRef": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "digestScope": {
+          "type": "string",
+          "enum": [
+            "artifact_bytes_sha256"
+          ]
+        },
+        "licenseRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issuerId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "snapshotId",
+        "studyId",
+        "originRef",
+        "sourceArtifactRef",
+        "digestScope",
+        "licenseRef",
+        "issuerId",
+        "observedAt"
+      ],
+      "additionalProperties": false
     },
     "sourceArtifact": {
       "$ref": "#/$defs/privateArtifact"

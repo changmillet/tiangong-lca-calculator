@@ -5,7 +5,6 @@ use super::{
     runtime_contracts::{ArtifactRef, PrivateArtifact},
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use uuid::Uuid;
 pub const CONFIG_SCHEMA: &str = "lca.study-analysis-config.v2";
 pub const INPUT_SCHEMA: &str = "lca.study-analysis-input.v2";
@@ -92,11 +91,36 @@ record!(AnalysisRecord {
     config_hash: String,
     execution: Execution
 });
+// Proposed Edge-owned V5 record and Database completion shape; no runtime admission.
+record!(PublicAnalysisRecord {analysis_id:Uuid,study_id:Uuid,profile_id:String,config:Config,config_hash:String,execution:Execution,facts_ref:Option<ArtifactRef>});
+record!(Completion {
+    profile_id: String,
+    config_hash: String,
+    facts_ref: ArtifactRef,
+    storage_bucket: String,
+    storage_object_path: String
+});
+record!(CapturedOriginRef {
+    r#type: String,
+    dataset_type: String,
+    id: String,
+    version: String
+});
+record!(CapturedSourceSnapshot {
+    snapshot_id: Uuid,
+    study_id: Uuid,
+    origin_ref: CapturedOriginRef,
+    source_artifact_ref: ArtifactRef,
+    digest_scope: String,
+    license_ref: String,
+    issuer_id: String,
+    observed_at: String
+});
 record!(ServiceInput {
     schema_version: String,
     analysis: AnalysisRecord,
     baseline: RunInput,
-    source_snapshot: Value,
+    source_snapshot: CapturedSourceSnapshot,
     source_artifact: PrivateArtifact
 });
 // Explicit service-selected experimental limits; no default constitutes hosted capacity qualification.
@@ -143,7 +167,110 @@ record!(Counts {
     invalid: usize,
     stop_reason: String
 });
-record!(FactsBundle { schema_version:String, profile_id:String, producer_version:String, study_id:Uuid, analysis_id:Uuid, config:Config, config_hash:String, execution_limits:ExecutionLimits, baseline:InputBinding, source_snapshot_ref:ArtifactRef, resolved_parameters:Vec<ResolvedParameter>, coverage_gaps:Vec<CoverageGap>, quality_findings:Vec<String>, baseline_evaluation:Evaluation, evaluations:Vec<Evaluation>, oat_effects:Vec<OatEffect>, statistics:Vec<Statistics>, counts:Counts, limitations:Vec<String>, scientific_ranking_qualified:bool, business_pilot_qualified:bool });
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AmountRole {
+    Baseline,
+    Low,
+    High,
+}
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Endpoint {
+    Low,
+    High,
+}
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Statistic {
+    Mean,
+    SampleStandardDeviation,
+    MeanMcse,
+    Minimum,
+    Maximum,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+pub enum FactContext {
+    ParameterAmount {
+        parameter_index: usize,
+        role: AmountRole,
+    },
+    BaselineOutput {
+        method_index: usize,
+    },
+    OatOutput {
+        parameter_index: usize,
+        method_index: usize,
+        endpoint: Endpoint,
+        evaluation_id: String,
+    },
+    OatAbsoluteDelta {
+        parameter_index: usize,
+        method_index: usize,
+        endpoint: Endpoint,
+        evaluation_id: String,
+    },
+    OatRelativeDelta {
+        parameter_index: usize,
+        method_index: usize,
+        endpoint: Endpoint,
+        evaluation_id: String,
+    },
+    OatSecant {
+        parameter_index: usize,
+        method_index: usize,
+        low_evaluation_id: String,
+        high_evaluation_id: String,
+    },
+    UncertaintyStatistic {
+        method_index: usize,
+        statistic: Statistic,
+    },
+    UncertaintyQuantile {
+        method_index: usize,
+        probability: String,
+    },
+}
+record!(MethodQuantity {
+    method_ref: DatasetRef,
+    unit: String
+});
+record!(ExchangeQuantity {parameter_index:usize,flow:DatasetRef,direction:String,unit:String,support:Vec<DatasetRef>});
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+pub enum ReportUnitIdentity {
+    MethodQuantity {
+        method_ref: DatasetRef,
+        unit: String,
+    },
+    ExchangeAmount {
+        parameter_index: usize,
+        flow: DatasetRef,
+        direction: String,
+        unit: String,
+        support: Vec<DatasetRef>,
+    },
+    Dimensionless {
+        unit: String,
+    },
+    Secant {
+        numerator: MethodQuantity,
+        denominator: ExchangeQuantity,
+    },
+}
+record!(ReportFact { fact_id:String,baseline_run_id:Uuid,context:FactContext,method_ref:Option<DatasetRef>,canonical_value:Option<String>,unit:String,unit_identity:ReportUnitIdentity,coverage:String,reason_codes:Vec<String> });
+record!(FactsBundle { schema_version:String, profile_id:String, producer_version:String, study_id:Uuid, analysis_id:Uuid, config:Config, config_hash:String, execution_limits:ExecutionLimits, baseline:InputBinding, source_snapshot_ref:ArtifactRef, resolved_parameters:Vec<ResolvedParameter>, coverage_gaps:Vec<CoverageGap>, quality_findings:Vec<String>, baseline_evaluation:Evaluation, evaluations:Vec<Evaluation>, oat_effects:Vec<OatEffect>, statistics:Vec<Statistics>, fact_catalog:Vec<ReportFact>, counts:Counts, limitations:Vec<String>, scientific_ranking_qualified:bool, business_pilot_qualified:bool });
 /// Sanitized all-or-error diagnostic; never a successful conditional sample subset.
 #[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

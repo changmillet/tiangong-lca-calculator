@@ -47,7 +47,7 @@
       "profileId": "lca.study-explicit-v1",
       "resultRef": {
         "byteSize": 694,
-        "contentHash": "1881ce3329d888904a23b91a9398f29cadba1677a46e03fbb2ad3f4c9815393a",
+        "contentHash": "d74d787dbfd2a5cf4243f4c5dcc51560bb7d1eca7bf0907a776db0ca43868d14",
         "digestScope": "artifact_bytes_sha256",
         "id": "10000000-0000-4000-8000-000000000060",
         "mediaType": "application/json",
@@ -179,7 +179,7 @@
       "artifactRef": {
         "type": "runResult",
         "id": "10000000-0000-4000-8000-000000000060",
-        "contentHash": "1881ce3329d888904a23b91a9398f29cadba1677a46e03fbb2ad3f4c9815393a",
+        "contentHash": "d74d787dbfd2a5cf4243f4c5dcc51560bb7d1eca7bf0907a776db0ca43868d14",
         "digestScope": "artifact_bytes_sha256",
         "byteSize": 694,
         "mediaType": "application/json",
@@ -190,25 +190,36 @@
     }
   },
   "sourceSnapshot": {
-    "sourceArtifactRef": {
-      "byteSize": 4471,
-      "contentHash": "2133c937ccf481821cea43c286bb6f441a08d3b7ee7d0e62b0bb951ab5c35bf9",
-      "digestScope": "artifact_bytes_sha256",
-      "id": "10000000-0000-4000-8000-000000000080",
-      "mediaType": "application/json",
-      "schemaVersion": "lca.study-source-snapshot.v1",
-      "type": "modelSource"
+    "snapshotId": "10000000-0000-4000-8000-000000000081",
+    "studyId": "10000000-0000-4000-8000-000000000001",
+    "originRef": {
+      "type": "datasetRevision",
+      "datasetType": "lifecyclemodel",
+      "id": "model",
+      "version": "01.00.000"
     },
-    "studyId": "10000000-0000-4000-8000-000000000001"
+    "sourceArtifactRef": {
+      "type": "modelSource",
+      "id": "10000000-0000-4000-8000-000000000080",
+      "contentHash": "1a896c0023816ad9f7d67c36fecb215b127c52b81517c295a64206ab2e439eef",
+      "digestScope": "artifact_bytes_sha256",
+      "byteSize": 4527,
+      "mediaType": "application/json",
+      "schemaVersion": "lca.study-source-snapshot.v1"
+    },
+    "digestScope": "artifact_bytes_sha256",
+    "licenseRef": "synthetic-not-a-license",
+    "issuerId": "synthetic-owner-fixture",
+    "observedAt": "2026-11-04T00:00:00Z"
   },
   "sourceArtifact": {
     "studyId": "10000000-0000-4000-8000-000000000001",
     "artifactRef": {
       "type": "modelSource",
       "id": "10000000-0000-4000-8000-000000000080",
-      "contentHash": "2133c937ccf481821cea43c286bb6f441a08d3b7ee7d0e62b0bb951ab5c35bf9",
+      "contentHash": "1a896c0023816ad9f7d67c36fecb215b127c52b81517c295a64206ab2e439eef",
       "digestScope": "artifact_bytes_sha256",
-      "byteSize": 4471,
+      "byteSize": 4527,
       "mediaType": "application/json",
       "schemaVersion": "lca.study-source-snapshot.v1"
     },

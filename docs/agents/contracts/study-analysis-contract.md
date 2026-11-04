@@ -20,7 +20,7 @@ checkPaths:
   - crates/solver-worker/tests/fixtures/study-analysis/**
   - docs/agents/contracts/study-analysis*.schema.json
 lastReviewedAt: 2026-11-04
-lastReviewedCommit: 65986599adb3ae4da2385b476b376ac2a418cd25
+lastReviewedCommit: 942ab3f6e01822ddc99998ee04305c4bd2867c4d
 lastReviewedNote: "Worker #362: reviewed independent frozen-source W14 native profiles and v2 config/facts/input boundaries; existing P1/W08 meaning and runtime/source/lease authority remain separate from admission."
 related:
   - study-runtime-contract.md
@@ -342,3 +342,101 @@ source rights, lease-loss/unknown callbacks, real UI/CLI/API/DB/native/report
 operation, Linux/Windows capacity or production containment. Those proofs and
 service-controlled limits require each owner and actual supported host before
 runtime admission. Review and exact workspace integration remain separate.
+
+### Worker-owned report scalar catalog
+
+Facts v2 requires the ordered `factCatalog` of closed `ReportFact` records.
+Every report numerical claim selects one exact artifact and `factId`; consumers
+copy its canonical value, typed context, unit identity and coverage byte-for-byte.
+They do not invent numerical scalar identities, recalculate summaries or derive
+report numbers from the raw sample matrix. An ID alone is not a global fact.
+All catalog `baselineRunId` values reference the actual frozen baseline Run;
+OAT `evaluationId` values remain analysis-local identifiers.
+
+`context.kind` is one of `parameterAmount`, `baselineOutput`, `oatOutput`,
+`oatAbsoluteDelta`, `oatRelativeDelta`, `oatSecant`, `uncertaintyStatistic`, or
+`uncertaintyQuantile`. Context retains exact parameter/method indexes, endpoint,
+evaluation IDs, statistic enum or the fixed quantile probability as appropriate.
+IDs are deterministic colon selectors compatible with the existing 128-byte
+report ID grammar, for example:
+
+- `parameter:0:low`
+- `baseline:method:0`
+- `oat:parameter:0:low:relativeDelta:method:0`
+- `oat:parameter:0:secant:method:0`
+- `uncertainty:mean:method:0`
+- `uncertainty:quantile:0.025:method:0`
+
+Catalog order is parameter index then baseline/low/high amount; baseline method
+index; then OAT parameter/method index with low output/absolute/relative, high
+output/absolute/relative, secant; or uncertainty method index with mean, unbiased
+sample SD, mean MCSE, min, max, then quantiles 0.025/0.5/0.975. For P parameters
+and M methods, complete catalogs contain `3P+M+7PM` OAT entries or `3P+M+8M`
+uncertainty entries. Individual Monte Carlo samples remain immutable typed
+artifact evidence and are deliberately absent from this report summary catalog.
+
+Parameter amount units bind the complete frozen resolved exchange Flow,
+direction and support-revision chain. Method quantity units bind exact Method
+revision and frozen result unit. Relative deltas have `unit:"1"` and
+`unitIdentity.kind:dimensionless` while retaining Method provenance separately.
+Secants have a typed Method-quantity numerator and exchange-amount denominator;
+the exact display unit is `(outputUnit)/(inputUnit)`, not a derivative claim.
+Unknown characterized values retain null/unknown and `no_characterized_terms`;
+zero-baseline relative deltas retain null, original coverage and
+`zero_baseline_relative_undefined`. Partial values remain partial. There is no
+ranking fact or hidden omission of undefined entries.
+
+The parent regenerates the complete ordered catalog from the already verified
+typed evidence and frozen unit/provenance metadata and requires exact equality.
+Missing, duplicate, reordered or extra entries, forged selectors, values, units,
+coverage and contexts fail before registration. Conservative serialized catalog
+preflight includes actual escaped method/exchange metadata and complete fixed
+field overhead; actual final byte/memory and aggregate deadline checks still
+apply. Older component receipts precede the catalog and retain their historical
+scope. New serialization measurements must bind the updated binary.
+
+### Concrete owner-coordination seams
+
+`study-analysis-record.v2.schema.json` is a concrete proposal for the Edge-owned
+V5 analysis record. It contains only analysisId, studyId, the exact independent
+profile/config/configHash, the existing Worker execution job/status vocabulary,
+and factsRef. FactsRef is nonnull exactly when execution is completed and is
+strictly `analysisFacts/lca.study-analysis-facts.v2`; no numerical comparability
+or ranking assertion is invented. `PublicAnalysisRecord` is the corresponding
+closed DTO. Public negotiation remains Edge-owned and does not register a daemon.
+
+The proposed distinct job is `study.analysis_advanced` in queue `solver`, with
+payload schema `study.analysis_advanced.request.v1` and exactly
+`{schemaVersion,studyId,analysisId}`. Resource type remains `analysis`.
+The proposed service-only functions are:
+
+- `api.svc_study_analysis_advanced_read_input_v1(p_analysis_id uuid, p_job_id uuid, p_lease_token uuid)`.
+- `api.svc_study_analysis_advanced_complete_v1(p_analysis_id uuid, p_job_id uuid, p_lease_token uuid, p_completion jsonb, p_idempotency_key text)`.
+
+Argument order is normative for the proposal. Completion is the closed
+`study-analysis-completion.v2.schema.json` / `Completion` DTO containing
+profileId, configHash, factsRef, storageBucket and storageObjectPath, with the
+existing `study:<jobUUID>:<leaseUUID>` idempotency key. Atomic current actor/client/
+source, job/lease/resource, cancellation, terminal receipt and unknown-outcome
+rules remain required; the proposal is not an installed SQL contract.
+
+Private input v2 retains its minimal six-field analysis record and unchanged
+P1 baseline Run/revision/Scenario/preparation projections and exact prepared/
+result wrappers. `sourceSnapshot` is now the closed existing P1 projection:
+snapshotId, studyId, typed LifecycleModel originRef, sourceArtifactRef,
+digestScope, licenseRef, issuerId and observedAt. Exact private `sourceArtifact`
+bytes use the original `modelSource/lca.study-source-snapshot.v1` artifact.
+Captured origin/license/issuer are checked against those exact bytes, and
+observedAt must denote the same RFC3339 instant (the stored timestamptz may
+serialize an equivalent offset lexeme).
+Authorization remains in the original DB-issued source capability and current
+service checks, never a caller-provided success or authorization boolean.
+The full private raw snapshot retains its existing protected authorization data;
+that raw packet is not a new public contract.
+
+`tests/fixtures/study-analysis/advanced/service-seams.json` supplies concrete
+ordered arguments, public completed record, complete private read-input example
+and exact synthetic facts registration. `catalog-{oat,uniform,empirical}.json`
+and corresponding full facts are producer goldens. They establish component
+schema/numerical examples only. Database and Edge must agree and qualify these
+seams before daemon wiring or capability admission.

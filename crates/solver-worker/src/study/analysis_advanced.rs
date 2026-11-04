@@ -16,6 +16,7 @@ use super::{
 };
 use anyhow::{Context, ensure};
 use std::{collections::BTreeSet, time::Instant};
+mod catalog;
 mod rng;
 use rng::Drbg;
 
@@ -145,6 +146,12 @@ pub fn validate_input(input: &ServiceInput) -> anyhow::Result<()> {
         "study_advanced_input"
     );
     analysis::validate_input(&old_input(input)?)?;
+    ensure!(
+        input.source_snapshot.digest_scope == "artifact_bytes_sha256"
+            && input.source_snapshot.origin_ref.r#type == "datasetRevision"
+            && input.source_snapshot.origin_ref.dataset_type == "lifecyclemodel",
+        "study_advanced_snapshot_metadata"
+    );
     let artifact = &input.source_artifact;
     super::runtime::validate_location(artifact, input.analysis.study_id, "modelSource")?;
     ensure!(
@@ -154,8 +161,8 @@ pub fn validate_input(input: &ServiceInput) -> anyhow::Result<()> {
             && artifact.artifact_ref.digest_scope == "artifact_bytes_sha256"
             && artifact.artifact_ref.media_type == "application/json"
             && artifact.artifact_ref.byte_size > 0
-            && input.source_snapshot["studyId"] == input.analysis.study_id.to_string()
-            && input.source_snapshot["sourceArtifactRef"]
+            && input.source_snapshot.study_id == input.analysis.study_id
+            && serde_json::to_value(&input.source_snapshot.source_artifact_ref)?
                 == serde_json::to_value(&artifact.artifact_ref)?,
         "study_advanced_snapshot_binding"
     );
@@ -502,7 +509,10 @@ fn preflight_evidence(
         .saturating_add(serde_json::to_vec(baseline)?.len())
         .saturating_add(serde_json::to_vec(&base.model)?.len())
         .saturating_add(4096);
-    let estimated = evaluations.saturating_add(summary).saturating_add(fixed);
+    let estimated = evaluations
+        .saturating_add(summary)
+        .saturating_add(fixed)
+        .saturating_add(catalog::preflight_bytes(&input.analysis.config, base)?);
     ensure!(
         estimated <= bounds.max_artifact_bytes,
         "study_advanced_artifact_preflight_limit"
@@ -586,6 +596,14 @@ fn analyze_at(
             && packet.origin_ref["id"] == packet.source.origin.id
             && packet.origin_ref["version"] == packet.source.origin.version,
         "study_advanced_snapshot_raw"
+    );
+    ensure!(
+        packet.origin_ref == serde_json::to_value(&input.source_snapshot.origin_ref)?
+            && packet.license_ref == input.source_snapshot.license_ref
+            && packet.issuer_id == input.source_snapshot.issuer_id
+            && chrono::DateTime::parse_from_rfc3339(&packet.observed_at)?
+                == chrono::DateTime::parse_from_rfc3339(&input.source_snapshot.observed_at)?,
+        "study_advanced_snapshot_metadata"
     );
     let verified =
         analysis::verify_run(input.baseline.clone(), prepared_bytes, result_bytes, bounds)?;
@@ -806,7 +824,7 @@ fn analyze_at(
             }
         })
         .collect();
-    let out = FactsBundle {
+    let mut out = FactsBundle {
         schema_version: FACTS_SCHEMA.into(),
         profile_id: config.profile().into(),
         producer_version: PRODUCER.into(),
@@ -824,6 +842,7 @@ fn analyze_at(
         evaluations,
         oat_effects,
         statistics: stats,
+        fact_catalog: vec![],
         counts: Counts {
             requested: n,
             attempted: n,
@@ -844,6 +863,7 @@ fn analyze_at(
         scientific_ranking_qualified: false,
         business_pilot_qualified: false,
     };
+    out.fact_catalog = catalog::build(&out)?;
     ensure!(
         serde_json::to_vec(&out)?.len() <= bounds.max_artifact_bytes,
         "study_advanced_artifact_limit"
@@ -1157,6 +1177,11 @@ pub fn validate_output(
         serde_json::to_value(&bundle.oat_effects)? == serde_json::to_value(&expected_effects)?
             && serde_json::to_value(&bundle.statistics)? == serde_json::to_value(&expected_stats)?,
         "study_advanced_output_summary"
+    );
+    ensure!(
+        serde_json::to_value(&bundle.fact_catalog)?
+            == serde_json::to_value(catalog::build(bundle)?)?,
+        "study_advanced_output_catalog"
     );
     Ok(())
 }

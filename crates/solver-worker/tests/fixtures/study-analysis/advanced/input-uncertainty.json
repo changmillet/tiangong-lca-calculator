@@ -204,25 +204,36 @@
     }
   },
   "sourceSnapshot": {
-    "sourceArtifactRef": {
-      "byteSize": 6794,
-      "contentHash": "ab8f8d238e26e8fad66a4b3f99f5aab5f7040c9c23d2c9ed43ba617d671f92ab",
-      "digestScope": "artifact_bytes_sha256",
-      "id": "10000000-0000-4000-8000-000000000080",
-      "mediaType": "application/json",
-      "schemaVersion": "lca.study-source-snapshot.v1",
-      "type": "modelSource"
+    "snapshotId": "10000000-0000-4000-8000-000000000081",
+    "studyId": "10000000-0000-4000-8000-000000000001",
+    "originRef": {
+      "type": "datasetRevision",
+      "datasetType": "lifecyclemodel",
+      "id": "model",
+      "version": "01.00.000"
     },
-    "studyId": "10000000-0000-4000-8000-000000000001"
+    "sourceArtifactRef": {
+      "type": "modelSource",
+      "id": "10000000-0000-4000-8000-000000000080",
+      "contentHash": "0d347991e9d351efa4f51ab602dc942def0a98a1f5c0aed634e972ea3798d2ca",
+      "digestScope": "artifact_bytes_sha256",
+      "byteSize": 6850,
+      "mediaType": "application/json",
+      "schemaVersion": "lca.study-source-snapshot.v1"
+    },
+    "digestScope": "artifact_bytes_sha256",
+    "licenseRef": "synthetic-not-a-license",
+    "issuerId": "synthetic-owner-fixture",
+    "observedAt": "2026-11-04T00:00:00Z"
   },
   "sourceArtifact": {
     "studyId": "10000000-0000-4000-8000-000000000001",
     "artifactRef": {
       "type": "modelSource",
       "id": "10000000-0000-4000-8000-000000000080",
-      "contentHash": "ab8f8d238e26e8fad66a4b3f99f5aab5f7040c9c23d2c9ed43ba617d671f92ab",
+      "contentHash": "0d347991e9d351efa4f51ab602dc942def0a98a1f5c0aed634e972ea3798d2ca",
       "digestScope": "artifact_bytes_sha256",
-      "byteSize": 6794,
+      "byteSize": 6850,
       "mediaType": "application/json",
       "schemaVersion": "lca.study-source-snapshot.v1"
     },
