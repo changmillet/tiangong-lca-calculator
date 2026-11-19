@@ -42,9 +42,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-13
-lastReviewedCommit: 28c170608d5a1cac46d0f16365ab40cf9a87be86
-lastReviewedNote: "Reviewed signed Model connection guidance and bounded port/amount/coefficient diagnostics; existing calculation, runtime selection and delivery contracts remain unchanged."
+lastReviewedAt: "2026-11-19"
+lastReviewedCommit: "3cba273e5e029fadd62278498116cc27240186de"
+lastReviewedNote: "Worker #288 review corrected ambient online-argument parsing and froze offline source-closure limits. Native provider/matrix semantics, online configuration, numerical fingerprint and ownership boundaries remain unchanged."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md
@@ -90,6 +90,7 @@ Start here when the task may change what the compute stack does.
 | `docs/ai-worker-contract.md` | generic AI queue runtime, versioned handler contracts, TIDAS ruleset/model bindings, and partial-failure semantics | Edge auth/API, durable Database schema, or Next acceptance UX |
 | `docs/edge-function-integration.md` | edge-facing enqueue, polling, and service-role integration contract | solver internals or frontend UX rules |
 | `docs/frontend-integration.md` | frontend-facing solve/result interaction contract | edge auth implementation or solver internals |
+| `docs/provider-impact-diagnostic-contract.md` | frozen candidate overlays, provider changes and matrix-only reports | online census and write authorization |
 | `docs/provider-linking.md` | current provider-link runtime decision order, default provider rule, candidate eligibility, and diagnostics contract | modeling rationale for regional supply mix |
 | `docs/implicit-regional-supply-mix-modeling.md` / `docs/implicit-regional-supply-mix-modeling.en.md` | Chinese and English modeling basis for implicit regional supply mix, exchange-location supply-region anchors, and annual-volume provider share semantics | implementation checklist or consumer API contract |
 | `docs/tidas-package-contract.md` | package-worker async import/export contract | generic solver runtime or branch policy truth |

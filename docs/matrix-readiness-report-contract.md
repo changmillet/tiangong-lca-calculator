@@ -24,9 +24,9 @@ checkPaths:
   - docs/lca-api-contract.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-10-25
-lastReviewedCommit: 5b65941d23877db4859ce5bd2b1fe05c684db412
-lastReviewedNote: "Worker #339: reviewed nonregional source-default selection, exact Flow versions, legacy replay and additive snapshot metadata; provider, closure admission, package, publication and review policies are unchanged."
+lastReviewedAt: 2026-11-19
+lastReviewedCommit: 3cba273e5e029fadd62278498116cc27240186de
+lastReviewedNote: "Worker #288 reviewed environment-independent finite diagnostics and preserved native signed-flow selection, numerical eligibility, readiness and calculation identity. Regional guidance now consistently permits eligible diagonal contributions."
 related:
   - AGENTS.md
   - .docpact/config.yaml

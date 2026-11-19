@@ -22,9 +22,9 @@ checkPaths:
   - crates/solver-worker/src/bin/snapshot_builder.rs
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-10-29
-lastReviewedCommit: 48718235ba0af97b38f8ec09cba6815ddcf93843
-lastReviewedNote: "Reviewed Worker #345: bilingual provider-linking purpose, same-model supplier intent and study applicability; runtime contract cross-reference added. Routing, ownership and validation requirements are unchanged."
+lastReviewedAt: 2026-11-19
+lastReviewedCommit: 3cba273e5e029fadd62278498116cc27240186de
+lastReviewedNote: "Worker #288 reviewed environment-independent finite diagnostics and preserved native signed-flow selection, numerical eligibility, readiness and calculation identity. Regional guidance now consistently permits eligible diagonal contributions."
 related:
   - AGENTS.md
   - docs/implicit-regional-supply-mix-modeling.md

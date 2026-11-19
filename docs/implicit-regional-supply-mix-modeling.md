@@ -24,9 +24,9 @@ checkPaths:
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/signed_flow.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-10-29
-lastReviewedCommit: 48718235ba0af97b38f8ec09cba6815ddcf93843
-lastReviewedNote: "Reviewed Worker #345: bilingual provider-linking purpose, same-model supplier intent and study applicability; runtime contract cross-reference added. Routing, ownership and validation requirements are unchanged."
+lastReviewedAt: 2026-11-19
+lastReviewedCommit: 3cba273e5e029fadd62278498116cc27240186de
+lastReviewedNote: "Worker #288 reviewed environment-independent finite diagnostics and preserved native signed-flow selection, numerical eligibility, readiness and calculation identity. Regional guidance now consistently permits eligible diagonal contributions."
 related:
   - AGENTS.md
   - docs/agents/repo-architecture.md
@@ -78,7 +78,6 @@ direction_sign(Output) = +1
 一条 non-reference technosphere exchange 形成 residual `c_r`。Reference port `i` 只有在以下条件全部满足时才是候选：
 
 - exact flow identity 兼容；
-- 来自另一个 Process，禁止自链接；
 - 是该 Process 的 quantitative reference exchange；
 - `sign(c_i) = -sign(c_r)`。
 
