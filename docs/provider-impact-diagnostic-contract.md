@@ -18,8 +18,8 @@ checkPaths:
   - crates/solver-worker/tests/provider_impact_cli.rs
   - crates/solver-worker/tests/fixtures/provider_impact_v1/**
 lastReviewedAt: "2026-11-19"
-lastReviewedCommit: "c138e2850e1d3991232d099a2c646419279ab77e"
-lastReviewedNote: "Worker #288 verifies the complete latest Process axis in the supplied census, applies the native numerical eligibility and allocation policy, and reports downstream Processes and their consuming Models."
+lastReviewedCommit: "3cba273e5e029fadd62278498116cc27240186de"
+lastReviewedNote: "Worker #288 review corrected ambient online-argument parsing and froze offline source-closure limits. Native provider/matrix semantics, online configuration, numerical fingerprint and ownership boundaries remain unchanged."
 related:
   - AGENTS.md
   - .docpact/config.yaml
@@ -50,7 +50,7 @@ snapshot_builder \
 
 All three arguments are required together. Additional explicit snapshot options
 are rejected. The frozen request owns the entire policy; ambient database/storage
-configuration is not used. Execution returns before database, queue, snapshot,
+configuration is not used. A dedicated parser accepts these three arguments before online environment-backed settings are parsed. Frozen source closure uses the compiled 1 GiB document-byte limit independently of `SOURCE_CLOSURE_TOTAL_DOCUMENT_BYTES`; online snapshot builds retain their configured limit. Execution returns before database, queue, snapshot,
 cache or object-storage clients are initialized. The command writes one local
 report atomically, refuses to overwrite an existing output, and does not write a
 report on invalid input. The output directory must already exist.
@@ -59,7 +59,7 @@ Only `mode: "matrix_only"` is supported. Both phases assemble matrices and run
 native structural readiness checks with `run_factorization=false` and zero unit
 samples. They never prepare UMFPACK, solve, enqueue a fallback, or read a cached
 online snapshot. A singular matrix can therefore produce a diagnostic report;
-its numerical stability remains **not evaluated**.
+its numerical stability remains **not evaluated**. Use a platform-qualified `snapshot_builder` binary with its required native-library closure, including for matrix-only startup.
 
 ## Input v1
 

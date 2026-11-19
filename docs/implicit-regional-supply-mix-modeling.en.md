@@ -25,8 +25,8 @@ checkPaths:
   - crates/solver-worker/src/signed_flow.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
 lastReviewedAt: 2026-11-19
-lastReviewedCommit: c138e2850e1d3991232d099a2c646419279ab77e
-lastReviewedNote: "Reviewed Worker #345: bilingual provider-linking purpose, same-model supplier intent and study applicability; runtime contract cross-reference added. Routing, ownership and validation requirements are unchanged."
+lastReviewedCommit: 3cba273e5e029fadd62278498116cc27240186de
+lastReviewedNote: "Worker #288 reviewed environment-independent finite diagnostics and preserved native signed-flow selection, numerical eligibility, readiness and calculation identity. Regional guidance now consistently permits eligible diagonal contributions."
 related:
   - AGENTS.md
   - docs/agents/repo-architecture.md
@@ -74,7 +74,7 @@ direction_sign(Output) = +1
 
 Direction and amount sign are independent. Product/Waste type does not define a link role. The Process quantitative reference selects a pivot exchange whose raw coefficient is normalized to `+1` or `-1`.
 
-A non-reference technosphere exchange forms residual `c_r`. Reference port `i` is eligible only when it has an exact compatible flow identity, belongs to another Process, is that Process's quantitative reference exchange, and satisfies `sign(c_i) = -sign(c_r)`.
+A non-reference technosphere exchange forms residual `c_r`. Reference port `i` is eligible only when it has an exact compatible flow identity, is its Process's quantitative reference exchange, and satisfies `sign(c_i) = -sign(c_r)`.
 
 Flow source type only selects the computation space: Product/Waste are technosphere, Elementary is biosphere, and Other is reporting-only.
 

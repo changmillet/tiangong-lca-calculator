@@ -30,6 +30,10 @@ fn command(input: &Path, input_hash: &str, output: &Path, extra: &[&str]) -> Out
         .env("DATABASE_URL", "not-a-database-url")
         .env("CONN", "not-a-database-url")
         .env("S3_ENDPOINT", "not-an-object-store-url")
+        // Neither online argument parsing nor source-closure policy may consume these values.
+        .env("SNAPSHOT_BUILDER_DB_MAX_CONNECTIONS", "invalid")
+        .env("SNAPSHOT_REPORT_MAX_FILES", "invalid")
+        .env("SOURCE_CLOSURE_TOTAL_DOCUMENT_BYTES", "1")
         .args(["--provider-impact-input"])
         .arg(input)
         .args([
@@ -89,6 +93,24 @@ fn public_command_is_offline_deterministic_input_bound_and_non_overwriting() {
             .success()
     );
     assert_eq!(original, fs::read(&second_path).unwrap());
+    let equals_path = temp.path().join("equals.json");
+    let equals = Command::new(env!("CARGO_BIN_EXE_snapshot_builder"))
+        .env_clear()
+        .env("SNAPSHOT_REPORT_MAX_FILES", "invalid")
+        .env("SOURCE_CLOSURE_TOTAL_DOCUMENT_BYTES", "1")
+        .args([
+            format!("--provider-impact-out={}", equals_path.display()),
+            format!("--provider-impact-input-sha256={input_hash}"),
+            format!("--provider-impact-input={}", input_path.display()),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        equals.status.success(),
+        "{}",
+        String::from_utf8_lossy(&equals.stderr)
+    );
+    assert_eq!(original, fs::read(&equals_path).unwrap());
     assert!(
         !command(&input_path, &input_hash, &first_path, &[])
             .status
@@ -98,7 +120,23 @@ fn public_command_is_offline_deterministic_input_bound_and_non_overwriting() {
     let absent = temp.path().join("must-not-exist.json");
     let conflict = command(&input_path, &input_hash, &absent, &["--process-limit", "1"]);
     assert!(!conflict.status.success());
-    assert!(String::from_utf8_lossy(&conflict.stderr).contains("unrelated CLI option"));
+    assert!(
+        String::from_utf8_lossy(&conflict.stderr).contains("unexpected argument '--process-limit'")
+    );
     assert!(!command(&input_path, "wrong", &absent, &[]).status.success());
     assert!(!absent.exists());
+}
+
+#[test]
+fn online_command_retains_its_environment_backed_settings() {
+    let result = Command::new(env!("CARGO_BIN_EXE_snapshot_builder"))
+        .env_clear()
+        .env("SNAPSHOT_REPORT_MAX_FILES", "invalid")
+        .arg("--no-lcia")
+        .output()
+        .unwrap();
+    assert!(!result.status.success());
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(stderr.contains("--snapshot-report-max-files"));
+    assert!(stderr.contains("invalid digit"));
 }

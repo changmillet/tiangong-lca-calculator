@@ -41,9 +41,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-13
-lastReviewedCommit: 28c170608d5a1cac46d0f16365ab40cf9a87be86
-lastReviewedNote: "Worker #374: reviewed background reference identity validation and ordinary conversion regressions; hosted contracts and numerical solver are unchanged."
+lastReviewedAt: "2026-11-19"
+lastReviewedCommit: "3cba273e5e029fadd62278498116cc27240186de"
+lastReviewedNote: "Worker #288 review corrected ambient online-argument parsing and froze offline source-closure limits. Native provider/matrix semantics, online configuration, numerical fingerprint and ownership boundaries remain unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -856,3 +856,5 @@ triggered four-host native build/package/numerical qualification workflow; it
 retains evidence and does not publish runtime releases. Its explicit public cache
 source is checked by the existing Worker cache contract. A workflow definition or
 successful compilation does not substitute for a completed native run.
+
+The public provider-impact command regression supplies invalid online parser values and a one-byte online source-closure budget while requiring successful byte-identical offline reports. A separate online invocation must still reject an invalid environment-backed setting. These subprocess checks preserve the online configuration contract and catch environment-sensitive frozen execution.

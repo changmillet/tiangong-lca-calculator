@@ -20,7 +20,7 @@ use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
 use chrono::{DateTime, TimeDelta, Utc};
-use clap::{CommandFactory, FromArgMatches, Parser};
+use clap::{CommandFactory, Parser};
 
 #[path = "snapshot_builder/provider_impact.rs"]
 mod provider_impact;
@@ -1462,19 +1462,46 @@ fn scope_closure_boundary_policy(
 
 #[tokio::main]
 async fn main() -> anyhow::Result<ExitCode> {
+    let args = std::env::args_os().collect::<Vec<_>>();
     let command = Cli::command();
-    let matches = command.clone().get_matches();
-    if matches.contains_id("provider_impact_input") {
-        for argument in command.get_arguments() {
-            let id = argument.get_id();
-            anyhow::ensure!(
-                matches.value_source(id.as_str()) != Some(clap::parser::ValueSource::CommandLine)
-                    || id.as_str().starts_with("provider_impact_"),
-                "provider-impact input owns all settings; unrelated CLI option: {id}"
-            );
-        }
+    let provider_impact_requested = args
+        .iter()
+        .skip(1)
+        .filter_map(|arg| arg.to_str())
+        .any(|arg| {
+            let option = arg.split_once('=').map_or(arg, |(option, _)| option);
+            matches!(
+                option,
+                "--provider-impact-input"
+                    | "--provider-impact-input-sha256"
+                    | "--provider-impact-out"
+            )
+        });
+    if provider_impact_requested {
+        // Reuse the public argument definitions without registering online env-backed settings.
+        let matches = clap::Command::new("snapshot-builder")
+            .args(
+                command
+                    .get_arguments()
+                    .filter(|argument| argument.get_id().as_str().starts_with("provider_impact_"))
+                    .cloned(),
+            )
+            .get_matches_from(args);
+        provider_impact::run(
+            matches
+                .get_one::<PathBuf>("provider_impact_input")
+                .expect("clap requires input"),
+            matches
+                .get_one::<String>("provider_impact_input_sha256")
+                .expect("clap requires input hash"),
+            matches
+                .get_one::<PathBuf>("provider_impact_out")
+                .expect("clap requires output"),
+        )
+        .await?;
+        return Ok(ExitCode::SUCCESS);
     }
-    let cli = Cli::from_arg_matches(&matches)?;
+    let cli = Cli::parse_from(args);
     if cli.replay_lcia_index.is_some() {
         replay_lcia_evidence(&cli).await?;
         return Ok(ExitCode::SUCCESS);
@@ -9327,7 +9354,7 @@ async fn build_frozen_source_datasets(
     Vec<CompiledReleaseSourceDataset>,
     Option<CompiledSourceReferenceProvenance>,
 )> {
-    let source_closure_total_document_bytes = source_closure_total_document_bytes_limit();
+    let source_closure_total_document_bytes = source.total_document_bytes_limit();
     let mut datasets = BTreeMap::<
         (CompiledReleaseSourceDatasetType, Uuid, String),
         CompiledReleaseSourceDataset,

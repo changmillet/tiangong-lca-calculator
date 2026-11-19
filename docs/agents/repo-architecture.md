@@ -36,9 +36,9 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-13
-lastReviewedCommit: 28c170608d5a1cac46d0f16365ab40cf9a87be86
-lastReviewedNote: "Reviewed signed Model connection guidance and bounded port/amount/coefficient diagnostics; existing calculation, runtime selection and delivery contracts remain unchanged."
+lastReviewedAt: "2026-11-19"
+lastReviewedCommit: "3cba273e5e029fadd62278498116cc27240186de"
+lastReviewedNote: "Worker #288 review corrected ambient online-argument parsing and froze offline source-closure limits. Native provider/matrix semantics, online configuration, numerical fingerprint and ownership boundaries remain unchanged."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml
@@ -309,3 +309,5 @@ with corresponding-source collection and complete-matrix verification in
 The [release runbook](model-runtime-release.md) keeps publication separate from hosted execution.
 
 The `snapshot_builder --provider-impact-input` entry runs native provider selection over a frozen document set and compares candidate content with its baseline. The report includes downstream Processes and Models that reference them. [Frozen input and report contract](../provider-impact-diagnostic-contract.md)
+
+The provider-impact entry selects its dedicated argument parser from raw argv before parsing online environment-backed options. Frozen source reads use the compiled source-closure byte limit. Database-backed snapshot reads retain deployment-selected limits through the same source boundary.

@@ -15,6 +15,13 @@ pub(super) enum SnapshotSourceReader<'a> {
 }
 
 impl SnapshotSourceReader<'_> {
+    pub(super) fn total_document_bytes_limit(self) -> usize {
+        match self {
+            Self::Database(_) => super::source_closure_total_document_bytes_limit(),
+            Self::Frozen(_) => super::DEFAULT_SOURCE_CLOSURE_TOTAL_DOCUMENT_BYTES,
+        }
+    }
+
     pub(super) async fn flow_meta(
         self,
         requests: &FlowReferenceRequests,
