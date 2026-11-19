@@ -70,6 +70,10 @@ fn public_command_is_offline_deterministic_input_bound_and_non_overwriting() {
     );
     let original = fs::read(&first_path).unwrap();
     let mut report: Value = serde_json::from_slice(&original).unwrap();
+    assert_eq!(
+        report["scope"]["frozen_selection_contract"],
+        "worker.provider-impact.frozen-census.v1"
+    );
     assert_eq!(report["scope"]["online_census_verified"], false);
     assert_eq!(report["input_sha256"], input_hash);
     assert_eq!(report["operation_counts"]["database_queries"], 0);

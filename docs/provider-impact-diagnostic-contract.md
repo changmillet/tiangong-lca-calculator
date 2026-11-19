@@ -180,6 +180,7 @@ or save/publication gate. Scope always states:
 ```json
 {
   "kind": "supplied_finite_universe",
+  "frozen_selection_contract": "worker.provider-impact.frozen-census.v1",
   "online_census_verified": false,
   "online_effective_selection_verified": false,
   "scientific_qualified": false,
@@ -189,6 +190,10 @@ or save/publication gate. Scope always states:
   "lcia": "not_evaluated"
 }
 ```
+
+Consumers requiring a complete effective Process axis, latest omitted Flow resolutions
+and visible Model reference checks require the exact `frozen_selection_contract`
+value above. Older experimental reports lack this field.
 
 No generic readiness `publish_ready` or `next_action` conclusion is promoted into
 this contract. This command does not run full TIDAS schema validation. Required

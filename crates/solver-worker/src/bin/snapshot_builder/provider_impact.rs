@@ -867,7 +867,7 @@ async fn evaluate(value: Value, input_sha256: &str, worker_sha256: &str) -> anyh
         .collect::<BTreeSet<_>>();
     let mut report = json!({
         "schema_version": REPORT_SCHEMA, "mode": "matrix_only", "status": "diagnostic_complete",
-        "scope": {"kind": "supplied_finite_universe", "online_census_verified": false, "online_effective_selection_verified": false,
+        "scope": {"kind": "supplied_finite_universe", "frozen_selection_contract": "worker.provider-impact.frozen-census.v1", "online_census_verified": false, "online_effective_selection_verified": false,
             "scientific_qualified": false, "save_admitted": false, "publication_qualified": false,
             "numerical_stability": "not_evaluated", "lcia": "not_evaluated"},
         "runtime": {"binary": "snapshot_builder", "package_version": env!("CARGO_PKG_VERSION"), "worker_binary_sha256": worker_sha256},
