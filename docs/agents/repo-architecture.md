@@ -307,3 +307,5 @@ Public local Model distribution is owned by `.github/workflows/model-runtime.yml
 with corresponding-source collection and complete-matrix verification in
 `scripts/collect_model_release_sources.py` and `scripts/verify_model_release_assets.py`.
 The [release runbook](model-runtime-release.md) keeps publication separate from hosted execution.
+
+The `snapshot_builder --provider-impact-input` entry runs native provider selection over a frozen document set and compares candidate content with its baseline. The report includes downstream Processes and Models that reference them. [Frozen input and report contract](../provider-impact-diagnostic-contract.md)

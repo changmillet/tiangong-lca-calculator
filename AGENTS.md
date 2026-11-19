@@ -90,6 +90,7 @@ Start here when the task may change what the compute stack does.
 | `docs/ai-worker-contract.md` | generic AI queue runtime, versioned handler contracts, TIDAS ruleset/model bindings, and partial-failure semantics | Edge auth/API, durable Database schema, or Next acceptance UX |
 | `docs/edge-function-integration.md` | edge-facing enqueue, polling, and service-role integration contract | solver internals or frontend UX rules |
 | `docs/frontend-integration.md` | frontend-facing solve/result interaction contract | edge auth implementation or solver internals |
+| `docs/provider-impact-diagnostic-contract.md` | frozen candidate overlays, provider changes and matrix-only reports | online census and write authorization |
 | `docs/provider-linking.md` | current provider-link runtime decision order, default provider rule, candidate eligibility, and diagnostics contract | modeling rationale for regional supply mix |
 | `docs/implicit-regional-supply-mix-modeling.md` / `docs/implicit-regional-supply-mix-modeling.en.md` | Chinese and English modeling basis for implicit regional supply mix, exchange-location supply-region anchors, and annual-volume provider share semantics | implementation checklist or consumer API contract |
 | `docs/tidas-package-contract.md` | package-worker async import/export contract | generic solver runtime or branch policy truth |

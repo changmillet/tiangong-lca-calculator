@@ -25,8 +25,8 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: 2026-11-13
-lastReviewedCommit: 12378534d9b8d460855d854dc9d65c328f98382f
+lastReviewedAt: 2026-11-19
+lastReviewedCommit: c138e2850e1d3991232d099a2c646419279ab77e
 lastReviewedNote: "Reviewed signed Model connection guidance and bounded port/amount/coefficient diagnostics; existing calculation, runtime selection and delivery contracts remain unchanged."
 related:
   - AGENTS.md

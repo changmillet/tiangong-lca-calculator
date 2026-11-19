@@ -40,6 +40,7 @@ ownership:
           - docs/lca-api-contract.md
           - docs/scope-closure-contract.md
           - docs/matrix-readiness-report-contract.md
+          - docs/provider-impact-diagnostic-contract.md
           - docs/review-quality-diagnostic-contract.md
           - docs/ai-worker-contract.md
           - docs/edge-function-integration.md
@@ -106,6 +107,7 @@ coverage:
     - docs/lca-api-contract.md
     - docs/scope-closure-contract.md
     - docs/matrix-readiness-report-contract.md
+    - docs/provider-impact-diagnostic-contract.md
     - docs/review-quality-diagnostic-contract.md
     - docs/ai-worker-contract.md
     - docs/edge-function-integration.md
@@ -161,6 +163,7 @@ routing:
         - crates/solver-worker/src/**
         - docs/lca-api-contract.md
         - docs/matrix-readiness-report-contract.md
+        - docs/provider-impact-diagnostic-contract.md
     scope-closure:
       paths:
         - crates/solver-worker/src/scope_closure.rs
@@ -185,6 +188,7 @@ routing:
         - crates/solver-worker/src/bin/snapshot_builder.rs
         - crates/solver-worker/src/compiled_graph.rs
         - docs/matrix-readiness-report-contract.md
+        - docs/provider-impact-diagnostic-contract.md
         - docs/agents/repo-validation.md
     review-quality-diagnostic:
       paths:
@@ -274,6 +278,7 @@ routing:
         - docs/lca-api-contract.md
         - docs/scope-closure-contract.md
         - docs/matrix-readiness-report-contract.md
+        - docs/provider-impact-diagnostic-contract.md
         - docs/review-quality-diagnostic-contract.md
         - docs/ai-worker-contract.md
         - docs/edge-function-integration.md
@@ -304,6 +309,7 @@ docInventory:
     - docs/lca-api-contract.md
     - docs/scope-closure-contract.md
     - docs/matrix-readiness-report-contract.md
+    - docs/provider-impact-diagnostic-contract.md
     - docs/review-quality-diagnostic-contract.md
     - docs/ai-worker-contract.md
     - docs/edge-function-integration.md
@@ -694,6 +700,26 @@ rules:
       - path: docs/matrix-readiness-report-contract.md
         mode: review_or_update
     reason: Worker-owned matrix-readiness report semantics must stay aligned with the CLI, snapshot artifact output, provider evidence, and proof guidance.
+  - id: worker-provider-impact-contract
+    scope: repo
+    repo: worker
+    triggers:
+      - path: crates/solver-worker/src/bin/snapshot_builder/provider_impact*.rs
+        kind: runtime-code
+      - path: crates/solver-worker/src/bin/snapshot_builder/source_reader.rs
+        kind: runtime-code
+      - path: crates/solver-worker/tests/provider_impact_cli.rs
+        kind: validation-test
+      - path: crates/solver-worker/tests/fixtures/provider_impact_v1/**
+        kind: fixture
+      - path: docs/provider-impact-diagnostic-contract.md
+        kind: runtime-contract
+    requiredDocs:
+      - path: docs/provider-impact-diagnostic-contract.md
+        mode: review_or_update
+      - path: docs/agents/repo-validation.md
+        mode: review_or_update
+    reason: Frozen provider-impact qualification binds complete input bytes, the native compiler and matrix-only execution.
   - id: worker-review-quality-diagnostic-contract
     scope: repo
     repo: worker
