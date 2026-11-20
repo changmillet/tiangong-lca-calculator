@@ -40,6 +40,15 @@ related:
 
 Worker 在构建快照时逐笔链接技术系统交换，生成过程间的需求矩阵 `A`。求解阶段使用已经冻结的矩阵。对于 Model 主结果，建模者在图中指定的内部交付已随汇总抵消，相关过程的清单贡献已计入结果。下面的规则作用于结果边界上仍需供应或处理的交换，同样适用于普通 Process 的开放交换。
 
+对每笔开放的产品或废物交换，快照构建时的默认链接策略按以下顺序执行。
+
+```text
+分配并归一化交换量 → 查找同一 Flow 版本、符号相反的参考交换
+    ├─ 无候选：记录未闭合交换，按快照边界策略处理
+    ├─ 一个：取全额，将所需活动量写入 A
+    └─ 多个：先选地域层级，再按年产量分配，将各供应者的活动量写入 A
+```
+
 ## 确定哪些交换需要链接
 
 在本次计算范围内，一个完整 TIDAS Process 版本对应一个过程索引和一个矩阵列。`quantitativeReference.referenceToReferenceFlow` 必须唯一指向本列的定量参考交换，且其计算数量有限、非零。参考交换可以为输入或输出。列内其他交换不会产生独立矩阵列；要让副产品独立供应其他过程，须有以它为定量参考的完整 Process 版本。
@@ -102,9 +111,14 @@ M = I - A
 
 ## 从诊断记录复核一笔交换
 
-先核对消费过程、交换标识、Flow UUID 和版本、参考单位、原始方向及归一化待平衡量。再核对每个候选的过程版本、参考交换和系数符号、资格与拒绝原因。`model_id`、`model_version` 及来源关系解释候选来源。最后核对选定地域及其来源、层级、产量和回退次数、`routing weights`、所需活动量与平衡残差。若未闭合，查看具体失败原因和生效的边界策略。
+| 要复核的问题 | 在决策与平衡记录中核对什么 |
+| --- | --- |
+| 哪一笔量需要平衡？ | 按过程和交换标识找到 Flow UUID、版本和参考单位。用原始方向、数量、参考交换的归一化尺度及产品分配比例核对 `residual_coefficient`。 |
+| 为什么某个过程可选？ | 核对候选的过程版本、参考交换及其系数符号，并查看被排除候选的拒绝原因。未闭合记录的 `required_reference_sign` 给出所需符号。候选的 `model_id`、`model_version` 和来源关系用于追溯。 |
+| 为什么选了这些供应者？ | `candidate_provider_count` 是策略选择前符号匹配的候选过程数，`matched_provider_count` 是实际分到份额的过程数。用 `decision_kind` 区分唯一供应、多候选已解决、多候选未解决和无供应者，用 `resolution_strategy` 确认实际选择方法。再查供应区域来源 `supply_region_source`、选中层级 `geography_tier` 及产量回退次数 `volume_fallback_to_one_count`。 |
+| 这笔量最终闭合了吗？ | 用每个供应者的 `routing_weight`、`reference_coefficient` 和 `activity_requirement` 核对上文的平衡式。若仍未闭合，查看 `failure_reason` 和本次快照的边界策略。 |
 
-`decision_kind` 区分唯一供应、多候选已解决、多候选未解决和无供应者；`resolution_strategy` 记录实际选择方法。区分候选数与最终参与数。`residual_edges_total` 和 `a_balance_edges_written` 分别统计待平衡边和写入边，旧字段 `input_edges_total` 和 `a_input_edges_written` 用于兼容。诊断导出和就绪报告消费已编译的决策，以便从同一证据解释结果。[矩阵就绪报告](matrix-readiness-report-contract.md)
+`residual_edges_total` 和 `a_balance_edges_written` 分别统计待平衡边和写入边，旧字段 `input_edges_total` 和 `a_input_edges_written` 用于兼容。诊断导出和就绪报告消费已编译的决策，以便从同一证据解释结果。[矩阵就绪报告](matrix-readiness-report-contract.md)
 
 ## 产品分配与历史格式
 

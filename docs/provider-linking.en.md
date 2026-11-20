@@ -40,6 +40,15 @@ related:
 
 Worker links technosphere exchanges when building a snapshot and records the activity requirements between processes in matrix `A`. The solver uses the frozen matrix. In a primary Model result, internal deliveries specified in the graph have already canceled against consumption, and the inventories of the connected processes already contribute to the result. The following rules apply to exchanges at the result boundary that still need supply or treatment. They also apply to open exchanges in ordinary Processes.
 
+For each open product or waste exchange, the default linking policy follows this sequence.
+
+```text
+allocate and normalize the exchange → find reference exchanges of the same Flow revision and opposite sign
+    ├─ none: record the unresolved exchange and apply the snapshot boundary policy
+    ├─ one: assign the full share and write its activity requirement to A
+    └─ several: select a geographic tier, weight by annual volume and write activity requirements to A
+```
+
 ## Determine which exchanges need linking
 
 Within the calculation scope, one complete TIDAS Process revision has one process index and one matrix column. Its `quantitativeReference.referenceToReferenceFlow` must identify a single quantitative reference exchange in that column with a finite, nonzero calculation amount. A reference may be an input or an output. Other exchanges in the column do not create independent matrix columns. To supply a coproduct independently, a complete Process revision must identify it as its quantitative reference.
@@ -102,9 +111,14 @@ An unknown policy is an error. For certificate-grade Scope Closure, the database
 
 ## Trace an exchange in the diagnostics
 
-Start with the dependent Process and exchange, Flow UUID and version, reference unit, raw direction and normalized residual. Check each candidate's Process revision, reference exchange, coefficient sign, eligibility and rejection reason. The `model_id`, `model_version` and lineage relationships explain candidate provenance. Then inspect the supply region and its source, selected tier, volumes and fallback count, `routing weights`, activity requirements and closure residual. If unresolved, read the specific failure reason alongside the effective boundary policy.
+| Question | What to inspect in the decision and balance records |
+| --- | --- |
+| What quantity needs balancing? | Locate the Flow UUID, revision and reference unit using the Process and exchange identifiers. Use the original direction, amount, reference scale and product allocation fraction to check the normalized `residual_coefficient`. |
+| Why is a Process eligible? | Check the candidate Process revision, reference exchange and coefficient sign, and inspect the rejection reason for excluded candidates. An unresolved balance records the sign it needs in `required_reference_sign`. The candidate’s `model_id`, `model_version` and lineage relationships identify its provenance. |
+| Why were these providers selected? | `candidate_provider_count` counts sign-matched Processes before policy selection. `matched_provider_count` counts Processes assigned a share. Use `decision_kind` to distinguish a unique provider, multiple candidates resolved or unresolved, and no provider. Read the method in `resolution_strategy`, then check the `supply_region_source`, selected `geography_tier` and `volume_fallback_to_one_count`. |
+| Did the exchange balance? | Check the balance equation above using each provider’s `routing_weight`, `reference_coefficient` and `activity_requirement`. For an unresolved exchange, inspect the `failure_reason` and the snapshot boundary policy. |
 
-The `decision_kind` distinguishes a unique provider, resolved or unresolved multiple candidates, and no provider. The `resolution_strategy` identifies the method used. Distinguish candidate count from the final matched count. The `residual_edges_total` and `a_balance_edges_written` counters describe residual and written edges. The historical `input_edges_total` and `a_input_edges_written` fields are compatibility projections. Diagnostic exports and readiness reports use the compiled decisions so their explanations trace back to the same evidence. [Matrix readiness report](matrix-readiness-report-contract.md)
+The `residual_edges_total` and `a_balance_edges_written` counters describe residual and written edges. The historical `input_edges_total` and `a_input_edges_written` fields are compatibility projections. Diagnostic exports and readiness reports use the compiled decisions so their explanations trace back to the same evidence. [Matrix readiness report](matrix-readiness-report-contract.md)
 
 ## Product allocation and historical formats
 
