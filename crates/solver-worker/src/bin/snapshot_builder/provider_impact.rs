@@ -324,7 +324,7 @@ fn native_policy() -> Value {
     json!({
         "provider_rule": "split_by_process_volume",
         "provider_candidate_eligibility_mode": "opposite_sign_reference_port",
-        "provider_lineage_policy": "version-exact-lineage-gate-v1",
+        "provider_lineage_policy": ProviderRule::SplitByProcessVolume.lineage_policy(),
         "allocation_semantics_version": solver_worker::tidas_process_semantics::TIDAS_PROCESS_SEMANTICS_VERSION,
         "link_semantics_version": solver_worker::tidas_process_semantics::SIGNED_FLOW_LINK_SEMANTICS_VERSION,
         "flow_identity_policy": "exact-flow-version-reference-unit-v2",

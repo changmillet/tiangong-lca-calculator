@@ -520,7 +520,7 @@ async fn file_entrypoint_binds_raw_input_and_binary_and_never_overwrites_evidenc
 }
 
 #[tokio::test]
-async fn model_lineage_uses_exact_root_and_missing_or_changed_model_evidence_rejects() {
+async fn default_linking_keeps_lineage_as_evidence_with_or_without_a_result_root() {
     let mut input = fixture();
     for i in [0, 1] {
         input["baseline"]["documents"][i]["model_id"] = json!(id(500));
@@ -532,13 +532,13 @@ async fn model_lineage_uses_exact_root_and_missing_or_changed_model_evidence_rej
     }, "administrativeInformation": {"publicationAndOwnership": {"common:dataSetVersion": VERSION}}}});
     input["baseline"]["models"] = json!([{"id": id(500), "version": VERSION, "document_sha256": stable_json_sha256(&model).unwrap(), "document": model, "state_code": 100, "user_id": null}]);
     rehash(&mut input);
-    let unresolved = run_value(input.clone()).await.unwrap();
+    let unbound = run_value(input.clone()).await.unwrap();
     assert!(
-        unresolved["before"]["provider_decisions"]
+        unbound["before"]["provider_decisions"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|d| d["failure_reason"] == "lineage_overlap_requires_binding")
+            .all(|d| d["failure_reason"].is_null())
     );
     input["baseline"]["request_roots"]
         .as_array_mut()
@@ -552,6 +552,10 @@ async fn model_lineage_uses_exact_root_and_missing_or_changed_model_evidence_rej
             .unwrap()
             .iter()
             .all(|d| d["failure_reason"].is_null())
+    );
+    assert_eq!(
+        unbound["before"]["provider_decisions"],
+        selected["before"]["provider_decisions"]
     );
     // An independently visible Model can consume a Process without being its generating Model.
     let mut extra = input["baseline"]["models"][0].clone();

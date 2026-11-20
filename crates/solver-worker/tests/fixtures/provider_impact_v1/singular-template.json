@@ -305,7 +305,7 @@
       "link_semantics_version": "signed-flow-balance-v1",
       "method_ids": [],
       "provider_candidate_eligibility_mode": "opposite_sign_reference_port",
-      "provider_lineage_policy": "version-exact-lineage-gate-v1",
+      "provider_lineage_policy": "volume-lineage-evidence-v2",
       "provider_rule": "split_by_process_volume",
       "reference_normalization_mode": "strict",
       "self_loop_cutoff": 0.999999,
@@ -360,7 +360,7 @@
       "scope": "public_plus_owner_draft"
     }
   },
-  "baseline_sha256": "e1f9d2defa865fae554668b301e25d73a4c1f8eccf544ba9917d3234aab5196d",
+  "baseline_sha256": "e07f7862404c529d592f4b42b9bc47c018e806ddceb5df477531acff858b8d70",
   "expected_worker_sha256": "REPLACE_WITH_EXACT_EXECUTABLE_SHA256",
   "mode": "matrix_only",
   "overlays": [

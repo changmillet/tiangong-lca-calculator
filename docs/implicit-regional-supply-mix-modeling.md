@@ -44,19 +44,18 @@ related:
 
 天工通过供应连接机制，在已有数据条件下自动构建可计算的产品系统。默认连接规则用于选择合格的供应候选并确定供应比例，使已有过程数据能够组成矩阵连接；能否闭合系统仍取决于数据可用性和明确的 boundary policy。
 
-当所需供应过程数据可用时，数据提供方可以在同一生命周期模型（model）中组织相关过程，表达其选定的内部供应候选关系。在候选通过数值资格、flow 匹配、符号和 Lifecycle Model lineage 检查后，默认规则优先采用同一 `model_id` 内的合格候选；没有同 model 候选时，再从更广的合格数据中选择。同 model 内存在多个合格候选时，仍按供应区域、地理层级和年产量继续筛选与分配。因此，模型内组织能够表达供应候选范围，但本身不等于逐条 exchange 指定唯一供应商或任意混合权重。
+默认区域供应组合用于补齐计算清单的开放交换。模型内部的供应关系已在聚合清单中体现。外部供应者按合格参考交换、供应区域和年产量进入分配。
 
 这一机制既支持数据提供方表达建模选择，也支持利用已有数据库自动完成连接。默认连接受可用数据及匹配策略限制，所形成的连接和计算结果不自动保证符合特定研究的年份、技术或其他代表性要求。研究者应结合研究目标检查实际选中的供应过程及其比例，必要时通过模型组织和供应数据选择表达研究意图。比如研究要求代表 2019 年时，应检查自动连接是否使用了其他年份的供应数据；自动连接成功本身不证明时间代表性满足要求。
 
 ## 一句话定义
 
-Implicit regional supply mix 不判断谁是“需求”或“供给”。它只在一条 technosphere residual 已找到多个数学上合格的 reference ports 后，按 model、地理和年产量选择 routing weights；不创建额外 market process。
+Implicit regional supply mix 不判断谁是“需求”或“供给”。它只在一条 technosphere residual 已找到多个数学上合格的 reference ports 后，按 地理和年产量选择 routing weights；不创建额外 market process。
 
 ```text
 signed coefficient / reference pivot
   -> exact same-flow, opposite-sign candidates
-  -> version-exact Lifecycle Model lineage gate
-  -> same-model scope, if available
+  -> version-exact Lifecycle Model lineage evidence
   -> supply-region anchor
   -> best non-empty geography tier
   -> annual-volume routing weights
@@ -96,19 +95,9 @@ c_r + sum(c_i * activity_requirement_i) = 0
 
 相反符号保证 activity requirement 非负。Annual volume、geography 或 model metadata 不得修改 coefficient 符号、reference pivot 或待闭合总量。
 
-## Regional routing 之前的 Lifecycle boundary
+## Model 来源关系
 
-Regional mix 只处理 lineage gate 接受后的候选。Lifecycle Model 的 `referenceToResultingProcess` 与 `processInstance.referenceToProcess` 定义 exact-version result/component 关系；`processes.model_version`（为空时按数据库合同回退到 Process version）确定 Process 所属的 exact Model revision。系统不存在一个全局 `is_current` 标志。
-
-当 exact request root 选中了冲突候选中的 resulting Process 时，该 result 独占本条 routing，component、旧 Model revision 的 result 或 alternative result 不进入隐式 mix。若存在谱系冲突但没有这样的选择证据，本条 residual 以 `lineage_overlap_requires_binding` unresolved，不能用 annual-volume 或 equal fallback 自动混合。没有谱系关系的 peer suppliers 保持原行为；component 身份不会造成全局禁用。
-
-当前 request contract 与 schema 明确不支持 exchange-level provider link 或显式 boundary-mix weights，也不把它们作为后续扩展点。自动补丁只使用 exact root + exact Model lineage 作为选择证据，并对缺少证据的冲突 fail closed；调用方应选择 resulting Process root 或修复 Lifecycle Model 边界，而不是提交任意混合权重。
-
-## Same-model 优先
-
-如果 dependent Process 有 `model_id`，并且候选中存在相同 `model_id` 的 reference port，候选 scope 先收窄到该子集。这是 routing hard filter，不是 exchange-level provider pointer，也不是现实交易证明。
-
-进入这里的候选永远只是已通过公开数值资格准入的 Process（精确 `state_code = 100`，或 versioned owner scope 下属于当前 actor 的 `0`）。已发布 Result（`120`）与预留段 `101..199` 不在其中，因此隐式混合不会把 Result 当作供给来源。若没有同 model 候选，则使用更宽的 eligible candidate universe。这个 fallback 只放宽 routing scope，不放宽 exact-flow、opposite-sign 或 reference-port 规则。同一 Process 的 opposite-sign reference port 属于同一个 eligible universe；若被选中，会形成普通的对角 `A[i,i]` contribution。
+默认规则对结果及其组成过程保留精确版本的来源证据。二者均可供应同一开放交换。请求根定义初始需求；每笔开放交换按地理与产量选择供应者。候选仅包括有数值资格的 Process（公开状态 100 或当前范围内本人所有的草稿）。同一 Process 的合格参考交换也可产生对角项。
 
 ## Supply-region anchor
 

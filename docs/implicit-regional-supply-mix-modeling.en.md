@@ -43,19 +43,18 @@ This document explains where regional supply-mix routing sits in the signed-flow
 
 TianGong uses provider linking to automatically construct a calculable product system from available data. Default linking rules select eligible supplier candidates and determine their shares so that existing process data can form matrix connections. Whether the system can be closed still depends on data availability and the explicit boundary policy.
 
-When the required supplier process data are available, data providers can organize related processes within the same Lifecycle Model to express their chosen internal supplier candidates. After candidates pass numerical eligibility, flow matching, sign and Lifecycle Model lineage checks, the default rule gives priority to eligible candidates sharing the same `model_id`. If no same-model candidates exist, it selects from the wider eligible data. Multiple eligible candidates within the model remain subject to supply-region, geography-tier and annual-volume selection and splitting. Model organization therefore expresses a supplier candidate scope; it does not itself specify a unique supplier for each exchange or arbitrary mix weights.
+The default regional mix fills open exchanges in a calculated inventory. Model connections already included in the aggregate determine the internal supply. Eligible external providers compete by region and annual volume.
 
 This mechanism supports both data providers' modeling choices and automatic linking using the existing database. Default linking is constrained by available data and the matching strategy. Its connections and calculation results do not automatically satisfy a particular study's year, technology or other representativeness requirements. Researchers should check the selected supplier processes and their shares against the study goal and, where needed, express their intent through model organization and supplier data selection. For example, a study intended to represent 2019 should check whether automatic linking uses supplier data from other years; successful linking alone does not establish temporal representativeness.
 
 ## Definition
 
-An implicit regional supply mix does not decide which exchange is a demand or a supply. After a technosphere residual has multiple mathematically eligible reference ports, it uses model, geography, and annual-volume evidence to choose routing weights without materializing an additional market process.
+An implicit regional supply mix does not decide which exchange is a demand or a supply. After a technosphere residual has multiple mathematically eligible reference ports, it uses geography and annual-volume evidence to choose routing weights without materializing an additional market process.
 
 ```text
 signed coefficient / reference pivot
   -> exact same-flow, opposite-sign candidates
-  -> version-exact Lifecycle Model lineage gate
-  -> same-model scope, if available
+  -> version-exact Lifecycle Model lineage evidence
   -> supply-region anchor
   -> best non-empty geography tier
   -> annual-volume routing weights
@@ -91,19 +90,9 @@ c_r + sum(c_i * activity_requirement_i) = 0
 
 Opposite signs guarantee non-negative activity requirements. Annual volume, geography, and model metadata must not alter coefficient signs, the reference pivot, or the magnitude to be balanced.
 
-## Lifecycle boundary before regional routing
+## Model provenance
 
-Candidates only ever reach this stage if they were already admitted by the public numerical eligibility rule (exact `state_code = 100`, or `0` for the requesting actor under the versioned owner scope); a published Result (`120`) and the reserved `101..199` segment are never supply sources for the implicit mix. The regional mix only receives candidates accepted by the lineage gate. Lifecycle Model `referenceToResultingProcess` and `processInstance.referenceToProcess` define exact-version result/component relationships. `processes.model_version` (falling back to the Process version under the database compatibility contract) identifies the exact Model revision associated with a Process. There is no global `is_current` flag.
-
-When an exact request root selects the resulting Process among conflicting candidates, that result exclusively supplies the edge; component Processes, results of older revisions of the same Model UUID, and alternative results do not enter the implicit mix. A lineage conflict without that evidence becomes unresolved as `lineage_overlap_requires_binding`; annual-volume and equal fallback cannot guess the boundary. Unrelated peer suppliers retain legacy behavior, and being a component does not globally disqualify a Process.
-
-The request contract and schema explicitly do not support exchange-level provider links or explicit boundary-mix weights, and this policy does not reserve them as a future extension point. The automatic patch uses only the exact root and exact Model lineage as selection evidence and fails closed for conflicts without that evidence. Callers select the resulting Process as a root or repair the Lifecycle Model boundary; they cannot submit arbitrary mix weights.
-
-## Same-model priority
-
-When the dependent Process has a `model_id` and at least one candidate has the same `model_id`, routing first narrows to that subset. This is a hard routing filter, not an exchange-level provider pointer or evidence of a real transaction.
-
-Without a same-model candidate, routing uses the wider eligible universe. This fallback never relaxes exact-flow, opposite-sign, or reference-port rules. A same-Process opposite-sign reference port is part of that same eligible universe and, if selected, produces an ordinary diagonal `A[i,i]` contribution.
+The default mix records exact result/component relationships as diagnostic evidence. Both can supply the same open exchange. Selecting a result as a request root defines the initial demand. Default routing then applies the geographic and volume rules to eligible reference ports independently for each residual. Only numerically admitted Processes participate (public state 100, or eligible actor-owned drafts). An eligible same-Process reference can contribute to the diagonal.
 
 ## Supply-region anchor
 

@@ -106,13 +106,13 @@ Each `models` member has `{id, version, document_sha256, document, user_id,
 state_code}`. The model set must cover the effective Process rows' model
 associations. Additional visible models contribute to the impacted-model inventory. Required resulting/component Process versions must be supplied.
 Model body, UUID/version, native fallback from absent `model_version`, and the
-fixed request-root context feed the existing lineage index. Unresolved overlap
-stays unresolved. Models cannot be candidate overlays.
+fixed request-root context feed the existing lineage index. Reported overlap is evidence for inspection. The default volume rule can
+resolve the exchange using all eligible candidates even when their inventories share a source. Models cannot be candidate overlays.
 
 ### Policy and overlays
 
 V1 retains native `split_by_process_volume`, opposite-sign reference-port
-eligibility, `version-exact-lineage-gate-v1`, strict reference normalization and
+eligibility, `volume-lineage-evidence-v2`, strict reference normalization and
 allocation, exact Flow revisions/units and native source-reference policy. Boundary
 is fixed `closed`, self-loop diagnostic cutoff `0.999999`, singular epsilon
 `1e-12`, and no LCIA methods/factors. V1 is not a weighting, provider-binding,

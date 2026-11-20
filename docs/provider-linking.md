@@ -56,7 +56,7 @@ process JSON
   -> signed coefficients
   -> quantitative-reference pivots
   -> opposite-sign reference-port candidates
-  -> version-exact Lifecycle Model lineage gate
+  -> record exact-version Model lineage (default); apply lineage gate for explicit alternative rules
   -> routing decisions
   -> balance contributions
   -> A[balancing process, dependent process]
@@ -149,19 +149,9 @@ closure = c_r + sum(c_i * activity_requirement_i) = 0
 
 `self_loop_cutoff` 仅保留为对角值风险诊断阈值，不得过滤或改写真实 `A[i,i]`。`M = I - A` 是否可分解由求解器对完整矩阵判定；Worker 不通过删除自链接制造可解矩阵。
 
-在候选数量分支之前，Worker 先执行 `version-exact-lineage-gate-v1`。Request-root dependency closure 与最终矩阵编译共用这一 gate；它对所有 provider rules 生效，不能被 closure、unique-provider 快路径或后续 fallback 绕过。
+默认的 `split_by_process_volume` 在依赖收集和矩阵编译中共用 `volume-lineage-evidence-v2`。Worker 用 `referenceToResultingProcess` 与 `processInstance.referenceToProcess` 标记精确版本的结果和组成过程，记录嵌套关系。请求根选定本次需求的 Process 版本。开放交换的所有合格候选进入地域和产量选择，包括同一 Model 的结果、组成过程以及其他供应者。
 
-## Lifecycle Model 谱系与“当前 resulting Process”
-
-系统没有一个脱离请求上下文、全局唯一的 `is_current` 字段。相关权威信息由三个 exact-version 事实共同组成：
-
-- `processes.model_id` + `coalesce(processes.model_version, processes.version)` 指定该 Process revision 关联的 Lifecycle Model revision；`model_version` 是首选的显式字段，回退到 Process version 只是既有数据库兼容合同；
-- Lifecycle Model 的 `referenceToResultingProcess` 指定该 Model revision 的 resulting Process revision；
-- Lifecycle Model 的 `processInstance.referenceToProcess` 指定该 Model revision 的直接 component Process revisions，Worker 会对已加载的相关 Model 做有界、带 cycle guard 的传递展开。
-
-当前请求与 schema 明确不支持 exchange-level provider link 或显式 boundary-mix weights，也不应把它们作为本策略的后续兼容入口。请求中的 exact `root_process UUID@version` 是唯一的请求侧选择证据：当它恰好是冲突候选中的 resulting Process 时，该 Process 以 `selected_model_result`、权重 `1.0` 胜出，component、同一 Model UUID 的旧版本结果或同一 exact Model 的 alternative result 会以 lineage-specific reason 保留在 candidate evidence 中但不写入 `A`。
-
-如果 Flow-compatible candidates 存在上述谱系冲突，而请求没有选中其中唯一一个 exact resulting Process，Worker 返回 `lineage_overlap_requires_binding`，不再根据地理、年产量或 equal fallback 猜测边界。这里的 `binding` 指通过 exact request root 明确选择 resulting Process，或修复数据中的 Lifecycle Model 边界；它不表示调用方可以提交任意 provider weights。没有谱系冲突的候选集合完全沿用原 provider rule；一个 Process 也不会仅因为它在别处是 component 就被全局排除。
+显式使用其他 provider rule 时沿用 `version-exact-lineage-gate-v1`。谱系冲突时，唯一被请求根选中的结果独占该次路由，否则记录 `lineage_overlap_requires_binding`。历史快照保留原有矩阵和策略标识。
 
 候选数量分支：
 
@@ -180,7 +170,7 @@ closure = c_r + sum(c_i * activity_requirement_i) = 0
   -> unresolved: 不写 A
 ```
 
-这里的 `1` / `>1` 判断使用 lineage gate 之后的可接受集合；原始 opposite-sign candidate count 和 rejected candidates 仍保留用于解释。
+这里的 `1` / `>1` 判断使用当前策略的合格集合；原始 opposite-sign candidate count 和 rejected candidates 仍保留用于解释。
 
 `Waste Input +1000` 的 raw reference coefficient 是 `-1000`，归一后为 `-1`；`Waste Output -1000` 也是 `-1000`，归一后同样为 `-1`。二者作为 reference port 对相同 residual 产生相同数学结果。相反，`Waste Output +1000` 的 pivot 为 `+1`，只能平衡负 residual。
 
@@ -208,28 +198,15 @@ provider_rule = split_by_process_volume
 
 ```text
 eligible same-flow opposite-sign reference ports
-  -> same-model provider subset, if available
   -> supply-region anchor
   -> best non-empty geography tier
   -> annual-volume provider shares within selected tier
   -> activity_requirement_i = balance_magnitude * share_i
 ```
 
-### 1. 同 model_id 优先
+### 1. Supply-region anchor
 
-如果 consumer process 有 `model_id`，并且 eligible providers 中至少一个 provider 具有相同 `model_id`，则 provider set 先收窄为同 `model_id` 子集。
-
-如果 consumer 没有 `model_id`，或没有任何 eligible provider 与 consumer 同 `model_id`，则继续使用全部 eligible providers。
-
-这一步是硬过滤，不是权重加成。它发生在 geography tier selection 之前，因此同 model provider 子集存在时，不同 model provider 不会因为地理更近或 annual volume 更大而进入本条 input demand 的 provider mix。
-
-运行时这样处理的语义是：同一 `model_id` 内同时存在需求该 flow 的 consumer input 与供应该 flow 的 reference-output provider，表示模型已经在 product-flow 层面显式给出内部供应关系候选。这里的“显式”不是 exchange-level provider pointer，也不是现实交易证据；它表示 model 内部已经建模出可承担该 input demand 的供给侧 process。
-
-默认连接的设计目的、数据提供方通过模型组织表达供应选择的方式，以及结果相对于研究意图的适用边界，见建模说明的[设计目的与适用边界](implicit-regional-supply-mix-modeling.md#设计目的与适用边界)（[English](implicit-regional-supply-mix-modeling.en.md#design-purpose-and-applicability)）。
-
-### 2. Supply-region anchor
-
-在同 model 过滤之后，calculator 为 input demand 选择 supply-region anchor：
+calculator 为 input demand 选择 supply-region anchor：
 
 ```text
 exchange.location
@@ -239,7 +216,7 @@ unspecified
 
 有效 `exchange.location` 优先。consumer process location 只作为 input exchange 未声明或声明不可用时的默认供应区域。
 
-### 3. Geography tier selection
+### 2. Geography tier selection
 
 给定 supply-region anchor 后，在当前 provider set 中选择第一个非空 geography tier：
 
@@ -253,7 +230,7 @@ other
 
 Annual volume 不跨 tier 比较。先选 tier，再在 tier 内按 volume 分配。
 
-### 4. Annual-volume share
+### 3. Annual-volume share
 
 对选中 tier 内的 providers：
 
@@ -309,7 +286,7 @@ Compiled graph 和 readiness 至少应支持解释：
 
 Matrix-readiness、diagnostics export 和人工 debug 应消费这些 provider decisions，而不是在外部重写 provider resolution。
 
-Snapshot build config 记录 `allocation_semantics_version = tidas-reference-allocation-v5`、`link_semantics_version = signed-flow-balance-v1`、`provider_lineage_policy = version-exact-lineage-gate-v1`、`technosphere_boundary_policy`、`flow_identity_policy = exact-flow-version-reference-unit-v2` 和 `source_closure_policy = selected-lcia-factor-flow-support-v1`。Flow identity v2 表示 exact inventory revision 可共存、按最终 exchange 引用集合剪枝并进入 flow axis/diagnostics；source-closure v1 表示 selected LCIA factor Flow 只作为 support evidence 闭合。被消费的 exact Lifecycle Model payload 会 canonical hash 后进入 `source-fingerprint:v2`，因此 resulting/component reference 改动不会复用旧 snapshot。Coverage schema 为 `snapshot_coverage.v3`；readiness input/report 为 v2。Calculation bundle 为 `tiangong.calculation-bundle.v2`，technosphere release edge 使用 residual/balancing/reference/activity 的中性字段。
+Snapshot build config 记录 `allocation_semantics_version = tidas-reference-allocation-v5`、`link_semantics_version = signed-flow-balance-v1`、`provider_lineage_policy = volume-lineage-evidence-v2（默认规则）`、`technosphere_boundary_policy`、`flow_identity_policy = exact-flow-version-reference-unit-v2` 和 `source_closure_policy = selected-lcia-factor-flow-support-v1`。Flow identity v2 表示 exact inventory revision 可共存、按最终 exchange 引用集合剪枝并进入 flow axis/diagnostics；source-closure v1 表示 selected LCIA factor Flow 只作为 support evidence 闭合。被消费的 exact Lifecycle Model payload 会 canonical hash 后进入 `source-fingerprint:v2`，因此 resulting/component reference 改动不会复用旧 snapshot。Coverage schema 为 `snapshot_coverage.v3`；readiness input/report 为 v2。Calculation bundle 为 `tiangong.calculation-bundle.v2`，technosphere release edge 使用 residual/balancing/reference/activity 的中性字段。
 
 谱系推断只发生在 snapshot build：相关 exact Model rows 以单次 batched read 加载，JSON 每个 Model 解析一次，传递 component relationship 以 memoized DFS 建立，并生成 Process→Model 倒排索引。每条 provider decision 只查询候选 Process 关联的少量集合；solve 继续只消费冻结后的稀疏 `A`，没有数据库读取或 lineage traversal。新增构建时间由 `fetch_provider_lineage_sec` 单独记录。
 

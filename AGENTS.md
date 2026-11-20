@@ -42,8 +42,8 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: "2026-11-19"
-lastReviewedCommit: "3cba273e5e029fadd62278498116cc27240186de"
+lastReviewedAt: 2026-11-20
+lastReviewedCommit: 075966dcf8f355e84ad394360019ea5c22538774
 lastReviewedNote: "Worker #288 review corrected ambient online-argument parsing and froze offline source-closure limits. Native provider/matrix semantics, online configuration, numerical fingerprint and ownership boundaries remain unchanged."
 related:
   - .docpact/config.yaml
