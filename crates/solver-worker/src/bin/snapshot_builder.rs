@@ -819,6 +819,7 @@ fn lineage_rejection_for_selected_result(
 }
 
 fn apply_provider_lineage_gate(
+    provider_rule: ProviderRule,
     providers: &[i32],
     process_meta: &[ProcessMeta],
     lineage: &ProviderLineageIndex,
@@ -928,7 +929,7 @@ fn apply_provider_lineage_gate(
                 .insert(relationship);
         }
     }
-    if !conflict {
+    if !conflict || matches!(provider_rule, ProviderRule::SplitByProcessVolume) {
         return Ok(gate);
     }
 
@@ -1167,6 +1168,15 @@ struct ProcessGapAccumulator {
 const GAP_TOP_K_LIMIT: usize = 20;
 
 impl ProviderRule {
+    fn lineage_policy(self) -> &'static str {
+        match self {
+            Self::SplitByProcessVolume => {
+                solver_worker::calculation_contract::DEFAULT_PROVIDER_LINEAGE_POLICY
+            }
+            _ => "version-exact-lineage-gate-v1",
+        }
+    }
+
     fn as_str(self) -> &'static str {
         match self {
             Self::StrictUniqueProvider => "strict_unique_provider",
@@ -1827,7 +1837,7 @@ async fn run_snapshot_builder(cli: Cli) -> anyhow::Result<()> {
             .map_err(|_| anyhow::anyhow!("process_limit overflow"))?,
         provider_rule: cli.provider_rule.clone(),
         provider_candidate_eligibility_mode: "opposite_sign_reference_port".to_owned(),
-        provider_lineage_policy: "version-exact-lineage-gate-v1".to_owned(),
+        provider_lineage_policy: provider_rule.lineage_policy().to_owned(),
         provider_lineage_source_sha256: None,
         reference_normalization_mode: cli.reference_normalization_mode.clone(),
         allocation_fraction_mode: cli.allocation_fraction_mode.clone(),
@@ -3672,6 +3682,8 @@ fn reusable_snapshot_policy_matches(
 ) -> bool {
     decoded.config.is_numerical_policy_current()
         && decoded.config.is_allocation_semantics_current()
+        && ProviderRule::parse(&decoded.config.provider_rule)
+            .is_ok_and(|rule| decoded.config.provider_lineage_policy == rule.lineage_policy())
         && binding_contract_is_current(candidate, decoded)
 }
 
@@ -4952,8 +4964,12 @@ fn compile_signed_flow_balances(
         let candidate_ports = reference_port_map.get(&flow_link_identity(exchange));
         let balancing_processes =
             eligible_balancing_process_indices(candidate_ports, residual_coefficient);
-        let gate =
-            apply_provider_lineage_gate(&balancing_processes, process_meta, provider_lineage)?;
+        let gate = apply_provider_lineage_gate(
+            provider_rule,
+            &balancing_processes,
+            process_meta,
+            provider_lineage,
+        )?;
         let mut candidates =
             compiled_balance_candidates(candidate_ports, process_meta, residual_coefficient)?;
         for candidate in &mut candidates {
@@ -6661,10 +6677,8 @@ fn split_by_process_volume(
     process_meta: &[ProcessMeta],
 ) -> anyhow::Result<MultiProviderResolution> {
     let supply_region_anchor = supply_region_anchor_for_exchange(exchange, process_meta)?;
-    let providers =
-        same_model_preferred_provider_indices(exchange.process_idx, providers, process_meta)?;
     let mut tiered_providers = Vec::<(i32, CompiledProviderGeographyTier)>::new();
-    for provider_idx in &providers {
+    for provider_idx in providers {
         let provider = process_meta_for_idx(process_meta, *provider_idx)
             .ok_or_else(|| anyhow::anyhow!("missing provider process meta idx={provider_idx}"))?;
         tiered_providers.push((
@@ -6692,14 +6706,20 @@ fn split_by_process_volume(
         let (raw_weight, used_fallback_to_one) = provider_volume_raw_weight(provider);
         raw_weights.push((provider_idx, raw_weight, used_fallback_to_one));
     }
-    let weight_sum = raw_weights
+    let mut weight_sum = raw_weights
         .iter()
         .map(|(_, raw_weight, _)| *raw_weight)
         .sum::<f64>();
-    if weight_sum <= f64::EPSILON || !weight_sum.is_finite() {
-        return Err(anyhow::anyhow!(
-            "process volume provider weight sum must be positive"
-        ));
+    // Each weight is finite and positive. Scale only if their sum overflows.
+    if !weight_sum.is_finite() {
+        let largest = raw_weights
+            .iter()
+            .map(|(_, weight, _)| *weight)
+            .fold(0.0, f64::max);
+        for (_, weight, _) in &mut raw_weights {
+            *weight /= largest;
+        }
+        weight_sum = raw_weights.iter().map(|(_, weight, _)| *weight).sum();
     }
     let volume_fallback_to_one_count = i32::try_from(
         raw_weights
@@ -7630,8 +7650,13 @@ fn resolve_process_selection_with_flow_versions(
             let reference_ports = reference_port_map.get(&flow_link_identity(exchange));
             let providers =
                 eligible_balancing_process_indices(reference_ports, residual_coefficient);
-            let providers =
-                apply_provider_lineage_gate(&providers, &process_meta, provider_lineage)?.providers;
+            let providers = apply_provider_lineage_gate(
+                provider_rule,
+                &providers,
+                &process_meta,
+                provider_lineage,
+            )?
+            .providers;
             let provider_cnt = providers.len();
             let next_indices = if provider_cnt == 1 {
                 providers
@@ -11796,7 +11821,9 @@ mod tests {
             process_limit: 0,
             provider_rule: "split_by_process_volume".to_owned(),
             provider_candidate_eligibility_mode: "opposite_sign_reference_port".to_owned(),
-            provider_lineage_policy: "version-exact-lineage-gate-v1".to_owned(),
+            provider_lineage_policy: ProviderRule::SplitByProcessVolume
+                .lineage_policy()
+                .to_owned(),
             provider_lineage_source_sha256: None,
             reference_normalization_mode: "strict".to_owned(),
             allocation_fraction_mode: "strict".to_owned(),
@@ -13255,6 +13282,14 @@ mod tests {
         assert!(reusable_snapshot_policy_matches(
             &candidate(artifact_format),
             &decoded
+        ));
+
+        let mut previous_linking = fresh_ordinary.clone();
+        previous_linking.provider_lineage_policy = "version-exact-lineage-gate-v1".to_owned();
+        let historical = super::decode_snapshot_artifact(&encode(&previous_linking).bytes).unwrap();
+        assert!(!reusable_snapshot_policy_matches(
+            &candidate(artifact_format),
+            &historical
         ));
 
         // Correct numerical state policy does not relabel historical allocation evidence.
@@ -14909,6 +14944,7 @@ mod tests {
         }];
         let lineage = super::build_provider_lineage_index(&[], &models, &roots);
         let gate = super::apply_provider_lineage_gate(
+            ProviderRule::SplitEqual,
             &[0, 1],
             &[lineage_meta(0, result), lineage_meta(1, component)],
             &lineage,
@@ -14981,8 +15017,13 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let lineage = super::build_provider_lineage_index(&[], &models, &roots);
-        let gate = super::apply_provider_lineage_gate(&[0, 1], &candidates, &lineage)
-            .expect("lineage gate");
+        let gate = super::apply_provider_lineage_gate(
+            ProviderRule::SplitEqual,
+            &[0, 1],
+            &candidates,
+            &lineage,
+        )
+        .expect("lineage gate");
 
         assert_eq!(gate.providers, vec![0]);
         assert_eq!(
@@ -15006,6 +15047,7 @@ mod tests {
         }];
         let lineage = super::build_provider_lineage_index(&[], &models, &[]);
         let gate = super::apply_provider_lineage_gate(
+            ProviderRule::SplitEqual,
             &[0, 1],
             &[lineage_meta(0, result), lineage_meta(1, component)],
             &lineage,
@@ -15057,6 +15099,7 @@ mod tests {
         }];
         let lineage = super::build_provider_lineage_index(&[], &models, &[]);
         let gate = super::apply_provider_lineage_gate(
+            ProviderRule::SplitEqual,
             &[0, 1],
             &[lineage_meta(0, result), lineage_meta(1, peer)],
             &lineage,
@@ -15090,6 +15133,7 @@ mod tests {
         }];
         let lineage = super::build_provider_lineage_index(&[], &models, &roots);
         let gate = super::apply_provider_lineage_gate(
+            ProviderRule::SplitEqual,
             &[0, 1],
             &[lineage_meta(0, current), lineage_meta(1, legacy)],
             &lineage,
@@ -15187,7 +15231,7 @@ mod tests {
 
     #[test]
     fn split_by_process_volume_uses_volume_within_local_tier() {
-        let process_meta = vec![
+        let mut process_meta = vec![
             test_process_meta(0, Some("CN-BJ"), None),
             test_process_meta(1, Some("CN-BJ"), Some(10.0)),
             test_process_meta(2, Some("CN-BJ"), Some(30.0)),
@@ -15237,6 +15281,13 @@ mod tests {
         assert_close(resolution.allocations[0].1, 0.25);
         assert_eq!(resolution.allocations[1].0, 2);
         assert_close(resolution.allocations[1].1, 0.75);
+
+        for volume in [f64::MIN_POSITIVE, f64::MAX] {
+            process_meta[1].annual_supply_or_production_volume = Some(volume);
+            process_meta[2].annual_supply_or_production_volume = Some(volume);
+            let result = super::split_by_process_volume(&exchange, &[1, 2], &process_meta).unwrap();
+            assert_eq!(result.allocations, vec![(1, 0.5), (2, 0.5)]);
+        }
     }
 
     #[test]
@@ -15375,7 +15426,7 @@ mod tests {
     }
 
     #[test]
-    fn split_by_process_volume_prefers_same_model_candidates_before_geography_tier() {
+    fn split_by_process_volume_uses_local_supply_across_models() {
         let consumer_model = Uuid::new_v4();
         let other_model = Uuid::new_v4();
         let process_meta = vec![
@@ -15414,9 +15465,9 @@ mod tests {
 
         assert_eq!(
             resolution.geography_tier,
-            Some(CompiledProviderGeographyTier::Global)
+            Some(CompiledProviderGeographyTier::LocalSubnational)
         );
-        assert_eq!(resolution.allocations, vec![(2, 1.0)]);
+        assert_eq!(resolution.allocations, vec![(1, 1.0)]);
     }
 
     #[test]
@@ -15652,7 +15703,7 @@ mod tests {
     }
 
     #[test]
-    fn request_roots_closure_does_not_traverse_unbound_lineage_overlap() {
+    fn default_request_closure_includes_result_and_component() {
         let consumer_id = Uuid::from_u128(21_001);
         let result_id = Uuid::from_u128(21_002);
         let component_id = Uuid::from_u128(21_003);
@@ -15692,7 +15743,7 @@ mod tests {
             &[100],
             None,
             &roots,
-            ProviderRule::SplitEqual,
+            ProviderRule::SplitByProcessVolume,
             0,
             None,
             None,
@@ -15706,7 +15757,7 @@ mod tests {
                 .iter()
                 .map(|process| process.id)
                 .collect::<Vec<_>>(),
-            vec![consumer_id]
+            vec![consumer_id, result_id, component_id]
         );
     }
 

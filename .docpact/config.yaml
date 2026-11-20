@@ -1,8 +1,8 @@
 version: 1
 layout: repo
-lastReviewedAt: "2026-11-19"
-lastReviewedCommit: "3cba273e5e029fadd62278498116cc27240186de"
-lastReviewedNote: "Worker #288 review corrected ambient online-argument parsing and froze offline source-closure limits. Native provider/matrix semantics, online configuration, numerical fingerprint and ownership boundaries remain unchanged."
+lastReviewedAt: "2026-11-20"
+lastReviewedCommit: "eb84fc9ba7cfea3f41124ed00647617e36e87941"
+lastReviewedNote: "Worker #381 routes both language editions of the linking contract and methodology together."
 
 # Keep deterministic governance facts here.
 # AGENTS.md remains the repo contract entrypoint.
@@ -46,6 +46,7 @@ ownership:
           - docs/edge-function-integration.md
           - docs/frontend-integration.md
           - docs/provider-linking.md
+          - docs/provider-linking.en.md
           - docs/implicit-regional-supply-mix-modeling.md
           - docs/implicit-regional-supply-mix-modeling.en.md
           - docs/tidas-package-contract.md
@@ -113,6 +114,7 @@ coverage:
     - docs/edge-function-integration.md
     - docs/frontend-integration.md
     - docs/provider-linking.md
+    - docs/provider-linking.en.md
     - docs/implicit-regional-supply-mix-modeling.md
     - docs/implicit-regional-supply-mix-modeling.en.md
     - docs/tidas-package-contract.md
@@ -230,6 +232,7 @@ routing:
         - scripts/export_unmatched_no_provider_diagnostics.sh
         - docs/agents/repo-architecture.md
         - docs/provider-linking.md
+        - docs/provider-linking.en.md
         - docs/implicit-regional-supply-mix-modeling.md
         - docs/implicit-regional-supply-mix-modeling.en.md
     package-worker:
@@ -284,6 +287,7 @@ routing:
         - docs/edge-function-integration.md
         - docs/frontend-integration.md
         - docs/provider-linking.md
+        - docs/provider-linking.en.md
         - docs/implicit-regional-supply-mix-modeling.md
         - docs/implicit-regional-supply-mix-modeling.en.md
         - docs/tidas-package-contract.md
@@ -315,6 +319,7 @@ docInventory:
     - docs/edge-function-integration.md
     - docs/frontend-integration.md
     - docs/provider-linking.md
+    - docs/provider-linking.en.md
     - docs/implicit-regional-supply-mix-modeling.md
     - docs/implicit-regional-supply-mix-modeling.en.md
     - docs/tidas-package-contract.md
@@ -606,6 +611,8 @@ rules:
         kind: theory-doc
       - path: docs/provider-linking.md
         kind: runtime-contract
+      - path: docs/provider-linking.en.md
+        kind: runtime-contract
       - path: crates/solver-worker/src/bin/snapshot_builder.rs
         kind: runtime-code
       - path: crates/solver-worker/src/compiled_graph.rs
@@ -620,6 +627,8 @@ rules:
       - path: docs/agents/repo-validation.md
         mode: review_or_update
       - path: docs/provider-linking.md
+        mode: review_or_update
+      - path: docs/provider-linking.en.md
         mode: review_or_update
       - path: docs/implicit-regional-supply-mix-modeling.md
         mode: review_or_update
