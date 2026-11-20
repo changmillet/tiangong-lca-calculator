@@ -309,7 +309,7 @@ Live integration proof, when available, must use isolated non-production databas
 
 ## Calculation implementation identity
 
-`calculation_contract.rs` owns an immutable descriptor of numerical eligibility, allocation/solver semantics, source-fingerprint schema, LCIA selection and the exact prepared-default bytes. Its SHA-256 is the opaque `calculation_fingerprint`. A semantic calculation change must update this descriptor in Worker; it does not require an Edge constant or Database scanner-revision migration.
+`calculation_contract.rs` owns an immutable descriptor of numerical eligibility, default provider linking, allocation and solver semantics, source-fingerprint schema, LCIA selection and the exact prepared-default bytes. Its SHA-256 is the opaque `calculation_fingerprint`. A semantic calculation change must update this descriptor in Worker; it does not require an Edge constant or Database scanner-revision migration.
 
 Database #873 stores descriptor bytes and activates an identity by service-only compare-and-set. New closure requests and ordinary snapshot-build queue identities bind the active fingerprint. A retry with the same actor/token retains its original closure request and fingerprint; a changed payload is rejected for newly recorded tokens. Historical pre-migration tokens remain bound to their existing task. A fresh token after activation obtains a new numerical scan even if source, scope and scanner identity are unchanged. Worker validates a pinned identity before execution or completed-scan reuse. Pre-activation legacy requests remain decodable; they do not acquire a new identity implicitly.
 

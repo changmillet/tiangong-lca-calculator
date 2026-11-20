@@ -28,8 +28,8 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/agents/repo-validation.md
   - docs/agents/repo-architecture.md
-lastReviewedAt: 2026-10-29
-lastReviewedCommit: 68b34422dd1384be11bddb5823c325f54e43c5a7
+lastReviewedAt: 2026-11-20
+lastReviewedCommit: d427c6928a01df3fcae0211acbd078f028bda6b7
 lastReviewedNote: "Worker #315: reviewed bounded claim transport, uncertain-commit reconciliation, unchanged handler fencing and isolated PostgreSQL fault proof."
 related:
   - AGENTS.md

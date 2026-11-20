@@ -1170,7 +1170,9 @@ const GAP_TOP_K_LIMIT: usize = 20;
 impl ProviderRule {
     fn lineage_policy(self) -> &'static str {
         match self {
-            Self::SplitByProcessVolume => "volume-lineage-evidence-v2",
+            Self::SplitByProcessVolume => {
+                solver_worker::calculation_contract::DEFAULT_PROVIDER_LINEAGE_POLICY
+            }
             _ => "version-exact-lineage-gate-v1",
         }
     }

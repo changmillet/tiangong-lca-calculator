@@ -27,8 +27,8 @@ checkPaths:
   - docs/agents/contracts/scope-closure-external-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-result.v1.schema.json
   - docs/agents/contracts/scope-closure-provider-owned-result.v1.schema.json
-lastReviewedAt: 2026-11-03
-lastReviewedCommit: 7a06be35061ac42bdc0e0f81a63950b63c7ede06
+lastReviewedAt: 2026-11-20
+lastReviewedCommit: d427c6928a01df3fcae0211acbd078f028bda6b7
 lastReviewedNote: "Worker #339: calculation semantics and descriptor ownership remain in Worker; pinned requests and artifact reuse validate opaque identity while historical evidence, provider rules and data-quality policy remain independent."
 related:
   - ../../../AGENTS.md

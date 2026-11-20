@@ -6311,7 +6311,8 @@ mod tests {
                 process_limit: 0,
                 provider_rule: "split_by_process_volume".to_owned(),
                 provider_candidate_eligibility_mode: "opposite_sign_reference_port".to_owned(),
-                provider_lineage_policy: "version-exact-lineage-gate-v1".to_owned(),
+                provider_lineage_policy:
+                    crate::calculation_contract::DEFAULT_PROVIDER_LINEAGE_POLICY.to_owned(),
                 provider_lineage_source_sha256: None,
                 reference_normalization_mode: "strict".to_owned(),
                 allocation_fraction_mode: "strict".to_owned(),
@@ -6354,7 +6355,10 @@ mod tests {
         };
         let current_policy = crate::NUMERICAL_SNAPSHOT_POLICY_VERSION;
 
-        for recorded in [None, Some("retired-calculation".to_owned())] {
+        // Fingerprint emitted before the default provider policy was part of the descriptor.
+        let previous_fingerprint =
+            "40002f1de748504cd46c93cae91cc1b204907fadf1ac720f3528d240740e2e39";
+        for recorded in [None, Some(previous_fingerprint.to_owned())] {
             let mut historical = config(Some(current_policy), None, None);
             historical.calculation_fingerprint = recorded;
             let bytes = serde_json::to_vec(&historical).unwrap();

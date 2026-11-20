@@ -123,7 +123,11 @@ Provider-link 的运行时决策顺序由 `docs/provider-linking.md` 维护。�
 
 单个 targetless full allocation 只有在 Process 有唯一 reference exchange、其有效 internal ID 等于 quantitative reference、且 fraction 为 canonical `100` 或 legacy string 精确 `"100%"` 时才推断为 factor `1.0`，并计入 `legacy_single_reference_target_inferred_count`。旧 `legacy_single_output_target_inferred_count` 仅为兼容字段。方向不参与该推断。
 
-Snapshot build config 使用 `allocation_semantics_version = tidas-reference-allocation-v5`、`link_semantics_version = signed-flow-balance-v1`、`provider_lineage_policy = volume-lineage-evidence-v2` 与 `source_closure_policy = selected-lcia-factor-flow-support-v1`。这些版本、boundary、flow identity policy 以及被消费 Lifecycle Model payload 的 canonical digest 均进入 `source-fingerprint:v2`，所以 readiness 不会把旧语义、旧 lineage 或 exchange-only source closure snapshot 当作同一构建身份复用。LCIA source dependency selection 与 C 共用 biosphere Flow UUID/version/direction 轴；off-axis factor 不进入 readiness 的 C、source blocker 或 provider 指标。
+默认供应者规则 `split_by_process_volume` 在快照中记录 `provider_lineage_policy = volume-lineage-evidence-v2`，其他显式规则记录 `version-exact-lineage-gate-v1`。复核供应者选择时，应一起读取快照里的规则和策略版本。
+
+普通快照构建使用 `allocation_semantics_version = tidas-reference-allocation-v5`、`link_semantics_version = signed-flow-balance-v1` 和 `source_closure_policy = path-aware-bounded-frontier-v2`。构建配置、边界策略、Flow 身份策略和所用 Model 内容的摘要都参与 `source-fingerprint:v5`，用于判断能否复用构建结果。新计算直接使用已有快照时，Worker 校验其中的 `calculation_fingerprint`。默认供应者链接策略已纳入该指纹，旧指纹的快照须重新构建。[计算身份契约](scope-closure-contract.md#calculation-implementation-identity)
+
+LCIA source dependency selection 与 C 共用 biosphere Flow UUID/version/direction 轴；off-axis factor 不进入 readiness 的 C、source blocker 或 provider 指标。
 
 `provider_closure_reference_provider_missing` 只针对实际 input provider decision，不会因为 Process 中一个没有被 demand 的 co-product 本身而触发。其 `details.examples[]` 必须给出 consumer index / ID / version / name、`flow_id`、`flow_version`、candidate provider index / ID / process name、output exchange internal ID、是否为 reference output、normalized amount、allocation state 与 eligibility。它可以与通用的 `provider_closure_unmatched` 同时出现：前者解释“为什么没有合法 provider”，后者仍表达 coverage policy 失败。
 

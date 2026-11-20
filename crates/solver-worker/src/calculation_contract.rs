@@ -1,6 +1,8 @@
 //! Worker-owned calculation semantics. Other services only store/compare the digest.
 use std::sync::OnceLock;
 
+pub const DEFAULT_PROVIDER_LINEAGE_POLICY: &str = "volume-lineage-evidence-v2";
+
 #[must_use]
 pub fn descriptor() -> String {
     serde_json::json!({
@@ -11,6 +13,7 @@ pub fn descriptor() -> String {
         "source_fingerprint_schema": crate::NUMERICAL_SOURCE_FINGERPRINT_SCHEMA,
         "lcia_selection": crate::lcia_nonregional::POLICY,
         "lcia_defaults_sha256": crate::calculation_evidence::sha256_bytes(crate::lcia_nonregional::DEFAULTS),
+        "default_provider_lineage_policy": DEFAULT_PROVIDER_LINEAGE_POLICY,
         "solver_semantics": "sparse-signed-flow-balance.v1"
     }).to_string()
 }
@@ -39,6 +42,10 @@ mod tests {
             crate::calculation_evidence::sha256_bytes(descriptor.as_bytes())
         );
         let value: serde_json::Value = serde_json::from_str(&descriptor).unwrap();
+        assert_eq!(
+            value["default_provider_lineage_policy"],
+            super::DEFAULT_PROVIDER_LINEAGE_POLICY
+        );
         assert_eq!(value["lcia_selection"], crate::lcia_nonregional::POLICY);
         assert_eq!(
             value["lcia_defaults_sha256"],
