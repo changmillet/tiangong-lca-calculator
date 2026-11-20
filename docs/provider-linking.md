@@ -16,278 +16,125 @@ whenToUpdate:
   - when provider decision diagnostics change
 checkPaths:
   - docs/provider-linking.md
+  - docs/provider-linking.en.md
   - docs/implicit-regional-supply-mix-modeling.md
   - docs/implicit-regional-supply-mix-modeling.en.md
   - docs/matrix-readiness-report-contract.md
   - crates/solver-worker/src/bin/snapshot_builder.rs
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-11-19
-lastReviewedCommit: 3cba273e5e029fadd62278498116cc27240186de
-lastReviewedNote: "Worker #288 reviewed environment-independent finite diagnostics and preserved native signed-flow selection, numerical eligibility, readiness and calculation identity. Regional guidance now consistently permits eligible diagonal contributions."
+lastReviewedAt: 2026-11-20
+lastReviewedCommit: eb84fc9ba7cfea3f41124ed00647617e36e87941
+lastReviewedNote: "Worker #381: checked explicit Model supply, open exchanges, signed eligibility, volume interpretation and historical allocation against the PR implementation."
 related:
+  - docs/provider-linking.en.md
   - AGENTS.md
   - docs/implicit-regional-supply-mix-modeling.md
   - docs/implicit-regional-supply-mix-modeling.en.md
   - docs/matrix-readiness-report-contract.md
 ---
 
-# Signed-Flow Linking Runtime Contract
+# 供应者链接运行规则
 
-本文档记录 calculator 当前 signed-flow balance/link 的运行时决策逻辑。`provider`、`consumer`、`input demand` 仍作为兼容显示词汇保留，但不再定义矩阵链接的资格。
+[English](provider-linking.en.md) · [隐式区域供应组合的建模方法](implicit-regional-supply-mix-modeling.md)
 
-边界：
+Worker 在构建快照时逐笔链接技术系统交换，生成过程间的需求矩阵 `A`。求解阶段使用已经冻结的矩阵。对于 Model 主结果，建模者在图中指定的内部交付已随汇总抵消，相关过程的清单贡献已计入结果。下面的规则作用于结果边界上仍需供应或处理的交换，同样适用于普通 Process 的开放交换。
 
-- 本文档说明 runtime 如何把 exchange 编译为有符号系数、选择相反符号的 reference port、应用 routing weight 并写入 `A`。
-- `docs/implicit-regional-supply-mix-modeling.md` 和英文版说明这个方法的建模依据：regional supply mix、exchange-location supply-region anchor、annual-volume share。
-- 两者必须一起维护：运行时顺序改变时，本文件和 implicit regional supply mix 文档都要同步。
+## 确定哪些交换需要链接
 
-## 运行阶段
+在本次计算范围内，一个完整 TIDAS Process 版本对应一个过程索引和一个矩阵列。`quantitativeReference.referenceToReferenceFlow` 必须唯一指向本列的定量参考交换，且其计算数量有限、非零。参考交换可以为输入或输出。列内其他交换不会产生独立矩阵列；要让副产品独立供应其他过程，须有以它为定量参考的完整 Process 版本。
 
-Signed-flow link 发生在 snapshot build 阶段，不发生在 solve 阶段。
-
-Provider 匹配只处理已经进入数值候选集合的 Process。公共数值候选精确为 `state_code = 100`；预留发布段 `101..199`（含已发布 Result `120`）不再表示计算资格，因此不会成为 root、provider 或矩阵轴。Owner draft `0` 只在 versioned owner scope 且 `user_id` 等于当前 actor 时进入候选。该边界先于 reference port 分桶、lineage gate 和 provider rule 生效；被排除的 Process 不以 rejected candidate 形式出现在证据里，而是根本不进入候选宇宙。
-
-主链路：
+Worker 按 `resultingAmount`、`meanAmount`、`meanValue` 的顺序取计算数量。输入的方向符号为 `−1`，输出为 `+1`。用原始参考系数的绝对值归一化后，参考系数为 `−1` 或 `+1`。其他交换还需应用归属于当前参考产品的分配比例。
 
 ```text
-process JSON
-  -> parsed exchanges
-  -> signed coefficients
-  -> quantitative-reference pivots
-  -> opposite-sign reference-port candidates
-  -> record exact-version Model lineage (default); apply lineage gate for explicit alternative rules
-  -> routing decisions
-  -> balance contributions
-  -> A[balancing process, dependent process]
-  -> M = I - A
+raw_coefficient = direction_sign * calculation_amount
+reference_scale = 1 / abs(raw_reference_coefficient)
+c_r = raw_coefficient * reference_scale * selected_allocation_fraction
+c_i = sign(raw_reference_coefficient)
 ```
 
-Provider-link 的结果直接决定：
+Flow 类型决定后续处理。产品流与废物流中，非零的非参考交换形成待平衡量 `c_r`；基本流写入环境清单矩阵 `B`；其他流仅保留报告记录。显式或稀疏的零分配不扩大请求根的依赖集合，不计入匹配统计，也不写入 `A` 或 `B`。分配字段和历史格式见[产品分配与历史格式](#产品分配与历史格式)。
 
-- 哪些 technosphere residual coefficient 能被 reference port 闭合并写入 `A`；
-- multi-candidate balance 如何按 routing weight 拆分；
-- signed-flow closure / A-write 覆盖率；
-- matrix-readiness 和结果解释中的 reference port、balance、unresolved evidence。
+## 查找合格的参考交换
 
-## Process、quantitative reference 与矩阵列
+普通公开计算只接纳 `state_code = 100` 的过程。允许本人草稿的范围还可接纳属于当前用户的 `0`；预留发布段 `101..199`（含已发布 Result `120`）不具有该数值资格。未进入本次范围的过程不会出现在候选拒绝记录中。
 
-一个完整 TIDAS Process revision 在 snapshot 中只对应一个 process index 和一个矩阵列。它的 `quantitativeReference.referenceToReferenceFlow` 只做两件事：选择 reference exchange，并为该列定义 normalization pivot。它不通过 Product/Waste type 或 Input/Output 方向预先声明“供给”或“需求”。
+Worker 按 `(Flow UUID, resolved version)` 为定量参考交换建立索引。已声明的 `@version` 按精确版本解析；省略时，按快照可见范围确定一次版本并冻结。同一 UUID 的多个实际使用版本可以共存。候选须匹配该 Flow 身份、单位兼容，且参考系数 `c_i` 与 `c_r` 符号相反。一个过程仅在非参考交换中列出该 Flow，不足以供应该交换。产品、废物、输入、输出这些标签本身都不能确定平衡方向。
 
-- reference exchange 可以是 `Input` 或 `Output`，flow source type 可以是 Product、Waste、Elementary 或 Other；reference 有效性的核心条件是 internal ID 唯一命中，以及最终 calculation amount finite 且非零；
-- 当前只支持一个 quantitative reference flow。数组包含多个 reference flow 时明确 fail closed，不能任取第一个；
-- normalized reference coefficient 保留符号并归一为 `+1` 或 `-1`；
-- 同一 Process 中的非-reference exchange 不生成额外矩阵列。若它需要独立成为另一个 activity pivot，上游仍须发布另一个完整 Process revision。
+核对符号时，`Waste Input +1000` 与 `Waste Output -1000` 的原始系数均为 `−1000`，归一后均可平衡正的待平衡量。`Waste Output +1000` 归一后为 `+1`，可平衡负的待平衡量。同一过程自己的参考交换若符合条件也可参与，选中后写入对角项 `A[i,i]`。
 
-因此，同一个联合生产来源可以由上游发布多个完整 Process，但矩阵身份始终来自这些实际 Process revisions，而不是由 snapshot builder 展开 co-products。
+## 选择供应者并确定份额
 
-## TIDAS exchange allocation
+默认策略 `split_by_process_volume` 在收集依赖和编译矩阵时使用同一套候选规则。Worker 根据 `referenceToResultingProcess` 和 `processInstance.referenceToProcess` 记录结果过程与组成过程之间的精确版本关系，包括嵌套关系。请求根指定计算从哪个过程版本开始。对每笔开放交换，默认策略保留合格的结果过程、组成过程及其他供应者；同一合格过程版本经多条路径找到时只参与一次分配。同属一个 `model_id` 或具有来源关系的候选按相同规则竞争。旧版默认策略曾在地域选择之前优先采用同 Model 候选。
 
-Exchange allocation 在 balance matching 之前应用，用于得到当前 Process quantitative reference 对应的 attributed exchange amount：
+| 合格候选数 | 默认决策 |
+| --- | --- |
+| 0 | 同一 Flow 版本没有参考交换时记录 `no_provider_candidates`，有参考交换但符号均不匹配时记录 `no_opposite_sign_reference`，本次平衡不写入 `A`。未闭合交换按快照边界策略处理。 |
+| 1 | 唯一供应者承担全部待平衡量，份额为 1。 |
+| 多个 | 先选地域层级，再在选中层级内按年产量归一化份额。 |
 
-```text
-raw coefficient = direction_sign * calculation amount
-reference scale = 1 / abs(raw reference coefficient)
-normalized residual coefficient = raw coefficient * reference scale * selected allocation fraction
-normalized reference coefficient = sign(raw reference coefficient)
-```
+1. **供应区域。** 优先使用该笔交换可用的 `exchange.location`，其次使用该过程可用的所在地，两者均不可用时记为未指定。
+2. **地域层级。** 按同一地方行政区、同一国家、同一区域、全球、其他的顺序，取第一个非空层级。跨层级的产量不参与比较。
+3. **年产量。** 从供应者的 `annualSupplyOrProductionVolume` 文本或多语言 `#text` 中读取首个可解析的有限正数作为原始权重。解析器取文本开头由空白分隔的数值，移除其中的逗号；单位后缀不触发换算。缺失、非法、非有限或非正值使用固定权重 `1`。全部回退时层内均分，部分回退时与有效数值一起归一化。诊断记录回退次数。解释份额时须核对单位、期间和统计口径，尤其注意不同 Process 身份可能引用同一份实际产量。
 
-运行时规则如下：
+## 写入矩阵并检查边界
 
-- calculation amount 按 `resultingAmount`、`meanAmount`、`meanValue` 的顺序选择；
-- `allocations.allocation` 可以是 object 或 array；worker 按 `@internalReferenceToCoProduct == referenceToReferenceFlow` 选择目标项，不取第一项，也不对数组求和作为当前产品 fraction；
-- `@allocatedFraction` 使用 TIDAS `Perc` 语义，JSON string 或 number 都按百分数解释并除以 `100`；带 `%` 后缀不是合法 `Perc`；
-- allocation vector 的非零项闭合为 `100%`、但没有当前 reference target 时，按稀疏零处理，selected fraction 为 `0`；
-- exchange 完全未声明 `allocations` 时，selected fraction 为 `1`；
-- 仅 legacy scalar `allocations.allocation = {}` 视为“未声明 allocation”，selected fraction 为 `1`；这个例外不适用于空数组、`[{}]`、缺少 `allocation` 字段或带其他字段但缺少 target/fraction 的 object；
-- Process 层先识别分配模式。历史无目标输出份额（如 A=70%、B=30%）组成一个总和为 100% 的向量；当前参考产品的份额应用到所有非参考交换。该模式允许历史百分号后缀，参考交换未声明份额时保持 reference-default=1；输入上不得混入份额。源 JSON 不改写；
-- targeted 与 targetless 声明不能在同一 Process 混用。显式 target 必须唯一命中 Input 或 Output exchange，且其 authored UUID/version 必须精确解析为 `Product flow` 或 `Waste flow`。缺少版本、其他版本替代、未知/Elementary 类型均拒绝；普通构建和 Review overlay 使用相同校验，overlay 不以 baseline 的宽松 Flow 分类替代 exact metadata；
-- 当没有历史输出份额和 targeted 声明时，保留既有 Input/treatment 上单条 targetless full allocation 的有界兼容：reference exchange/internal ID 唯一，fraction 为 canonical 100 或精确 `"100%"`；非 full 输入份额拒绝；
-- scalar `{}` 之外的空/坏结构、多 entry targetless、重复/未知 target、非有限/越界 fraction、总和不闭合均 fail closed。
-
-Reference pivot 本身不乘 allocation fraction；allocation 只作用于 non-reference residual coefficient。selected fraction 为显式零或稀疏零的 residual 不进入 request-root closure，不计入 matching diagnostics，也不写入 `A` 或 `B`。
-
-Exchange allocation 与下文的 multi-provider share 是两个独立阶段：前者决定 consumer column 的 attributed amount，后者只决定该 amount 在 eligible provider rows 之间的分布。
-
-## Flow space 与候选 eligibility
-
-Flow 的 ILCD/TIDAS source type 先映射到计算空间：
-
-- Product 和 Waste -> `technosphere`，参与 reference-port linking；
-- Elementary -> `biosphere`，直接写入 `B`，不参与 technosphere closure；
-- Other -> `reporting`，保留证据但不进入 `A/B`。
-
-Technosphere 候选集合按 exact flow identity `(Flow UUID, resolved version)` 建立。Exchange 显式给出 `@version` 时只查询并绑定该 revision；省略版本时才按 snapshot visibility 规则确定一个版本，并在后续 compilation、artifact 与 release evidence 中冻结。一个 snapshot 可以同时包含同一 UUID 的多个被引用 revision，reference-port lookup、flow metadata、flow axis 和 diagnostics 都不得退化为 UUID-only key，也禁止跨 revision 或不兼容单位链接。
-
-Exact identity 不表示加载数据库中的全部历史版本。Worker 先按 request/process closure 收集 exchange 实际引用的 inventory identity；显式版本使用精确 `(UUID, version)` 查询，省略版本只查询一次 deterministic selected revision。最终 closure 确定后，仅对 distinct inventory identities 分配连续 `flow_idx`。未被 exchange 引用的历史 revision 不进入矩阵、provider universe 或数值 source closure；LCIA Method 中 off-axis 的 factor 只保留在已哈希方法文档中作为证据。
-
-LCIA support Flow 与 C 使用同一个 active factor selection。非方向模式按编译后的 biosphere Flow axis 取交集；方向模式还要求该 Flow 的 exchange direction 唯一且受对应 factor 支持。只有实际进入 C 的 factor target 才按 exact UUID/version 去重并以 bounded batches 校验；省略版本只解析一次并冻结。active target 必须解析为 Elementary Flow，Product、Waste 或 Other active target 会 fail closed；off-axis、zero 或方向不适用的 factor 不 probe target，也不能扩大 technosphere/provider universe。每个 active support Flow 继续递归闭合它引用的 Flow Property、Unit Group、Source 与 Contact。
-
-Reference ports 使用 `HashMap<(UUID, version), candidates>` 分桶。每条 residual 只访问同 identity 的候选列表，避免逐 residual 扫描所有 Process；矩阵 `A` 仍是 Process × Process 的稀疏矩阵，其存储与 assembly 由实际 non-zero balance edge 决定，而不是由 Flow 历史版本数决定。
-
-对同一 flow identity：
-
-```text
-eligible(reference, residual)
-  = reference.is_quantitative_reference
-  && sign(reference.coefficient) == -sign(residual.coefficient)
-```
-
-因此 Waste Input、Waste Output、Product Input、Product Output 都可能成为 reference port；能否平衡某个 residual 只由 normalized coefficient 的相反符号决定。同一 Process 中另一个合法 opposite-sign quantitative-reference port 与外部候选进入完全相同的 routing；若选中，它自然写入 `A[i,i]`。同 flow 的 non-reference exchange 和同符号 reference port 只保留为 rejected candidate evidence。
-
-## Signed balance 与 A 写入
-
-对每条非零 technosphere non-reference exchange，设其 normalized residual coefficient 为 `c_r`。候选 reference port `i` 的 coefficient 为 `c_i ∈ {-1,+1}`，routing weight 为 `w_i >= 0` 且 `sum(w_i)=1`：
+设 `w_i` 为归一化后的供应份额。产品分配已决定 `c_r` 的大小。供应组合决定由哪些过程承担这笔量，各份额之和为 1，活动需求非负。
 
 ```text
 activity_requirement_i = (-c_r / c_i) * w_i
 A[balancing_process_i, dependent_process] += activity_requirement_i
 closure = c_r + sum(c_i * activity_requirement_i) = 0
+M = I - A
 ```
 
-相反符号保证 activity requirement 非负。routing 只分配已确定的 balance magnitude，不改变 exchange 的符号或 reference pivot。
+`self_loop_cutoff` 仅用于诊断对角值风险。保留真实对角项后，求解器根据完整的 `M` 判断可解性。
 
-`self_loop_cutoff` 仅保留为对角值风险诊断阈值，不得过滤或改写真实 `A[i,i]`。`M = I - A` 是否可分解由求解器对完整矩阵判定；Worker 不通过删除自链接制造可解矩阵。
+保存时的部分终止系统 Process 可以用于任何适用的下游快照边界策略。`--technosphere-boundary-policy` 决定 Worker 如何对待本次计算仍未闭合的非零交换：
 
-默认的 `split_by_process_volume` 在依赖收集和矩阵编译中共用 `volume-lineage-evidence-v2`。Worker 用 `referenceToResultingProcess` 与 `processInstance.referenceToProcess` 标记精确版本的结果和组成过程，记录嵌套关系。请求根选定本次需求的 Process 版本。开放交换的所有合格候选进入地域和产量选择，包括同一 Model 的结果、组成过程以及其他供应者。
-
-显式使用其他 provider rule 时沿用 `version-exact-lineage-gate-v1`。谱系冲突时，唯一被请求根选中的结果独占该次路由，否则记录 `lineage_overlap_requires_binding`。历史快照保留原有矩阵和策略标识。
-
-候选数量分支：
-
-```text
-0 opposite-sign reference ports
-  -> NoOppositeSignReference
-  -> 不写 A
-
-1 reference port
-  -> UniqueProvider compatibility decision
-  -> weight = 1
-
->1 reference ports
-  -> resolve_multi_provider(provider_rule)
-  -> resolved: 按 routing weight 求 activity requirement 并写 A
-  -> unresolved: 不写 A
-```
-
-这里的 `1` / `>1` 判断使用当前策略的合格集合；原始 opposite-sign candidate count 和 rejected candidates 仍保留用于解释。
-
-`Waste Input +1000` 的 raw reference coefficient 是 `-1000`，归一后为 `-1`；`Waste Output -1000` 也是 `-1000`，归一后同样为 `-1`。二者作为 reference port 对相同 residual 产生相同数学结果。相反，`Waste Output +1000` 的 pivot 为 `+1`，只能平衡负 residual。
-
-## Technosphere boundary policy
-
-`snapshot_builder --technosphere-boundary-policy` 必须显式落入 snapshot config、source/review fingerprint 和 calculation-bundle evidence：
-
-- `closed`（默认）：任一非零 residual 无法闭合即阻断 readiness；
-- `open`：允许 unresolved balance 留在系统边界外，readiness 输出 warning 和逐边证据；
-- `cutoff`：允许按明确 cutoff 边界省略该 balance，同样必须保留 warning 和逐边证据。
-
-未知策略 fail closed。`open/cutoff` 不是“没有找到 provider 时静默跳过”的别名。
-
-这三个值是 generic snapshot/readiness 的显式策略面。Certificate-grade Scope Closure 不使用 generic 默认值：数据库先把省略值以及兼容的 `closed/open/cutoff` 输入统一规范化为 `cutoff`，Worker 只接受冻结后的 `cutoff`。因此该工作流中的 unmatched provider、A-write coverage 和 unresolved balance 必须保留完整诊断与逐边证据，但不能升级为 certificate blocker；非 `cutoff` 冻结输入属于合同错误，Worker 不静默改写。
-
-## 当前默认 rule
-
-`snapshot_builder` 当前默认：
-
-```text
-provider_rule = split_by_process_volume
-```
-
-该规则的 multi-provider 决策顺序是：
-
-```text
-eligible same-flow opposite-sign reference ports
-  -> supply-region anchor
-  -> best non-empty geography tier
-  -> annual-volume provider shares within selected tier
-  -> activity_requirement_i = balance_magnitude * share_i
-```
-
-### 1. Supply-region anchor
-
-calculator 为 input demand 选择 supply-region anchor：
-
-```text
-exchange.location
-consumer process location
-unspecified
-```
-
-有效 `exchange.location` 优先。consumer process location 只作为 input exchange 未声明或声明不可用时的默认供应区域。
-
-### 2. Geography tier selection
-
-给定 supply-region anchor 后，在当前 provider set 中选择第一个非空 geography tier：
-
-```text
-local / subnational
-same country
-same region
-global
-other
-```
-
-Annual volume 不跨 tier 比较。先选 tier，再在 tier 内按 volume 分配。
-
-### 3. Annual-volume share
-
-对选中 tier 内的 providers：
-
-```text
-raw_weight_i = annualSupplyOrProductionVolume_i, if finite and > 0
-raw_weight_i = 1.0, otherwise
-share_i = raw_weight_i / sum(raw_weight)
-```
-
-`1.0` 是缺失、非法、非有限或非正 annual volume 的固定正权重 fallback。它保留 provider 的参与资格，但不表示真实年产量等于 `1`。
-
-写入矩阵：
-
-```text
-A[balancing_process_i, dependent_process] += activity_requirement_i
-```
-
-同一 residual 的 routing weights 总和必须为 `1`，因此 routing 只改变 balancing process row distribution，不改变待闭合 coefficient 的总量。
-
-## 其他 provider rules
-
-当前代码还保留这些 rule，用于 replay、诊断或显式运行：
-
-| Rule | 行为 |
+| 策略 | 就绪检查及证据 |
 | --- | --- |
-| `strict_unique_provider` | multi-provider 直接 unresolved，只接受唯一 provider case |
-| `best_provider_strict` | 先尝试同 `model_id` 子集；再按 geography/time score 选唯一 top1；top1 必须满足最低分和 top1/top2 ratio |
-| `split_by_evidence` | 先尝试同 `model_id` 子集；对 score 达标 providers 按 evidence score 分配 |
-| `split_by_evidence_hybrid` | 先尝试同 `model_id` 子集；evidence 不足时回退到 equal split |
-| `split_equal` | 不看 score，eligible providers 平均分配 |
+| `closed`（普通快照默认） | 要求全部闭合。未闭合的非零交换阻断就绪检查。 |
+| `open` | 允许待平衡量保留在系统边界，记录警告和逐笔证据。 |
+| `cutoff` | 允许按声明的边界截断该量，记录警告和逐笔证据。 |
 
-这些 rule 不是默认生产语义。不要从历史 replay 结论推断当前默认行为。
+未知策略触发错误。用于完整性认证的 Scope Closure 工作流由数据库将省略值及兼容的边界输入规范化为 `cutoff`，Worker 只接纳冻结后的 `cutoff`。未匹配交换、`A` 写入覆盖率和未闭合量仍需报告，单凭缺少供应者不会阻断该证书。
 
-## Diagnostics
+## 从诊断记录复核一笔交换
 
-Compiled graph 和 readiness 至少应支持解释：
+先核对消费过程、交换标识、Flow UUID 和版本、参考单位、原始方向及归一化待平衡量。再核对每个候选的过程版本、参考交换和系数符号、资格与拒绝原因。`model_id`、`model_version` 及来源关系解释候选来源。最后核对选定地域及其来源、层级、产量和回退次数、`routing weights`、所需活动量与平衡残差。若未闭合，查看具体失败原因和生效的边界策略。
 
-- `decision_kind`: unique, multi resolved, multi unresolved, no provider；
-- provider decision、reference port、balance resolution 与 unresolved evidence 中的 Flow UUID/version；
-- `resolution_strategy`: unique, split by process volume, evidence, equal fallback 等；
-- reference port 的 process/exchange identity、raw direction/amount、raw coefficient 与 normalized coefficient；
-- residual exchange identity、residual coefficient、required reference sign；
-- same-flow candidates 及 opposite-sign eligibility；
-- candidate 的 Process version、`model_id` / `model_version`、lineage relationship 与 rejection reason；
-- candidate provider count 与 matched provider count；
-- supply-region source 与 selected geography tier；
-- annual volume fallback-to-one count；
-- `legacy_empty_allocation_as_undeclared_count`：按 legacy scalar `{}` 兼容为未声明 allocation 的 exchange 数；
-- `legacy_single_reference_target_inferred_count`：在唯一 reference exchange 的有效 internal ID 等于 quantitative reference 时推断 full targetless allocation 的 exchange 数；旧 `legacy_single_output_target_inferred_count` 仅作为兼容投影保留；
-- routing weights、activity requirements 与 closure residual；
-- unresolved balance 与 failure reason；
-- `residual_edges_total` 与 `a_balance_edges_written`。旧 `input_edges_total` / `a_input_edges_written` 仅作为兼容计数保留。
+`decision_kind` 区分唯一供应、多候选已解决、多候选未解决和无供应者；`resolution_strategy` 记录实际选择方法。区分候选数与最终参与数。`residual_edges_total` 和 `a_balance_edges_written` 分别统计待平衡边和写入边，旧字段 `input_edges_total` 和 `a_input_edges_written` 用于兼容。诊断导出和就绪报告消费已编译的决策，以便从同一证据解释结果。[矩阵就绪报告](matrix-readiness-report-contract.md)
 
-Matrix-readiness、diagnostics export 和人工 debug 应消费这些 provider decisions，而不是在外部重写 provider resolution。
+## 产品分配与历史格式
 
-Snapshot build config 记录 `allocation_semantics_version = tidas-reference-allocation-v5`、`link_semantics_version = signed-flow-balance-v1`、`provider_lineage_policy = volume-lineage-evidence-v2（默认规则）`、`technosphere_boundary_policy`、`flow_identity_policy = exact-flow-version-reference-unit-v2` 和 `source_closure_policy = selected-lcia-factor-flow-support-v1`。Flow identity v2 表示 exact inventory revision 可共存、按最终 exchange 引用集合剪枝并进入 flow axis/diagnostics；source-closure v1 表示 selected LCIA factor Flow 只作为 support evidence 闭合。被消费的 exact Lifecycle Model payload 会 canonical hash 后进入 `source-fingerprint:v2`，因此 resulting/component reference 改动不会复用旧 snapshot。Coverage schema 为 `snapshot_coverage.v3`；readiness input/report 为 v2。Calculation bundle 为 `tiangong.calculation-bundle.v2`，technosphere release edge 使用 residual/balancing/reference/activity 的中性字段。
+定量参考交换本身不乘以分配比例。对非参考交换，先识别过程使用的分配模式，再确定归属于当前参考产品的比例。
 
-谱系推断只发生在 snapshot build：相关 exact Model rows 以单次 batched read 加载，JSON 每个 Model 解析一次，传递 component relationship 以 memoized DFS 建立，并生成 Process→Model 倒排索引。每条 provider decision 只查询候选 Process 关联的少量集合；solve 继续只消费冻结后的稀疏 `A`，没有数据库读取或 lineage traversal。新增构建时间由 `fetch_provider_lineage_sec` 单独记录。
+| 数据形态 | 处理 |
+| --- | --- |
+| 显式目标 | `allocations.allocation` 可为对象或数组。按 `@internalReferenceToCoProduct == referenceToReferenceFlow` 选择当前目标。`@allocatedFraction` 的字符串或数字按 TIDAS `Perc` 除以 100，标准格式不带百分号。非零项已闭合到 100% 而当前目标省略时，按稀疏零处理。 |
+| 无分配声明 | 比例为 1。历史标量 `allocations.allocation = {}` 同样按未声明处理，并记录 `legacy_empty_allocation_as_undeclared_count`。 |
+| 历史输出份额 | 不同输出各自声明的无目标份额构成合计 100% 的向量。当前参考输出的份额作用于所有非参考交换，参考交换未声明份额时沿用默认值 1。允许历史百分号后缀，输入不可混入份额。 |
+| 历史单项全额分配 | 在没有历史输出向量和显式目标的情况下，输入或处置交换上的单项全额分配可推断给唯一可识别的定量参考交换。仅接受规范数值 100 或精确字符串 `"100%"`。记录 `legacy_single_reference_target_inferred_count`；旧名 `legacy_single_output_target_inferred_count` 为兼容投影。 |
 
-Allocation v5 is a consumer contract: explicit Product/Waste targets may be Input or Output. Current snapshot/cache fingerprints bind v5; new compute admission independently checks the persisted allocation marker. Immutable v4 and earlier numerical artifacts remain decodable as history but cannot serve as newly validated v5 evidence. Certificate scope and frozen data snapshot must both declare v5 before scan claim/build. Rollout requires paired Database normalizer and Edge request-admission adoption; Worker must not be deployed alone while those producers still author v4. Source merge, workspace integration and deployed-runtime qualification are separate evidence.
+显式目标须唯一指向输入或输出交换，按其声明的 UUID 和版本精确解析为产品流或废物流。缺版本、换版本、未知类型或基本流目标均拒绝，普通构建和审核叠加使用相同检查。显式与无目标声明混用、同一交换上有多项含义不明的无目标条目、空数组、`[{}]`、不完整对象、重复或未知目标、非有限或越界比例，以及总和不闭合的向量均拒绝。兼容处理保留源 JSON。
+
+## 其他显式策略
+
+使用其他策略时，Worker 先执行 `version-exact-lineage-gate-v1`。若有来源冲突且请求根唯一选中一个结果过程，该结果承担这笔需求；否则冲突记录为 `lineage_overlap_requires_binding`。下表的候选数指通过这一步的候选数。
+
+| 策略 | 多个候选时的行为 |
+| --- | --- |
+| `strict_unique_provider` | 记录未解决。 |
+| `best_provider_strict` | 有同 `model_id` 候选时先收窄，再按地域与时间评分，要求第一名唯一，且满足最低分和领先比例。 |
+| `split_by_evidence` | 有同 `model_id` 候选时先收窄，达标者按证据得分分配。 |
+| `split_by_evidence_hybrid` | 同样优先同 `model_id` 候选进行评分，证据不足时回退到均分。 |
+| `split_equal` | 合格候选均分。 |
+
+## 快照身份与数据依赖
+
+默认链接策略在构建配置中记为 `provider_lineage_policy = volume-lineage-evidence-v2`。普通快照的数据指纹包含构建配置和所使用的 Model 内容摘要。快照同时记录边界策略和 Flow 身份策略。覆盖率格式为 `snapshot_coverage.v3`，就绪检查输入与报告使用 v2，计算包使用 `tiangong.calculation-bundle.v2`。历史矩阵保留原有选择。复核时读取该快照记录的策略和版本；新计算对已有快照的准入另见[计算身份契约](scope-closure-contract.md#calculation-implementation-identity)。各项配置的当前取值见[快照构建器](../crates/solver-worker/src/bin/snapshot_builder.rs)。
+
+Worker 仅为最终过程依赖集合实际引用的 Flow 版本分配矩阵索引。LCIA 因子只在与基本流轴及适用方向相符时进入表征矩阵 `C`；有效目标必须解析为基本流。相关流属性、单位组、来源和联系人随所需依赖解析。表征因子不参与供应者选择。构建器批量读取相关 Model 版本，缓存嵌套组成关系供候选查询；耗时记录在 `fetch_provider_lineage_sec`。求解时直接使用冻结的稀疏矩阵。
+
+分配规则也有独立的版本约束。采用 `tidas-reference-allocation-v5` 的新计算检查已存分配标识，证书范围与冻结的数据快照均须声明兼容版本。部署时需配套采用生成该标识的 Database 和 Edge 版本；历史分配产物仍可解码和读取。

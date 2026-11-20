@@ -37,8 +37,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-20
-lastReviewedCommit: 075966dcf8f355e84ad394360019ea5c22538774
-lastReviewedNote: "Worker #288 review corrected ambient online-argument parsing and froze offline source-closure limits. Native provider/matrix semantics, online configuration, numerical fingerprint and ownership boundaries remain unchanged."
+lastReviewedCommit: eb84fc9ba7cfea3f41124ed00647617e36e87941
+lastReviewedNote: "Worker #381 reviewed the snapshot builder and provider linking ownership boundaries for the bilingual guidance."
 related:
   - ../../AGENTS.md
   - ../../.docpact/config.yaml

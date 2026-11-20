@@ -28,6 +28,7 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/provider-linking.md
+  - docs/provider-linking.en.md
   - docs/implicit-regional-supply-mix-modeling.md
   - docs/implicit-regional-supply-mix-modeling.en.md
   - docs/tidas-package-contract.md
@@ -43,8 +44,8 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-20
-lastReviewedCommit: 075966dcf8f355e84ad394360019ea5c22538774
-lastReviewedNote: "Worker #288 review corrected ambient online-argument parsing and froze offline source-closure limits. Native provider/matrix semantics, online configuration, numerical fingerprint and ownership boundaries remain unchanged."
+lastReviewedCommit: eb84fc9ba7cfea3f41124ed00647617e36e87941
+lastReviewedNote: "Worker #381 records the English counterpart of the provider linking runtime contract."
 related:
   - .docpact/config.yaml
   - docs/agents/repo-validation.md
@@ -91,7 +92,7 @@ Start here when the task may change what the compute stack does.
 | `docs/edge-function-integration.md` | edge-facing enqueue, polling, and service-role integration contract | solver internals or frontend UX rules |
 | `docs/frontend-integration.md` | frontend-facing solve/result interaction contract | edge auth implementation or solver internals |
 | `docs/provider-impact-diagnostic-contract.md` | frozen candidate overlays, provider changes and matrix-only reports | online census and write authorization |
-| `docs/provider-linking.md` | current provider-link runtime decision order, default provider rule, candidate eligibility, and diagnostics contract | modeling rationale for regional supply mix |
+| `docs/provider-linking.md` / `docs/provider-linking.en.md` | current provider-link runtime decision order, default provider rule, candidate eligibility, and diagnostics contract | modeling rationale for regional supply mix |
 | `docs/implicit-regional-supply-mix-modeling.md` / `docs/implicit-regional-supply-mix-modeling.en.md` | Chinese and English modeling basis for implicit regional supply mix, exchange-location supply-region anchors, and annual-volume provider share semantics | implementation checklist or consumer API contract |
 | `docs/tidas-package-contract.md` | package-worker async import/export contract | generic solver runtime or branch policy truth |
 
@@ -112,7 +113,7 @@ Read in this order:
    - `docs/ai-worker-contract.md`
    - `docs/edge-function-integration.md`
    - `docs/frontend-integration.md`
-   - `docs/provider-linking.md`
+   - `docs/provider-linking.md` / `docs/provider-linking.en.md`
    - `docs/implicit-regional-supply-mix-modeling.md`
    - `docs/implicit-regional-supply-mix-modeling.en.md`
    - `docs/tidas-package-contract.md`
@@ -216,7 +217,7 @@ Route those tasks to:
 - if Review Admin quality-diagnostic job, joint pending-review scope, informational outcomes/findings, or compatibility boundary changes, update `docs/review-quality-diagnostic-contract.md`
 - if edge-facing enqueue, polling, or service-role integration guidance changes, update `docs/edge-function-integration.md`
 - if frontend-facing solve/result interaction guidance changes, update `docs/frontend-integration.md`
-- if provider-link runtime decision order, default provider rule, candidate eligibility, or provider diagnostics change, update `docs/provider-linking.md`
+- if provider-link runtime decision order, default provider rule, candidate eligibility, or provider diagnostics change, update `docs/provider-linking.md` and its English translation `docs/provider-linking.en.md`
 - if implicit regional supply mix theory, exchange-location supply-region semantics, or annual-volume provider share semantics change, update both `docs/implicit-regional-supply-mix-modeling.md` and `docs/implicit-regional-supply-mix-modeling.en.md`
 - if package-worker import/export contract changes, update `docs/tidas-package-contract.md`
 - if landing context or operator setup changes, update `README.md`

@@ -18,154 +18,68 @@ whenToUpdate:
   - when calculator starts materializing explicit market processes instead of implicit direct links
 checkPaths:
   - docs/provider-linking.md
+  - docs/provider-linking.en.md
   - docs/implicit-regional-supply-mix-modeling.md
   - docs/implicit-regional-supply-mix-modeling.en.md
   - crates/solver-worker/src/bin/snapshot_builder.rs
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/signed_flow.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-11-19
-lastReviewedCommit: 3cba273e5e029fadd62278498116cc27240186de
-lastReviewedNote: "Worker #288 reviewed environment-independent finite diagnostics and preserved native signed-flow selection, numerical eligibility, readiness and calculation identity. Regional guidance now consistently permits eligible diagonal contributions."
+lastReviewedAt: 2026-11-20
+lastReviewedCommit: eb84fc9ba7cfea3f41124ed00647617e36e87941
+lastReviewedNote: "Worker #381: checked explicit Model supply, open exchanges, signed eligibility, volume interpretation and historical allocation against the PR implementation."
 related:
   - AGENTS.md
   - docs/agents/repo-architecture.md
   - docs/agents/repo-validation.md
   - docs/provider-linking.md
+  - docs/provider-linking.en.md
   - docs/lca-api-contract.md
 ---
 
-# Implicit Regional Supply Mix Modeling
+# Modeling an implicit regional supply mix
 
-This document explains where regional supply-mix routing sits in the signed-flow linker. `docs/provider-linking.md` is the runtime contract.
+[中文](implicit-regional-supply-mix-modeling.md) · [Provider linking runtime contract](provider-linking.en.md)
 
-## Design purpose and applicability
+A modeler can specify a supply chain in a Model. For exchanges that still require supply or treatment, Worker can complete the links using available Process data. Explicit links reflect the modeler's choice of processes and connections. Automatic links reflect the supply assumptions used in the calculation.
 
-TianGong uses provider linking to automatically construct a calculable product system from available data. Default linking rules select eligible supplier candidates and determine their shares so that existing process data can form matrix connections. Whether the system can be closed still depends on data availability and the explicit boundary policy.
+## Explicit supply relationships and the primary result Process
 
-The default regional mix fills open exchanges in a calculated inventory. Model connections already included in the aggregate determine the internal supply. Eligible external providers compete by region and annual volume.
+Connect an output of the upstream Process instance to the corresponding input of the downstream instance to specify who supplies that delivery. A Model can contain several Processes. The connections between their exchanges identify the actual modeled deliveries.
 
-This mechanism supports both data providers' modeling choices and automatic linking using the existing database. Default linking is constrained by available data and the matching strategy. Its connections and calculation results do not automatically satisfy a particular study's year, technology or other representativeness requirements. Researchers should check the selected supplier processes and their shares against the study goal and, where needed, express their intent through model organization and supplier data selection. For example, a study intended to represent 2019 should check whether automatic linking uses supplier data from other years; successful linking alone does not establish temporal representativeness.
+When the platform calculates and saves the Model for its functional unit, the primary product result includes the inventory contributions of the connected processes. Internal deliveries cancel against their corresponding consumption. Under the single-primary policy, creating a Model or a new version exposes one primary result Process. Historical multi-result versions retain their existing result references. The calculation still applies coproduct allocation, and the standard calculation graph can reference any allocated processes it needs. If the primary result has nonzero product or waste exchanges other than its quantitative reference that still need external balancing, its dataset type is `Partly terminated system`. Once these exchanges are closed, the primary result can be represented as an `LCI result`.
 
-## Definition
+A downstream user who references the primary result inherits the supply relationships already accounted for in its inventory. Worker looks for providers only for exchanges that remain open. A source Process and a primary result that includes it may both qualify to supply a separate exchange. Their Model provenance is available for inspection. Sharing a Model gives neither candidate priority under the default rule.
 
-An implicit regional supply mix does not decide which exchange is a demand or a supply. After a technosphere residual has multiple mathematically eligible reference ports, it uses geography and annual-volume evidence to choose routing weights without materializing an additional market process.
+## Which exchanges can link
 
-```text
-signed coefficient / reference pivot
-  -> exact same-flow, opposite-sign candidates
-  -> version-exact Lifecycle Model lineage evidence
-  -> supply-region anchor
-  -> best non-empty geography tier
-  -> annual-volume routing weights
-  -> non-negative activity requirements
-```
+Worker considers each product or waste exchange in the technosphere. An eligible Process must be available in the calculation scope. Its quantitative reference exchange must match the exact Flow revision, have compatible units and have a normalized coefficient of the opposite sign to the residual. A coproduct listed under the same name elsewhere in a Process inventory does not by itself qualify that Process as an independent provider of the coproduct. Elementary flows enter the environmental inventory. Other flows are retained for reporting only.
 
-## Signed-flow basis
+One eligible candidate supplies the entire residual. With several candidates, the default **implicit regional supply mix** selects a supply region and distributes the residual among the selected providers. This mix exists within the calculation. A market mix that needs a publishable identity or direct reuse across studies can be modeled as an explicit Process.
 
-Each exchange first becomes a signed coefficient:
+## Supply region and annual volume
 
-```text
-c = direction_sign * calculation_amount
-direction_sign(Input)  = -1
-direction_sign(Output) = +1
-```
+**Select the geographic tier first.** Worker uses a usable `exchange.location` first, then the location of the Process containing the exchange. If neither is usable, the supply region is unspecified. Worker selects the first tier with eligible providers in this order: same subnational area, same country, same region, global, other. Larger volumes in other tiers cannot affect the shares for this exchange. Geographic preference is an assumption about supply. Evidence of actual procurement must come from the study.
 
-Direction and amount sign are independent. Product/Waste type does not define a link role. The Process quantitative reference selects a pivot exchange whose raw coefficient is normalized to `+1` or `-1`.
+**Calculate shares within that tier.** For candidate `i`, a finite positive value read from its annual supply or production volume (`annualSupplyOrProductionVolume`) supplies the raw weight `v_i`. The share is `w_i = v_i / Σv`. Missing, unreadable, nonpositive or nonfinite values receive a weight of `1`, and diagnostics count each fallback. If every volume is missing, shares are equal. If some are missing, the fallback weights are normalized together with the observed values.
 
-A non-reference technosphere exchange forms residual `c_r`. Reference port `i` is eligible only when it has an exact compatible flow identity, is its Process's quantitative reference exchange, and satisfies `sign(c_i) = -sign(c_r)`.
+Interpreting these shares as supply proportions requires comparable units, periods and reporting boundaries. Worker reads the numeric value from the text without converting annual-volume unit suffixes. The unit compatibility check on reference exchanges does not validate the basis of annual-volume figures. A source Process and an aggregate result may both qualify even when they cite production from the same line. Using their shares as market estimates requires checking for overlapping production figures.
 
-Flow source type only selects the computation space: Product/Waste are technosphere, Elementary is biosphere, and Other is reporting-only.
+## Product allocation and balance
 
-## Routing is separate from balance
+Product allocation first determines how much of an exchange belongs to the current reference product. Worker multiplies the quantity by its direction sign (`−1` for an input, `+1` for an output) and normalizes by the absolute quantity of the reference exchange. For a non-reference exchange it also applies the selected product allocation fraction, giving the residual coefficient `c_r`. The reference exchange itself retains its normalized sign `c_i ∈ {−1, +1}`. The convention applies to products and waste, including a treatment Process whose quantitative reference is an input.
 
-Signed-flow math defines eligibility. The regional supply mix only defines routing weight `w_i` among eligible candidates:
+The supply share `w_i` distributes this already determined residual. The required activity `a_i` of each provider satisfies
 
 ```text
-w_i >= 0
-sum(w_i) = 1
-activity_requirement_i = (-c_r / c_i) * w_i
-c_r + sum(c_i * activity_requirement_i) = 0
+w_i >= 0                        sum(w_i) = 1
+a_i = (-c_r / c_i) * w_i        c_r + sum(c_i * a_i) = 0
 ```
 
-Opposite signs guarantee non-negative activity requirements. Annual volume, geography, and model metadata must not alter coefficient signs, the reference pivot, or the magnitude to be balanced.
+Changing the mix can change which processes are used and their environmental impacts while preserving the quantity balanced for that exchange. For explicit targets, sparse zero shares and historical output-share formats, see the [runtime rules](provider-linking.en.md#product-allocation-and-historical-formats).
 
-## Model provenance
+## Unresolved exchanges and interpretation
 
-The default mix records exact result/component relationships as diagnostic evidence. Both can supply the same open exchange. Selecting a result as a request root defines the initial demand. Default routing then applies the geographic and volume rules to eligible reference ports independently for each residual. Only numerically admitted Processes participate (public state 100, or eligible actor-owned drafts). An eligible same-Process reference can contribute to the diagonal.
+“Partly terminated system” describes the boundary of the saved Process inventory. A downstream calculation can use that Process under `closed`. If all its open exchanges link, it satisfies this closure requirement. An unresolved residual blocks readiness under the ordinary snapshot default of `closed`. The `open` policy allows an unresolved exchange to remain at the boundary, and `cutoff` permits truncation at a declared boundary. Both retain warnings and per-exchange evidence. Certificate-grade Scope Closure freezes `cutoff`, so a missing provider produces diagnostic evidence and does not by itself block the certificate.
 
-## Supply-region anchor
-
-The geographic anchor resolves in this order:
-
-```text
-residual exchange.location
-dependent process location
-unspecified
-```
-
-Exchange location wins because it can express the desired supply region for this balance. Process location is the default.
-
-## Geography tier
-
-Routing selects the first non-empty tier:
-
-```text
-local / subnational
-same country
-same region
-global
-other
-```
-
-Annual volume is never compared across tiers. Select the tier first, then distribute within it.
-
-## Annual-volume weight
-
-Within the selected tier:
-
-```text
-raw_weight_i = annualSupplyOrProductionVolume_i, if finite and > 0
-raw_weight_i = 1.0, otherwise
-w_i = raw_weight_i / sum(raw_weight)
-```
-
-The `1.0` fallback is a fixed positive routing weight, not a claim that real annual output equals one. Diagnostics must count its use.
-
-## Equivalent and different Waste references
-
-`Waste Input +1000` gives `c_ref = -1000`, normalized to `-1`. `Waste Output -1000` also gives `c_ref = -1000`, normalized to `-1`. They are mathematically equivalent reference ports and can both balance a positive residual.
-
-`Waste Output +1000` instead normalizes to `+1` and can only balance a negative residual. The distinction comes from the signed coefficient, not an implicit rule such as “every waste output is a demand.”
-
-## Allocation boundary
-
-Allocation runs before routing and determines the non-reference exchange residual attributed to the current quantitative reference:
-
-```text
-normalized residual = raw coefficient * reference_scale * selected allocation fraction
-```
-
-The reference pivot itself is not multiplied by allocation. Target-aware allocation uses the quantitative-reference internal ID; direction does not determine target validity. One targetless full allocation may be inferred only when the reference exchange and ID are unique. Multiple targetless entries or multiple quantitative references fail closed.
-
-Allocation fraction and routing weight are different: the former changes residual magnitude; the latter distributes an already determined balance across reference ports.
-
-## Boundary policy
-
-- `closed`: every non-zero technosphere residual must close; this is the production default.
-- `open`: an unresolved balance may remain outside the system boundary.
-- `cutoff`: a balance may be omitted under an explicit cutoff boundary.
-
-`open/cutoff` must participate in snapshot config and fingerprints and must produce readiness warnings plus per-edge unresolved evidence. They are not silent fallbacks.
-
-That default describes a generic production snapshot. Certificate-grade Scope Closure freezes `cutoff`, so a missing provider affects routing evidence without blocking the completeness certificate; generic `closed/open/cutoff` diagnostics remain available.
-
-## Audit evidence
-
-Snapshot, release, and readiness evidence retain flow UUID/version/reference unit, flow space/source type, raw direction/amount/coefficient, normalized reference/residual coefficient, candidate eligibility, routing strategy/weight, activity requirement, closure residual, boundary policy, and unresolved reason.
-
-Build identity uses `tidas-reference-allocation-v5`, `signed-flow-balance-v1`, `exact-flow-version-reference-unit-v2`, and `selected-lcia-factor-flow-support-v1`. Exact Flow identity is `(UUID, resolved version)`, and matrix/provider compilation retains only revisions referenced by final Process-closure exchanges. An LCIA factor becomes a numerical source-closure dependency only when it intersects the biosphere/C axis; active and inactive factors alike never participate in implicit-mix or technosphere routing. Coverage is `snapshot_coverage.v3`; readiness input/report are v2; calculation bundles are v2.
-
-## Limitation
-
-An implicit mix is a calculation-time routing policy, not a standalone market dataset. It must not be interpreted as a persisted market Process, procurement relationship, or statistical supply chain. Model a complete explicit Process when a reusable, publishable market identity is required.
+To interpret a result, establish which supply relationships the Model specified. For automatic links, inspect the Flow revision, candidate Processes, source of the supply region, selected tier, volume weights and fallbacks, final shares and unresolved quantities. A successful link establishes a way to balance the exchange. Actual procurement, market coverage and representativeness for the study year and technology each require separate judgment.

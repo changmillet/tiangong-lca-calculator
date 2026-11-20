@@ -18,159 +18,69 @@ whenToUpdate:
   - when calculator starts materializing explicit market processes instead of implicit direct links
 checkPaths:
   - docs/provider-linking.md
+  - docs/provider-linking.en.md
   - docs/implicit-regional-supply-mix-modeling.md
   - docs/implicit-regional-supply-mix-modeling.en.md
   - crates/solver-worker/src/bin/snapshot_builder.rs
   - crates/solver-worker/src/compiled_graph.rs
   - crates/solver-worker/src/signed_flow.rs
   - crates/solver-worker/src/snapshot_artifacts.rs
-lastReviewedAt: 2026-11-19
-lastReviewedCommit: 3cba273e5e029fadd62278498116cc27240186de
-lastReviewedNote: "Worker #288 reviewed environment-independent finite diagnostics and preserved native signed-flow selection, numerical eligibility, readiness and calculation identity. Regional guidance now consistently permits eligible diagonal contributions."
+lastReviewedAt: 2026-11-20
+lastReviewedCommit: eb84fc9ba7cfea3f41124ed00647617e36e87941
+lastReviewedNote: "Worker #381: checked explicit Model supply, open exchanges, signed eligibility, volume interpretation and historical allocation against the PR implementation."
 related:
   - AGENTS.md
   - docs/agents/repo-architecture.md
   - docs/agents/repo-validation.md
   - docs/provider-linking.md
+  - docs/provider-linking.en.md
   - docs/lca-api-contract.md
   - docs/implicit-regional-supply-mix-modeling.en.md
 ---
 
-# Implicit Regional Supply Mix Modeling
+# 隐式区域供应组合的建模方法
 
-本文说明 regional supply mix 在 signed-flow linker 中的建模位置。运行时精确合同以 `docs/provider-linking.md` 为准。
+[English](implicit-regional-supply-mix-modeling.en.md) · [供应者链接运行规则](provider-linking.md)
 
-## 设计目的与适用边界
+建模者可以在 Model 中指定供应链。对仍待供应或处理的交换，Worker 可以根据可用的过程数据补齐链接。模型连线记录建模者作出的选择，自动链接体现计算时采用的供应假设。
 
-天工通过供应连接机制，在已有数据条件下自动构建可计算的产品系统。默认连接规则用于选择合格的供应候选并确定供应比例，使已有过程数据能够组成矩阵连接；能否闭合系统仍取决于数据可用性和明确的 boundary policy。
+## 显式供应关系与主结果 Process
 
-默认区域供应组合用于补齐计算清单的开放交换。模型内部的供应关系已在聚合清单中体现。外部供应者按合格参考交换、供应区域和年产量进入分配。
+在 Model 中，将上游过程实例的输出连接到下游实例的对应输入，即可指定这笔交付由哪个过程承担。同一个 Model 可以包含多个过程，具体的供应关系由交换之间的连线表达。
 
-这一机制既支持数据提供方表达建模选择，也支持利用已有数据库自动完成连接。默认连接受可用数据及匹配策略限制，所形成的连接和计算结果不自动保证符合特定研究的年份、技术或其他代表性要求。研究者应结合研究目标检查实际选中的供应过程及其比例，必要时通过模型组织和供应数据选择表达研究意图。比如研究要求代表 2019 年时，应检查自动连接是否使用了其他年份的供应数据；自动连接成功本身不证明时间代表性满足要求。
+按功能单位计算并保存时，平台将已连接过程的清单贡献汇入主产品结果，内部交付量与对应的消费量在汇总中抵消。在单主结果策略下，新建 Model 或创建新版本时只对外提供一个主结果 Process。历史多结果版本保留原有结果引用。多产品分配仍然参与计算，标准计算图仍可引用所需的分配后过程。主结果除定量参考交换外，若仍有非零的产品或废物交换需要外部平衡，其类型为**部分终止系统**（`Partly terminated system`）；这些交换全部闭合时，主结果可表示为 `LCI result`。
 
-## 一句话定义
+下游引用主结果时，已经计入清单的供应关系随结果一起使用。Worker 只为剩余的开放交换查找供应者。一份原始过程和一份包含它的主结果如果都符合另一笔交换的供应条件，两者都可进入候选。模型来源供追溯；在默认规则下，同属一个 Model 不带来供应优先权。
 
-Implicit regional supply mix 不判断谁是“需求”或“供给”。它只在一条 technosphere residual 已找到多个数学上合格的 reference ports 后，按 地理和年产量选择 routing weights；不创建额外 market process。
+## 哪些交换可以链接
 
-```text
-signed coefficient / reference pivot
-  -> exact same-flow, opposite-sign candidates
-  -> version-exact Lifecycle Model lineage evidence
-  -> supply-region anchor
-  -> best non-empty geography tier
-  -> annual-volume routing weights
-  -> non-negative activity requirements
-```
+Worker 逐笔处理技术系统中的产品流和废物流。一个候选过程要能平衡这笔交换，必须在本次计算范围内可用，其定量参考交换须匹配同一 Flow 的确切版本、具有兼容单位，且归一化系数与待平衡量符号相反。过程清单里出现某个同名副产品，本身不足以将该过程作为这个副产品的独立供应者。基本流进入环境清单，其他类型的流仅保留报告记录。
 
-## Signed-flow 基础
+只有一个合格候选时，它承担全部待平衡量。有多个时，默认采用**隐式区域供应组合**：先选供应地区，再在选中的候选之间分配份额。组合只在计算时形成。如需给一份市场组合赋予独立身份、发布或供多个研究直接引用，可显式建立相应 Process。
 
-Exchange 首先编译为有符号系数：
+## 供应区域与年产量
 
-```text
-c = direction_sign * calculation_amount
-direction_sign(Input)  = -1
-direction_sign(Output) = +1
-```
+**先选地域层级。** 优先采用交换上可用的 `exchange.location`，其次采用使用该交换的过程所在地；两者均不可用时，供应区域记为未指定。Worker 按同一地方行政区、同一国家、同一区域、全球、其他的顺序，选择第一个有合格候选的层级。选定后，其他层级的年产量再大也不会改变这笔交换的供应份额。这里的地域优先表达的是对供应来源的假设，具体采购地仍需研究证据支持。
 
-方向和 amount 符号是两个独立维度。Product/Waste type 也不决定 link role。Process 的 quantitative reference 只选择 pivot exchange；其 raw coefficient 归一为 `+1` 或 `-1`。
+**再计算层内份额。** 对选中层级中的候选 `i`，Worker 从其年供应量或年产量字段（`annualSupplyOrProductionVolume`）读取有效的有限正数作为原始权重 `v_i`，并取 `w_i = v_i / Σv`。缺失、无法解析、非正或非有限值使用权重 `1`，诊断记录使用次数。全部缺失时各候选均分；部分缺失时，默认权重与已读到的数值一起归一化。
 
-一条 non-reference technosphere exchange 形成 residual `c_r`。Reference port `i` 只有在以下条件全部满足时才是候选：
+将这些份额解释为供应比例，前提是产量使用可比单位、期间和统计口径。Worker 读取文本中的数值，不根据单位后缀换算年产量。参考交换的单位兼容检查也不验证年产量口径。若原始过程与汇总结果引用同一生产线的产量，二者可共同参与链接；用它们估算市场供应份额时，还须核实所代表的产量是否重叠。
 
-- exact flow identity 兼容；
-- 是该 Process 的 quantitative reference exchange；
-- `sign(c_i) = -sign(c_r)`。
+## 产品分配与需求平衡
 
-Flow source type 只决定空间：Product/Waste 进入 technosphere，Elementary 进入 biosphere，Other 只保留 reporting evidence。
+产品分配先决定一笔交换有多少归属于当前参考产品。Worker 将交换数量乘以方向符号（输入为 `−1`，输出为 `+1`），再按参考交换数量的绝对值归一化。非参考交换还要乘以所选产品的分配比例，得到待平衡系数 `c_r`。参考交换自身保留归一化符号 `c_i ∈ {−1, +1}`。产品和废物都沿用这一约定，因此定量参考为输入的处置过程也能参与链接。
 
-## Routing 与 balance 分离
-
-候选资格由 signed-flow math 决定；regional supply mix 只决定候选之间的 routing weight `w_i`：
+供应份额 `w_i` 只拆分已经确定的待平衡量。各供应者所需的活动量 `a_i` 满足：
 
 ```text
-w_i >= 0
-sum(w_i) = 1
-activity_requirement_i = (-c_r / c_i) * w_i
-c_r + sum(c_i * activity_requirement_i) = 0
+w_i >= 0                        sum(w_i) = 1
+a_i = (-c_r / c_i) * w_i        c_r + sum(c_i * a_i) = 0
 ```
 
-相反符号保证 activity requirement 非负。Annual volume、geography 或 model metadata 不得修改 coefficient 符号、reference pivot 或待闭合总量。
+因此，改变供应组合可以改变承担活动的过程及其环境影响，同时保持这笔交换的总量平衡。显式分配目标、稀疏零份额和历史输出份额格式的处理见[运行规则](provider-linking.md#产品分配与历史格式)。
 
-## Model 来源关系
+## 未闭合交换与结果解释
 
-默认规则对结果及其组成过程保留精确版本的来源证据。二者均可供应同一开放交换。请求根定义初始需求；每笔开放交换按地理与产量选择供应者。候选仅包括有数值资格的 Process（公开状态 100 或当前范围内本人所有的草稿）。同一 Process 的合格参考交换也可产生对角项。
+“部分终止系统”描述保存下来的 Process 清单边界。下游计算可以按 `closed` 策略使用这份 Process：只要其开放交换都能链接，就满足这项闭合要求。若仍有待平衡量，普通快照默认的 `closed` 策略会阻断就绪检查；`open` 允许保留未闭合交换，`cutoff` 允许按声明的边界截断。后两者均须保留警告及逐笔记录。用于完整性认证的 Scope Closure 工作流固定采用 `cutoff`，缺少供应者会留下诊断记录，单凭这一点不会阻断证书。
 
-## Supply-region anchor
-
-Routing 的地理 anchor 按以下顺序解析：
-
-```text
-residual exchange.location
-dependent process location
-unspecified
-```
-
-Exchange location 优先，因为它可以表达该条 balance 希望使用的供应区域；Process location 仅作默认值。
-
-## Geography tier
-
-候选按第一个非空 tier 选择：
-
-```text
-local / subnational
-same country
-same region
-global
-other
-```
-
-Annual volume 不跨 tier 比较。先选 tier，再在 tier 内分配。
-
-## Annual-volume weight
-
-对选中 tier 的候选：
-
-```text
-raw_weight_i = annualSupplyOrProductionVolume_i, if finite and > 0
-raw_weight_i = 1.0, otherwise
-w_i = raw_weight_i / sum(raw_weight)
-```
-
-fallback `1.0` 只是固定正权重，不表示真实年产量等于 1。它必须在 diagnostics 中计数。
-
-## Waste reference 的等价与差异
-
-`Waste Input +1000` 的 raw reference coefficient 是 `-1000`，归一为 `-1`。`Waste Output -1000` 也是 `-1000`，归一为 `-1`。二者在链接数学上等价，均可平衡正 residual。
-
-`Waste Output +1000` 的 pivot 则为 `+1`，只能平衡负 residual。差异来自 signed coefficient，不来自“waste output 一律是 demand”之类的隐式语义。
-
-## Allocation 的边界
-
-Allocation 在 routing 之前决定 non-reference exchange 对当前 quantitative reference 的 attributed residual：
-
-```text
-normalized residual = raw coefficient * reference_scale * selected allocation fraction
-```
-
-Reference pivot 本身不乘 allocation fraction。Target-aware allocation 以当前 quantitative reference internal ID 为目标，方向不是 target validity 的判断条件。单个 targetless full allocation 只在 reference exchange 唯一且 ID 明确时推断；多 targetless 或多个 quantitative reference 均 fail closed。
-
-Allocation fraction 与 routing weight 不可混用：前者改变 residual magnitude，后者只把既定 balance 分配给多个 reference ports。
-
-## Boundary policy
-
-- `closed`：所有非零 technosphere residual 必须闭合，默认用于生产 snapshot；
-- `open`：允许未闭合 balance 留在系统边界外；
-- `cutoff`：允许按明确 cutoff 省略 balance。
-
-`open/cutoff` 必须进入 snapshot config、fingerprint、readiness warning 和逐边 unresolved evidence，不能作为静默 fallback。
-
-这里的默认值描述 generic production snapshot。Certificate-grade Scope Closure 固定冻结 `cutoff`，所以缺失 provider 只影响 routing evidence，不阻断完整性证书；generic `closed/open/cutoff` 诊断能力仍保留。
-
-## 可审计证据
-
-Snapshot/release/readiness 至少保留：flow UUID/version/reference unit、flow space/source type、raw direction/amount/coefficient、normalized reference/residual coefficient、候选 eligibility、routing strategy/weight、activity requirement、closure residual、boundary policy 和 unresolved reason。
-
-Build identity 使用 `tidas-reference-allocation-v5`、`signed-flow-balance-v1`、`exact-flow-version-reference-unit-v2` 和 `selected-lcia-factor-flow-support-v1`。Exact Flow identity 是 `(UUID, resolved version)`；只把最终 Process closure exchange 实际引用的 revisions 编译进矩阵和 provider routing。LCIA factor 只有与 biosphere/C axis 相交时才成为数值 source-closure 依赖；无论是否 active，都不参与 implicit mix 或 technosphere routing。Coverage 为 `snapshot_coverage.v3`；readiness input/report 为 v2；calculation bundle 为 v2。
-
-## 限制
-
-Implicit mix 是计算时 routing policy，不是独立 market dataset，不应被解释成数据库里真实存在的 market process、采购关系或统计供应链。需要可复用、可发布的 market identity 时，应显式建模完整 Process。
+解释结果时，先确认哪些供应关系已由 Model 指定，再对自动链接核对 Flow 版本、候选过程、供应区域的来源和选中层级、产量权重及其回退、最终份额和未闭合量。链接成功说明计算找到了平衡这笔交换的方式。实际采购关系、市场覆盖程度，以及供应组合是否代表研究所需的年份和技术，都需要独立判断。
