@@ -99,7 +99,7 @@ jobs:
           tar -xzf model-package/runtime.tar.gz -C installed
           python scripts/qualify_model_runtime.py --engine installed/bin/model_calculate.exe --static-cache installed/cache --output qualification
       - name: Set up the released CLI toolchain
-        uses: pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4 # v3.1.1
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
           version: 11.24.0
           runtime: node@24.19.0
