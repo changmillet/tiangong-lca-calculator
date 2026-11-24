@@ -2,9 +2,30 @@ name: ci
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - clippy.toml
+      - rustfmt.toml
+      - Makefile
+      - crates/**
+      - tools/**
+      - scripts/**
+      - .github/workflows/ci.yml
+  schedule:
+    # Weekly Monday 04:00 UTC keep-warm so refs/heads/main Rust cache never expires after 7 days.
+    - cron: "0 4 * * 1"
   pull_request:
     branches:
       - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   rust:
