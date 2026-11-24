@@ -37,7 +37,7 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-24
-lastReviewedCommit: 501bc3e87196dabf412cb3337f66335ba3b576ec
+lastReviewedCommit: 10d271c26eaf423d63a21957093d764ef8fe5d33
 lastReviewedNote: "Worker #381 reviewed the snapshot builder and provider linking ownership boundaries for the bilingual guidance."
 related:
   - ../../AGENTS.md

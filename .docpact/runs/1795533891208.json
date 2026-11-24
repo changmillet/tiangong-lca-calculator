@@ -1,0 +1,93 @@
+{
+  "schema_version": "docpact.diagnostics.v1",
+  "tool_name": "docpact",
+  "tool_version": "0.1.9",
+  "status": "fail",
+  "changed_paths": [
+    ".github/workflows/ai-doc-lint.yml"
+  ],
+  "matched_rule_count": 1,
+  "uncovered_changed_paths": [],
+  "coverage_status": "ok",
+  "freshness_status": "ok",
+  "freshness_summary": {
+    "governed_doc_count": 3,
+    "fresh_doc_count": 3,
+    "stale_doc_count": 0,
+    "warn_count": 0,
+    "critical_count": 0,
+    "invalid_review_reference_count": 0
+  },
+  "baseline_status": "not-applied",
+  "baseline_summary": {
+    "active_count": 3,
+    "suppressed_count": 0
+  },
+  "waiver_status": "not-applied",
+  "waiver_summary": {
+    "waived_count": 0,
+    "expired_count": 0
+  },
+  "summary": {
+    "total_count": 3,
+    "counts_by_type": {
+      "missing-review": 3
+    },
+    "top_rules": [
+      {
+        "rule_id": "worker-doc-maintenance-contract",
+        "count": 3
+      }
+    ]
+  },
+  "diagnostics": [
+    {
+      "diagnostic_id": "d001",
+      "type": "missing-review",
+      "path": ".docpact/config.yaml",
+      "message": "Required doc was not touched for mode `review_or_update`. Triggered by .github/workflows/ai-doc-lint.yml via rule `worker-doc-maintenance-contract`.",
+      "rule_id": "worker-doc-maintenance-contract",
+      "required_mode": "review_or_update",
+      "failure_reason": "required_doc_not_touched",
+      "suggested_action": "touch_required_doc",
+      "finding_state": "active",
+      "rule_source": ".docpact/config.yaml",
+      "trigger_paths": [
+        ".github/workflows/ai-doc-lint.yml"
+      ],
+      "rule_reason": "Repo-local documentation maintenance automation must stay aligned with the repo contract and governed-doc rules."
+    },
+    {
+      "diagnostic_id": "d002",
+      "type": "missing-review",
+      "path": "AGENTS.md",
+      "message": "Required doc was not touched for mode `review_or_update`. Triggered by .github/workflows/ai-doc-lint.yml via rule `worker-doc-maintenance-contract`.",
+      "rule_id": "worker-doc-maintenance-contract",
+      "required_mode": "review_or_update",
+      "failure_reason": "required_doc_not_touched",
+      "suggested_action": "touch_required_doc",
+      "finding_state": "active",
+      "rule_source": ".docpact/config.yaml",
+      "trigger_paths": [
+        ".github/workflows/ai-doc-lint.yml"
+      ],
+      "rule_reason": "Repo-local documentation maintenance automation must stay aligned with the repo contract and governed-doc rules."
+    },
+    {
+      "diagnostic_id": "d003",
+      "type": "missing-review",
+      "path": "docs/agents/repo-validation.md",
+      "message": "Required doc was not touched for mode `review_or_update`. Triggered by .github/workflows/ai-doc-lint.yml via rule `worker-doc-maintenance-contract`.",
+      "rule_id": "worker-doc-maintenance-contract",
+      "required_mode": "review_or_update",
+      "failure_reason": "required_doc_not_touched",
+      "suggested_action": "touch_required_doc",
+      "finding_state": "active",
+      "rule_source": ".docpact/config.yaml",
+      "trigger_paths": [
+        ".github/workflows/ai-doc-lint.yml"
+      ],
+      "rule_reason": "Repo-local documentation maintenance automation must stay aligned with the repo contract and governed-doc rules."
+    }
+  ]
+}

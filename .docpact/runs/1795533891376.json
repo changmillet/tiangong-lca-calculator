@@ -1,0 +1,68 @@
+{
+  "schema_version": "docpact.diagnostics.v1",
+  "tool_name": "docpact",
+  "tool_version": "0.1.9",
+  "status": "fail",
+  "changed_paths": [
+    ".docpact/config.yaml",
+    ".docpact/runs/1795533891208.json",
+    ".github/workflows/ai-doc-lint.yml",
+    "AGENTS.md",
+    "docs/agents/repo-validation.md"
+  ],
+  "matched_rule_count": 5,
+  "uncovered_changed_paths": [],
+  "coverage_status": "ok",
+  "freshness_status": "ok",
+  "freshness_summary": {
+    "governed_doc_count": 4,
+    "fresh_doc_count": 4,
+    "stale_doc_count": 0,
+    "warn_count": 0,
+    "critical_count": 0,
+    "invalid_review_reference_count": 3
+  },
+  "baseline_status": "not-applied",
+  "baseline_summary": {
+    "active_count": 1,
+    "suppressed_count": 0
+  },
+  "waiver_status": "not-applied",
+  "waiver_summary": {
+    "waived_count": 0,
+    "expired_count": 0
+  },
+  "summary": {
+    "total_count": 1,
+    "counts_by_type": {
+      "missing-review": 1
+    },
+    "top_rules": [
+      {
+        "rule_id": "worker-bootstrap-contract",
+        "count": 1
+      }
+    ]
+  },
+  "diagnostics": [
+    {
+      "diagnostic_id": "d001",
+      "type": "missing-review",
+      "path": "docs/agents/repo-architecture.md",
+      "message": "Required doc was not touched for mode `review_or_update`. Triggered by .docpact/config.yaml, .docpact/runs/1795533891208.json, AGENTS.md, docs/agents/repo-validation.md via rule `worker-bootstrap-contract`.",
+      "rule_id": "worker-bootstrap-contract",
+      "required_mode": "review_or_update",
+      "failure_reason": "required_doc_not_touched",
+      "suggested_action": "touch_required_doc",
+      "finding_state": "active",
+      "rule_source": ".docpact/config.yaml",
+      "trigger_paths": [
+        ".docpact/config.yaml",
+        ".docpact/runs/1795533891208.json",
+        "AGENTS.md",
+        "docs/agents/repo-validation.md"
+      ],
+      "rule_reason": "Repo entry guidance, machine-readable routing, and retained source docs must stay aligned."
+    }
+  ]
+}
