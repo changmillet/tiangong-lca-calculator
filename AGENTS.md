@@ -43,8 +43,8 @@ checkPaths:
   - scripts/docpact
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
-lastReviewedAt: 2026-11-20
-lastReviewedCommit: eb84fc9ba7cfea3f41124ed00647617e36e87941
+lastReviewedAt: 2026-11-24
+lastReviewedCommit: 501bc3e87196dabf412cb3337f66335ba3b576ec
 lastReviewedNote: "Worker #381 records the English counterpart of the provider linking runtime contract."
 related:
   - .docpact/config.yaml
