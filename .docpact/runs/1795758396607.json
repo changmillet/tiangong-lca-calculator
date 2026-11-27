@@ -1,0 +1,42 @@
+{
+  "schema_version": "docpact.diagnostics.v1",
+  "tool_name": "docpact",
+  "tool_version": "0.1.9",
+  "status": "ok",
+  "changed_paths": [
+    ".docpact/config.yaml",
+    ".github/workflows/ci.yml",
+    "AGENTS.md",
+    "docs/agents/repo-architecture.md",
+    "docs/agents/repo-validation.md",
+    "docs/lca-api-contract.md"
+  ],
+  "matched_rule_count": 6,
+  "uncovered_changed_paths": [],
+  "coverage_status": "ok",
+  "freshness_status": "ok",
+  "freshness_summary": {
+    "governed_doc_count": 5,
+    "fresh_doc_count": 5,
+    "stale_doc_count": 0,
+    "warn_count": 0,
+    "critical_count": 0,
+    "invalid_review_reference_count": 0
+  },
+  "baseline_status": "not-applied",
+  "baseline_summary": {
+    "active_count": 0,
+    "suppressed_count": 0
+  },
+  "waiver_status": "not-applied",
+  "waiver_summary": {
+    "waived_count": 0,
+    "expired_count": 0
+  },
+  "summary": {
+    "total_count": 0,
+    "counts_by_type": {},
+    "top_rules": []
+  },
+  "diagnostics": []
+}

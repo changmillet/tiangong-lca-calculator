@@ -1,0 +1,125 @@
+{
+  "schema_version": "docpact.diagnostics.v1",
+  "tool_name": "docpact",
+  "tool_version": "0.1.9",
+  "status": "fail",
+  "changed_paths": [
+    ".github/workflows/ci.yml"
+  ],
+  "matched_rule_count": 1,
+  "uncovered_changed_paths": [],
+  "coverage_status": "ok",
+  "freshness_status": "ok",
+  "freshness_summary": {
+    "governed_doc_count": 5,
+    "fresh_doc_count": 5,
+    "stale_doc_count": 0,
+    "warn_count": 0,
+    "critical_count": 0,
+    "invalid_review_reference_count": 4
+  },
+  "baseline_status": "not-applied",
+  "baseline_summary": {
+    "active_count": 5,
+    "suppressed_count": 0
+  },
+  "waiver_status": "not-applied",
+  "waiver_summary": {
+    "waived_count": 0,
+    "expired_count": 0
+  },
+  "summary": {
+    "total_count": 5,
+    "counts_by_type": {
+      "missing-review": 5
+    },
+    "top_rules": [
+      {
+        "rule_id": "worker-runtime-contract",
+        "count": 5
+      }
+    ]
+  },
+  "diagnostics": [
+    {
+      "diagnostic_id": "d001",
+      "type": "missing-review",
+      "path": ".docpact/config.yaml",
+      "message": "Required doc was not touched for mode `review_or_update`. Triggered by .github/workflows/ci.yml via rule `worker-runtime-contract`.",
+      "rule_id": "worker-runtime-contract",
+      "required_mode": "review_or_update",
+      "failure_reason": "required_doc_not_touched",
+      "suggested_action": "touch_required_doc",
+      "finding_state": "active",
+      "rule_source": ".docpact/config.yaml",
+      "trigger_paths": [
+        ".github/workflows/ci.yml"
+      ],
+      "rule_reason": "Solver runtime, worker behavior, and CI gates shape ownership, proof, and the shared runtime contract together."
+    },
+    {
+      "diagnostic_id": "d002",
+      "type": "missing-review",
+      "path": "AGENTS.md",
+      "message": "Required doc was not touched for mode `review_or_update`. Triggered by .github/workflows/ci.yml via rule `worker-runtime-contract`.",
+      "rule_id": "worker-runtime-contract",
+      "required_mode": "review_or_update",
+      "failure_reason": "required_doc_not_touched",
+      "suggested_action": "touch_required_doc",
+      "finding_state": "active",
+      "rule_source": ".docpact/config.yaml",
+      "trigger_paths": [
+        ".github/workflows/ci.yml"
+      ],
+      "rule_reason": "Solver runtime, worker behavior, and CI gates shape ownership, proof, and the shared runtime contract together."
+    },
+    {
+      "diagnostic_id": "d003",
+      "type": "missing-review",
+      "path": "docs/agents/repo-architecture.md",
+      "message": "Required doc was not touched for mode `review_or_update`. Triggered by .github/workflows/ci.yml via rule `worker-runtime-contract`.",
+      "rule_id": "worker-runtime-contract",
+      "required_mode": "review_or_update",
+      "failure_reason": "required_doc_not_touched",
+      "suggested_action": "touch_required_doc",
+      "finding_state": "active",
+      "rule_source": ".docpact/config.yaml",
+      "trigger_paths": [
+        ".github/workflows/ci.yml"
+      ],
+      "rule_reason": "Solver runtime, worker behavior, and CI gates shape ownership, proof, and the shared runtime contract together."
+    },
+    {
+      "diagnostic_id": "d004",
+      "type": "missing-review",
+      "path": "docs/agents/repo-validation.md",
+      "message": "Required doc was not touched for mode `review_or_update`. Triggered by .github/workflows/ci.yml via rule `worker-runtime-contract`.",
+      "rule_id": "worker-runtime-contract",
+      "required_mode": "review_or_update",
+      "failure_reason": "required_doc_not_touched",
+      "suggested_action": "touch_required_doc",
+      "finding_state": "active",
+      "rule_source": ".docpact/config.yaml",
+      "trigger_paths": [
+        ".github/workflows/ci.yml"
+      ],
+      "rule_reason": "Solver runtime, worker behavior, and CI gates shape ownership, proof, and the shared runtime contract together."
+    },
+    {
+      "diagnostic_id": "d005",
+      "type": "missing-review",
+      "path": "docs/lca-api-contract.md",
+      "message": "Required doc was not touched for mode `review_or_update`. Triggered by .github/workflows/ci.yml via rule `worker-runtime-contract`.",
+      "rule_id": "worker-runtime-contract",
+      "required_mode": "review_or_update",
+      "failure_reason": "required_doc_not_touched",
+      "suggested_action": "touch_required_doc",
+      "finding_state": "active",
+      "rule_source": ".docpact/config.yaml",
+      "trigger_paths": [
+        ".github/workflows/ci.yml"
+      ],
+      "rule_reason": "Solver runtime, worker behavior, and CI gates shape ownership, proof, and the shared runtime contract together."
+    }
+  ]
+}

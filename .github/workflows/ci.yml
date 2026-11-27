@@ -28,7 +28,71 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  rust:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.classify.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Classify CI lane (fail-closed)
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HAS_FULL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'ci:full') }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" != "pull_request" ] || [ "$HAS_FULL_LABEL" = "true" ]; then
+            echo "mode=full" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$BASE_SHA" ] || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            echo "mode=full" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          docs_only="true"
+          file_count=0
+          while IFS= read -r file; do
+            [ -n "$file" ] || continue
+            file_count=$((file_count + 1))
+            case "$file" in
+              AGENTS.md|README.md|docs/*|.docpact/*) ;;
+              *)
+                docs_only="false"
+                break
+                ;;
+            esac
+          done < <(git diff --name-only "$BASE_SHA" HEAD)
+          if [ "$file_count" -gt 0 ] && [ "$docs_only" = "true" ]; then
+            echo "mode=docs-only" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=full" >> "$GITHUB_OUTPUT"
+          fi
+
+  python-contracts:
+    needs: plan
+    if: needs.plan.outputs.mode != 'docs-only'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Native cache identity tests
+        run: python3 -m unittest scripts/test_ci_native_fingerprint.py
+      - name: Manual validation target tests
+        run: python3 -m unittest scripts/test_validate_lcia_targets.py
+      - name: Study P0 independent qualification oracle
+        run: make study-p0-check
+      - name: Study method independent Decimal oracle
+        run: make study-method-check
+      - name: Install patchelf for local model package tests
+        run: sudo apt-get update && sudo apt-get install -y patchelf
+      - name: Local Model package contract tests
+        run: PYTHONPATH=scripts python3 -m unittest scripts/test_package_model_runtime.py
+
+  rust-build:
+    needs: plan
+    if: needs.plan.outputs.mode != 'docs-only'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -44,18 +108,8 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v7
-      - name: Native cache identity tests
-        run: python3 -m unittest scripts/test_ci_native_fingerprint.py
-      - name: Manual validation target tests
-        run: python3 -m unittest scripts/test_validate_lcia_targets.py
-      - name: Study P0 independent qualification oracle
-        run: make study-p0-check
-      - name: Study method independent Decimal oracle
-        run: make study-method-check
       - name: Install SuiteSparse dependencies
         run: sudo apt-get update && sudo apt-get install -y libsuitesparse-dev libopenblas-dev liblapack-dev pkg-config postgresql-client patchelf
-      - name: Local Model package contract tests
-        run: PYTHONPATH=scripts python3 -m unittest scripts/test_package_model_runtime.py
       - name: Fingerprint installed native environment
         id: native
         run: python3 scripts/ci_native_fingerprint.py >> "$GITHUB_OUTPUT"
@@ -94,3 +148,25 @@ jobs:
         env:
           WORKER_CLAIM_TEST_PORT: "5432"
         run: ./scripts/test_worker_claim_recovery.sh
+
+  rust:
+    if: always()
+    needs: [plan, python-contracts, rust-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify worker CI gates
+        env:
+          MODE: ${{ needs.plan.outputs.mode }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+          PYTHON_RESULT: ${{ needs.python-contracts.result }}
+          RUST_RESULT: ${{ needs.rust-build.result }}
+        run: |
+          set -euo pipefail
+          test "$PLAN_RESULT" = "success"
+          if [ "$MODE" = "docs-only" ]; then
+            test "$PYTHON_RESULT" = "skipped" -o "$PYTHON_RESULT" = "success"
+            test "$RUST_RESULT" = "skipped" -o "$RUST_RESULT" = "success"
+          else
+            test "$PYTHON_RESULT" = "success"
+            test "$RUST_RESULT" = "success"
+          fi
