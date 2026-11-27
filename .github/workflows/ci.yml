@@ -94,6 +94,9 @@ jobs:
     needs: plan
     if: needs.plan.outputs.mode != 'docs-only'
     runs-on: ubuntu-latest
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
     steps:
       - uses: actions/checkout@v7
       - name: Install SuiteSparse dependencies
@@ -109,7 +112,7 @@ jobs:
         with:
           key: native-${{ steps.native.outputs.native_hash }}-${{ hashFiles('scripts/ci_native_fingerprint.py', 'scripts/test_ci_native_fingerprint.py', '.github/workflows/ci.yml', 'Makefile') }}
           add-rust-environment-hash-key: "true"
-          env-vars: "PKG_CONFIG LD"
+          env-vars: "PKG_CONFIG LD CARGO_PROFILE_DEV_DEBUG CARGO_PROFILE_TEST_DEBUG"
           cache-bin: "false"
           cache-workspace-crates: "false"
           cache-all-crates: "false"
@@ -123,6 +126,9 @@ jobs:
     needs: plan
     if: needs.plan.outputs.mode != 'docs-only'
     runs-on: ubuntu-latest
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
     services:
       postgres:
         image: postgres:17
@@ -149,7 +155,7 @@ jobs:
           # The custom key precedes every restore prefix, including lockfile fallbacks.
           key: native-${{ steps.native.outputs.native_hash }}-${{ hashFiles('scripts/ci_native_fingerprint.py', 'scripts/test_ci_native_fingerprint.py', '.github/workflows/ci.yml', 'Makefile') }}
           add-rust-environment-hash-key: "true"
-          env-vars: "PKG_CONFIG LD"
+          env-vars: "PKG_CONFIG LD CARGO_PROFILE_DEV_DEBUG CARGO_PROFILE_TEST_DEBUG"
           cache-bin: "false"
           cache-workspace-crates: "false"
           cache-all-crates: "false"
@@ -165,6 +171,9 @@ jobs:
     needs: plan
     if: needs.plan.outputs.mode != 'docs-only'
     runs-on: ubuntu-latest
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
     steps:
       - uses: actions/checkout@v7
       - name: Install SuiteSparse dependencies
@@ -178,7 +187,7 @@ jobs:
         with:
           key: native-${{ steps.native.outputs.native_hash }}-${{ hashFiles('scripts/ci_native_fingerprint.py', 'scripts/test_ci_native_fingerprint.py', '.github/workflows/ci.yml', 'Makefile') }}
           add-rust-environment-hash-key: "true"
-          env-vars: "PKG_CONFIG LD"
+          env-vars: "PKG_CONFIG LD CARGO_PROFILE_DEV_DEBUG CARGO_PROFILE_TEST_DEBUG"
           cache-bin: "false"
           cache-workspace-crates: "false"
           cache-all-crates: "false"
