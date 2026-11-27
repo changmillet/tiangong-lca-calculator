@@ -25,8 +25,8 @@ checkPaths:
   - docs/edge-function-integration.md
   - docs/frontend-integration.md
   - docs/agents/contracts/scope-closure-memory-and-result-contract.md
-lastReviewedAt: 2026-11-24
-lastReviewedCommit: 501bc3e87196dabf412cb3337f66335ba3b576ec
+lastReviewedAt: 2026-11-27
+lastReviewedCommit: e33afade69e2f58bf537b55dcc60a5178fdb74b8
 lastReviewedNote: "Worker #288 reviewed environment-independent finite diagnostics and preserved native signed-flow selection, numerical eligibility, readiness and calculation identity. Regional guidance now consistently permits eligible diagonal contributions."
 related:
   - AGENTS.md
