@@ -90,6 +90,35 @@ jobs:
       - name: Local Model package contract tests
         run: PYTHONPATH=scripts python3 -m unittest scripts/test_package_model_runtime.py
 
+  rust-lint:
+    needs: plan
+    if: needs.plan.outputs.mode != 'docs-only'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install SuiteSparse dependencies
+        run: sudo apt-get update && sudo apt-get install -y libsuitesparse-dev libopenblas-dev liblapack-dev pkg-config patchelf
+      - name: Fingerprint installed native environment
+        id: native
+        run: python3 scripts/ci_native_fingerprint.py >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Restore dependency compilation cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: native-${{ steps.native.outputs.native_hash }}-${{ hashFiles('scripts/ci_native_fingerprint.py', 'scripts/test_ci_native_fingerprint.py', '.github/workflows/ci.yml', 'Makefile') }}
+          add-rust-environment-hash-key: "true"
+          env-vars: "PKG_CONFIG LD"
+          cache-bin: "false"
+          cache-workspace-crates: "false"
+          cache-all-crates: "false"
+          cache-on-failure: "false"
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
   rust-build:
     needs: plan
     if: needs.plan.outputs.mode != 'docs-only'
@@ -114,8 +143,6 @@ jobs:
         id: native
         run: python3 scripts/ci_native_fingerprint.py >> "$GITHUB_OUTPUT"
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
       - name: Restore dependency compilation cache
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
@@ -127,12 +154,35 @@ jobs:
           cache-workspace-crates: "false"
           cache-all-crates: "false"
           cache-on-failure: "false"
-      - name: Format
-        run: cargo fmt --all -- --check
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: Test
         run: cargo test --workspace --all-features
+      - name: Queue transport fault recovery
+        env:
+          WORKER_CLAIM_TEST_PORT: "5432"
+        run: ./scripts/test_worker_claim_recovery.sh
+
+  rust-study-qualification:
+    needs: plan
+    if: needs.plan.outputs.mode != 'docs-only'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install SuiteSparse dependencies
+        run: sudo apt-get update && sudo apt-get install -y libsuitesparse-dev libopenblas-dev liblapack-dev pkg-config patchelf
+      - name: Fingerprint installed native environment
+        id: native
+        run: python3 scripts/ci_native_fingerprint.py >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Restore dependency compilation cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: native-${{ steps.native.outputs.native_hash }}-${{ hashFiles('scripts/ci_native_fingerprint.py', 'scripts/test_ci_native_fingerprint.py', '.github/workflows/ci.yml', 'Makefile') }}
+          add-rust-environment-hash-key: "true"
+          env-vars: "PKG_CONFIG LD"
+          cache-bin: "false"
+          cache-workspace-crates: "false"
+          cache-all-crates: "false"
+          cache-on-failure: "false"
       - name: Study advanced native component qualification
         env:
           RUST_TEST_THREADS: "1"
@@ -144,14 +194,10 @@ jobs:
           STUDY_NATIVE_BINARY="$PWD/target/debug/study_native" \
             STUDY_ADVANCED_QUALIFICATION_RECEIPT="$RUNNER_TEMP/study-advanced-component.json" \
             cargo test --locked -p solver-worker --lib advanced_native_capacity_and_running_cancellation -- --ignored --nocapture
-      - name: Queue transport fault recovery
-        env:
-          WORKER_CLAIM_TEST_PORT: "5432"
-        run: ./scripts/test_worker_claim_recovery.sh
 
   rust:
     if: always()
-    needs: [plan, python-contracts, rust-build]
+    needs: [plan, python-contracts, rust-lint, rust-build, rust-study-qualification]
     runs-on: ubuntu-latest
     steps:
       - name: Verify worker CI gates
@@ -159,14 +205,20 @@ jobs:
           MODE: ${{ needs.plan.outputs.mode }}
           PLAN_RESULT: ${{ needs.plan.result }}
           PYTHON_RESULT: ${{ needs.python-contracts.result }}
+          LINT_RESULT: ${{ needs.rust-lint.result }}
           RUST_RESULT: ${{ needs.rust-build.result }}
+          STUDY_RESULT: ${{ needs.rust-study-qualification.result }}
         run: |
           set -euo pipefail
           test "$PLAN_RESULT" = "success"
           if [ "$MODE" = "docs-only" ]; then
             test "$PYTHON_RESULT" = "skipped" -o "$PYTHON_RESULT" = "success"
+            test "$LINT_RESULT" = "skipped" -o "$LINT_RESULT" = "success"
             test "$RUST_RESULT" = "skipped" -o "$RUST_RESULT" = "success"
+            test "$STUDY_RESULT" = "skipped" -o "$STUDY_RESULT" = "success"
           else
             test "$PYTHON_RESULT" = "success"
+            test "$LINT_RESULT" = "success"
             test "$RUST_RESULT" = "success"
+            test "$STUDY_RESULT" = "success"
           fi

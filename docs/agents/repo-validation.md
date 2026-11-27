@@ -42,7 +42,7 @@ checkPaths:
   - scripts/docpact-gate.sh
   - scripts/install-git-hooks.sh
 lastReviewedAt: 2026-11-27
-lastReviewedCommit: e33afade69e2f58bf537b55dcc60a5178fdb74b8
+lastReviewedCommit: 8691b806408be110db06162d2c143ea5a29901af
 lastReviewedNote: "Worker #381 reviewed the existing validation paths for the bilingual provider linking guidance."
 related:
   - ../../AGENTS.md
